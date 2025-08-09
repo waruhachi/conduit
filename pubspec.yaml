@@ -1,0 +1,88 @@
+name: conduit
+description: Open-source mobile client for Open-WebUI
+version: 1.0.0+1
+publish_to: 'none'
+
+environment:
+  sdk: ">=3.8.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # State Management
+  flutter_riverpod: ^2.6.1
+  
+  # Network & API
+  dio: ^5.5.0
+  http_parser: ^4.0.2
+  web_socket_channel: ^3.0.1
+  socket_io_client: ^3.0.4
+  sse: ^4.1.2
+  
+  # Storage
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.3.2
+  
+  # UI Components - Enhanced Markdown  
+  gpt_markdown: ^1.1.2
+  cached_network_image: ^3.3.1
+  
+  
+  
+  # Modern Animations
+  flutter_animate: ^4.5.0
+  
+  # Platform Features
+  record: ^6.0.0
+  image_picker: ^1.1.2
+  file_picker: ^10.2.1
+  
+  # Utilities
+  path: ^1.9.0
+  uuid: ^4.5.0
+  collection: ^1.18.0
+  crypto: ^3.0.3
+  package_info_plus: ^8.0.2
+  url_launcher: ^6.3.0
+  
+  # Icons & Theming
+  cupertino_icons: ^1.0.8
+  freezed_annotation: ^3.0.0
+  json_annotation: ^4.9.0
+  google_fonts: ^6.2.1
+  
+  # Clipboard functionality is available through flutter/services (part of Flutter SDK)
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.11
+  freezed: ^3.0.0
+  json_serializable: ^6.8.0
+  flutter_native_splash: ^2.4.6
+
+dependency_overrides:
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/icons/
+    - assets/openapi.json
+
+flutter_native_splash:
+  # Background color (Conduit dark theme)
+  color: "#000000"
+  # Image to display on the splash screen
+  image: assets/icons/icon.png
+
+  
+  # Android specific settings
+  android_12:
+    color: "#000000"
+  
+  # Web specific settings
+  web: false
+    
