@@ -97,6 +97,18 @@ class _FilesPageState extends ConsumerState<FilesPage>
       automaticallyImplyLeading: false,
       toolbarHeight: TouchTarget.appBar,
       titleSpacing: 0.0,
+      leading: IconButton(
+        icon: Icon(
+          UiUtils.platformIcon(
+            ios: CupertinoIcons.back,
+            android: Icons.arrow_back,
+          ),
+          color: context.conduitTheme.textPrimary,
+          size: IconSize.button,
+        ),
+        onPressed: () => NavigationService.goBack(),
+        tooltip: 'Back',
+      ),
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

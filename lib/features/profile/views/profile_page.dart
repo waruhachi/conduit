@@ -30,6 +30,17 @@ class ProfilePage extends ConsumerWidget {
             backgroundColor: context.conduitTheme.surfaceBackground,
             elevation: Elevation.none,
             automaticallyImplyLeading: false,
+            leading: IconButton(
+              icon: Icon(
+                UiUtils.platformIcon(
+                  ios: CupertinoIcons.back,
+                  android: Icons.arrow_back,
+                ),
+                color: context.conduitTheme.textPrimary,
+              ),
+              onPressed: () => Navigator.of(context).maybePop(),
+              tooltip: 'Back',
+            ),
             toolbarHeight: kToolbarHeight,
             titleSpacing: 0.0,
             title: Row(
@@ -84,6 +95,17 @@ class ProfilePage extends ConsumerWidget {
             backgroundColor: context.conduitTheme.surfaceBackground,
             elevation: Elevation.none,
             automaticallyImplyLeading: false,
+            leading: IconButton(
+              icon: Icon(
+                UiUtils.platformIcon(
+                  ios: CupertinoIcons.back,
+                  android: Icons.arrow_back,
+                ),
+                color: context.conduitTheme.textPrimary,
+              ),
+              onPressed: () => Navigator.of(context).maybePop(),
+              tooltip: 'Back',
+            ),
             title: Text(
               'You',
               style: context.conduitTheme.headingSmall?.copyWith(
@@ -103,6 +125,17 @@ class ProfilePage extends ConsumerWidget {
             backgroundColor: context.conduitTheme.surfaceBackground,
             elevation: Elevation.none,
             automaticallyImplyLeading: false,
+            leading: IconButton(
+              icon: Icon(
+                UiUtils.platformIcon(
+                  ios: CupertinoIcons.back,
+                  android: Icons.arrow_back,
+                ),
+                color: context.conduitTheme.textPrimary,
+              ),
+              onPressed: () => Navigator.of(context).maybePop(),
+              tooltip: 'Back',
+            ),
             title: Text(
               'You',
               style: context.conduitTheme.headingSmall?.copyWith(

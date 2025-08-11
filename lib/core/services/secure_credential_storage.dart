@@ -35,7 +35,6 @@ class SecureCredentialStorage {
   /// Get iOS-specific secure storage options
   IOSOptions _getIOSOptions() {
     return const IOSOptions(
-      groupId: 'group.conduit.app',
       accountName: 'conduit_secure_storage',
       synchronizable: false,
     );
