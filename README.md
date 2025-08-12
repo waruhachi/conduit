@@ -1,4 +1,4 @@
-# Conduit - Open-WebUI Mobile Client
+# Conduit
 
 <p align="center">
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" alt="Screenshot 1" width="250" />
