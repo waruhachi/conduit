@@ -464,8 +464,14 @@ class ApiService {
 
   // Parse full OpenWebUI chat with messages
   Conversation _parseFullOpenWebUIChat(Map<String, dynamic> chatData) {
+    debugPrint('DEBUG: Parsing full OpenWebUI chat data');
+    debugPrint('DEBUG: Chat data keys: ${chatData.keys.toList()}');
+    
     final id = chatData['id'] as String;
     final title = chatData['title'] as String;
+    
+    debugPrint('DEBUG: Parsed chat ID: $id');
+    debugPrint('DEBUG: Parsed chat title: $title');
 
     // Safely parse timestamps with validation
     final updatedAt = _parseTimestamp(chatData['updated_at']);
@@ -481,26 +487,33 @@ class ApiService {
     final chatObject = chatData['chat'] as Map<String, dynamic>?;
     final messages = <ChatMessage>[];
 
-    // Try multiple locations for messages
+    // Try multiple locations for messages - prefer list format to avoid duplication
     List? messagesList;
-    Map<String, dynamic>? messagesMap;
 
     if (chatObject != null) {
-      // Check for messages in chat.history.messages (map format)
-      final history = chatObject['history'] as Map<String, dynamic>?;
-      if (history != null && history['messages'] != null) {
-        messagesMap = history['messages'] as Map<String, dynamic>;
-        debugPrint(
-          'DEBUG: Found ${messagesMap.length} messages in chat.history.messages',
-        );
-      }
-
-      // Check for messages in chat.messages (list format)
+      // Check for messages in chat.messages (list format) - PREFERRED
       if (chatObject['messages'] != null) {
         messagesList = chatObject['messages'] as List;
         debugPrint(
           'DEBUG: Found ${messagesList.length} messages in chat.messages',
         );
+      } else {
+        // Fallback: Check for messages in chat.history.messages (map format)
+        final history = chatObject['history'] as Map<String, dynamic>?;
+        if (history != null && history['messages'] != null) {
+          final messagesMap = history['messages'] as Map<String, dynamic>;
+          debugPrint(
+            'DEBUG: Found ${messagesMap.length} messages in chat.history.messages (converting to list)',
+          );
+          
+          // Convert map to list format to use common parsing logic
+          messagesList = [];
+          for (final entry in messagesMap.entries) {
+            final msgData = Map<String, dynamic>.from(entry.value as Map<String, dynamic>);
+            msgData['id'] = entry.key; // Use the key as the message ID
+            messagesList.add(msgData);
+          }
+        }
       }
     } else if (chatData['messages'] != null) {
       messagesList = chatData['messages'] as List;
@@ -509,42 +522,21 @@ class ApiService {
       );
     }
 
-    // Parse messages from map format (chat.history.messages)
-    if (messagesMap != null) {
-      for (final entry in messagesMap.entries) {
-        try {
-          final msgData = entry.value as Map<String, dynamic>;
-          msgData['id'] = entry.key; // Use the key as the message ID
-          debugPrint(
-            'DEBUG: Parsing message from map: ${entry.key} - role: ${msgData['role']} - content length: ${msgData['content']?.toString().length ?? 0}',
-          );
-          // Convert OpenWebUI message format to our ChatMessage format
-          final message = _parseOpenWebUIMessage(msgData);
-          messages.add(message);
-          debugPrint(
-            'DEBUG: Successfully parsed message from map: ${message.id} - ${message.role}',
-          );
-        } catch (e) {
-          debugPrint('DEBUG: Error parsing message from map: $e');
-        }
-      }
-    }
-
-    // Parse messages from list format (chat.messages or top-level)
+    // Parse messages from list format only (avoiding duplication)
     if (messagesList != null) {
       for (final msgData in messagesList) {
         try {
           debugPrint(
-            'DEBUG: Parsing message from list: ${msgData['id']} - role: ${msgData['role']} - content length: ${msgData['content']?.toString().length ?? 0}',
+            'DEBUG: Parsing message: ${msgData['id']} - role: ${msgData['role']} - content length: ${msgData['content']?.toString().length ?? 0}',
           );
           // Convert OpenWebUI message format to our ChatMessage format
           final message = _parseOpenWebUIMessage(msgData);
           messages.add(message);
           debugPrint(
-            'DEBUG: Successfully parsed message from list: ${message.id} - ${message.role}',
+            'DEBUG: Successfully parsed message: ${message.id} - ${message.role}',
           );
         } catch (e) {
-          debugPrint('DEBUG: Error parsing message from list: $e');
+          debugPrint('DEBUG: Error parsing message: $e');
         }
       }
     }
@@ -608,7 +600,6 @@ class ApiService {
   }
 
   // Create new conversation using OpenWebUI API
-  // Create new conversation using OpenWebUI API
   Future<Conversation> createConversation({
     required String title,
     required List<ChatMessage> messages,
@@ -618,39 +609,47 @@ class ApiService {
     debugPrint('DEBUG: Creating new conversation on OpenWebUI server');
     debugPrint('DEBUG: Title: $title, Messages: ${messages.length}');
 
-    // Convert messages to the new format with proper structure
+    // Build messages with parent-child relationships
     final Map<String, dynamic> messagesMap = {};
+    final List<Map<String, dynamic>> messagesArray = [];
     String? currentId;
+    String? previousId;
 
     for (final msg in messages) {
       final messageId = msg.id;
+      
+      // Build message for history.messages map
       messagesMap[messageId] = {
         'id': messageId,
-        'parentId': null,
+        'parentId': previousId,
         'childrenIds': [],
         'role': msg.role,
         'content': msg.content,
-        if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty)
-          'files': msg.attachmentIds!.map((attachmentId) {
-            if (attachmentId.startsWith('data:')) {
-              // This is an image data URL
-              return {'type': 'image', 'url': attachmentId};
-            } else {
-              // This is a server file ID
-              return {
-                'type': 'file',
-                'id': attachmentId,
-                'url': '${serverConfig.url}/api/v1/files/$attachmentId',
-              };
-            }
-          }).toList(),
         'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
-        'models': model != null ? [model] : [],
+        if (msg.role == 'user' && model != null) 'models': [model],
       };
-      currentId = messageId; // Use the last message as current
+      
+      // Update parent's childrenIds if there's a previous message
+      if (previousId != null && messagesMap.containsKey(previousId)) {
+        (messagesMap[previousId]['childrenIds'] as List).add(messageId);
+      }
+      
+      // Build message for messages array
+      messagesArray.add({
+        'id': messageId,
+        'parentId': previousId,
+        'childrenIds': [],
+        'role': msg.role,
+        'content': msg.content,
+        'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
+        if (msg.role == 'user' && model != null) 'models': [model],
+      });
+      
+      previousId = messageId;
+      currentId = messageId;
     }
 
-    // Create the chat data structure matching the expected format
+    // Create the chat data structure matching OpenWebUI format exactly
     final chatData = {
       'chat': {
         'id': '',
@@ -661,44 +660,20 @@ class ApiService {
           'messages': messagesMap,
           if (currentId != null) 'currentId': currentId,
         },
-        'messages': messages
-            .map(
-              (msg) => {
-                'id': msg.id,
-                'parentId': null,
-                'childrenIds': [],
-                'role': msg.role,
-                'content': msg.content,
-                if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty)
-                  'files': msg.attachmentIds!.map((attachmentId) {
-                    if (attachmentId.startsWith('data:')) {
-                      // This is an image data URL
-                      return {'type': 'image', 'url': attachmentId};
-                    } else {
-                      // This is a server file ID
-                      return {
-                        'type': 'file',
-                        'id': attachmentId,
-                        'url': '${serverConfig.url}/api/v1/files/$attachmentId',
-                      };
-                    }
-                  }).toList(),
-                'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
-                'models': model != null ? [model] : [],
-              },
-            )
-            .toList(),
+        'messages': messagesArray,
         'tags': [],
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       },
       'folder_id': null,
     };
 
-    debugPrint('DEBUG: Sending chat data: $chatData');
+    debugPrint('DEBUG: Sending chat data with proper parent-child structure');
+    debugPrint('DEBUG: Request data: ${chatData}');
 
     final response = await _dio.post('/api/v1/chats/new', data: chatData);
 
-    debugPrint('DEBUG: Create conversation response: ${response.data}');
+    debugPrint('DEBUG: Create conversation response status: ${response.statusCode}');
+    debugPrint('DEBUG: Create conversation response data: ${response.data}');
 
     // Parse the response
     final responseData = response.data as Map<String, dynamic>;
@@ -717,30 +692,71 @@ class ApiService {
       'DEBUG: Updating conversation $conversationId with ${messages.length} messages',
     );
 
-    // Convert messages to OpenWebUI format
-    final openWebUIMessages = messages
-        .map(
-          (msg) => {
-            'role': msg.role,
-            'content': msg.content,
-            if (msg.model != null) 'model': msg.model,
-            'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
-          },
-        )
-        .toList();
+    // Build messages map and array in OpenWebUI format
+    final Map<String, dynamic> messagesMap = {};
+    final List<Map<String, dynamic>> messagesArray = [];
+    String? currentId;
+    String? previousId;
 
-    // Create the chat data structure
+    for (final msg in messages) {
+      final messageId = msg.id;
+      
+      // Build message for messages map (history.messages)
+      messagesMap[messageId] = {
+        'id': messageId,
+        'parentId': previousId,
+        'childrenIds': <String>[],
+        'role': msg.role,
+        'content': msg.content,
+        'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
+        if (msg.role == 'assistant' && msg.model != null) 'model': msg.model,
+        if (msg.role == 'assistant' && msg.model != null) 'modelName': msg.model,
+        if (msg.role == 'assistant') 'modelIdx': 0,
+        if (msg.role == 'assistant') 'done': true,
+        if (msg.role == 'user' && model != null) 'models': [model],
+      };
+      
+      // Update parent's childrenIds
+      if (previousId != null && messagesMap.containsKey(previousId)) {
+        (messagesMap[previousId]['childrenIds'] as List).add(messageId);
+      }
+      
+      // Build message for messages array
+      messagesArray.add({
+        'id': messageId,
+        'parentId': previousId,
+        'childrenIds': [],
+        'role': msg.role,
+        'content': msg.content,
+        'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
+        if (msg.role == 'assistant' && msg.model != null) 'model': msg.model,
+        if (msg.role == 'assistant' && msg.model != null) 'modelName': msg.model,
+        if (msg.role == 'assistant') 'modelIdx': 0,
+        if (msg.role == 'assistant') 'done': true,
+        if (msg.role == 'user' && model != null) 'models': [model],
+      });
+      
+      previousId = messageId;
+      currentId = messageId;
+    }
+
+    // Create the chat data structure matching OpenWebUI format exactly
     final chatData = {
       'chat': {
-        'messages': openWebUIMessages,
-        if (title != null) 'title': title,
-        if (model != null) 'model': model,
-        if (systemPrompt != null) 'system': systemPrompt,
+        'models': model != null ? [model] : [],
+        'messages': messagesArray,
+        'history': {
+          'messages': messagesMap,
+          if (currentId != null) 'currentId': currentId,
+        },
+        'params': {},
+        'files': [],
       },
     };
 
-    debugPrint('DEBUG: Updating chat with data: $chatData');
+    debugPrint('DEBUG: Updating chat with OpenWebUI format data using POST');
 
+    // OpenWebUI uses POST not PUT for updating chats
     final response = await _dio.post(
       '/api/v1/chats/$conversationId',
       data: chatData,
@@ -1352,18 +1368,41 @@ class ApiService {
     Map<String, dynamic>? modelItem,
     String? sessionId,
   }) async {
-    debugPrint('DEBUG: Sending chat completed for message: $messageId');
+    debugPrint('DEBUG: Sending chat completed notification (optional endpoint)');
+    
+    // This endpoint appears to be optional or deprecated in newer OpenWebUI versions
+    // The main chat synchronization happens through /api/v1/chats/{id} updates
+    // We'll still try to call it but won't fail if it doesn't work
+    
+    // Format messages to match OpenWebUI expected structure
+    // Note: Removing 'id' field as it causes 400 error
+    final formattedMessages = messages.map((msg) {
+      final formatted = {
+        // Don't include 'id' - it causes 400 error with detail: 'id'
+        'role': msg['role'],
+        'content': msg['content'],
+        'timestamp': msg['timestamp'] ?? DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      };
+      
+      // Add model info for assistant messages
+      if (msg['role'] == 'assistant') {
+        formatted['model'] = model;
+        if (msg.containsKey('usage')) {
+          formatted['usage'] = msg['usage'];
+        }
+      }
+      
+      return formatted;
+    }).toList();
 
+    // Include the message ID at the top level - server expects this
     final requestData = {
-      'model': model,
-      'messages': messages,
-      if (modelItem != null) 'model_item': modelItem,
+      'id': messageId,  // The server expects the assistant message ID here
       'chat_id': chatId,
-      if (sessionId != null) 'session_id': sessionId,
-      'id': messageId,
+      'model': model,
+      'messages': formattedMessages,
+      // Don't include model_item as it might not be expected
     };
-
-    debugPrint('DEBUG: Chat completed request data: $requestData');
 
     try {
       final response = await _dio.post(
@@ -1372,8 +1411,8 @@ class ApiService {
       );
       debugPrint('DEBUG: Chat completed response: ${response.statusCode}');
     } catch (e) {
-      debugPrint('DEBUG: Chat completed error: $e');
-      // Non-critical error, don't throw
+      // This is a non-critical endpoint - main sync happens via /api/v1/chats/{id}
+      debugPrint('DEBUG: Chat completed endpoint not available or failed (non-critical): $e');
     }
   }
 
@@ -2288,18 +2327,31 @@ class ApiService {
 
     // Build request data (exactly like OpenWebUI)
     final data = {
+      'stream': true,
       'model': model,
       'messages': processedMessages,
-      'stream': true, // Always enable streaming
-      'max_tokens': null, // Let the model decide
-      'temperature': 0.8,
-      'top_p': 0.9,
-      'frequency_penalty': 0.0,
-      'presence_penalty': 0.0,
+      'params': {},
+      'tool_servers': [],
+      'features': {
+        'image_generation': false,
+        'code_interpreter': false,
+        'web_search': enableWebSearch,
+        'memory': false,
+      },
+      'variables': {
+        '{{USER_NAME}}': 'User',
+        '{{USER_LOCATION}}': 'Unknown',
+        '{{CURRENT_DATETIME}}': DateTime.now().toIso8601String().substring(0, 19).replaceAll('T', ' '),
+        '{{CURRENT_DATE}}': DateTime.now().toIso8601String().substring(0, 10),
+        '{{CURRENT_TIME}}': DateTime.now().toIso8601String().substring(11, 19),
+        '{{CURRENT_WEEKDAY}}': _getCurrentWeekday(),
+        '{{CURRENT_TIMEZONE}}': DateTime.now().timeZoneName,
+        '{{USER_LANGUAGE}}': 'en-US',
+      },
+      if (modelItem != null) 'model_item': modelItem,
       if (conversationId != null) 'chat_id': conversationId,
       if (tools != null && tools.isNotEmpty) 'tools': tools,
       if (allFiles.isNotEmpty) 'files': allFiles,
-      if (enableWebSearch) 'web_search': enableWebSearch,
     };
 
     debugPrint('DEBUG: Starting SSE streaming request');

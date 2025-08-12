@@ -345,7 +345,11 @@ class ProfilePage extends ConsumerWidget {
 
   Widget _buildThemeToggleTile(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
-    final isDark = themeMode == ThemeMode.dark;
+    final platformBrightness = MediaQuery.platformBrightnessOf(context);
+    final bool isDarkEffective =
+        themeMode == ThemeMode.dark ||
+        (themeMode == ThemeMode.system &&
+            platformBrightness == Brightness.dark);
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(
@@ -377,13 +381,18 @@ class ProfilePage extends ConsumerWidget {
         ),
       ),
       subtitle: Text(
-        isDark ? 'Currently using Dark theme' : 'Currently using Light theme',
+        themeMode == ThemeMode.system
+            ? 'Following system: '
+                  '${platformBrightness == Brightness.dark ? 'Dark' : 'Light'}'
+            : (isDarkEffective
+                  ? 'Currently using Dark theme'
+                  : 'Currently using Light theme'),
         style: context.conduitTheme.bodySmall?.copyWith(
           color: context.conduitTheme.textSecondary,
         ),
       ),
       trailing: Switch.adaptive(
-        value: isDark,
+        value: isDarkEffective,
         onChanged: (value) {
           ref
               .read(themeModeProvider.notifier)
@@ -391,7 +400,7 @@ class ProfilePage extends ConsumerWidget {
         },
       ),
       onTap: () {
-        final newValue = !isDark;
+        final newValue = !isDarkEffective;
         ref
             .read(themeModeProvider.notifier)
             .setTheme(newValue ? ThemeMode.dark : ThemeMode.light);

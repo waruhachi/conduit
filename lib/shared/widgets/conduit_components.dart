@@ -710,6 +710,7 @@ class AccessibleFormField extends StatelessWidget {
   final String? Function(String?)? validator;
   final bool isRequired;
   final bool isCompact;
+  final Iterable<String>? autofillHints;
 
   const AccessibleFormField({
     super.key,
@@ -731,6 +732,7 @@ class AccessibleFormField extends StatelessWidget {
     this.validator,
     this.isRequired = false,
     this.isCompact = false,
+    this.autofillHints,
   });
 
   @override
@@ -776,6 +778,7 @@ class AccessibleFormField extends StatelessWidget {
             keyboardType: keyboardType,
             autofocus: autofocus,
             validator: validator,
+            autofillHints: autofillHints,
             style: AppTypography.standard.copyWith(
               color: context.conduitTheme.textPrimary,
             ),

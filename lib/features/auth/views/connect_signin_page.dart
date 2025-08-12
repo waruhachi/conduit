@@ -378,176 +378,197 @@ class _ConnectAndSignInPageState extends ConsumerState<ConnectAndSignInPage> {
 
                             const SizedBox(height: Spacing.sm),
 
-                            AccessibleFormField(
-                              label: 'Server address',
-                              hint: 'https://server',
-                              controller: _urlController,
-                              validator: InputValidationService.combine([
-                                InputValidationService.validateRequired,
-                                (value) => InputValidationService.validateUrl(
-                                  value,
-                                  required: true,
-                                ),
-                              ]),
-                              keyboardType: TextInputType.url,
-                              semanticLabel:
-                                  'Enter your server URL or IP address',
-                              onSubmitted: (_) => _connectAndSignIn(),
-                              prefixIcon: Icon(
-                                isIOS ? CupertinoIcons.globe : Icons.public,
-                                color: context.conduitTheme.iconSecondary,
-                              ),
-                            ).animate().slideX(
-                              begin: -0.08,
-                              duration: AnimationDuration.messageSlide,
-                              delay: AnimationDuration.microInteraction,
-                              curve: Curves.easeOutCubic,
-                            ),
-
-                            if (_connectionError != null) ...[
-                              const SizedBox(height: Spacing.sm),
-                              _InlineMessage(
-                                message: _connectionError!,
-                                isError: true,
-                              ).animate().slideX(
-                                begin: 0.08,
-                                duration: AnimationDuration.messageSlide,
-                                curve: Curves.easeOutCubic,
-                              ),
-                            ],
-
-                            const SizedBox(height: Spacing.sectionGap),
-
-                            // Step 2: Sign in
-                            _SectionHeader(
-                              icon: isIOS
-                                  ? CupertinoIcons.lock
-                                  : Icons.lock_outline,
-                              title: 'Sign in',
-                              subtitle: null,
-                            ),
-
-                            const SizedBox(height: Spacing.sm),
-
-                            activeServerAsync.maybeWhen(
-                              data: (server) => server != null
-                                  ? Row(
-                                      children: [
-                                        Icon(
-                                          isIOS
-                                              ? CupertinoIcons.link
-                                              : Icons.link_outlined,
-                                          size: IconSize.small,
-                                          color: context
-                                              .conduitTheme
-                                              .iconSecondary,
-                                        ),
-                                        const SizedBox(width: Spacing.xs),
-                                        Expanded(
-                                          child: Text(
-                                            server.url,
-                                            textAlign: TextAlign.left,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: context
-                                                .conduitTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  color: context
-                                                      .conduitTheme
-                                                      .textSecondary,
-                                                ),
+                            AutofillGroup(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  AccessibleFormField(
+                                    label: 'Server address',
+                                    hint: 'https://server',
+                                    controller: _urlController,
+                                    validator: InputValidationService.combine([
+                                      InputValidationService.validateRequired,
+                                      (value) =>
+                                          InputValidationService.validateUrl(
+                                            value,
+                                            required: true,
                                           ),
-                                        ),
-                                      ],
-                                    )
-                                  : const SizedBox.shrink(),
-                              orElse: () => const SizedBox.shrink(),
-                            ),
-
-                            const SizedBox(height: Spacing.sm),
-
-                            AccessibleFormField(
-                              label: 'Username or email',
-                              hint: null,
-                              controller: _usernameController,
-                              validator: InputValidationService.combine([
-                                InputValidationService.validateRequired,
-                                (value) =>
-                                    InputValidationService.validateEmailOrUsername(
-                                      value,
+                                    ]),
+                                    keyboardType: TextInputType.url,
+                                    semanticLabel:
+                                        'Enter your server URL or IP address',
+                                    onSubmitted: (_) => _connectAndSignIn(),
+                                    prefixIcon: Icon(
+                                      isIOS
+                                          ? CupertinoIcons.globe
+                                          : Icons.public,
+                                      color: context.conduitTheme.iconSecondary,
                                     ),
-                              ]),
-                              keyboardType: TextInputType.emailAddress,
-                              semanticLabel: 'Enter your username or email',
-                              prefixIcon: Icon(
-                                isIOS
-                                    ? CupertinoIcons.person
-                                    : Icons.person_outline,
-                                color: context.conduitTheme.iconSecondary,
-                              ),
-                            ),
+                                    autofillHints: const [AutofillHints.url],
+                                  ).animate().slideX(
+                                    begin: -0.08,
+                                    duration: AnimationDuration.messageSlide,
+                                    delay: AnimationDuration.microInteraction,
+                                    curve: Curves.easeOutCubic,
+                                  ),
 
-                            const SizedBox(height: Spacing.comfortable),
-
-                            AccessibleFormField(
-                              label: 'Password',
-                              hint: null,
-                              controller: _passwordController,
-                              validator: InputValidationService.combine([
-                                InputValidationService.validateRequired,
-                                (value) =>
-                                    InputValidationService.validateMinLength(
-                                      value,
-                                      1,
-                                      fieldName: 'Password',
+                                  if (_connectionError != null) ...[
+                                    const SizedBox(height: Spacing.sm),
+                                    _InlineMessage(
+                                      message: _connectionError!,
+                                      isError: true,
+                                    ).animate().slideX(
+                                      begin: 0.08,
+                                      duration: AnimationDuration.messageSlide,
+                                      curve: Curves.easeOutCubic,
                                     ),
-                              ]),
-                              obscureText: _obscurePassword,
-                              semanticLabel: 'Enter your password',
-                              prefixIcon: Icon(
-                                isIOS
-                                    ? CupertinoIcons.lock
-                                    : Icons.lock_outline,
-                                color: context.conduitTheme.iconSecondary,
-                              ),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? (isIOS
-                                            ? CupertinoIcons.eye_slash
-                                            : Icons.visibility_off)
-                                      : (isIOS
-                                            ? CupertinoIcons.eye
-                                            : Icons.visibility),
-                                  color: context.conduitTheme.iconSecondary,
-                                ),
-                                onPressed: () => setState(() {
-                                  _obscurePassword = !_obscurePassword;
-                                }),
-                              ),
-                              onSubmitted: (_) => _connectAndSignIn(),
-                            ),
+                                  ],
 
-                            if (_loginError != null) ...[
-                              const SizedBox(height: Spacing.sm),
-                              _InlineMessage(
-                                message: _loginError!,
-                                isError: true,
+                                  const SizedBox(height: Spacing.sectionGap),
+
+                                  // Step 2: Sign in
+                                  _SectionHeader(
+                                    icon: isIOS
+                                        ? CupertinoIcons.lock
+                                        : Icons.lock_outline,
+                                    title: 'Sign in',
+                                    subtitle: null,
+                                  ),
+
+                                  const SizedBox(height: Spacing.sm),
+
+                                  activeServerAsync.maybeWhen(
+                                    data: (server) => server != null
+                                        ? Row(
+                                            children: [
+                                              Icon(
+                                                isIOS
+                                                    ? CupertinoIcons.link
+                                                    : Icons.link_outlined,
+                                                size: IconSize.small,
+                                                color: context
+                                                    .conduitTheme
+                                                    .iconSecondary,
+                                              ),
+                                              const SizedBox(width: Spacing.xs),
+                                              Expanded(
+                                                child: Text(
+                                                  server.url,
+                                                  textAlign: TextAlign.left,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: context
+                                                      .conduitTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: context
+                                                            .conduitTheme
+                                                            .textSecondary,
+                                                      ),
+                                                ),
+                                              ),
+                                            ],
+                                          )
+                                        : const SizedBox.shrink(),
+                                    orElse: () => const SizedBox.shrink(),
+                                  ),
+
+                                  const SizedBox(height: Spacing.sm),
+
+                                  AccessibleFormField(
+                                    label: 'Username or email',
+                                    hint: null,
+                                    controller: _usernameController,
+                                    validator: InputValidationService.combine([
+                                      InputValidationService.validateRequired,
+                                      (value) =>
+                                          InputValidationService.validateEmailOrUsername(
+                                            value,
+                                          ),
+                                    ]),
+                                    keyboardType: TextInputType.emailAddress,
+                                    semanticLabel:
+                                        'Enter your username or email',
+                                    prefixIcon: Icon(
+                                      isIOS
+                                          ? CupertinoIcons.person
+                                          : Icons.person_outline,
+                                      color: context.conduitTheme.iconSecondary,
+                                    ),
+                                    autofillHints: const [
+                                      AutofillHints.username,
+                                      AutofillHints.email,
+                                    ],
+                                  ),
+
+                                  const SizedBox(height: Spacing.comfortable),
+
+                                  AccessibleFormField(
+                                    label: 'Password',
+                                    hint: null,
+                                    controller: _passwordController,
+                                    validator: InputValidationService.combine([
+                                      InputValidationService.validateRequired,
+                                      (value) =>
+                                          InputValidationService.validateMinLength(
+                                            value,
+                                            1,
+                                            fieldName: 'Password',
+                                          ),
+                                    ]),
+                                    obscureText: _obscurePassword,
+                                    semanticLabel: 'Enter your password',
+                                    prefixIcon: Icon(
+                                      isIOS
+                                          ? CupertinoIcons.lock
+                                          : Icons.lock_outline,
+                                      color: context.conduitTheme.iconSecondary,
+                                    ),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscurePassword
+                                            ? (isIOS
+                                                  ? CupertinoIcons.eye_slash
+                                                  : Icons.visibility_off)
+                                            : (isIOS
+                                                  ? CupertinoIcons.eye
+                                                  : Icons.visibility),
+                                        color:
+                                            context.conduitTheme.iconSecondary,
+                                      ),
+                                      onPressed: () => setState(() {
+                                        _obscurePassword = !_obscurePassword;
+                                      }),
+                                    ),
+                                    onSubmitted: (_) => _connectAndSignIn(),
+                                    autofillHints: const [
+                                      AutofillHints.password,
+                                    ],
+                                  ),
+
+                                  if (_loginError != null) ...[
+                                    const SizedBox(height: Spacing.sm),
+                                    _InlineMessage(
+                                      message: _loginError!,
+                                      isError: true,
+                                    ),
+                                  ],
+
+                                  const SizedBox(height: Spacing.md),
+
+                                  ConduitButton(
+                                    text: 'Continue',
+                                    onPressed: _isSubmitting
+                                        ? null
+                                        : _connectAndSignIn,
+                                    isLoading: _isSubmitting,
+                                    isFullWidth: true,
+                                  ).animate().scale(
+                                    duration: AnimationDuration.buttonPress,
+                                    curve: Curves.easeOutCubic,
+                                  ),
+                                ],
                               ),
-                            ],
-
-                            const SizedBox(height: Spacing.md),
-
-                            ConduitButton(
-                              text: 'Continue',
-                              onPressed: _isSubmitting
-                                  ? null
-                                  : _connectAndSignIn,
-                              isLoading: _isSubmitting,
-                              isFullWidth: true,
-                            ).animate().scale(
-                              duration: AnimationDuration.buttonPress,
-                              curve: Curves.easeOutCubic,
                             ),
                           ],
                         ),

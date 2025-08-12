@@ -1075,18 +1075,33 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           // Check if there's unsaved content
           final messages = ref.read(chatMessagesProvider);
           if (messages.isNotEmpty) {
+            // Check if currently streaming
+            final isStreaming = messages.any((msg) => msg.isStreaming);
+            
             final shouldPop = await NavigationService.confirmNavigation(
               title: 'Leave Chat?',
-              message: 'Your conversation will be saved.',
+              message: isStreaming 
+                ? 'The AI is still responding. Leave anyway?'
+                : 'Your conversation will be saved.',
               confirmText: 'Leave',
               cancelText: 'Stay',
             );
             if (shouldPop && context.mounted) {
-              final canPopNavigator = Navigator.of(context).canPop();
-              if (canPopNavigator) {
-                Navigator.of(context).pop();
-              } else {
-                SystemNavigator.pop();
+              // If streaming, stop it first
+              if (isStreaming) {
+                ref.read(chatMessagesProvider.notifier).finishStreaming();
+              }
+              
+              // Save the conversation before leaving
+              await _saveConversationBeforeLeaving(ref);
+              
+              if (context.mounted) {
+                final canPopNavigator = Navigator.of(context).canPop();
+                if (canPopNavigator) {
+                  Navigator.of(context).pop();
+                } else {
+                  SystemNavigator.pop();
+                }
               }
             }
           } else if (context.mounted) {
@@ -1303,8 +1318,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                     .read(activeConversationProvider.notifier)
                                     .state =
                                 full;
-                          } catch (_) {}
+                          } catch (e) {
+                            debugPrint('DEBUG: Failed to refresh conversation: $e');
+                            // Could show a snackbar here if needed
+                          }
                         }
+                        // Add small delay for better UX feedback
+                        await Future.delayed(const Duration(milliseconds: 300));
                       },
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
@@ -1370,6 +1390,39 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         ), // Scaffold
       ), // PopScope
     ); // ErrorBoundary
+  }
+
+  Future<void> _saveConversationBeforeLeaving(WidgetRef ref) async {
+    try {
+      final api = ref.read(apiServiceProvider);
+      final messages = ref.read(chatMessagesProvider);
+      final activeConversation = ref.read(activeConversationProvider);
+      final selectedModel = ref.read(selectedModelProvider);
+
+      if (api == null || messages.isEmpty || activeConversation == null) {
+        return;
+      }
+
+      // Check if the last message (assistant) has content
+      final lastMessage = messages.last;
+      if (lastMessage.role == 'assistant' && lastMessage.content.trim().isEmpty) {
+        // Remove empty assistant message before saving
+        messages.removeLast();
+        if (messages.isEmpty) return;
+      }
+
+      // Update the existing conversation with all messages
+      await api.updateConversationWithMessages(
+        activeConversation.id,
+        messages,
+        model: selectedModel?.id,
+      );
+
+      debugPrint('DEBUG: Conversation saved before leaving');
+    } catch (e) {
+      debugPrint('DEBUG: Failed to save conversation before leaving: $e');
+      // Don't block navigation even if save fails
+    }
   }
 
   void _showModelDropdown(

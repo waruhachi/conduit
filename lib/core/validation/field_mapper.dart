@@ -42,6 +42,12 @@ class FieldMapper {
     'file_size': 'fileSize',
     'file_type': 'fileType',
     'mime_type': 'mimeType',
+    // OpenWebUI chat message fields - keep in camelCase
+    'parentId': 'parentId',
+    'childrenIds': 'childrenIds',
+    'currentId': 'currentId',
+    'modelName': 'modelName',
+    'modelIdx': 'modelIdx',
   };
 
   static const Map<String, String> _specialClientToApi = {
@@ -74,6 +80,12 @@ class FieldMapper {
     'fileSize': 'file_size',
     'fileType': 'file_type',
     'mimeType': 'mime_type',
+    // OpenWebUI chat message fields - keep in camelCase
+    'parentId': 'parentId',
+    'childrenIds': 'childrenIds',
+    'currentId': 'currentId',
+    'modelName': 'modelName',
+    'modelIdx': 'modelIdx',
   };
 
   /// Transform data from client format (camelCase) to API format (snake_case)

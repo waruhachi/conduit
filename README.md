@@ -1,21 +1,48 @@
 # Conduit - Open-WebUI Mobile Client
 
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" alt="Screenshot 1" width="250" />
+  
+</p>
+
 Conduit is an open-source, cross-platform mobile application for Open-WebUI, providing a native mobile experience for interacting with your self-hosted AI infrastructure.
 
 ## Features
 
 ### Core Features
-- ✅ **Real-time Chat**: Stream responses from AI models in real-time
-- ✅ **Model Selection**: Choose from available models on your server
-- ✅ **Conversation Management**: Create, search, and manage chat histories
-- ✅ **Markdown Rendering**: Full markdown support with syntax highlighting
-- ✅ **Theme Support**: Light, Dark, and System themes
+- **Real-time Chat**: Stream responses from AI models in real-time
+- **Model Selection**: Choose from available models on your server
+- **Conversation Management**: Create, search, and manage chat histories
+- **Markdown Rendering**: Full markdown support with syntax highlighting
+- **Theme Support**: Light, Dark, and System themes
 
 ### Advanced Features
-- ✅ **Voice Input**: Use speech-to-text for hands-free interaction
-- ✅ **File Uploads**: Support for images and documents (RAG)
-- ✅ **Multi-modal Support**: Work with vision models
-- ✅ **Secure Storage**: Credentials stored securely using platform keychains
+- **Voice Input**: Use speech-to-text for hands-free interaction
+- **File Uploads**: Support for images and documents (RAG)
+- **Multi-modal Support**: Work with vision models
+- **Secure Storage**: Credentials stored securely using platform keychains
+
+## Screenshots
+
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.png" alt="Screenshot 2" width="200" />
+</p>
+
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.png" alt="Screenshot 3" width="200" />
+</p>
+
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.png" alt="Screenshot 4" width="200" />
+</p>
+
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.png" alt="Screenshot 5" width="200" />
+</p>
+
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/6.png" alt="Screenshot 6" width="200" />
+</p>
 
 ## Requirements
 

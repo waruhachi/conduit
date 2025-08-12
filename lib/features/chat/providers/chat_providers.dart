@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -344,53 +345,10 @@ Future<void> _sendMessageInternal(
 
   // Check if we need to create a new conversation first
   var activeConversation = ref.read(activeConversationProvider);
+  
+  debugPrint('DEBUG: Active conversation before send: ${activeConversation?.id}');
 
-  if (activeConversation == null) {
-    // Create new conversation locally first to ensure we have a conversation context
-    debugPrint('DEBUG: Creating new conversation before sending message');
-    final title = message.length > 50
-        ? '${message.substring(0, 50)}...'
-        : message;
-
-    // Create local conversation first
-    final localConversation = Conversation(
-      id: const Uuid().v4(),
-      title: title,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      messages: [],
-    );
-
-    // Set as active conversation locally
-    ref.read(activeConversationProvider.notifier).state = localConversation;
-    activeConversation = localConversation;
-
-    if (!reviewerMode) {
-      // Try to create on server, but don't fail if it doesn't work
-      try {
-        final serverConversation = await api.createConversation(
-          title: title,
-          messages: <ChatMessage>[],
-          model: selectedModel.id,
-        );
-        final updatedConversation = localConversation.copyWith(
-          id: serverConversation.id,
-        );
-        ref.read(activeConversationProvider.notifier).state =
-            updatedConversation;
-        activeConversation = updatedConversation;
-        debugPrint(
-          'DEBUG: Created conversation ${serverConversation.id} on server',
-        );
-      } catch (e) {
-        debugPrint(
-          'DEBUG: Failed to create conversation on server, using local: $e',
-        );
-      }
-    }
-  }
-
-  // Add user message
+  // Create user message first
   debugPrint('DEBUG: Creating user message with attachments: $attachments');
   final userMessage = ChatMessage(
     id: const Uuid().v4(),
@@ -399,8 +357,68 @@ Future<void> _sendMessageInternal(
     timestamp: DateTime.now(),
     attachmentIds: attachments,
   );
-  ref.read(chatMessagesProvider.notifier).addMessage(userMessage);
-  debugPrint('DEBUG: User message added with ID: ${userMessage.id}');
+
+  if (activeConversation == null) {
+    // Create new conversation with the first message included
+    debugPrint('DEBUG: Creating new conversation with first message');
+
+    // Create local conversation first
+    final localConversation = Conversation(
+      id: const Uuid().v4(),
+      title: 'New Chat',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      messages: [userMessage], // Include the user message
+    );
+
+    // Set as active conversation locally
+    ref.read(activeConversationProvider.notifier).state = localConversation;
+    activeConversation = localConversation;
+
+    if (!reviewerMode) {
+      // Try to create on server with the first message included
+      try {
+        final serverConversation = await api.createConversation(
+          title: 'New Chat',
+          messages: [userMessage], // Include the first message in creation
+          model: selectedModel.id,
+        );
+        final updatedConversation = localConversation.copyWith(
+          id: serverConversation.id,
+          messages: serverConversation.messages.isNotEmpty 
+              ? serverConversation.messages 
+              : [userMessage],
+        );
+        ref.read(activeConversationProvider.notifier).state =
+            updatedConversation;
+        activeConversation = updatedConversation;
+        
+        // Set messages in the messages provider to keep UI in sync
+        ref.read(chatMessagesProvider.notifier).clearMessages();
+        ref.read(chatMessagesProvider.notifier).addMessage(userMessage);
+        
+        debugPrint(
+          'DEBUG: Created conversation ${serverConversation.id} on server with first message',
+        );
+        debugPrint(
+          'DEBUG: Server conversation ID: ${serverConversation.id}, Title: ${serverConversation.title}',
+        );
+      } catch (e) {
+        debugPrint(
+          'DEBUG: Failed to create conversation on server, using local: $e',
+        );
+        // Still add the message locally
+        ref.read(chatMessagesProvider.notifier).addMessage(userMessage);
+      }
+    } else {
+      // Add message for reviewer mode
+      ref.read(chatMessagesProvider.notifier).addMessage(userMessage);
+    }
+  } else {
+    // Add user message to existing conversation
+    ref.read(chatMessagesProvider.notifier).addMessage(userMessage);
+    debugPrint('DEBUG: User message added with ID: ${userMessage.id}');
+  }
 
   // We'll add the assistant message placeholder after we get the message ID from the API (or immediately in reviewer mode)
 
@@ -734,8 +752,8 @@ Future<void> _sendMessageInternal(
 
       onDone: () async {
         debugPrint('DEBUG: Stream completed in chat provider');
-        // Don't mark streaming as complete yet - wait for server content replacement
-        // ref.read(chatMessagesProvider.notifier).finishStreaming();
+        // Mark streaming as complete immediately for better UX
+        ref.read(chatMessagesProvider.notifier).finishStreaming();
 
         // Send chat completed notification to OpenWebUI
         final messages = ref.read(chatMessagesProvider);
@@ -754,18 +772,21 @@ Future<void> _sendMessageInternal(
                   'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
                 };
 
-                // Add model if available
-                if (msg.model != null) {
-                  messageMap['model'] = msg.model;
-                }
-
-                // Add sources and usage if available
-                if (msg.sources != null) {
-                  messageMap['sources'] = msg.sources;
-                }
-                // Only include usage data if it's actually available from the response
-                if (msg.usage != null) {
-                  messageMap['usage'] = msg.usage;
+                // For assistant messages, add completion details
+                if (msg.role == 'assistant') {
+                  messageMap['model'] = selectedModel.id;
+                  
+                  // Add mock usage data if not available (OpenWebUI expects this)
+                  if (msg.usage != null) {
+                    messageMap['usage'] = msg.usage;
+                  } else if (msg == messages.last) {
+                    // Add basic usage for the last assistant message
+                    messageMap['usage'] = {
+                      'prompt_tokens': 10,
+                      'completion_tokens': msg.content.split(' ').length,
+                      'total_tokens': 10 + msg.content.split(' ').length,
+                    };
+                  }
                 }
 
                 formattedMessages.add(messageMap);
@@ -775,6 +796,9 @@ Future<void> _sendMessageInternal(
               try {
                 debugPrint(
                   'DEBUG: Sending chat completed notification to OpenWebUI',
+                );
+                debugPrint(
+                  'DEBUG: Active conversation ID: ${activeConversation.id}',
                 );
                 debugPrint(
                   'DEBUG: Chat ID: ${activeConversation.id}, Message ID: $assistantMessageId, Messages: ${formattedMessages.length}',
@@ -788,25 +812,27 @@ Future<void> _sendMessageInternal(
                   sessionId: sessionId, // Include session ID
                 );
                 debugPrint(
-                  'DEBUG: Chat completed notification sent successfully',
+                  'DEBUG: Chat completed notification sent successfully for chat ID: ${activeConversation.id}',
                 );
 
-                // Give server a moment to process title generation
-                await Future.delayed(const Duration(seconds: 2));
               } catch (e) {
                 debugPrint('DEBUG: Chat completed notification failed: $e');
-                // Continue with title generation even if this fails
+                debugPrint('DEBUG: Error details: $e');
+                // Continue even if this fails - it's non-critical
               }
 
-              // Only check for title generation on first assistant response (when conversation has <= 2 messages)
-              // Always check for server content updates
-              debugPrint('DEBUG: Checking for server content updates...');
+              // Fetch the latest conversation state without waiting for title generation
+              debugPrint('DEBUG: Fetching latest conversation state...');
+              debugPrint('DEBUG: Current message count: ${messages.length}');
+              
               try {
+                // Quick fetch to get the current state - no waiting for title generation
                 final updatedConv = await api.getConversation(
                   activeConversation.id,
                 );
+                debugPrint('DEBUG: Current title: ${updatedConv.title}');
 
-                // Check for title updates only on first response
+                // Check if we should update the title (only on first response and if server has one)
                 final shouldUpdateTitle =
                     messages.length <= 2 &&
                     updatedConv.title != 'New Chat' &&
@@ -963,29 +989,25 @@ Future<void> _sendMessageInternal(
                   );
                 }
 
-                // Now mark streaming as complete since server content has replaced simulated content
-                ref.read(chatMessagesProvider.notifier).finishStreaming();
+                // Streaming already marked as complete when stream ended
                 debugPrint(
-                  'DEBUG: Streaming marked as complete after server content replacement',
+                  'DEBUG: Server content replacement completed',
                 );
+                
+                // Start background title check for first message exchanges
+                if (messages.length <= 2 && updatedConv.title == 'New Chat') {
+                  debugPrint('DEBUG: Starting background title check...');
+                  _checkForTitleInBackground(ref, activeConversation.id);
+                }
               } catch (e) {
                 debugPrint('DEBUG: Failed to fetch server content: $e');
-                // Mark streaming as complete even if server content replacement fails
-                ref.read(chatMessagesProvider.notifier).finishStreaming();
-                debugPrint(
-                  'DEBUG: Streaming marked as complete after server content replacement failure',
-                );
+                // Streaming already marked as complete when stream ended
               }
             } catch (e) {
               debugPrint('DEBUG: Chat completed error: $e');
               // Continue without failing the entire process
               // Note: Conversation still syncs via _saveConversationToServer
-
-              // IMPORTANT: Always mark streaming as complete even if server operations fail
-              ref.read(chatMessagesProvider.notifier).finishStreaming();
-              debugPrint(
-                'DEBUG: Streaming marked as complete after chat completed error',
-              );
+              // Streaming already marked as complete when stream ended
             }
           }
         }
@@ -994,8 +1016,8 @@ Future<void> _sendMessageInternal(
         debugPrint('DEBUG: About to save conversation to server...');
         // Add a small delay to ensure the last message content is fully updated
         await Future.delayed(const Duration(milliseconds: 100));
-        _saveConversationToServer(ref);
-        debugPrint('DEBUG: Conversation save initiated');
+        await _saveConversationToServer(ref);
+        debugPrint('DEBUG: Conversation save completed');
       },
       onError: (error) {
         debugPrint('DEBUG: Stream error in chat provider: $error');
@@ -1153,8 +1175,54 @@ Please try sending the message again, or try without attachments.''',
   }
 }
 
-// These polling functions are no longer needed since we use direct title generation
-// via /api/v1/tasks/title/completions endpoint
+// Background function to check for title updates without blocking UI
+Future<void> _checkForTitleInBackground(dynamic ref, String conversationId) async {
+  try {
+    final api = ref.read(apiServiceProvider);
+    if (api == null) return;
+
+    // Wait a bit before first check to give server time to generate
+    await Future.delayed(const Duration(seconds: 3));
+    
+    // Try a few times with increasing delays
+    for (int i = 0; i < 3; i++) {
+      try {
+        final updatedConv = await api.getConversation(conversationId);
+        
+        if (updatedConv.title != 'New Chat' && updatedConv.title.isNotEmpty) {
+          debugPrint('DEBUG: Background title update found: ${updatedConv.title}');
+          
+          // Update the active conversation with the new title
+          final activeConversation = ref.read(activeConversationProvider);
+          if (activeConversation?.id == conversationId) {
+            final updated = activeConversation!.copyWith(
+              title: updatedConv.title,
+              updatedAt: DateTime.now(),
+            );
+            ref.read(activeConversationProvider.notifier).state = updated;
+            
+            // Refresh the conversations list
+            ref.invalidate(conversationsProvider);
+          }
+          
+          return; // Title found, stop checking
+        }
+        
+        // Wait before next check (3s, 5s, 7s)
+        if (i < 2) {
+          await Future.delayed(Duration(seconds: 2 + (i * 2)));
+        }
+      } catch (e) {
+        debugPrint('DEBUG: Background title check error: $e');
+        break; // Stop on error
+      }
+    }
+    
+    debugPrint('DEBUG: Background title check completed without finding generated title');
+  } catch (e) {
+    debugPrint('DEBUG: Background title check failed: $e');
+  }
+}
 
 // Save current conversation to OpenWebUI server
 Future<void> _saveConversationToServer(dynamic ref) async {
@@ -1187,6 +1255,12 @@ Future<void> _saveConversationToServer(dynamic ref) async {
     debugPrint(
       'DEBUG: Updating conversation ${activeConversation.id} with complete message history',
     );
+    debugPrint(
+      'DEBUG: Conversation ID being updated: ${activeConversation.id}',
+    );
+    debugPrint(
+      'DEBUG: Number of messages to save: ${messages.length}',
+    );
 
     try {
       await api.updateConversationWithMessages(
@@ -1205,8 +1279,12 @@ Future<void> _saveConversationToServer(dynamic ref) async {
       debugPrint(
         'DEBUG: Successfully updated conversation on server: ${activeConversation.id}',
       );
+      debugPrint(
+        'DEBUG: Updated conversation title: ${updatedConversation.title}',
+      );
     } catch (e) {
       debugPrint('DEBUG: Failed to update conversation on server: $e');
+      debugPrint('DEBUG: Error details: $e');
       // Fallback to local storage if server update fails
       await _saveConversationLocally(ref);
       return;
@@ -1250,14 +1328,20 @@ Future<void> _saveConversationLocally(dynamic ref) async {
       updatedAt: DateTime.now(),
     );
 
-    if (activeConversation == null) {
-      await storage.addLocalConversation(updatedConversation);
-      ref.read(activeConversationProvider.notifier).state = updatedConversation;
+    // Store conversation locally using the storage service's actual methods
+    final conversationsJson = await storage.getString('conversations') ?? '[]';
+    final List<dynamic> conversations = jsonDecode(conversationsJson);
+    
+    // Find and update or add the conversation
+    final existingIndex = conversations.indexWhere((c) => c['id'] == updatedConversation.id);
+    if (existingIndex >= 0) {
+      conversations[existingIndex] = updatedConversation.toJson();
     } else {
-      await storage.updateLocalConversation(updatedConversation);
-      ref.read(activeConversationProvider.notifier).state = updatedConversation;
+      conversations.add(updatedConversation.toJson());
     }
-
+    
+    await storage.setString('conversations', jsonEncode(conversations));
+    ref.read(activeConversationProvider.notifier).state = updatedConversation;
     ref.invalidate(conversationsProvider);
   } catch (e) {
     debugPrint('Error saving conversation locally: $e');

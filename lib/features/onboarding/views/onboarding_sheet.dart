@@ -40,6 +40,16 @@ class _OnboardingSheetState extends State<OnboardingSheet> {
         'Great for quick notes or long prompts',
       ],
     ),
+    _OnboardingPage(
+      title: 'Quick actions',
+      subtitle:
+          'Long‑press the top‑left menu to open shortcuts like New Chat, Files, and Profile.',
+      icon: CupertinoIcons.line_horizontal_3,
+      bullets: [
+        'Tap to open chats list; long‑press for Quick Actions',
+        'Jump instantly to New Chat, Files, or Profile',
+      ],
+    ),
   ];
 
   void _next() {
