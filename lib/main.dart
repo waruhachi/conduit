@@ -213,12 +213,15 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
         // Onboarding: show once if not seen
         final storage = ref.read(optimizedStorageServiceProvider);
         final seen = await storage.getOnboardingSeen();
+        
         if (!seen && mounted) {
           await Future.delayed(const Duration(milliseconds: 300));
           if (!mounted) return;
+          
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             final navContext = NavigationService.navigatorKey.currentContext;
             if (!mounted || navContext == null) return;
+            
             _showOnboarding(navContext);
             await storage.setOnboardingSeen(true);
           });

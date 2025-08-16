@@ -15,8 +15,8 @@ import '../../../shared/services/brand_service.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import '../../../shared/widgets/conduit_components.dart';
 import '../../../core/auth/auth_state_manager.dart';
-import '../../onboarding/views/onboarding_sheet.dart';
-import '../providers/unified_auth_providers.dart';
+
+
 
 class AuthenticationPage extends ConsumerStatefulWidget {
   final ServerConfig serverConfig;
@@ -109,73 +109,9 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
     }
   }
 
-  void _initializeBackgroundResources(WidgetRef ref) {
-    // Initialize resources in the background without blocking UI
-    Future.microtask(() async {
-      try {
-        // Get the API service
-        final api = ref.read(apiServiceProvider);
-        if (api == null) {
-          debugPrint(
-            'DEBUG: API service not available for background initialization',
-          );
-          return;
-        }
 
-        // Explicitly get the current auth token and set it on the API service
-        final authToken = ref.read(authTokenProvider3);
-        if (authToken != null && authToken.isNotEmpty) {
-          api.updateAuthToken(authToken);
-          debugPrint('DEBUG: Background - Set auth token on API service');
-        } else {
-          debugPrint('DEBUG: Background - No auth token available yet');
-          return;
-        }
 
-        // Initialize the token updater for future updates
-        ref.read(apiTokenUpdaterProvider);
 
-        // Load models and set default in background
-        await ref.read(defaultModelProvider.future);
-        debugPrint('DEBUG: Background initialization completed');
-
-        // Onboarding: show once if not seen
-        final storage = ref.read(optimizedStorageServiceProvider);
-        final seen = await storage.getOnboardingSeen();
-        if (!seen && mounted) {
-          await Future.delayed(const Duration(milliseconds: 300));
-          if (!mounted) return;
-          WidgetsBinding.instance.addPostFrameCallback((_) async {
-            final navContext = NavigationService.navigatorKey.currentContext;
-            if (!mounted || navContext == null) return;
-            _showOnboarding(navContext);
-            await storage.setOnboardingSeen(true);
-          });
-        }
-      } catch (e) {
-        debugPrint('DEBUG: Background initialization failed: $e');
-        // Don't throw - this is background initialization
-      }
-    });
-  }
-
-  void _showOnboarding(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: context.conduitTheme.surfaceBackground,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(AppBorderRadius.modal),
-          ),
-          boxShadow: ConduitShadows.modal,
-        ),
-        child: const OnboardingSheet(),
-      ),
-    );
-  }
 
   String _formatLoginError(String error) {
     if (error.contains('401') || error.contains('Unauthorized')) {
@@ -197,8 +133,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
       if (mounted && next.isAuthenticated && previous?.isAuthenticated != true) {
         debugPrint('DEBUG: Authentication successful, initializing background resources');
         
-        // Initialize background resources
-        _initializeBackgroundResources(ref);
+
         
         debugPrint('DEBUG: Navigating to chat page');
         // Navigate directly to chat page on successful authentication

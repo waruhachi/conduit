@@ -678,20 +678,7 @@ final userSettingsProvider = FutureProvider<UserSettings>((ref) async {
   }
 });
 
-// Server Banners provider
-final serverBannersProvider = FutureProvider<List<Map<String, dynamic>>>((
-  ref,
-) async {
-  final api = ref.watch(apiServiceProvider);
-  if (api == null) return [];
 
-  try {
-    return await api.getBanners();
-  } catch (e) {
-    foundation.debugPrint('DEBUG: Error fetching banners: $e');
-    return [];
-  }
-});
 
 // Conversation Suggestions provider
 final conversationSuggestionsProvider = FutureProvider<List<String>>((

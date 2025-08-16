@@ -1303,31 +1303,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             children: [
               Column(
                 children: [
-                  // Server banners
-                  Consumer(
-                    builder: (context, ref, child) {
-                      final banners = ref.watch(serverBannersProvider);
-                      return banners.when(
-                        data: (bannerList) => bannerList.isNotEmpty
-                            ? Container(
-                                color: theme.colorScheme.primaryContainer
-                                    .withValues(alpha: Alpha.badgeBackground),
-                                child: Column(
-                                  children: bannerList
-                                      .take(1)
-                                      .map(
-                                        (banner) =>
-                                            _buildChatBanner(context, banner),
-                                      )
-                                      .toList(),
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                        loading: () => const SizedBox.shrink(),
-                        error: (_, _) => const SizedBox.shrink(),
-                      );
-                    },
-                  ),
+
 
                   // Messages Area with pull-to-refresh
                   Expanded(
@@ -2479,56 +2455,5 @@ class _SelectableMessageWrapper extends StatelessWidget {
 
 // Extension on _ChatPageState for utility methods
 extension on _ChatPageState {
-  Widget _buildChatBanner(BuildContext context, Map<String, dynamic> banner) {
-    final theme = Theme.of(context);
 
-    final type = banner['type'] as String? ?? 'info';
-    final content = banner['content'] as String? ?? '';
-
-    if (content.isEmpty) return const SizedBox.shrink();
-
-    Color backgroundColor;
-    Color textColor;
-    IconData icon;
-
-    switch (type) {
-      case 'warning':
-        backgroundColor = context.conduitTheme.warning.withValues(alpha: 0.2);
-        textColor = context.conduitTheme.warning;
-        icon = Platform.isIOS
-            ? CupertinoIcons.exclamationmark_triangle
-            : Icons.warning;
-        break;
-      case 'error':
-        backgroundColor = theme.colorScheme.errorContainer;
-        textColor = theme.colorScheme.onErrorContainer;
-        icon = Platform.isIOS ? CupertinoIcons.xmark_circle : Icons.error;
-        break;
-      default: // info
-        backgroundColor = theme.colorScheme.primaryContainer;
-        textColor = theme.colorScheme.onPrimaryContainer;
-        icon = Platform.isIOS ? CupertinoIcons.info_circle : Icons.info;
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: backgroundColor,
-      child: Row(
-        children: [
-          Icon(icon, color: textColor, size: 16),
-          const SizedBox(width: Spacing.sm),
-          Expanded(
-            child: Text(
-              content,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: textColor,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

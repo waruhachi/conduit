@@ -952,16 +952,7 @@ class ApiService {
     await _dio.post('/api/v1/users/user/settings', data: settings);
   }
 
-  // Server Banners
-  Future<List<Map<String, dynamic>>> getBanners() async {
-    debugPrint('DEBUG: Fetching server banners');
-    final response = await _dio.get('/api/v1/configs/banners');
-    final data = response.data;
-    if (data is List) {
-      return data.cast<Map<String, dynamic>>();
-    }
-    return [];
-  }
+
 
   // Suggestions
   Future<List<String>> getSuggestions() async {
