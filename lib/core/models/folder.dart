@@ -1,41 +1,63 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'folder.freezed.dart';
-part 'folder.g.dart';
-
-// Timestamp converter for Unix timestamps
-class TimestampConverter implements JsonConverter<DateTime, dynamic> {
-  const TimestampConverter();
-
-  @override
-  DateTime fromJson(dynamic json) {
-    if (json is String) {
-      return DateTime.parse(json);
-    } else if (json is int) {
-      return DateTime.fromMillisecondsSinceEpoch(json * 1000);
-    } else {
-      throw ArgumentError('Invalid date format: $json');
-    }
-  }
-
-  @override
-  dynamic toJson(DateTime object) {
-    return object.millisecondsSinceEpoch ~/ 1000;
-  }
-}
 
 @freezed
 sealed class Folder with _$Folder {
   const factory Folder({
     required String id,
     required String name,
-    @TimestampConverter() required DateTime createdAt,
-    @TimestampConverter() required DateTime updatedAt,
     String? parentId,
+    String? userId,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    @Default(false) bool isExpanded,
     @Default([]) List<String> conversationIds,
-    @Default([]) List<Folder> subfolders,
-    @Default({}) Map<String, dynamic> metadata,
+    Map<String, dynamic>? meta,
+    Map<String, dynamic>? data,
+    Map<String, dynamic>? items,
   }) = _Folder;
 
-  factory Folder.fromJson(Map<String, dynamic> json) => _$FolderFromJson(json);
+  factory Folder.fromJson(Map<String, dynamic> json) {
+    // Extract conversation IDs from items.chats if available
+    final items = json['items'] as Map<String, dynamic>?;
+    final chats = items?['chats'] as List?;
+    
+    // Handle both string IDs and conversation objects
+    final conversationIds = chats?.map((chat) {
+      if (chat is String) {
+        return chat;
+      } else if (chat is Map<String, dynamic>) {
+        return chat['id'] as String? ?? '';
+      }
+      return '';
+    }).where((id) => id.isNotEmpty).toList().cast<String>() ?? <String>[];
+    
+    // Handle Unix timestamp conversion
+    DateTime? parseTimestamp(dynamic timestamp) {
+      if (timestamp == null) return null;
+      if (timestamp is int) {
+        return DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+      }
+      if (timestamp is String) {
+        return DateTime.parse(timestamp);
+      }
+      return null;
+    }
+    
+    // Create the modified JSON with proper field mapping
+    return Folder(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      parentId: json['parent_id'] as String?,
+      userId: json['user_id'] as String?,
+      createdAt: parseTimestamp(json['created_at']),
+      updatedAt: parseTimestamp(json['updated_at']),
+      isExpanded: json['is_expanded'] as bool? ?? false,
+      conversationIds: conversationIds,
+      meta: json['meta'] as Map<String, dynamic>?,
+      data: json['data'] as Map<String, dynamic>?,
+      items: json['items'] as Map<String, dynamic>?,
+    );
+  }
 }

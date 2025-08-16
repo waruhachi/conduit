@@ -546,6 +546,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   _navigateToFiles();
                 },
               ),
+
               ListTile(
                 leading: Icon(
                   Platform.isIOS ? CupertinoIcons.person : Icons.person_outline,
@@ -581,6 +582,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       context,
     ).push(MaterialPageRoute(builder: (context) => const FilesPage()));
   }
+
+
 
   void _navigateToProfile() {
     Navigator.of(
@@ -1229,6 +1232,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     },
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Flexible(
                           child: Text(
@@ -1239,6 +1243,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
                           ),
                         ),
                         const SizedBox(width: Spacing.xs),
@@ -1618,25 +1623,7 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
                     ),
                   ),
 
-                  // Header
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: Spacing.sm),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Choose Model',
-                            style: TextStyle(
-                              color: context.conduitTheme.textPrimary,
-                              fontSize: AppTypography.headlineMedium,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        // Removed capabilities legend to reduce icon noise
-                      ],
-                    ),
-                  ),
+
 
                   // Search field
                   Padding(

@@ -13,7 +13,8 @@ import '../../../core/providers/app_providers.dart';
 import '../../../shared/widgets/themed_dialogs.dart';
 import '../../../shared/widgets/conduit_components.dart';
 import '../../chat/providers/chat_providers.dart';
-import '../../chat/widgets/folder_management_dialog.dart';
+import '../../chat/views/chat_page_helpers.dart';
+
 
 /// Optimized conversation list page with Conduit design aesthetics
 class ChatsListPage extends ConsumerStatefulWidget {
@@ -39,6 +40,9 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
 
   // Provider for archived section visibility
   static final _showArchivedProvider = StateProvider<bool>((ref) => false);
+  
+  // Provider for folder expansion state (Map<folderId, isExpanded>)
+  static final _expandedFoldersProvider = StateProvider<Map<String, bool>>((ref) => {});
 
   @override
   bool get wantKeepAlive => true; // Keep state alive for better performance
@@ -94,7 +98,7 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
           ],
         ),
         floatingActionButton: FloatingActionButton(
-          onPressed: _startNewChat,
+          onPressed: _showCreateMenu,
           backgroundColor: context.conduitTheme.buttonPrimary,
           foregroundColor: context.conduitTheme.buttonPrimaryText,
           elevation: Elevation.medium,
@@ -162,62 +166,65 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
         _searchFocusNode.requestFocus();
       },
       child: Container(
-        margin: const EdgeInsets.all(Spacing.pagePadding),
-        padding: const EdgeInsets.symmetric(
-          horizontal: Spacing.inputPadding,
-          vertical: Spacing.sm,
-        ),
+        margin: const EdgeInsets.all(Spacing.md),
         decoration: BoxDecoration(
-          color: context.conduitTheme.inputBackground,
-          borderRadius: BorderRadius.circular(AppBorderRadius.input),
+          gradient: LinearGradient(
+            colors: [
+              context.conduitTheme.inputBackground.withValues(alpha: 0.6),
+              context.conduitTheme.inputBackground.withValues(alpha: 0.3),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(AppBorderRadius.lg),
           border: Border.all(
             color: isFocused
-                ? context.conduitTheme.buttonPrimary
-                : context.conduitTheme.inputBorder,
-            width: BorderWidth.regular,
+                ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.8)
+                : context.conduitTheme.inputBorder.withValues(alpha: 0.3),
+            width: BorderWidth.thin,
           ),
-          boxShadow: ConduitShadows.input,
         ),
-        child: Row(
-          children: [
-            Icon(
-              Platform.isIOS ? CupertinoIcons.search : Icons.search_rounded,
-              size: IconSize.medium,
+        child: TextField(
+          controller: _searchController,
+          focusNode: _searchFocusNode,
+          style: TextStyle(
+            color: context.conduitTheme.inputText,
+            fontSize: AppTypography.bodyMedium,
+          ),
+          decoration: InputDecoration(
+            hintText: 'Search conversations...',
+            hintStyle: TextStyle(
+              color: context.conduitTheme.inputPlaceholder.withValues(alpha: 0.8),
+              fontSize: AppTypography.bodyMedium,
+            ),
+            prefixIcon: Icon(
+              Platform.isIOS ? CupertinoIcons.search : Icons.search,
               color: context.conduitTheme.iconSecondary,
+              size: IconSize.md,
             ),
-            const SizedBox(width: Spacing.sm),
-            Expanded(
-              child: TextField(
-                controller: _searchController,
-                focusNode: _searchFocusNode,
-                style: AppTypography.bodyMediumStyle.copyWith(
-                  color: context.conduitTheme.inputText,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Search conversations...',
-                  hintStyle: AppTypography.bodyMediumStyle.copyWith(
-                    color: context.conduitTheme.inputPlaceholder,
-                  ),
-                  border: InputBorder.none, // Remove default border
-                  focusedBorder:
-                      InputBorder.none, // Remove default focus border
-                  enabledBorder: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: Icon(
+                      Platform.isIOS
+                          ? CupertinoIcons.clear_circled_solid
+                          : Icons.clear,
+                      color: context.conduitTheme.iconSecondary,
+                      size: IconSize.md,
+                    ),
+                    onPressed: () {
+                      _searchController.clear();
+                      _searchQuery = '';
+                      ref.read(searchQueryProvider.notifier).state = '';
+                      _searchFocusNode.unfocus();
+                    },
+                  )
+                : null,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
             ),
-            if (_searchController.text.isNotEmpty)
-              ConduitIconButton(
-                icon: Platform.isIOS
-                    ? CupertinoIcons.clear
-                    : Icons.clear_rounded,
-                onPressed: () {
-                  _searchController.clear();
-                  _searchQuery = '';
-                  ref.read(searchQueryProvider.notifier).state = '';
-                },
-              ),
-          ],
+          ),
         ),
       ),
     ).animate().fadeIn(
@@ -243,23 +250,36 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
               return _buildNoResultsState();
             }
 
-            // Separate conversations by status
+            // Separate conversations by status and folder
             final pinnedConversations = filteredConversations
                 .where((c) => c.pinned == true)
                 .toList();
             final regularConversations = filteredConversations
-                .where((c) => c.pinned != true && c.archived != true)
+                .where((c) => c.pinned != true && c.archived != true && (c.folderId == null || c.folderId!.isEmpty))
+                .toList();
+            final folderConversations = filteredConversations
+                .where((c) => c.pinned != true && c.archived != true && c.folderId != null && c.folderId!.isNotEmpty)
                 .toList();
             final archivedConversations = filteredConversations
                 .where((c) => c.archived == true)
                 .toList();
 
+            // Debug logging
+            print('🔍 DEBUG: Total conversations: ${filteredConversations.length}');
+            print('🔍 DEBUG: Pinned: ${pinnedConversations.length}');
+            print('🔍 DEBUG: Regular: ${regularConversations.length}');
+            print('🔍 DEBUG: Folder: ${folderConversations.length}');
+            print('🔍 DEBUG: Archived: ${archivedConversations.length}');
+            
+            // Check first few conversations for folder IDs
+            for (int i = 0; i < filteredConversations.take(5).length; i++) {
+              final conv = filteredConversations[i];
+              print('🔍 DEBUG: Conv ${i}: id=${conv.id.substring(0, 8)}, folderId=${conv.folderId}, pinned=${conv.pinned}, archived=${conv.archived}');
+            }
+
             return ListView(
               controller: _scrollController,
-              padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.pagePadding,
-                vertical: Spacing.sm,
-              ),
+              padding: const EdgeInsets.all(Spacing.md),
               children: [
                 // Pinned conversations section
                 if (pinnedConversations.isNotEmpty) ...[
@@ -271,7 +291,44 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
                       isPinned: true,
                     );
                   }),
-                  const SizedBox(height: Spacing.lg),
+                  const SizedBox(height: Spacing.md),
+                ],
+
+                // Folder conversations sections (after pinned, before recent)
+                if (folderConversations.isNotEmpty) ...[
+                  ...ref.watch(foldersProvider).when(
+                    data: (folders) {
+                      // Group conversations by folder
+                      final groupedByFolder = <String, List<dynamic>>{};
+                      for (final conv in folderConversations) {
+                        if (conv.folderId != null) {
+                          groupedByFolder.putIfAbsent(conv.folderId!, () => []).add(conv);
+                        }
+                      }
+
+                      // Build folder sections
+                      return folders.where((folder) => groupedByFolder.containsKey(folder.id)).map((folder) {
+                        final conversations = groupedByFolder[folder.id]!;
+                        final expandedFolders = ref.watch(_expandedFoldersProvider);
+                        final isExpanded = expandedFolders[folder.id] ?? false;
+                        
+                        return Column(
+                          children: [
+                            _buildFolderHeader(folder.id, folder.name, conversations.length),
+                            // Only show conversations if folder is expanded
+                            if (isExpanded) ...[
+                              ...conversations.asMap().entries.map((entry) {
+                                return _buildConversationTile(entry.value, entry.key, inFolder: true);
+                              }),
+                            ],
+                  const SizedBox(height: Spacing.md),
+                          ],
+                        );
+                      }).toList();
+                    },
+                    loading: () => [const SizedBox.shrink()],
+                    error: (_, __) => [const SizedBox.shrink()],
+                  ),
                 ],
 
                 // Regular conversations section
@@ -284,7 +341,7 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
 
                 // Archived conversations section (collapsed by default)
                 if (archivedConversations.isNotEmpty) ...[
-                  const SizedBox(height: Spacing.lg),
+                  const SizedBox(height: Spacing.md),
                   _buildArchivedSection(archivedConversations),
                 ],
               ],
@@ -312,177 +369,171 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
     int index, {
     bool isPinned = false,
     bool isArchived = false,
+    bool inFolder = false,
   }) {
     final isSelected =
         ref.watch(activeConversationProvider)?.id == conversation.id;
-    // TODO: Use pinned status for future conversation management features
-    // final conversationIsPinned = conversation.pinned ?? false;
     final isLoading = _isLoadingConversation && isSelected;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: Spacing.listGap),
-      decoration: BoxDecoration(
-        gradient: isSelected
-            ? LinearGradient(
-                colors: [
-                  context.conduitTheme.navigationSelectedBackground.withValues(
+    return PressableScale(
+      onTap: isLoading ? null : () => _selectConversation(conversation),
+      borderRadius: BorderRadius.circular(AppBorderRadius.md),
+      child: Container(
+        margin: EdgeInsets.only(
+          bottom: Spacing.md,
+          left: inFolder ? Spacing.md : 0.0,
+        ),
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? LinearGradient(
+                  colors: [
+                    context.conduitTheme.buttonPrimary.withValues(alpha: 0.2),
+                    context.conduitTheme.buttonPrimary.withValues(alpha: 0.1),
+                  ],
+                )
+              : null,
+          color: isSelected
+              ? null
+              : isArchived
+              ? context.conduitTheme.surfaceBackground.withValues(alpha: 0.3)
+              : context.conduitTheme.surfaceBackground.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          border: Border.all(
+            color: isSelected
+                ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.5)
+                : context.conduitTheme.dividerColor,
+            width: BorderWidth.regular,
+          ),
+          boxShadow: isSelected ? ConduitShadows.card : null,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: Spacing.sm,
+          ),
+          child: Row(
+            children: [
+              // Conversation icon (32x32 like model selector)
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: context.conduitTheme.buttonPrimary.withValues(
                     alpha: 0.15,
                   ),
-                  context.conduitTheme.navigationSelectedBackground.withValues(
-                    alpha: 0.05,
-                  ),
-                ],
-              )
-            : null,
-        color: isSelected
-            ? null
-            : isArchived
-            ? context.conduitTheme.surfaceContainer.withValues(alpha: 0.3)
-            : context.conduitTheme.cardBackground,
-        borderRadius: BorderRadius.circular(AppBorderRadius.card),
-        border: Border.all(
-          color: isSelected
-              ? context.conduitTheme.navigationSelected
-              : isArchived
-              ? context.conduitTheme.dividerColor.withValues(alpha: 0.5)
-              : context.conduitTheme.cardBorder,
-          width: BorderWidth.regular,
-        ),
-        boxShadow: isSelected ? ConduitShadows.high : ConduitShadows.low,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: isLoading ? null : () => _selectConversation(conversation),
-          onLongPress: isLoading
-              ? null
-              : () => _showConversationOptions(conversation),
-          borderRadius: BorderRadius.circular(AppBorderRadius.card),
-          child: Padding(
-            padding: const EdgeInsets.all(Spacing.listItemPadding),
-            child: Row(
-              children: [
-                // Conversation icon/avatar
-                Container(
-                  width: IconSize.avatar,
-                  height: IconSize.avatar,
-                  decoration: BoxDecoration(
-                    color: context.conduitTheme.buttonPrimary,
-                    borderRadius: BorderRadius.circular(AppBorderRadius.avatar),
-                    boxShadow: ConduitShadows.card,
-                  ),
-                  child: Icon(
-                    Platform.isIOS
-                        ? CupertinoIcons.chat_bubble
-                        : Icons.chat_rounded,
-                    size: IconSize.medium,
-                    color: context.conduitTheme.buttonPrimaryText,
-                  ),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
                 ),
-                const SizedBox(width: Spacing.md),
-
-                // Conversation details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              conversation.title ?? 'New Chat',
-                              style: AppTypography.bodyLargeStyle.copyWith(
-                                color: isArchived
-                                    ? context.conduitTheme.textSecondary
-                                    : context.conduitTheme.textPrimary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (isPinned)
-                            Icon(
-                              Platform.isIOS
-                                  ? CupertinoIcons.pin_fill
-                                  : Icons.push_pin,
-                              size: IconSize.small,
-                              color: context.conduitTheme.warning,
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: Spacing.xs),
-                      Text(
-                        _getConversationPreview(conversation),
-                        style: AppTypography.bodySmallStyle.copyWith(
-                          color: isArchived
-                              ? context.conduitTheme.textTertiary
-                              : context.conduitTheme.textSecondary,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: Spacing.xs),
-                      Text(
-                        _formatConversationDate(conversation.updatedAt),
-                        style: AppTypography.captionStyle.copyWith(
-                          color: isArchived
-                              ? context.conduitTheme.textTertiary.withValues(
-                                  alpha: 0.5,
-                                )
-                              : context.conduitTheme.textTertiary,
-                        ),
-                      ),
-                    ],
-                  ),
+                child: Icon(
+                  Platform.isIOS
+                      ? CupertinoIcons.chat_bubble
+                      : Icons.chat_rounded,
+                  color: context.conduitTheme.buttonPrimary,
+                  size: 16,
                 ),
+              ),
+              const SizedBox(width: Spacing.md),
 
-                // Action buttons
-                Column(
+              // Conversation details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (isLoading)
-                      SizedBox(
-                        width: IconSize.medium,
-                        height: IconSize.medium,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            context.conduitTheme.buttonPrimary,
-                          ),
-                        ),
-                      )
-                    else ...[
-                      ConduitIconButton(
-                        icon: Platform.isIOS
-                            ? CupertinoIcons.ellipsis
-                            : Icons.more_vert_rounded,
-                        onPressed: () => _showConversationOptions(conversation),
+                    Text(
+                      conversation.title ?? 'New Chat',
+                      style: TextStyle(
+                        color: isArchived
+                            ? context.conduitTheme.textSecondary
+                            : context.conduitTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: AppTypography.bodyMedium,
                       ),
-                      if (conversation.messages.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: Spacing.xs,
-                            vertical: Spacing.xxs,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    Row(
+                      children: [
+                        if (isPinned)
+                          _buildStatusChip(
+                            icon: Platform.isIOS
+                                ? CupertinoIcons.pin_fill
+                                : Icons.push_pin,
+                            label: 'Pinned',
+                            color: context.conduitTheme.warning,
                           ),
-                          decoration: BoxDecoration(
-                            color: context.conduitTheme.buttonPrimary,
-                            borderRadius: BorderRadius.circular(
-                              AppBorderRadius.badge,
+                        if (isArchived)
+                          _buildStatusChip(
+                            icon: Platform.isIOS
+                                ? CupertinoIcons.archivebox_fill
+                                : Icons.archive,
+                            label: 'Archived',
+                            color: context.conduitTheme.textSecondary,
+                          ),
+                        if (!isPinned && !isArchived)
+                          Text(
+                            _formatConversationDate(conversation.updatedAt),
+                            style: TextStyle(
+                              color: context.conduitTheme.textTertiary,
+                              fontSize: AppTypography.labelSmall,
                             ),
                           ),
-                          child: Text(
-                            conversation.messages.length.toString(),
-                            style: AppTypography.captionStyle.copyWith(
-                              color: context.conduitTheme.buttonPrimaryText,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+
+              // Action indicator (like model selector check)
+              GestureDetector(
+                onTap: () => _showConversationOptions(conversation),
+                child: AnimatedOpacity(
+                  opacity: isSelected ? 1 : 0.6,
+                  duration: AnimationDuration.fast,
+                  child: Container(
+                    padding: const EdgeInsets.all(Spacing.xxs),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? context.conduitTheme.buttonPrimary
+                          : context.conduitTheme.surfaceBackground,
+                      borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                      border: Border.all(
+                        color: isSelected
+                            ? context.conduitTheme.buttonPrimary.withValues(
+                                alpha: 0.6,
+                              )
+                            : context.conduitTheme.dividerColor,
+                      ),
+                    ),
+                    child: isLoading
+                        ? SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                isSelected
+                                    ? context.conduitTheme.textInverse
+                                    : context.conduitTheme.buttonPrimary,
+                              ),
+                            ),
+                          )
+                        : Icon(
+                            isSelected
+                                ? (Platform.isIOS
+                                      ? CupertinoIcons.check_mark
+                                      : Icons.check)
+                                : (Platform.isIOS
+                                      ? CupertinoIcons.ellipsis
+                                      : Icons.more_vert),
+                            color: isSelected
+                                ? context.conduitTheme.textInverse
+                                : context.conduitTheme.iconSecondary,
+                            size: 14,
+                          ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -492,6 +543,40 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
         milliseconds: index * AnimationDelay.staggeredDelay.inMilliseconds,
       ),
       curve: AnimationCurves.messageSlide,
+    );
+  }
+
+  Widget _buildStatusChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(right: Spacing.xs),
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.xs, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppBorderRadius.chip),
+        border: Border.all(
+          color: color.withValues(alpha: 0.3),
+          width: BorderWidth.thin,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: AppTypography.labelSmall,
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -713,20 +798,13 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
 
     return conversations.where((conversation) {
       final title = conversation.title?.toLowerCase() ?? '';
-      final content = _getConversationPreview(conversation).toLowerCase();
       final query = _searchQuery.toLowerCase();
 
-      return title.contains(query) || content.contains(query);
+      return title.contains(query);
     }).toList();
   }
 
-  String _getConversationPreview(dynamic conversation) {
-    if (conversation.messages != null && conversation.messages.isNotEmpty) {
-      final lastMessage = conversation.messages.last;
-      return lastMessage.content ?? 'No content';
-    }
-    return 'Start a new conversation';
-  }
+
 
   String _formatConversationDate(DateTime? date) {
     if (date == null) return '';
@@ -816,24 +894,6 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
                   ),
                 ),
                 // Options
-                ListTile(
-                  leading: Icon(
-                    Platform.isIOS
-                        ? CupertinoIcons.folder
-                        : Icons.folder_rounded,
-                    color: context.conduitTheme.iconPrimary,
-                  ),
-                  title: Text(
-                    'Manage Folders',
-                    style: AppTypography.bodyMediumStyle.copyWith(
-                      color: context.conduitTheme.textPrimary,
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showFolderManagement();
-                  },
-                ),
                 ListTile(
                   leading: Icon(
                     Platform.isIOS
@@ -987,24 +1047,7 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
                     _togglePinConversation(conversation);
                   },
                 ),
-                ListTile(
-                  leading: Icon(
-                    Platform.isIOS
-                        ? CupertinoIcons.folder
-                        : Icons.folder_rounded,
-                    color: context.conduitTheme.iconPrimary,
-                  ),
-                  title: Text(
-                    'Move to Folder',
-                    style: AppTypography.bodyMediumStyle.copyWith(
-                      color: context.conduitTheme.textPrimary,
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _moveToFolder(conversation);
-                  },
-                ),
+
                 ListTile(
                   leading: Icon(
                     Platform.isIOS
@@ -1058,11 +1101,176 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
     }
   }
 
-  void _showFolderManagement() {
+  void _showCreateMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: context.conduitTheme.surfaceBackground,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppBorderRadius.bottomSheet),
+          ),
+          border: Border.all(
+            color: context.conduitTheme.dividerColor,
+            width: BorderWidth.regular,
+          ),
+          boxShadow: ConduitShadows.modal,
+        ),
+        child: SafeArea(
+          top: false,
+          bottom: true,
+          child: Padding(
+            padding: const EdgeInsets.all(Spacing.bottomSheetPadding),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: Spacing.lg),
+                  decoration: BoxDecoration(
+                    color: context.conduitTheme.dividerColor,
+                    borderRadius: BorderRadius.circular(AppBorderRadius.xs),
+                  ),
+                ),
+                // Header
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Spacing.md),
+                  child: Text(
+                    'Create New',
+                    style: AppTypography.headlineSmallStyle.copyWith(
+                      color: context.conduitTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                // Options
+                ListTile(
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: context.conduitTheme.buttonPrimary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+                    ),
+                    child: Icon(
+                      Platform.isIOS ? CupertinoIcons.chat_bubble : Icons.chat_rounded,
+                      color: context.conduitTheme.buttonPrimary,
+                      size: IconSize.medium,
+                    ),
+                  ),
+                  title: Text(
+                    'New Chat',
+                    style: AppTypography.bodyLargeStyle.copyWith(
+                      color: context.conduitTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Start a new conversation',
+                    style: AppTypography.bodyMediumStyle.copyWith(
+                      color: context.conduitTheme.textSecondary,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _startNewChat();
+                  },
+                ),
+                const SizedBox(height: Spacing.sm),
+                ListTile(
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: context.conduitTheme.info.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+                    ),
+                    child: Icon(
+                      Platform.isIOS ? CupertinoIcons.folder_badge_plus : Icons.create_new_folder_rounded,
+                      color: context.conduitTheme.info,
+                      size: IconSize.medium,
+                    ),
+                  ),
+                  title: Text(
+                    'New Folder',
+                    style: AppTypography.bodyLargeStyle.copyWith(
+                      color: context.conduitTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Create a folder to organize chats',
+                    style: AppTypography.bodyMediumStyle.copyWith(
+                      color: context.conduitTheme.textSecondary,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showCreateFolderDialog();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+
+
+  void _showCreateFolderDialog() {
+    final nameController = TextEditingController();
+
     showDialog(
       context: context,
-      builder: (context) => const FolderManagementDialog(),
+      builder: (dialogContext) => _CreateFolderDialog(
+        nameController: nameController,
+        onCreateFolder: (name) => _createFolderFromDialog(name, dialogContext),
+      ),
     );
+  }
+
+  Future<void> _createFolderFromDialog(String name, BuildContext dialogContext) async {
+    try {
+      final api = ref.read(apiServiceProvider);
+      if (api == null) throw Exception('No API service available');
+
+      await api.createFolder(name: name);
+      ref.invalidate(foldersProvider);
+
+      if (mounted) {
+        Navigator.pop(dialogContext);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Folder "$name" created',
+              style: AppTypography.bodyMediumStyle.copyWith(
+                color: context.conduitTheme.textInverse,
+              ),
+            ),
+            backgroundColor: context.conduitTheme.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to create folder: $e',
+              style: AppTypography.bodyMediumStyle.copyWith(
+                color: context.conduitTheme.textInverse,
+              ),
+            ),
+            backgroundColor: context.conduitTheme.error,
+          ),
+        );
+      }
+    }
   }
 
   void _togglePinConversation(dynamic conversation) async {
@@ -1107,22 +1315,7 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
     }
   }
 
-  void _moveToFolder(dynamic conversation) {
-    // TODO: Implement folder selection dialog
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Move to folder feature coming soon!',
-            style: AppTypography.bodyMediumStyle.copyWith(
-              color: context.conduitTheme.textInverse,
-            ),
-          ),
-          backgroundColor: context.conduitTheme.info,
-        ),
-      );
-    }
-  }
+
 
   void _archiveConversation(dynamic conversation) async {
     try {
@@ -1238,8 +1431,8 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
   Widget _buildSectionHeader(String title, int count) {
     return Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: Spacing.sm,
-        vertical: Spacing.md,
+        horizontal: Spacing.md,
+        vertical: Spacing.sm,
       ),
       child: Row(
         children: [
@@ -1251,7 +1444,7 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
               letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(width: Spacing.xs),
+          const SizedBox(width: Spacing.sm),
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: Spacing.xs,
@@ -1274,6 +1467,71 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
     );
   }
 
+  Widget _buildFolderHeader(String folderId, String folderName, int count) {
+    final expandedFolders = ref.watch(_expandedFoldersProvider);
+    final isExpanded = expandedFolders[folderId] ?? false;
+    
+    return GestureDetector(
+      onTap: () {
+        final currentState = ref.read(_expandedFoldersProvider);
+        ref.read(_expandedFoldersProvider.notifier).state = {
+          ...currentState,
+          folderId: !isExpanded,
+        };
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.md,
+          vertical: Spacing.sm,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isExpanded 
+                ? (Platform.isIOS ? CupertinoIcons.chevron_down : Icons.expand_more_rounded)
+                : (Platform.isIOS ? CupertinoIcons.chevron_right : Icons.chevron_right_rounded),
+              size: IconSize.small,
+              color: context.conduitTheme.textSecondary,
+            ),
+            const SizedBox(width: Spacing.sm),
+            Icon(
+              Platform.isIOS ? CupertinoIcons.folder_fill : Icons.folder_rounded,
+              size: IconSize.small,
+              color: context.conduitTheme.textSecondary,
+            ),
+            const SizedBox(width: Spacing.sm),
+            Text(
+              folderName,
+              style: AppTypography.labelStyle.copyWith(
+                color: context.conduitTheme.textSecondary,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(width: Spacing.sm),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.xs,
+                vertical: Spacing.xxs,
+              ),
+              decoration: BoxDecoration(
+                color: context.conduitTheme.surfaceContainer,
+                borderRadius: BorderRadius.circular(AppBorderRadius.badge),
+              ),
+              child: Text(
+                count.toString(),
+                style: AppTypography.captionStyle.copyWith(
+                  color: context.conduitTheme.textTertiary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildArchivedSection(List<dynamic> archivedConversations) {
     return Consumer(
       builder: (context, ref, child) {
@@ -1288,7 +1546,10 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
               },
               borderRadius: BorderRadius.circular(AppBorderRadius.card),
               child: Padding(
-                padding: const EdgeInsets.all(Spacing.md),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.md,
+                  vertical: Spacing.sm,
+                ),
                 child: Row(
                   children: [
                     Icon(
@@ -1358,5 +1619,254 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
         );
       },
     );
+  }
+}
+
+class _CreateFolderDialog extends StatefulWidget {
+  final TextEditingController nameController;
+  final Future<void> Function(String name) onCreateFolder;
+
+  const _CreateFolderDialog({
+    required this.nameController,
+    required this.onCreateFolder,
+  });
+
+  @override
+  State<_CreateFolderDialog> createState() => _CreateFolderDialogState();
+}
+
+class _CreateFolderDialogState extends State<_CreateFolderDialog> {
+  bool isCreating = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: 400,
+          decoration: BoxDecoration(
+            color: context.conduitTheme.surfaceBackground,
+            borderRadius: BorderRadius.circular(AppBorderRadius.modal),
+            border: Border.all(
+              color: context.conduitTheme.cardBorder.withValues(alpha: 0.2),
+              width: BorderWidth.regular,
+            ),
+            boxShadow: ConduitShadows.modal,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(Spacing.xl),
+                decoration: BoxDecoration(
+                  color: context.conduitTheme.cardBackground,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(AppBorderRadius.modal),
+                  ),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: context.conduitTheme.dividerColor.withValues(alpha: 0.1),
+                      width: BorderWidth.regular,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: context.conduitTheme.info.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+                      ),
+                      child: Icon(
+                        Platform.isIOS ? CupertinoIcons.folder_badge_plus : Icons.create_new_folder_rounded,
+                        color: context.conduitTheme.info,
+                        size: IconSize.medium,
+                      ),
+                    ),
+                    const SizedBox(width: Spacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Create New Folder',
+                            style: AppTypography.headlineSmallStyle.copyWith(
+                              color: context.conduitTheme.textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: Spacing.xs),
+                          Text(
+                            'Enter a name for your folder',
+                            style: AppTypography.bodyMediumStyle.copyWith(
+                              color: context.conduitTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ConduitIconButton(
+                      icon: Platform.isIOS ? CupertinoIcons.xmark : Icons.close_rounded,
+                      onPressed: isCreating ? null : () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(Spacing.xl),
+                child: TextField(
+                  controller: widget.nameController,
+                  autofocus: true,
+                  enabled: !isCreating,
+                  decoration: InputDecoration(
+                    labelText: 'Folder Name',
+                    hintText: 'Enter folder name',
+                    prefixIcon: Icon(
+                      Platform.isIOS ? CupertinoIcons.folder : Icons.folder_outlined,
+                      color: context.conduitTheme.iconSecondary,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppBorderRadius.input),
+                      borderSide: BorderSide(
+                        color: context.conduitTheme.inputBorder,
+                        width: BorderWidth.regular,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppBorderRadius.input),
+                      borderSide: BorderSide(
+                        color: context.conduitTheme.buttonPrimary,
+                        width: BorderWidth.regular,
+                      ),
+                    ),
+                    labelStyle: AppTypography.bodyMediumStyle.copyWith(
+                      color: context.conduitTheme.textSecondary,
+                    ),
+                    hintStyle: AppTypography.bodyMediumStyle.copyWith(
+                      color: context.conduitTheme.inputPlaceholder,
+                    ),
+                  ),
+                  style: AppTypography.bodyMediumStyle.copyWith(
+                    color: context.conduitTheme.textPrimary,
+                  ),
+                  onSubmitted: (value) {
+                    if (value.trim().isNotEmpty && !isCreating) {
+                      _createFolder();
+                    }
+                  },
+                ),
+              ),
+              
+              // Actions
+              Container(
+                padding: const EdgeInsets.all(Spacing.xl),
+                decoration: BoxDecoration(
+                  color: context.conduitTheme.cardBackground,
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(AppBorderRadius.modal),
+                  ),
+                  border: Border(
+                    top: BorderSide(
+                      color: context.conduitTheme.dividerColor.withValues(alpha: 0.1),
+                      width: BorderWidth.regular,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: isCreating ? null : () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: Spacing.md),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppBorderRadius.button),
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: AppTypography.labelStyle.copyWith(
+                            color: context.conduitTheme.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: Spacing.md),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: isCreating ? null : () {
+                          final name = widget.nameController.text.trim();
+                          if (name.isNotEmpty) {
+                            _createFolder();
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: context.conduitTheme.buttonPrimary,
+                          foregroundColor: context.conduitTheme.buttonPrimaryText,
+                          padding: const EdgeInsets.symmetric(vertical: Spacing.md),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppBorderRadius.button),
+                          ),
+                          elevation: Elevation.none,
+                        ),
+                        child: isCreating
+                            ? SizedBox(
+                                width: IconSize.medium,
+                                height: IconSize.medium,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    context.conduitTheme.buttonPrimaryText,
+                                  ),
+                                ),
+                              )
+                            : Text(
+                                'Create',
+                                style: AppTypography.labelStyle.copyWith(
+                                  color: context.conduitTheme.buttonPrimaryText,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ).animate().slideY(
+          begin: 0.1,
+          duration: AnimationDuration.modalPresentation,
+          curve: AnimationCurves.modalPresentation,
+        ).fadeIn(
+          duration: AnimationDuration.modalPresentation,
+          curve: AnimationCurves.easeOut,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _createFolder() async {
+    final name = widget.nameController.text.trim();
+    if (name.isEmpty) return;
+
+    setState(() => isCreating = true);
+
+    try {
+      await widget.onCreateFolder(name);
+    } finally {
+      if (mounted) {
+        setState(() => isCreating = false);
+      }
+    }
   }
 }

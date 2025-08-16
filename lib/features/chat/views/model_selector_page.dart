@@ -6,6 +6,7 @@ import '../../../core/models/model.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/conduit_components.dart';
 
 class ModelSelectorPage extends ConsumerStatefulWidget {
   const ModelSelectorPage({super.key});
@@ -53,16 +54,26 @@ class _ModelSelectorPageState extends ConsumerState<ModelSelectorPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final modelsAsync = ref.watch(modelsProvider);
     final selectedModel = ref.watch(selectedModelProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Select Model'),
-        leading: IconButton(
-          icon: Icon(Platform.isIOS ? CupertinoIcons.back : Icons.arrow_back),
+        backgroundColor: context.conduitTheme.surfaceBackground,
+        elevation: Elevation.none,
+        scrolledUnderElevation: Elevation.none,
+        leading: ConduitIconButton(
+          icon: Platform.isIOS
+              ? CupertinoIcons.back
+              : Icons.arrow_back_rounded,
           onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Select Model',
+          style: AppTypography.headlineMediumStyle.copyWith(
+            color: context.conduitTheme.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       body: Column(
@@ -71,10 +82,10 @@ class _ModelSelectorPageState extends ConsumerState<ModelSelectorPage> {
           Container(
             padding: const EdgeInsets.all(Spacing.md),
             decoration: BoxDecoration(
-              color: theme.scaffoldBackgroundColor,
+              color: context.conduitTheme.surfaceBackground,
               border: Border(
                 bottom: BorderSide(
-                  color: theme.dividerColor.withValues(alpha: 0.1),
+                  color: context.conduitTheme.dividerColor.withValues(alpha: 0.1),
                   width: BorderWidth.regular,
                 ),
               ),
@@ -96,27 +107,22 @@ class _ModelSelectorPageState extends ConsumerState<ModelSelectorPage> {
                           Platform.isIOS
                               ? CupertinoIcons.cube_box
                               : Icons.view_in_ar,
-                          size: 64,
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.3,
-                          ),
+                          size: IconSize.xxl,
+                          color: context.conduitTheme.iconSecondary,
                         ),
-                        const SizedBox(height: Spacing.md),
+                        const SizedBox(height: Spacing.lg),
                         Text(
                           'No models available',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.6,
-                            ),
+                          style: AppTypography.headlineSmallStyle.copyWith(
+                            color: context.conduitTheme.textPrimary,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: Spacing.sm),
                         Text(
                           'Please check your Open-WebUI configuration',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.5,
-                            ),
+                          style: AppTypography.bodyMediumStyle.copyWith(
+                            color: context.conduitTheme.textSecondary,
                           ),
                         ),
                       ],
@@ -132,28 +138,23 @@ class _ModelSelectorPageState extends ConsumerState<ModelSelectorPage> {
                         Icon(
                           Platform.isIOS
                               ? CupertinoIcons.search
-                              : Icons.search_off,
-                          size: 64,
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.3,
-                          ),
+                              : Icons.search_rounded,
+                          size: IconSize.xxl,
+                          color: context.conduitTheme.iconSecondary,
                         ),
-                        const SizedBox(height: Spacing.md),
+                        const SizedBox(height: Spacing.lg),
                         Text(
                           'No models found',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.6,
-                            ),
+                          style: AppTypography.headlineSmallStyle.copyWith(
+                            color: context.conduitTheme.textPrimary,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: Spacing.sm),
                         Text(
                           'Try searching with different keywords',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.5,
-                            ),
+                          style: AppTypography.bodyMediumStyle.copyWith(
+                            color: context.conduitTheme.textSecondary,
                           ),
                         ),
                       ],
@@ -183,9 +184,10 @@ class _ModelSelectorPageState extends ConsumerState<ModelSelectorPage> {
                             ),
                             child: Text(
                               group.title!,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                color: theme.colorScheme.primary,
+                              style: AppTypography.labelStyle.copyWith(
+                                color: context.conduitTheme.textSecondary,
                                 fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ),
@@ -206,7 +208,13 @@ class _ModelSelectorPageState extends ConsumerState<ModelSelectorPage> {
                   },
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    context.conduitTheme.buttonPrimary,
+                  ),
+                ),
+              ),
               error: (error, _) => Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -214,32 +222,48 @@ class _ModelSelectorPageState extends ConsumerState<ModelSelectorPage> {
                     Icon(
                       Platform.isIOS
                           ? CupertinoIcons.exclamationmark_triangle
-                          : Icons.error_outline,
-                      size: 48,
-                      color: theme.colorScheme.error,
+                          : Icons.error_rounded,
+                      size: IconSize.xxl,
+                      color: context.conduitTheme.error,
                     ),
-                    const SizedBox(height: Spacing.md),
+                    const SizedBox(height: Spacing.lg),
                     Text(
                       'Failed to load models',
-                      style: theme.textTheme.titleMedium,
+                      style: AppTypography.headlineSmallStyle.copyWith(
+                        color: context.conduitTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: Spacing.sm),
                     Text(
-                      error.toString(),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.6,
-                        ),
+                      'Please try again later',
+                      style: AppTypography.bodyMediumStyle.copyWith(
+                        color: context.conduitTheme.textSecondary,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: Spacing.lg),
-                    ElevatedButton.icon(
+                    const SizedBox(height: Spacing.xl),
+                    ElevatedButton(
                       onPressed: () => ref.refresh(modelsProvider),
-                      icon: Icon(
-                        Platform.isIOS ? CupertinoIcons.refresh : Icons.refresh,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: context.conduitTheme.buttonPrimary,
+                        foregroundColor: context.conduitTheme.buttonPrimaryText,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Spacing.buttonPadding,
+                          vertical: Spacing.md,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppBorderRadius.button),
+                        ),
+                        elevation: Elevation.none,
                       ),
-                      label: const Text('Retry'),
+                      child: Text(
+                        'Retry',
+                        style: AppTypography.labelStyle.copyWith(
+                          color: context.conduitTheme.buttonPrimaryText,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -339,20 +363,18 @@ class ModelTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       elevation: isSelected ? 2 : 0,
       color: isSelected
-          ? theme.colorScheme.primary.withValues(alpha: 0.1)
-          : null,
+          ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.1)
+          : context.conduitTheme.cardBackground,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppBorderRadius.md),
         side: BorderSide(
           color: isSelected
-              ? theme.colorScheme.primary
-              : theme.dividerColor.withValues(alpha: 0.3),
+              ? context.conduitTheme.buttonPrimary
+              : context.conduitTheme.dividerColor.withValues(alpha: 0.3),
           width: isSelected ? 2 : 1,
         ),
       ),
@@ -369,9 +391,11 @@ class ModelTile extends StatelessWidget {
                   Expanded(
                     child: Text(
                       model.name,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: isSelected ? FontWeight.w600 : null,
-                        color: isSelected ? theme.colorScheme.primary : null,
+                      style: AppTypography.bodyLargeStyle.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: isSelected 
+                            ? context.conduitTheme.buttonPrimary 
+                            : context.conduitTheme.textPrimary,
                       ),
                     ),
                   ),
@@ -380,7 +404,7 @@ class ModelTile extends StatelessWidget {
                       Platform.isIOS
                           ? CupertinoIcons.checkmark_circle_fill
                           : Icons.check_circle,
-                      color: theme.colorScheme.primary,
+                      color: context.conduitTheme.buttonPrimary,
                     ),
                 ],
               ),
@@ -388,8 +412,8 @@ class ModelTile extends StatelessWidget {
                 const SizedBox(height: Spacing.xs),
                 Text(
                   model.description!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  style: AppTypography.bodySmallStyle.copyWith(
+                    color: context.conduitTheme.textSecondary,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,

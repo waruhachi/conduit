@@ -303,66 +303,71 @@ class _ModernMessageBubbleState extends ConsumerState<ModernMessageBubble>
             left: Spacing.xxxl,
             right: Spacing.xs,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Flexible(
-                child: GestureDetector(
-                  onLongPress: () => _toggleActions(),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.messagePadding,
-                      vertical: Spacing.sm,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          context.conduitTheme.chatBubbleUser.withValues(
-                            alpha: 0.95,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Flexible(
+                    child: GestureDetector(
+                      onLongPress: () => _toggleActions(),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Spacing.messagePadding,
+                          vertical: Spacing.sm,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              context.conduitTheme.chatBubbleUser.withValues(
+                                alpha: 0.95,
+                              ),
+                              context.conduitTheme.chatBubbleUser,
+                            ],
                           ),
-                          context.conduitTheme.chatBubbleUser,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(
-                        AppBorderRadius.messageBubble,
-                      ),
-                      border: Border.all(
-                        color: context.conduitTheme.chatBubbleUserBorder,
-                        width: BorderWidth.regular,
-                      ),
-                      boxShadow: ConduitShadows.high,
-                    ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Display images if any
-                          if (widget.message.attachmentIds != null &&
-                              widget.message.attachmentIds!.isNotEmpty)
-                            _buildAttachmentImages(),
-
-                          // Display text content if any
-                          if (widget.message.content.isNotEmpty) ...[
+                          borderRadius: BorderRadius.circular(
+                            AppBorderRadius.messageBubble,
+                          ),
+                          border: Border.all(
+                            color: context.conduitTheme.chatBubbleUserBorder,
+                            width: BorderWidth.regular,
+                          ),
+                          boxShadow: ConduitShadows.high,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Display images if any
                             if (widget.message.attachmentIds != null &&
                                 widget.message.attachmentIds!.isNotEmpty)
-                              const SizedBox(height: Spacing.sm),
-                            _buildCustomText(
-                              widget.message.content,
-                              context.conduitTheme.chatBubbleUserText,
-                            ),
-                          ],
+                              _buildAttachmentImages(),
 
-                          // Action buttons for user messages
-                          if (_showActions) ...[
-                            const SizedBox(height: Spacing.md),
-                            _buildUserActionButtons(),
+                            // Display text content if any
+                            if (widget.message.content.isNotEmpty) ...[
+                              if (widget.message.attachmentIds != null &&
+                                  widget.message.attachmentIds!.isNotEmpty)
+                                const SizedBox(height: Spacing.sm),
+                              _buildCustomText(
+                                widget.message.content,
+                                context.conduitTheme.chatBubbleUserText,
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
+                    ),
                   ),
-                ),
+                ],
               ),
+              
+              // Action buttons below the message bubble
+              if (_showActions) ...[
+                const SizedBox(height: Spacing.sm),
+                _buildUserActionButtons(),
+              ],
             ],
           ),
         )
@@ -461,16 +466,16 @@ class _ModernMessageBubbleState extends ConsumerState<ModernMessageBubble>
                       ] else
                         // Fallback: show empty state for non-streaming empty messages
                         const SizedBox.shrink(),
-
-                      // Action buttons
-                      if (_showActions) ...[
-                        const SizedBox(height: Spacing.md),
-                        _buildActionButtons(),
-                      ],
                     ],
                   ),
                 ),
               ),
+
+              // Action buttons below the message content
+              if (_showActions) ...[
+                const SizedBox(height: Spacing.sm),
+                _buildActionButtons(),
+              ],
             ],
           ),
         )

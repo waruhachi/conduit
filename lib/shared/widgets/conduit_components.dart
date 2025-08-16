@@ -483,44 +483,49 @@ class ConduitEmptyState extends StatelessWidget {
     return Center(
       child: Padding(
         padding: EdgeInsets.all(isCompact ? Spacing.md : Spacing.lg),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: isCompact ? IconSize.xxl : IconSize.xxl + Spacing.md,
-              height: isCompact ? IconSize.xxl : IconSize.xxl + Spacing.md,
-              decoration: BoxDecoration(
-                color: context.conduitTheme.surfaceBackground,
-                borderRadius: BorderRadius.circular(AppBorderRadius.circular),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: isCompact ? IconSize.xxl : IconSize.xxl + Spacing.md,
+                height: isCompact ? IconSize.xxl : IconSize.xxl + Spacing.md,
+                decoration: BoxDecoration(
+                  color: context.conduitTheme.surfaceBackground,
+                  borderRadius: BorderRadius.circular(AppBorderRadius.circular),
+                ),
+                child: Icon(
+                  icon,
+                  size: isCompact ? IconSize.xl : TouchTarget.minimum,
+                  color: context.conduitTheme.iconSecondary,
+                ),
               ),
-              child: Icon(
-                icon,
-                size: isCompact ? IconSize.xl : TouchTarget.minimum,
-                color: context.conduitTheme.iconSecondary,
+              SizedBox(height: isCompact ? Spacing.sm : Spacing.md),
+              Text(
+                title,
+                style: AppTypography.headlineSmallStyle.copyWith(
+                  color: context.conduitTheme.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
-            SizedBox(height: isCompact ? Spacing.sm : Spacing.md),
-            Text(
-              title,
-              style: AppTypography.headlineSmallStyle.copyWith(
-                color: context.conduitTheme.textPrimary,
-                fontWeight: FontWeight.w600,
+              SizedBox(height: Spacing.sm),
+              Text(
+                message,
+                style: AppTypography.standard.copyWith(
+                  color: context.conduitTheme.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: isCompact ? 2 : null,
+                overflow: isCompact ? TextOverflow.ellipsis : null,
               ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: Spacing.sm),
-            Text(
-              message,
-              style: AppTypography.standard.copyWith(
-                color: context.conduitTheme.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (action != null) ...[
-              SizedBox(height: isCompact ? Spacing.md : Spacing.lg),
-              action!,
+              if (action != null) ...[
+                SizedBox(height: isCompact ? Spacing.md : Spacing.lg),
+                action!,
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

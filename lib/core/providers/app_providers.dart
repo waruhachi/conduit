@@ -13,6 +13,7 @@ import '../models/server_config.dart';
 import '../models/user.dart';
 import '../models/model.dart';
 import '../models/conversation.dart';
+import '../models/folder.dart';
 import '../models/user_settings.dart';
 import '../models/folder.dart';
 import '../models/file_info.dart';
@@ -278,7 +279,60 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
     foundation.debugPrint(
       'DEBUG: Successfully fetched ${conversations.length} conversations',
     );
-    return conversations;
+    
+    // Also fetch folder information and update conversations with folder IDs
+    try {
+      final foldersData = await api.getFolders();
+      foundation.debugPrint('DEBUG: Fetched ${foldersData.length} folders for conversation mapping');
+      
+      // Parse folder data into Folder objects
+      final folders = foldersData.map((folderData) => Folder.fromJson(folderData)).toList();
+      
+      // Create a map of conversation ID to folder ID
+      final conversationToFolder = <String, String>{};
+      for (final folder in folders) {
+        for (final conversationId in folder.conversationIds) {
+          conversationToFolder[conversationId] = folder.id;
+        }
+      }
+      
+      // Update conversations with folder IDs and add missing folder conversations
+      final updatedConversations = <Conversation>[];
+      final existingConversationIds = conversations.map((c) => c.id).toSet();
+      
+      for (final conversation in conversations) {
+        final folderId = conversationToFolder[conversation.id];
+        if (folderId != null) {
+          updatedConversations.add(conversation.copyWith(folderId: folderId));
+          foundation.debugPrint('DEBUG: Updated conversation ${conversation.id.substring(0, 8)} with folderId: $folderId');
+        } else {
+          updatedConversations.add(conversation);
+        }
+      }
+      
+      // Add conversations that are in folders but not in the main list
+      for (final folder in folders) {
+        for (final conversationId in folder.conversationIds) {
+          if (!existingConversationIds.contains(conversationId)) {
+            // Create a minimal conversation object for folder-only conversations
+            // We'll need to fetch the full conversation details
+            try {
+              final fullConversation = await api.getConversation(conversationId);
+              updatedConversations.add(fullConversation.copyWith(folderId: folder.id));
+              foundation.debugPrint('DEBUG: Added folder conversation ${conversationId.substring(0, 8)} from folder ${folder.name}');
+            } catch (e) {
+              foundation.debugPrint('DEBUG: Failed to fetch folder conversation $conversationId: $e');
+            }
+          }
+        }
+      }
+      
+      foundation.debugPrint('DEBUG: Final conversation count: ${updatedConversations.length}');
+      return updatedConversations;
+    } catch (e) {
+      foundation.debugPrint('DEBUG: Failed to fetch folder information: $e');
+      return conversations; // Return original conversations if folder fetch fails
+    }
   } catch (e, stackTrace) {
     foundation.debugPrint('DEBUG: Error fetching conversations: $e');
     foundation.debugPrint('DEBUG: Stack trace: $stackTrace');
@@ -649,13 +703,20 @@ final conversationSuggestionsProvider = FutureProvider<List<String>>((
 // Folders provider
 final foldersProvider = FutureProvider<List<Folder>>((ref) async {
   final api = ref.watch(apiServiceProvider);
-  if (api == null) return [];
+  if (api == null) {
+    foundation.debugPrint('DEBUG: No API service available for folders');
+    return [];
+  }
 
   try {
+    foundation.debugPrint('DEBUG: Fetching folders from API...');
     final foldersData = await api.getFolders();
-    return foldersData
+    foundation.debugPrint('DEBUG: Raw folders data: $foldersData');
+    final folders = foldersData
         .map((folderData) => Folder.fromJson(folderData))
         .toList();
+    foundation.debugPrint('DEBUG: Parsed ${folders.length} folders');
+    return folders;
   } catch (e) {
     foundation.debugPrint('DEBUG: Error fetching folders: $e');
     return [];

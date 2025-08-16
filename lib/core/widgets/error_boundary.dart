@@ -105,8 +105,10 @@ class _ErrorBoundaryState extends ConsumerState<ErrorBoundary> {
       }
 
       // Default error UI
-      return Scaffold(
-        backgroundColor: context.conduitTheme.surfaceBackground,
+      return Directionality(
+        textDirection: TextDirection.ltr,
+        child: Scaffold(
+          backgroundColor: context.conduitTheme.surfaceBackground,
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -145,7 +147,8 @@ class _ErrorBoundaryState extends ConsumerState<ErrorBoundary> {
             ),
           ),
         ),
-      );
+      ),
+    );
     }
 
     // Wrap child in error handler

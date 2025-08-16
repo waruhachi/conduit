@@ -404,6 +404,17 @@ class ApiService {
     // Process regular conversations (excluding pinned and archived ones)
     for (final chatData in regularChatList) {
       try {
+        // Debug: Check if conversation has folder_id in raw data
+        if (chatData.containsKey('folder_id') && chatData['folder_id'] != null) {
+          debugPrint('🔍 DEBUG: Found conversation with folder_id in raw data: ${chatData['id']} -> ${chatData['folder_id']}');
+        }
+        
+        // Debug: Check what fields are available in the chat data
+        if (regularChatList.indexOf(chatData) == 0) {
+          debugPrint('🔍 DEBUG: Sample chat data fields: ${chatData.keys.toList()}');
+          debugPrint('🔍 DEBUG: Sample chat data: ${chatData.toString().substring(0, 200)}...');
+        }
+        
         final conversation = _parseOpenWebUIChat(chatData);
         // Only add if not already added as pinned or archived
         if (!pinnedIds.contains(conversation.id) &&
@@ -477,6 +488,11 @@ class ApiService {
     final archived = chatData['archived'] as bool? ?? false;
     final shareId = chatData['share_id'] as String?;
     final folderId = chatData['folder_id'] as String?;
+    
+    // Debug logging for folder assignment
+    if (folderId != null) {
+      debugPrint('🔍 DEBUG: Conversation ${id.substring(0, 8)} has folderId: $folderId');
+    }
 
     debugPrint(
       'DEBUG: Parsed conversation $id: pinned=$pinned, archived=$archived',
@@ -929,13 +945,24 @@ class ApiService {
 
   // Folders
   Future<List<Map<String, dynamic>>> getFolders() async {
-    debugPrint('DEBUG: Fetching folders');
-    final response = await _dio.get('/api/v1/folders/');
-    final data = response.data;
-    if (data is List) {
-      return data.cast<Map<String, dynamic>>();
+    try {
+      debugPrint('DEBUG: Fetching folders from /api/v1/folders/');
+      final response = await _dio.get('/api/v1/folders/');
+      debugPrint('DEBUG: Folders response status: ${response.statusCode}');
+      debugPrint('DEBUG: Folders response data: ${response.data}');
+      
+      final data = response.data;
+      if (data is List) {
+        debugPrint('DEBUG: Found ${data.length} folders');
+        return data.cast<Map<String, dynamic>>();
+      } else {
+        debugPrint('DEBUG: Response data is not a list: ${data.runtimeType}');
+        return [];
+      }
+    } catch (e) {
+      debugPrint('DEBUG: Error in getFolders: $e');
+      rethrow;
     }
-    return [];
   }
 
   Future<Map<String, dynamic>> createFolder({

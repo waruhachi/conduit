@@ -6,6 +6,7 @@ import '../../features/auth/views/connect_signin_page.dart';
 import '../../features/settings/views/searchable_settings_page.dart';
 import '../../features/profile/views/profile_page.dart';
 import '../../features/files/views/files_page.dart';
+
 import '../../features/chat/views/conversation_search_page.dart';
 import '../../shared/widgets/themed_dialogs.dart';
 
@@ -221,6 +222,8 @@ class NavigationService {
         page = const FilesPage();
         break;
 
+
+
       case Routes.chatsList:
         page = const ChatsListPage();
         break;
@@ -246,5 +249,6 @@ class Routes {
   static const String serverConnection = '/server-connection';
   static const String search = '/search';
   static const String files = '/files';
+
   static const String chatsList = '/chats-list';
 }
