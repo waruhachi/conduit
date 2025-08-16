@@ -325,30 +325,65 @@ class ApiService {
     debugPrint('DEBUG: Making request to ${serverConfig.url}/api/v1/chats/');
     debugPrint('DEBUG: Auth token present: ${authToken != null}');
 
-    // Fetch regular, pinned, and archived conversations
-    final regularResponse = await _dio.get(
-      '/api/v1/chats/',
-      queryParameters: {
-        if (limit != null && limit > 0)
-          'page': ((skip ?? 0) / limit)
-              .floor(), // OpenWebUI uses page-based pagination with proper bounds checking
-      },
-    );
+    List<dynamic> allRegularChats = [];
+    
+    if (limit == null) {
+      // Fetch all conversations using pagination
+      debugPrint('DEBUG: Fetching ALL conversations using pagination');
+      int currentPage = 0;
+      
+      while (true) {
+        debugPrint('DEBUG: Fetching page $currentPage');
+        final response = await _dio.get(
+          '/api/v1/chats/',
+          queryParameters: {'page': currentPage},
+        );
+        
+        if (response.data is! List) {
+          throw Exception('Expected array of chats, got ${response.data.runtimeType}');
+        }
+        
+        final pageChats = response.data as List;
+        debugPrint('DEBUG: Page $currentPage returned ${pageChats.length} conversations');
+        
+        if (pageChats.isEmpty) {
+          debugPrint('DEBUG: No more conversations, stopping pagination');
+          break;
+        }
+        
+        allRegularChats.addAll(pageChats);
+        currentPage++;
+        
+        // Safety break to avoid infinite loops (adjust as needed)
+        if (currentPage > 100) {
+          debugPrint('WARNING: Reached maximum page limit (100), stopping pagination');
+          break;
+        }
+      }
+      
+      debugPrint('DEBUG: Fetched total of ${allRegularChats.length} conversations across $currentPage pages');
+    } else {
+      // Original single page fetch
+      final regularResponse = await _dio.get(
+        '/api/v1/chats/',
+        queryParameters: {
+          if (limit > 0)
+            'page': ((skip ?? 0) / limit).floor(),
+        },
+      );
+      
+      if (regularResponse.data is! List) {
+        throw Exception('Expected array of chats, got ${regularResponse.data.runtimeType}');
+      }
+      
+      allRegularChats = regularResponse.data as List;
+    }
 
     final pinnedResponse = await _dio.get('/api/v1/chats/pinned');
     final archivedResponse = await _dio.get('/api/v1/chats/all/archived');
 
-    debugPrint('DEBUG: Regular response status: ${regularResponse.statusCode}');
     debugPrint('DEBUG: Pinned response status: ${pinnedResponse.statusCode}');
-    debugPrint(
-      'DEBUG: Archived response status: ${archivedResponse.statusCode}',
-    );
-
-    if (regularResponse.data is! List) {
-      throw Exception(
-        'Expected array of chats, got ${regularResponse.data.runtimeType}',
-      );
-    }
+    debugPrint('DEBUG: Archived response status: ${archivedResponse.statusCode}');
 
     if (pinnedResponse.data is! List) {
       throw Exception(
@@ -362,7 +397,7 @@ class ApiService {
       );
     }
 
-    final regularChatList = regularResponse.data as List;
+    final regularChatList = allRegularChats;
     final pinnedChatList = pinnedResponse.data as List;
     final archivedChatList = archivedResponse.data as List;
 
@@ -548,6 +583,16 @@ class ApiService {
     // Parse messages from the 'chat' object or top-level messages
     final chatObject = chatData['chat'] as Map<String, dynamic>?;
     final messages = <ChatMessage>[];
+    
+    // Extract model from chat.models array
+    String? model;
+    if (chatObject != null && chatObject['models'] != null) {
+      final models = chatObject['models'] as List?;
+      if (models != null && models.isNotEmpty) {
+        model = models.first as String;
+        debugPrint('DEBUG: Extracted model from chat.models: $model');
+      }
+    }
 
     // Try multiple locations for messages - prefer list format to avoid duplication
     List? messagesList;
@@ -610,6 +655,7 @@ class ApiService {
       title: title,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      model: model,
       pinned: pinned,
       archived: archived,
       shareId: shareId,

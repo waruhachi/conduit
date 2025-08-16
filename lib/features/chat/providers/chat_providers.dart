@@ -53,6 +53,9 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
           'DEBUG: Loading ${next.messages.length} messages for conversation ${next.id}',
         );
         state = next.messages;
+        
+        // Update selected model if conversation has a different model
+        _updateModelForConversation(next);
       } else {
         debugPrint('DEBUG: Clearing messages - no active conversation');
         state = [];
@@ -69,6 +72,57 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
   void _cancelMessageStream() {
     _messageStream?.cancel();
     _messageStream = null;
+  }
+
+  Future<void> _updateModelForConversation(Conversation conversation) async {
+    debugPrint('DEBUG: _updateModelForConversation called for conversation ${conversation.id}');
+    
+    // Check if conversation has a model specified
+    if (conversation.model == null || conversation.model!.isEmpty) {
+      debugPrint('DEBUG: Conversation has no model specified');
+      return;
+    }
+    
+    debugPrint('DEBUG: Conversation model: ${conversation.model}');
+
+    final currentSelectedModel = _ref.read(selectedModelProvider);
+    
+    // If the conversation's model is different from the currently selected one
+    if (currentSelectedModel?.id != conversation.model) {
+      debugPrint(
+        'DEBUG: Conversation model (${conversation.model}) differs from selected model (${currentSelectedModel?.id})',
+      );
+      
+      // Get available models to find the matching one
+      try {
+        final models = await _ref.read(modelsProvider.future);
+        debugPrint('DEBUG: Available models count: ${models.length}');
+        
+        if (models.isEmpty) {
+          debugPrint('DEBUG: No models available, cannot update selected model');
+          return;
+        }
+        
+        // Look for exact match first
+        final conversationModel = models.where(
+          (model) => model.id == conversation.model,
+        ).firstOrNull;
+        
+        if (conversationModel != null) {
+          // Update the selected model
+          _ref.read(selectedModelProvider.notifier).state = conversationModel;
+          debugPrint(
+            'DEBUG: Updated selected model to ${conversationModel.name} (${conversationModel.id}) for conversation ${conversation.id}',
+          );
+        } else {
+          debugPrint(
+            'DEBUG: Conversation model ${conversation.model} not found in available models: ${models.map((m) => m.id).join(', ')}',
+          );
+        }
+      } catch (e) {
+        debugPrint('DEBUG: Failed to update model for conversation: $e');
+      }
+    }
   }
 
   void setMessageStream(StreamSubscription stream) {
@@ -526,6 +580,9 @@ Future<void> _sendMessageInternal(
         debugPrint(
           'DEBUG: Server conversation ID: ${serverConversation.id}, Title: ${serverConversation.title}',
         );
+        
+        // Invalidate conversations provider to refresh the list
+        ref.invalidate(conversationsProvider);
       } catch (e) {
         debugPrint(
           'DEBUG: Failed to create conversation on server, using local: $e',

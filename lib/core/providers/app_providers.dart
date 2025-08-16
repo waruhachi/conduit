@@ -275,7 +275,7 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
 
   try {
     foundation.debugPrint('DEBUG: Fetching conversations from OpenWebUI API...');
-    final conversations = await api.getConversations(limit: 50);
+    final conversations = await api.getConversations(); // Fetch all conversations
     foundation.debugPrint(
       'DEBUG: Successfully fetched ${conversations.length} conversations',
     );
@@ -328,9 +328,17 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
       }
       
       foundation.debugPrint('DEBUG: Final conversation count: ${updatedConversations.length}');
+      
+      // Sort conversations by updatedAt in descending order (most recent first)
+      updatedConversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      foundation.debugPrint('DEBUG: Sorted conversations by updatedAt (most recent first)');
+      
       return updatedConversations;
     } catch (e) {
       foundation.debugPrint('DEBUG: Failed to fetch folder information: $e');
+      // Sort conversations even when folder fetch fails
+      conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      foundation.debugPrint('DEBUG: Sorted conversations by updatedAt (fallback case)');
       return conversations; // Return original conversations if folder fetch fails
     }
   } catch (e, stackTrace) {
