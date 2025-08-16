@@ -49,6 +49,7 @@ class _DocumentationMessageWidgetState
   String _renderedContent = '';
   Timer? _throttleTimer;
   String? _pendingContent;
+  Widget? _cachedAvatar;
 
   @override
   void initState() {
@@ -68,6 +69,13 @@ class _DocumentationMessageWidgetState
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Build cached avatar when theme context is available
+    _buildCachedAvatar();
+  }
+
+  @override
   void didUpdateWidget(DocumentationMessageWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
@@ -76,6 +84,11 @@ class _DocumentationMessageWidgetState
       // Throttle markdown re-rendering for smoother streaming
       _scheduleRenderUpdate(widget.message.content ?? '');
       _updateReasoningContent();
+    }
+    
+    // Rebuild cached avatar if model name changes
+    if (oldWidget.modelName != widget.modelName) {
+      _buildCachedAvatar();
     }
   }
 
@@ -124,6 +137,41 @@ class _DocumentationMessageWidgetState
     return content;
   }
 
+  void _buildCachedAvatar() {
+    _cachedAvatar = Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: context.conduitTheme.buttonPrimary,
+              borderRadius: BorderRadius.circular(
+                AppBorderRadius.small,
+              ),
+            ),
+            child: Icon(
+              Icons.auto_awesome,
+              color: context.conduitTheme.buttonPrimaryText,
+              size: 12,
+            ),
+          ),
+          const SizedBox(width: Spacing.xs),
+          Text(
+            widget.modelName ?? 'Assistant',
+            style: TextStyle(
+              color: context.conduitTheme.textSecondary,
+              fontSize: AppTypography.bodySmall,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _fadeController.dispose();
@@ -158,29 +206,29 @@ class _DocumentationMessageWidgetState
     return Container(
           width: double.infinity,
           margin: const EdgeInsets.only(bottom: 16, left: 50, right: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Flexible(
-                child: GestureDetector(
-                  onLongPress: () => _toggleActions(),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: context.conduitTheme.chatBubbleUser,
-                      borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-                      border: Border.all(
-                        color: context.conduitTheme.chatBubbleUserBorder,
-                        width: BorderWidth.regular,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Flexible(
+                    child: GestureDetector(
+                      onLongPress: () => _toggleActions(),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: context.conduitTheme.chatBubbleUser,
+                          borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+                          border: Border.all(
+                            color: context.conduitTheme.chatBubbleUserBorder,
+                            width: BorderWidth.regular,
+                          ),
+                        ),
+                        child: Text(
                           widget.message.content,
                           style: TextStyle(
                             color: context.conduitTheme.chatBubbleUserText,
@@ -189,17 +237,17 @@ class _DocumentationMessageWidgetState
                             letterSpacing: 0.1,
                           ),
                         ),
-                        
-                        // Action buttons for user messages
-                        if (_showActions) ...[
-                          const SizedBox(height: 12),
-                          _buildUserActionButtons(),
-                        ],
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
+              
+              // Action buttons below the message bubble
+              if (_showActions) ...[
+                const SizedBox(height: Spacing.sm),
+                _buildUserActionButtons(),
+              ],
             ],
           ),
         )
@@ -220,39 +268,8 @@ class _DocumentationMessageWidgetState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Simplified AI Name and Avatar
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: context.conduitTheme.buttonPrimary,
-                        borderRadius: BorderRadius.circular(
-                          AppBorderRadius.small,
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.auto_awesome,
-                        color: context.conduitTheme.buttonPrimaryText,
-                        size: 12,
-                      ),
-                    ),
-                    const SizedBox(width: Spacing.xs),
-                    Text(
-                      widget.modelName ?? 'Assistant',
-                      style: TextStyle(
-                        color: context.conduitTheme.textSecondary,
-                        fontSize: AppTypography.bodySmall,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.1,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // Cached AI Name and Avatar to prevent flashing
+              _cachedAvatar ?? const SizedBox.shrink(),
 
               // Reasoning Section (if present)
               if (_reasoningContent != null) ...[
@@ -364,16 +381,16 @@ class _DocumentationMessageWidgetState
                           _reasoningContent?.mainContent ??
                               widget.message.content,
                         ),
-
-                      // Action buttons - inline and minimal
-                      if (_showActions) ...[
-                        const SizedBox(height: Spacing.md),
-                        _buildActionButtons(),
-                      ],
                     ],
                   ),
                 ),
               ),
+
+              // Action buttons below the message content
+              if (_showActions) ...[
+                const SizedBox(height: Spacing.sm),
+                _buildActionButtons(),
+              ],
             ],
           ),
         )

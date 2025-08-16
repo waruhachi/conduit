@@ -46,6 +46,10 @@ class _ModernMessageBubbleState extends ConsumerState<ModernMessageBubble>
 
   // Cache for image base64 data to prevent repeated API calls
   final Map<String, String?> _imageCache = {};
+  
+  // Cache for rendered image widgets to prevent rebuilding during streaming
+  final Map<String, Widget> _imageWidgetCache = {};
+  String? _lastAttachmentIds;
 
   @override
   void initState() {
@@ -57,6 +61,207 @@ class _ModernMessageBubbleState extends ConsumerState<ModernMessageBubble>
     _slideController = AnimationController(
       duration: AnimationDuration.messageSlide,
       vsync: this,
+    );
+  }
+
+
+
+  Widget _buildAttachmentImages() {
+    if (widget.message.attachmentIds == null ||
+        widget.message.attachmentIds!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final currentAttachmentIds = widget.message.attachmentIds!.join('_');
+    
+    // Clear cache if attachment IDs changed
+    if (_lastAttachmentIds != currentAttachmentIds) {
+      _imageWidgetCache.clear();
+      _lastAttachmentIds = currentAttachmentIds;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: widget.message.attachmentIds!.map<Widget>((attachmentId) {
+        // Return cached widget if available
+        if (_imageWidgetCache.containsKey(attachmentId)) {
+          return _imageWidgetCache[attachmentId]!;
+        }
+
+        // Build widget and cache it
+        final imageWidget = _buildSingleImageWidget(attachmentId);
+        _imageWidgetCache[attachmentId] = imageWidget;
+        return imageWidget;
+      }).toList(),
+    );
+  }
+
+  Widget _buildSingleImageWidget(String attachmentId) {
+    return Consumer(
+      builder: (context, ref, child) {
+        final api = ref.read(apiServiceProvider);
+        if (api == null) return const SizedBox.shrink();
+
+        return FutureBuilder<String?>(
+          key: ValueKey('img_$attachmentId'),
+          future: _getCachedImageBase64(api, attachmentId),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                height: 150,
+                width: 200,
+                margin: const EdgeInsets.only(bottom: Spacing.xs),
+                decoration: BoxDecoration(
+                  color: context.conduitTheme.surfaceBackground.withValues(
+                    alpha: 0.5,
+                  ),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+                ),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: context.conduitTheme.buttonPrimary,
+                    strokeWidth: 2,
+                  ),
+                ),
+              );
+            }
+
+            if (snapshot.hasError ||
+                !snapshot.hasData ||
+                snapshot.data == null) {
+              return Container(
+                height: 100,
+                width: 150,
+                margin: const EdgeInsets.only(bottom: Spacing.xs),
+                decoration: BoxDecoration(
+                  color: context.conduitTheme.surfaceBackground.withValues(
+                    alpha: 0.3,
+                  ),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+                  border: Border.all(
+                    color: context.conduitTheme.textSecondary.withValues(
+                      alpha: 0.3,
+                    ),
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.broken_image_outlined,
+                      color: context.conduitTheme.textSecondary,
+                      size: 32,
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    Text(
+                      'Image unavailable',
+                      style: TextStyle(
+                        color: context.conduitTheme.textSecondary,
+                        fontSize: AppTypography.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final base64Data = snapshot.data!;
+            try {
+              // Handle data URLs (data:image/...;base64,...)
+              String actualBase64;
+              if (base64Data.startsWith('data:')) {
+                // Extract base64 part from data URL
+                final commaIndex = base64Data.indexOf(',');
+                if (commaIndex != -1) {
+                  actualBase64 = base64Data.substring(commaIndex + 1);
+                } else {
+                  throw Exception('Invalid data URL format');
+                }
+              } else {
+                // Direct base64 string
+                actualBase64 = base64Data;
+              }
+
+              final imageBytes = base64.decode(actualBase64);
+              return Container(
+                margin: const EdgeInsets.only(bottom: Spacing.xs),
+                constraints: const BoxConstraints(
+                  maxWidth: 300,
+                  maxHeight: 300,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+                  child: Image.memory(
+                    imageBytes,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        height: 100,
+                        width: 150,
+                        decoration: BoxDecoration(
+                          color: context.conduitTheme.surfaceBackground
+                              .withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(
+                            AppBorderRadius.sm,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: context.conduitTheme.error,
+                              size: 32,
+                            ),
+                            const SizedBox(height: Spacing.xs),
+                            Text(
+                              'Failed to load image',
+                              style: TextStyle(
+                                color: context.conduitTheme.error,
+                                fontSize: AppTypography.bodySmall,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              );
+            } catch (e) {
+              return Container(
+                height: 100,
+                width: 150,
+                margin: const EdgeInsets.only(bottom: Spacing.xs),
+                decoration: BoxDecoration(
+                  color: context.conduitTheme.surfaceBackground.withValues(
+                    alpha: 0.3,
+                  ),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      color: context.conduitTheme.error,
+                      size: 32,
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    Text(
+                      'Invalid image format',
+                      style: TextStyle(
+                        color: context.conduitTheme.error,
+                        fontSize: AppTypography.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+          },
+        );
+      },
     );
   }
 
@@ -279,183 +484,7 @@ class _ModernMessageBubbleState extends ConsumerState<ModernMessageBubble>
         );
   }
 
-  Widget _buildAttachmentImages() {
-    if (widget.message.attachmentIds == null ||
-        widget.message.attachmentIds!.isEmpty) {
-      return const SizedBox.shrink();
-    }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: widget.message.attachmentIds!.map<Widget>((attachmentId) {
-        return Consumer(
-          builder: (context, ref, child) {
-            final api = ref.watch(apiServiceProvider);
-            if (api == null) return const SizedBox.shrink();
-
-            return FutureBuilder<String?>(
-              future: _getCachedImageBase64(api, attachmentId),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Container(
-                    height: 150,
-                    width: 200,
-                    margin: const EdgeInsets.only(bottom: Spacing.xs),
-                    decoration: BoxDecoration(
-                      color: context.conduitTheme.surfaceBackground.withValues(
-                        alpha: 0.5,
-                      ),
-                      borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-                    ),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: context.conduitTheme.buttonPrimary,
-                        strokeWidth: 2,
-                      ),
-                    ),
-                  );
-                }
-
-                if (snapshot.hasError ||
-                    !snapshot.hasData ||
-                    snapshot.data == null) {
-                  return Container(
-                    height: 100,
-                    width: 150,
-                    margin: const EdgeInsets.only(bottom: Spacing.xs),
-                    decoration: BoxDecoration(
-                      color: context.conduitTheme.surfaceBackground.withValues(
-                        alpha: 0.3,
-                      ),
-                      borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-                      border: Border.all(
-                        color: context.conduitTheme.textSecondary.withValues(
-                          alpha: 0.3,
-                        ),
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.broken_image_outlined,
-                          color: context.conduitTheme.textSecondary,
-                          size: 32,
-                        ),
-                        const SizedBox(height: Spacing.xs),
-                        Text(
-                          'Image unavailable',
-                          style: TextStyle(
-                            color: context.conduitTheme.textSecondary,
-                            fontSize: AppTypography.bodySmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                final base64Data = snapshot.data!;
-                try {
-                  // Handle data URLs (data:image/...;base64,...)
-                  String actualBase64;
-                  if (base64Data.startsWith('data:')) {
-                    // Extract base64 part from data URL
-                    final commaIndex = base64Data.indexOf(',');
-                    if (commaIndex != -1) {
-                      actualBase64 = base64Data.substring(commaIndex + 1);
-                    } else {
-                      throw Exception('Invalid data URL format');
-                    }
-                  } else {
-                    // Direct base64 string
-                    actualBase64 = base64Data;
-                  }
-
-                  final imageBytes = base64.decode(actualBase64);
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: Spacing.xs),
-                    constraints: const BoxConstraints(
-                      maxWidth: 300,
-                      maxHeight: 300,
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-                      child: Image.memory(
-                        imageBytes,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            height: 100,
-                            width: 150,
-                            decoration: BoxDecoration(
-                              color: context.conduitTheme.surfaceBackground
-                                  .withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(
-                                AppBorderRadius.sm,
-                              ),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  color: context.conduitTheme.error,
-                                  size: 32,
-                                ),
-                                const SizedBox(height: Spacing.xs),
-                                Text(
-                                  'Failed to load image',
-                                  style: TextStyle(
-                                    color: context.conduitTheme.error,
-                                    fontSize: AppTypography.bodySmall,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  );
-                } catch (e) {
-                  return Container(
-                    height: 100,
-                    width: 150,
-                    margin: const EdgeInsets.only(bottom: Spacing.xs),
-                    decoration: BoxDecoration(
-                      color: context.conduitTheme.surfaceBackground.withValues(
-                        alpha: 0.3,
-                      ),
-                      borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          color: context.conduitTheme.error,
-                          size: 32,
-                        ),
-                        const SizedBox(height: Spacing.xs),
-                        Text(
-                          'Invalid image format',
-                          style: TextStyle(
-                            color: context.conduitTheme.error,
-                            fontSize: AppTypography.bodySmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-              },
-            );
-          },
-        );
-      }).toList(),
-    );
-  }
 
   Future<String?> _getCachedImageBase64(dynamic api, String fileId) async {
     // Check cache first to prevent repeated API calls

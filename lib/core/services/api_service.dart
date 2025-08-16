@@ -636,12 +636,27 @@ class ApiService {
       role = 'user';
     }
 
+    // Parse attachments from 'files' field
+    List<String>? attachmentIds;
+    if (msgData['files'] != null) {
+      final filesList = msgData['files'] as List;
+      attachmentIds = filesList
+          .where((file) => file is Map && file['file_id'] != null)
+          .map((file) => file['file_id'] as String)
+          .toList();
+      
+      if (attachmentIds.isEmpty) {
+        attachmentIds = null;
+      }
+    }
+
     return ChatMessage(
       id: msgData['id']?.toString() ?? uuid.v4(),
       role: role,
       content: contentString,
       timestamp: _parseTimestamp(msgData['timestamp']),
       model: msgData['model'] as String?,
+      attachmentIds: attachmentIds,
     );
   }
 
@@ -760,6 +775,8 @@ class ApiService {
         if (msg.role == 'assistant') 'modelIdx': 0,
         if (msg.role == 'assistant') 'done': true,
         if (msg.role == 'user' && model != null) 'models': [model],
+        if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty) 
+          'files': msg.attachmentIds!.map((id) => {'file_id': id}).toList(),
       };
       
       // Update parent's childrenIds
@@ -780,6 +797,8 @@ class ApiService {
         if (msg.role == 'assistant') 'modelIdx': 0,
         if (msg.role == 'assistant') 'done': true,
         if (msg.role == 'user' && model != null) 'models': [model],
+        if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty) 
+          'files': msg.attachmentIds!.map((id) => {'file_id': id}).toList(),
       });
       
       previousId = messageId;
