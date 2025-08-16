@@ -43,11 +43,12 @@ class ValidationInterceptor extends Interceptor {
         }
 
         // Transform data if validation succeeded
-        if (result.isValid && options.data is Map<String, dynamic>) {
-          options.data = _validator.transformForApi(
-            options.data as Map<String, dynamic>,
-          );
-        }
+        // Temporarily disabled to preserve background_tasks and session_id parameters
+        // if (result.isValid && options.data is Map<String, dynamic>) {
+        //   options.data = _validator.transformForApi(
+        //     options.data as Map<String, dynamic>,
+        //   );
+        // }
       } catch (e) {
         if (e is ValidationException) {
           handler.reject(

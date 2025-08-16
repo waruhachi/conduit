@@ -702,8 +702,8 @@ Future<void> _sendMessageInternal(
       }
     }
 
-    // Stream response using chat completions endpoint directly
-    final response = await api.sendMessageWithStreaming(
+    // Stream response using SSE
+    final response = await api.sendMessage(
       messages: conversationMessages,
       model: selectedModel.id,
       conversationId: activeConversation?.id,
@@ -837,6 +837,12 @@ Future<void> _sendMessageInternal(
                     messages.length <= 2 &&
                     updatedConv.title != 'New Chat' &&
                     updatedConv.title.isNotEmpty;
+                
+                // If title is still "New Chat" and this is the first exchange, trigger title generation
+                if (messages.length <= 2 && updatedConv.title == 'New Chat') {
+                  debugPrint('DEBUG: Triggering title generation for conversation ${activeConversation.id}');
+                  _triggerTitleGeneration(ref, activeConversation.id, formattedMessages, selectedModel.id);
+                }
 
                 // Always combine current local messages with updated server content
                 final currentMessages = ref.read(chatMessagesProvider);
@@ -1172,6 +1178,68 @@ Please try sending the message again, or try without attachments.''',
       );
       ref.read(chatMessagesProvider.notifier).addMessage(errorMessage);
     }
+  }
+}
+
+// Trigger title generation using the dedicated endpoint
+Future<void> _triggerTitleGeneration(
+  dynamic ref,
+  String conversationId,
+  List<Map<String, dynamic>> messages,
+  String model,
+) async {
+  try {
+    final api = ref.read(apiServiceProvider);
+    if (api == null) return;
+    
+    debugPrint('DEBUG: Requesting title generation for conversation $conversationId');
+    
+    // Call the title generation endpoint
+    final generatedTitle = await api.generateTitle(
+      conversationId: conversationId,
+      messages: messages,
+      model: model,
+    );
+    
+    if (generatedTitle != null && generatedTitle.isNotEmpty && generatedTitle != 'New Chat') {
+      debugPrint('DEBUG: Title generated successfully: $generatedTitle');
+      
+      // Update the active conversation with the new title
+      final activeConversation = ref.read(activeConversationProvider);
+      if (activeConversation?.id == conversationId) {
+        final updated = activeConversation!.copyWith(
+          title: generatedTitle,
+          updatedAt: DateTime.now(),
+        );
+        ref.read(activeConversationProvider.notifier).state = updated;
+        
+        // Save the updated title to the server
+        try {
+          debugPrint('DEBUG: Saving generated title to server: $generatedTitle');
+          final currentMessages = ref.read(chatMessagesProvider);
+          await api.updateConversationWithMessages(
+            conversationId,
+            currentMessages,
+            title: generatedTitle,
+            model: model,
+          );
+          debugPrint('DEBUG: Title saved to server successfully');
+        } catch (e) {
+          debugPrint('DEBUG: Failed to save title to server: $e');
+        }
+        
+        // Refresh the conversations list
+        ref.invalidate(conversationsProvider);
+      }
+    } else {
+      debugPrint('DEBUG: Title generation did not return a valid title');
+      // Fall back to background checking
+      _checkForTitleInBackground(ref, conversationId);
+    }
+  } catch (e) {
+    debugPrint('DEBUG: Title generation failed: $e');
+    // Fall back to background checking
+    _checkForTitleInBackground(ref, conversationId);
   }
 }
 
