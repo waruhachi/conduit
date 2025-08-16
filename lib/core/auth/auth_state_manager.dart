@@ -95,8 +95,10 @@ class AuthStateManager extends StateNotifier<AuthState> {
       final token = await storage.getAuthToken();
 
       if (token != null && token.isNotEmpty) {
+        debugPrint('DEBUG: Found stored token during initialization: ${token.substring(0, 10)}...');
         // Validate token before setting authenticated state
         final isValid = await _validateToken(token);
+        debugPrint('DEBUG: Token validation result: $isValid');
         if (isValid) {
           state = state.copyWith(
             status: AuthStatus.authenticated,
@@ -112,6 +114,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
           _loadUserData();
         } else {
           // Token is invalid, clear it
+          debugPrint('DEBUG: Token validation failed, deleting token');
           await storage.deleteAuthToken();
           state = state.copyWith(
             status: AuthStatus.unauthenticated,
@@ -135,6 +138,98 @@ class AuthStateManager extends StateNotifier<AuthState> {
         error: 'Failed to initialize auth: $e',
         isLoading: false,
       );
+    }
+  }
+
+  /// Perform login with API key
+  Future<bool> loginWithApiKey(
+    String apiKey, {
+    bool rememberCredentials = false,
+  }) async {
+    state = state.copyWith(
+      status: AuthStatus.loading,
+      isLoading: true,
+      clearError: true,
+    );
+
+    try {
+      // Validate API key format
+      if (apiKey.trim().isEmpty) {
+        throw Exception('API key cannot be empty');
+      }
+
+      // Ensure API service is available
+      await _ensureApiServiceAvailable();
+      final api = _ref.read(apiServiceProvider);
+      if (api == null) {
+        throw Exception('No server connection available');
+      }
+
+      // Use API key directly as Bearer token
+      final tokenStr = apiKey.trim();
+      
+      // Validate token format (consistent with credentials method)
+      if (!_isValidTokenFormat(tokenStr)) {
+        throw Exception('Invalid API key format');
+      }
+      
+      // Update API service with the API key
+      _updateApiServiceToken(tokenStr);
+
+      // Validate by attempting to fetch user info
+      try {
+        await api.getCurrentUser(); // Just validate, don't store user data yet
+        
+        // Save token to storage
+        final storage = _ref.read(optimizedStorageServiceProvider);
+        await storage.saveAuthToken(tokenStr);
+
+        // Save API key if requested (for convenience, though less secure than credentials)
+        if (rememberCredentials) {
+          final activeServer = await _ref.read(activeServerProvider.future);
+          if (activeServer != null) {
+            // Store API key as a special credential type
+            await storage.saveCredentials(
+              serverId: activeServer.id,
+              username: 'api_key_user', // Special username to indicate API key auth
+              password: tokenStr, // Store API key in password field
+            );
+            await storage.setRememberCredentials(true);
+          }
+        }
+
+        // Update state (without user data initially)
+        state = state.copyWith(
+          status: AuthStatus.authenticated,
+          token: tokenStr,
+          isLoading: false,
+          clearError: true,
+        );
+
+        // Update API service with token
+        _updateApiServiceToken(tokenStr);
+
+        // Cache the successful auth state
+        _cacheManager.cacheAuthState(state);
+
+        // Load user data in background (consistent with credentials method)
+        _loadUserData();
+
+        debugPrint('DEBUG: API key login successful');
+        return true;
+      } catch (e) {
+        // If user fetch fails, the API key might be invalid
+        throw Exception('Invalid API key or insufficient permissions');
+      }
+    } catch (e) {
+      debugPrint('ERROR: API key login failed: $e');
+      state = state.copyWith(
+        status: AuthStatus.error,
+        error: e.toString(),
+        isLoading: false,
+        clearToken: true,
+      );
+      return false;
     }
   }
 
@@ -272,8 +367,14 @@ class AuthStateManager extends StateNotifier<AuthState> {
         return false;
       }
 
-      // Attempt login
-      return await login(username, password, rememberCredentials: false);
+      // Attempt login (detect API key vs normal credentials)
+      if (username == 'api_key_user') {
+        // This is a saved API key
+        return await loginWithApiKey(password, rememberCredentials: false);
+      } else {
+        // Normal username/password credentials
+        return await login(username, password, rememberCredentials: false);
+      }
     } catch (e) {
       debugPrint('ERROR: Silent login failed: $e');
 

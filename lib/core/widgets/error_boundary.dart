@@ -28,20 +28,38 @@ class _ErrorBoundaryState extends ConsumerState<ErrorBoundary> {
   Object? _error;
   StackTrace? _stackTrace;
   bool _hasError = false;
+  void Function(FlutterErrorDetails details)? _previousOnError;
+
+  void _scheduleHandleError(Object error, StackTrace? stack) {
+    // Defer to next frame to avoid setState during build exceptions
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _handleError(error, stack);
+      }
+    });
+  }
 
   @override
   void initState() {
     super.initState();
 
     // Set up Flutter error handling for this widget
-    final previousOnError = FlutterError.onError;
+    _previousOnError = FlutterError.onError;
     FlutterError.onError = (FlutterErrorDetails details) {
       // Forward to any previously registered handler to avoid interfering
-      if (previousOnError != null) {
-        previousOnError(details);
-      }
-      _handleError(details.exception, details.stack);
+      _previousOnError?.call(details);
+      // Defer handling to avoid setState during build
+      _scheduleHandleError(details.exception, details.stack);
     };
+  }
+
+  @override
+  void dispose() {
+    // Restore previous error handler to avoid leaking global state
+    if (FlutterError.onError != _previousOnError) {
+      FlutterError.onError = _previousOnError;
+    }
+    super.dispose();
   }
 
   void _handleError(Object error, StackTrace? stack) {
@@ -134,14 +152,16 @@ class _ErrorBoundaryState extends ConsumerState<ErrorBoundary> {
     return Builder(
       builder: (context) {
         ErrorWidget.builder = (FlutterErrorDetails details) {
-          _handleError(details.exception, details.stack);
+          // Defer handling to avoid setState during build of error widgets
+          _scheduleHandleError(details.exception, details.stack);
           return const SizedBox.shrink();
         };
 
         try {
           return widget.child;
         } catch (error, stack) {
-          _handleError(error, stack);
+          // Defer handling to avoid setState during build
+          _scheduleHandleError(error, stack);
           return const SizedBox.shrink();
         }
       },

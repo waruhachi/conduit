@@ -1169,11 +1169,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          _formatModelDisplayName(selectedModel.name),
-                          style: AppTypography.headlineSmallStyle.copyWith(
-                            color: context.conduitTheme.textPrimary,
-                            fontWeight: FontWeight.w400,
+                        Flexible(
+                          child: Text(
+                            _formatModelDisplayName(selectedModel.name),
+                            style: AppTypography.headlineSmallStyle.copyWith(
+                              color: context.conduitTheme.textPrimary,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const SizedBox(width: Spacing.xs),
@@ -1214,11 +1218,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          'Choose Model',
-                          style: AppTypography.headlineSmallStyle.copyWith(
-                            color: context.conduitTheme.textPrimary,
-                            fontWeight: FontWeight.w400,
+                        Flexible(
+                          child: Text(
+                            'Choose Model',
+                            style: AppTypography.headlineSmallStyle.copyWith(
+                              color: context.conduitTheme.textPrimary,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const SizedBox(width: Spacing.xs),

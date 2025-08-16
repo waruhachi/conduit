@@ -741,17 +741,20 @@ class AccessibleFormField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (label != null) ...[
-          Row(
+          Wrap(
+            spacing: Spacing.textSpacing,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 label!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: AppTypography.standard.copyWith(
                   fontWeight: FontWeight.w500,
                   color: context.conduitTheme.textPrimary,
                 ),
               ),
-              if (isRequired) ...[
-                SizedBox(width: Spacing.textSpacing),
+              if (isRequired)
                 Text(
                   '*',
                   style: AppTypography.standard.copyWith(
@@ -759,7 +762,6 @@ class AccessibleFormField extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              ],
             ],
           ),
           SizedBox(height: isCompact ? Spacing.xs : Spacing.sm),

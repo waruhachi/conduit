@@ -10,6 +10,7 @@ sealed class ServerConfig with _$ServerConfig {
     required String name,
     required String url,
     String? apiKey,
+    @Default({}) Map<String, String> customHeaders,
     DateTime? lastConnected,
     @Default(false) bool isActive,
   }) = _ServerConfig;

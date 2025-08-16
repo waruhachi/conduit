@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 /// Implements security requirements from OpenAPI specification
 class ApiAuthInterceptor extends Interceptor {
   String? _authToken;
+  final Map<String, String> customHeaders;
 
   // Callbacks for auth events
   void Function()? onAuthTokenInvalid;
@@ -35,6 +36,7 @@ class ApiAuthInterceptor extends Interceptor {
     String? authToken,
     this.onAuthTokenInvalid,
     this.onTokenInvalidated,
+    this.customHeaders = const {},
   }) : _authToken = authToken;
 
   void updateAuthToken(String? token) {
@@ -100,6 +102,21 @@ class ApiAuthInterceptor extends Interceptor {
         _authToken!.isNotEmpty) {
       // Optional authentication - add if available
       options.headers['Authorization'] = 'Bearer $_authToken';
+    }
+
+    // Add custom headers from server config (with safety checks)
+    if (customHeaders.isNotEmpty) {
+      customHeaders.forEach((key, value) {
+        // Don't override critical headers that we manage
+        final lowerKey = key.toLowerCase();
+        if (lowerKey != 'authorization' && 
+            lowerKey != 'content-type' && 
+            lowerKey != 'accept') {
+          options.headers[key] = value;
+        } else {
+          debugPrint('WARNING: Skipping reserved header override attempt: $key');
+        }
+      });
     }
 
     // Add other common headers for API consistency

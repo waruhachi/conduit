@@ -6,7 +6,7 @@ import 'package:crypto/crypto.dart';
 class TokenValidator {
   static const Duration _validationTimeout = Duration(seconds: 5);
 
-  /// Validate JWT token format and expiry without network call
+  /// Validate token format (supports both JWT and API key formats)
   static TokenValidationResult validateTokenFormat(String token) {
     try {
       // Basic format check
@@ -14,10 +14,20 @@ class TokenValidator {
         return TokenValidationResult.invalid('Token too short');
       }
 
+      // Check if it's an API key format (starts with sk- or similar)
+      if (token.startsWith('sk-') || token.startsWith('api-') || token.startsWith('key-')) {
+        // API key format - validate differently
+        if (token.length < 20) {
+          return TokenValidationResult.invalid('API key too short');
+        }
+        return TokenValidationResult.valid('API key format valid');
+      }
+
       // Check if it looks like a JWT (has at least 2 dots)
       final parts = token.split('.');
       if (parts.length < 3) {
-        return TokenValidationResult.invalid('Invalid JWT format');
+        // Not JWT format, treat as opaque token
+        return TokenValidationResult.valid('Opaque token format valid');
       }
 
       // Try to decode the payload to check expiry

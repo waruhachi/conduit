@@ -38,13 +38,21 @@ class ApiService {
           followRedirects: true,
           maxRedirects: 5,
           validateStatus: (status) => status != null && status < 400,
+          // Add custom headers from server config
+          headers: serverConfig.customHeaders.isNotEmpty
+              ? Map<String, String>.from(serverConfig.customHeaders)
+              : null,
         ),
       ) {
+    // Use API key from server config if provided and no explicit auth token
+    final effectiveAuthToken = authToken ?? serverConfig.apiKey;
+    
     // Initialize the consistent auth interceptor
     _authInterceptor = ApiAuthInterceptor(
-      authToken: authToken,
+      authToken: effectiveAuthToken,
       onAuthTokenInvalid: onAuthTokenInvalid,
       onTokenInvalidated: onTokenInvalidated,
+      customHeaders: serverConfig.customHeaders,
     );
 
     // Add interceptors in order of priority:

@@ -9,17 +9,15 @@ import '../theme/app_theme.dart';
 class BrandService {
   BrandService._();
 
-  /// Primary brand icon - the hub icon
-  static IconData get primaryIcon =>
-      Platform.isIOS ? CupertinoIcons.link_circle_fill : Icons.hub;
+  /// Primary brand icon - the hub icon (consistent across platforms)
+  static IconData get primaryIcon => Icons.hub;
 
   /// Alternative brand icons for different contexts
-  static IconData get primaryIconOutlined =>
-      Platform.isIOS ? CupertinoIcons.link_circle : Icons.hub_outlined;
+  static IconData get primaryIconOutlined => Icons.hub_outlined;
   static IconData get connectivityIcon =>
-      Platform.isIOS ? CupertinoIcons.wifi : Icons.hub;
+      Platform.isIOS ? CupertinoIcons.wifi : Icons.wifi;
   static IconData get networkIcon =>
-      Platform.isIOS ? CupertinoIcons.globe : Icons.hub;
+      Platform.isIOS ? CupertinoIcons.globe : Icons.public;
 
   /// Brand colors - these should be accessed through context.conduitTheme in UI components
   static Color get primaryBrandColor => AppTheme.brandPrimary;
@@ -231,13 +229,15 @@ class BrandService {
     return AppBar(
       title: Text(
         title,
-        style: (context != null ? context.conduitTheme.headingSmall : null)
-            ?.copyWith(
-              color: (context != null
-                  ? context.conduitTheme.textPrimary
-                  : null),
-              fontWeight: FontWeight.w600,
-            ),
+        style: context != null 
+            ? context.conduitTheme.headingSmall?.copyWith(
+                color: context.conduitTheme.textPrimary,
+                fontWeight: FontWeight.w600,
+              )
+            : TextStyle(
+                fontSize: AppTypography.headlineSmall,
+                fontWeight: FontWeight.w600,
+              ),
       ),
       centerTitle: centerTitle,
       elevation: elevation,
