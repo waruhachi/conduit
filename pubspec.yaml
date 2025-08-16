@@ -37,6 +37,7 @@ dependencies:
   record: ^6.0.0
   image_picker: ^1.1.2
   file_picker: ^10.2.1
+  path_provider: ^2.1.4
   
   # Utilities
   path: ^1.9.0
@@ -51,6 +52,7 @@ dependencies:
   freezed_annotation: ^3.0.0
   json_annotation: ^4.9.0
   google_fonts: ^6.2.1
+  wakelock_plus: ^1.2.10
   
   # Clipboard functionality is available through flutter/services (part of Flutter SDK)
 

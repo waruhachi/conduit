@@ -12,7 +12,7 @@ import 'shared/widgets/offline_indicator.dart';
 import 'features/auth/views/connect_signin_page.dart';
 import 'features/auth/providers/unified_auth_providers.dart';
 import 'core/auth/auth_state_manager.dart';
-import 'package:flutter/cupertino.dart';
+
 import 'features/onboarding/views/onboarding_sheet.dart';
 import 'features/chat/views/chat_page.dart';
 import 'features/navigation/views/splash_launcher_page.dart';

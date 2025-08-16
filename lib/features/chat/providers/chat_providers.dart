@@ -9,6 +9,7 @@ import '../../../core/models/conversation.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/auth/auth_state_manager.dart';
 import '../../../core/utils/stream_chunker.dart';
+import '../../../core/services/persistent_streaming_service.dart';
 
 // Chat messages for current conversation
 final chatMessagesProvider =
@@ -306,6 +307,128 @@ Future<String?> _getFileAsBase64(dynamic api, String fileId) async {
   } catch (e) {
     debugPrint('DEBUG: Error getting file content for $fileId: $e');
     return null;
+  }
+}
+
+// Regenerate message function that doesn't duplicate user message
+Future<void> regenerateMessage(
+  WidgetRef ref,
+  String userMessageContent,
+  List<String>? attachments,
+) async {
+  debugPrint('DEBUG: regenerateMessage called with content: $userMessageContent');
+  
+  final reviewerMode = ref.read(reviewerModeProvider);
+  final api = ref.read(apiServiceProvider);
+  final selectedModel = ref.read(selectedModelProvider);
+
+  if ((!reviewerMode && api == null) || selectedModel == null) {
+    debugPrint('DEBUG: Missing API service or model for regeneration');
+    throw Exception('No API service or model selected');
+  }
+
+  final activeConversation = ref.read(activeConversationProvider);
+  if (activeConversation == null) {
+    debugPrint('DEBUG: No active conversation for regeneration');
+    throw Exception('No active conversation');
+  }
+
+  // In reviewer mode, simulate response
+  if (reviewerMode) {
+    final assistantMessage = ChatMessage(
+      id: const Uuid().v4(),
+      role: 'assistant',
+      content: '[TYPING_INDICATOR]',
+      timestamp: DateTime.now(),
+      model: selectedModel.name,
+      isStreaming: true,
+    );
+    ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
+
+    // Simulate streaming response
+    final demoText = 'This is a regenerated demo response.\n\nOriginal message: "$userMessageContent"';
+    final words = demoText.split(' ');
+    for (final word in words) {
+      await Future.delayed(const Duration(milliseconds: 40));
+      ref.read(chatMessagesProvider.notifier).appendToLastMessage('$word ');
+    }
+    
+    ref.read(chatMessagesProvider.notifier).finishStreaming();
+    await _saveConversationLocally(ref);
+    return;
+  }
+
+  // For real API, proceed with regeneration using existing conversation messages
+  try {
+    // Get conversation history for context (excluding the removed assistant message)
+    final List<ChatMessage> messages = ref.read(chatMessagesProvider);
+    final List<Map<String, dynamic>> conversationMessages = <Map<String, dynamic>>[];
+
+    for (final msg in messages) {
+      if (msg.role.isNotEmpty && msg.content.isNotEmpty && !msg.isStreaming) {
+        // Handle messages with attachments
+        if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty) {
+          final List<Map<String, dynamic>> contentArray = [];
+          
+          // Add text content first
+          if (msg.content.isNotEmpty) {
+            contentArray.add({'type': 'text', 'text': msg.content});
+          }
+
+          conversationMessages.add({
+            'role': msg.role,
+            'content': contentArray.isNotEmpty ? contentArray : msg.content,
+          });
+        } else {
+          // Regular text message
+          conversationMessages.add({
+            'role': msg.role,
+            'content': msg.content,
+          });
+        }
+      }
+    }
+
+    // Stream response using SSE
+    final response = await api!.sendMessage(
+      messages: conversationMessages,
+      model: selectedModel.id,
+      conversationId: activeConversation.id,
+    );
+
+    final stream = response.stream;
+    final assistantMessageId = response.messageId;
+
+    // Add assistant message placeholder
+    final assistantMessage = ChatMessage(
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '[TYPING_INDICATOR]',
+      timestamp: DateTime.now(),
+      model: selectedModel.name,
+      isStreaming: true,
+    );
+    ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
+
+    // Handle streaming response
+    final chunkedStream = StreamChunker.chunkStream(
+      stream,
+      enableChunking: true,
+      minChunkSize: 5,
+      maxChunkLength: 3,
+      delayBetweenChunks: const Duration(milliseconds: 15),
+    );
+
+    await for (final chunk in chunkedStream) {
+      ref.read(chatMessagesProvider.notifier).appendToLastMessage(chunk);
+    }
+
+    ref.read(chatMessagesProvider.notifier).finishStreaming();
+    await _saveConversationLocally(ref);
+    
+  } catch (e) {
+    debugPrint('DEBUG: Error during message regeneration: $e');
+    rethrow;
   }
 }
 
@@ -744,13 +867,45 @@ Future<void> _sendMessageInternal(
       delayBetweenChunks: const Duration(milliseconds: 15),
     );
 
-    final streamSubscription = chunkedStream.listen(
+    // Create a stream controller for persistent handling
+    final persistentController = StreamController<String>.broadcast();
+    
+    // Register stream with persistent service for app lifecycle handling
+    final persistentService = PersistentStreamingService();
+    final streamId = persistentService.registerStream(
+      subscription: chunkedStream.listen(
+        (chunk) {
+          persistentController.add(chunk);
+        },
+        onDone: () {
+          persistentController.close();
+        },
+        onError: (error) {
+          persistentController.addError(error);
+        },
+      ),
+      controller: persistentController,
+      recoveryCallback: () async {
+        // Recovery callback to restart streaming if interrupted
+        debugPrint('DEBUG: Attempting to recover interrupted stream');
+        // TODO: Implement stream recovery logic
+      },
+      metadata: {
+        'conversationId': activeConversation?.id,
+        'messageId': assistantMessageId,
+        'modelId': selectedModel.id,
+      },
+    );
+
+    final streamSubscription = persistentController.stream.listen(
       (chunk) {
         debugPrint('DEBUG: Received stream chunk: "$chunk"');
         ref.read(chatMessagesProvider.notifier).appendToLastMessage(chunk);
       },
 
       onDone: () async {
+        // Unregister from persistent service
+        persistentService.unregisterStream(streamId);
         debugPrint('DEBUG: Stream completed in chat provider');
         // Mark streaming as complete immediately for better UX
         ref.read(chatMessagesProvider.notifier).finishStreaming();
@@ -1059,13 +1214,19 @@ Future<void> _sendMessageInternal(
             id: const Uuid().v4(),
             role: 'assistant',
             content:
-                '''⚠️ There was an issue with the message format. This might be because:
+                 '''⚠️ **Message Format Error**
 
-• The image attachment couldn't be processed
-• The request format is incompatible with the selected model
-• The message contains unsupported content
+This might be because:
+• Image attachment couldn't be processed
+• Request format incompatible with selected model  
+• Message contains unsupported content
 
-Please try sending the message again, or try without attachments.''',
+**💡 Solutions:**
+• Long press this message and select "Retry"
+• Try removing attachments and resending
+• Switch to a different model and retry
+
+*Long press this message to access retry options.*''',
             timestamp: DateTime.now(),
             isStreaming: false,
           );
@@ -1081,11 +1242,20 @@ Please try sending the message again, or try without attachments.''',
             id: const Uuid().v4(),
             role: 'assistant',
             content:
-                '⚠️ I\'m sorry, but there was a server error. This usually means:\n\n'
-                '• The OpenWebUI server is experiencing issues\n'
-                '• The selected model might be unavailable\n'
-                '• There could be a temporary connection problem\n\n'
-                'Please try again in a moment, or check with your server administrator if the problem persists.',
+                 '''⚠️ **Server Error**
+
+This usually means:
+• OpenWebUI server is experiencing issues
+• Selected model might be unavailable  
+• Temporary connection problem
+
+**💡 Solutions:**
+• Long press this message and select "Retry"
+• Wait a moment and try again
+• Switch to a different model
+• Check with your server administrator
+
+*Long press this message to access retry options.*''',
             timestamp: DateTime.now(),
             isStreaming: false,
           );
@@ -1097,11 +1267,20 @@ Please try sending the message again, or try without attachments.''',
             id: const Uuid().v4(),
             role: 'assistant',
             content:
-                '⏱️ The request timed out. This might be because:\n\n'
-                '• The server is taking too long to respond\n'
-                '• Your internet connection is slow\n'
-                '• The model is processing a complex request\n\n'
-                'Please try again with a shorter message or check your connection.',
+                 '''⏱️ **Request Timeout**
+
+This might be because:
+• Server taking too long to respond
+• Internet connection is slow
+• Model processing a complex request
+
+**💡 Solutions:**
+• Long press this message and select "Retry"
+• Try a shorter message
+• Check your internet connection
+• Switch to a faster model
+
+*Long press this message to access retry options.*''',
             timestamp: DateTime.now(),
             isStreaming: false,
           );

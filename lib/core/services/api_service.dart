@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
@@ -17,6 +16,8 @@ import '../auth/api_auth_interceptor.dart';
 import '../validation/validation_interceptor.dart';
 import '../error/api_error_interceptor.dart';
 import 'sse_parser.dart';
+import 'stream_recovery_service.dart';
+import 'persistent_streaming_service.dart';
 
 class ApiService {
   final Dio _dio;
@@ -713,7 +714,7 @@ class ApiService {
     };
 
     debugPrint('DEBUG: Sending chat data with proper parent-child structure');
-    debugPrint('DEBUG: Request data: ${chatData}');
+    debugPrint('DEBUG: Request data: $chatData');
 
     final response = await _dio.post('/api/v1/chats/new', data: chatData);
 
@@ -2411,27 +2412,65 @@ class ApiService {
     );
   }
 
-  // SSE streaming with proper EventSource parser - Main Implementation
+  // SSE streaming with persistent background support - Main Implementation
   void _streamSSE(
     Map<String, dynamic> data,
     StreamController<String> streamController,
     String messageId,
   ) async {
-    try {
-      debugPrint('DEBUG: Making SSE request with parser to /api/chat/completions');
-      
-      // Create a fresh Dio instance without interceptors for SSE streaming
-      // This avoids any interference from validation or other interceptors
-      final streamDio = Dio(BaseOptions(
+    final persistentService = PersistentStreamingService();
+    final recoveryService = StreamRecoveryService();
+    final streamId = DateTime.now().millisecondsSinceEpoch.toString();
+    
+    // Extract metadata for recovery
+    final conversationId = data['conversation_id'] ?? data['chat_id'] ?? '';
+    final sessionId = data['session_id'] ?? const Uuid().v4().substring(0, 20);
+    
+    // Register stream for recovery
+    recoveryService.registerStream(
+      streamId,
+      StreamRecoveryState(
         baseUrl: serverConfig.url,
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: null, // No timeout for streaming
+        endpoint: '/api/chat/completions',
+        originalRequest: data,
         headers: {
           'Authorization': 'Bearer ${_authInterceptor.authToken}',
           'Accept': 'text/event-stream',
           'Cache-Control': 'no-cache',
           'Connection': 'keep-alive',
         },
+      ),
+    );
+    
+    // Recovery callback for persistent service
+    Future<void> recoveryCallback() async {
+      debugPrint('Persistent: Attempting to recover stream $streamId');
+      // Restart the streaming request
+      _streamSSE(data, streamController, messageId);
+    };
+    
+    // Declare variables that need to be accessible in catch block
+    String? persistentStreamId;
+    
+    try {
+      debugPrint('DEBUG: Making SSE request with parser to /api/chat/completions');
+      
+      // Create a fresh Dio instance optimized for SSE streaming
+      final streamDio = Dio(BaseOptions(
+        baseUrl: serverConfig.url,
+        connectTimeout: const Duration(seconds: 60), // Longer for initial connection
+        receiveTimeout: null, // No timeout for streaming
+        sendTimeout: const Duration(seconds: 30),
+        headers: {
+          'Authorization': 'Bearer ${_authInterceptor.authToken}',
+          'Accept': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          ...serverConfig.customHeaders, // Include any custom headers
+        },
+        validateStatus: (status) => status != null && status < 400,
+        followRedirects: true,
+        maxRedirects: 3,
       ));
       
       debugPrint('DEBUG: Sending SSE request with data: ${jsonEncode(data)}');
@@ -2529,132 +2568,283 @@ class ApiService {
         return;
       }
 
-      // Parse SSE stream using our parser
+      // Parse SSE stream using enhanced parser with heartbeat monitoring
       final rawStream = response.data.stream;
       
       // Handle the stream properly based on its actual type
       Stream<List<int>> byteStream;
       if (rawStream is Stream<Uint8List>) {
-        // Convert Uint8List to List<int>
         byteStream = rawStream.map((uint8list) => uint8list.toList());
       } else {
         byteStream = rawStream as Stream<List<int>>;
       }
       
-      // Convert byte stream to string stream
-      final stringStream = byteStream.transform(utf8.decoder);
+      // Parse SSE events with enhanced parser (includes heartbeat monitoring)
+      final sseParser = SSEParser(heartbeatTimeout: const Duration(seconds: 45));
+      int contentIndex = 0;
+      int chunkSequence = 0;
+      String accumulatedContent = '';
       
-      // Parse SSE events from the string stream
-      final sseParser = SSEParser();
-      stringStream.listen(
-        (chunk) {
-          sseParser.feed(chunk);
+      // Monitor parser heartbeat for reconnection
+      sseParser.heartbeat.listen((_) {
+        debugPrint('Persistent: SSE heartbeat timeout detected');
+      });
+      
+      sseParser.reconnectRequests.listen((lastEventId) {
+        debugPrint('Persistent: SSE reconnection requested, lastEventId: $lastEventId');
+        // The persistent service will handle the reconnection
+      });
+      
+      // Convert bytes to SSE events
+      final sseEventStream = SSEParser.parseStream(
+        byteStream,
+        heartbeatTimeout: const Duration(seconds: 45),
+      );
+      
+      // Listen to the SSE event stream
+      final streamSubscription = sseEventStream.listen(
+        (event) {
+          try {
+            chunkSequence++;
+            
+            // Update parser with chunk data for heartbeat monitoring
+            sseParser.feed(''); // Reset heartbeat timer
+            
+            // Process the event data
+            if (persistentStreamId != null) {
+              _processSseEvent(
+                event,
+                streamController,
+                chunkSequence,
+                accumulatedContent,
+                persistentService,
+                persistentStreamId,
+              );
+            }
+            
+            // Update recovery state
+            recoveryService.updateStreamProgress(streamId, event.data, contentIndex++);
+            
+          } catch (e) {
+            debugPrint('Persistent: Error processing SSE event: $e');
+            streamController.addError(e);
+          }
         },
         onDone: () {
-          sseParser.close();
+          debugPrint('Persistent: SSE stream completed normally');
+          if (persistentStreamId != null) {
+            persistentService.unregisterStream(persistentStreamId);
+          }
+          recoveryService.unregisterStream(streamId);
+          if (!streamController.isClosed) {
+            streamController.close();
+          }
         },
-        onError: (error) {
-          debugPrint('DEBUG: SSE stream decode error: $error');
-          streamController.addError(error);
+        onError: (error) async {
+          debugPrint('Persistent: SSE stream error: $error');
+          
+          // Try recovery through recovery service first
+          final recoveredStream = await recoveryService.recoverStream(streamId);
+          
+          if (recoveredStream != null) {
+            debugPrint('Persistent: Successfully recovered SSE stream');
+            recoveredStream.listen(
+              (data) => streamController.add(data),
+              onDone: () {
+                if (persistentStreamId != null) {
+                  persistentService.unregisterStream(persistentStreamId);
+                }
+                recoveryService.unregisterStream(streamId);
+                streamController.close();
+              },
+              onError: (e) {
+                if (persistentStreamId != null) {
+                  persistentService.unregisterStream(persistentStreamId);
+                }
+                recoveryService.unregisterStream(streamId);
+                streamController.addError(e);
+              },
+            );
+          } else {
+            // Let persistent service handle recovery
+            debugPrint('Persistent: Delegating recovery to persistent service');
+            if (persistentStreamId != null) {
+              persistentService.unregisterStream(persistentStreamId);
+            }
+            recoveryService.unregisterStream(streamId);
+            streamController.addError(error);
+          }
+        },
+        cancelOnError: false, // Continue processing despite individual event errors
+      );
+      
+      // Register with persistent streaming service now that subscription is created
+      persistentStreamId = persistentService.registerStream(
+        subscription: streamSubscription,
+        controller: streamController,
+        recoveryCallback: recoveryCallback,
+        metadata: {
+          'conversationId': conversationId,
+          'messageId': messageId,
+          'sessionId': sessionId,
+          'lastChunkSequence': 0,
+          'lastContent': '',
+          'endpoint': '/api/chat/completions',
+          'requestData': data,
         },
       );
       
-      final sseEvents = sseParser.stream;
-      
-      debugPrint('DEBUG: Starting to process SSE events');
-      
-      await for (final event in sseEvents) {
-        debugPrint('DEBUG: SSE event - type: ${event.event}, data: ${event.data}');
-        
-        if (event.data == '[DONE]') {
-          debugPrint('DEBUG: SSE stream finished with [DONE]');
-          streamController.close();
-          return;
-        }
-        
-        try {
-          final json = jsonDecode(event.data) as Map<String, dynamic>;
-          
-          // Handle errors
-          if (json.containsKey('error')) {
-            final error = json['error'];
-            debugPrint('DEBUG: SSE error: $error');
-            streamController.addError('Server error: $error');
-            return;
-          }
-          
-          // Handle content streaming
-          if (json.containsKey('choices')) {
-            final choices = json['choices'] as List?;
-            if (choices != null && choices.isNotEmpty) {
-              final choice = choices[0] as Map<String, dynamic>;
-              
-              if (choice.containsKey('delta')) {
-                final delta = choice['delta'] as Map<String, dynamic>;
-                
-                // Extract content
-                if (delta.containsKey('content')) {
-                  final content = delta['content'] as String?;
-                  if (content != null && content.isNotEmpty) {
-                    debugPrint('DEBUG: SSE content chunk: "$content"');
-                    streamController.add(content);
-                  }
-                }
-                
-                // Handle tool calls
-                if (delta.containsKey('tool_calls')) {
-                  final toolCalls = delta['tool_calls'] as List?;
-                  if (toolCalls != null && toolCalls.isNotEmpty) {
-                    debugPrint('DEBUG: SSE tool calls: $toolCalls');
-                  }
-                }
-              }
-              
-              // Handle finish reason
-              if (choice.containsKey('finish_reason')) {
-                final finishReason = choice['finish_reason'];
-                if (finishReason != null) {
-                  debugPrint('DEBUG: SSE finished with reason: $finishReason');
-                  streamController.close();
-                  return;
-                }
-              }
-            }
-          }
-          
-          // Handle other event types
-          if (json.containsKey('sources')) {
-            debugPrint('DEBUG: SSE sources: ${json['sources']}');
-          }
-          
-          if (json.containsKey('usage')) {
-            debugPrint('DEBUG: SSE usage: ${json['usage']}');
-          }
-          
-        } catch (e) {
-          debugPrint('DEBUG: Error parsing SSE event data: $e');
-          // Continue processing
-        }
-      }
-      
-      debugPrint('DEBUG: SSE stream ended');
-      streamController.close();
-      
     } catch (e) {
-      debugPrint('DEBUG: SSE streaming error: $e');
-      if (e is DioException) {
-        debugPrint('DEBUG: DioException details:');
-        debugPrint('  - Type: ${e.type}');
-        debugPrint('  - Message: ${e.message}');
-        debugPrint('  - Response: ${e.response}');
-        if (e.response != null) {
-          debugPrint('  - Status code: ${e.response!.statusCode}');
-          debugPrint('  - Headers: ${e.response!.headers}');
-        }
+      debugPrint('Persistent: Failed to create SSE stream: $e');
+      if (persistentStreamId != null) {
+        persistentService.unregisterStream(persistentStreamId);
       }
-      streamController.addError(e);
+      recoveryService.unregisterStream(streamId);
+      
+      if (e is DioException && e.response?.statusCode == 401) {
+        // Auth error - don't retry
+        streamController.addError('Authentication failed');
+      } else {
+        // Network or other error - trigger recovery
+        await recoveryCallback();
+      }
     }
   }
+  
+  /// Process individual SSE events with content extraction and progress tracking
+  void _processSseEvent(
+    SSEEvent event,
+    StreamController<String> streamController,
+    int chunkSequence,
+    String accumulatedContent,
+    PersistentStreamingService persistentService,
+    String persistentStreamId,
+  ) {
+    debugPrint('Persistent: SSE event - type: ${event.event}, data: ${event.data}');
+    
+    // Handle completion signal
+    if (event.data == '[DONE]') {
+      debugPrint('Persistent: SSE stream finished with [DONE]');
+      if (!streamController.isClosed) {
+        streamController.close();
+      }
+      return;
+    }
+    
+    try {
+      final json = jsonDecode(event.data) as Map<String, dynamic>;
+      
+      // Handle errors
+      if (json.containsKey('error')) {
+        final error = json['error'];
+        debugPrint('Persistent: SSE error: $error');
+        streamController.addError('Server error: $error');
+        return;
+      }
+      
+       // Handle content streaming
+       if (json.containsKey('choices')) {
+         final choices = json['choices'] as List?;
+         if (choices != null && choices.isNotEmpty) {
+           final choice = choices[0] as Map<String, dynamic>;
+           
+           if (choice.containsKey('delta')) {
+             final delta = choice['delta'] as Map<String, dynamic>;
+             
+             // Extract content
+             if (delta.containsKey('content')) {
+               final content = delta['content'] as String?;
+               if (content != null && content.isNotEmpty) {
+                 debugPrint('Persistent: SSE content chunk: "$content"');
+                 
+                 // Add content to stream
+                 if (!streamController.isClosed) {
+                   streamController.add(content);
+                 }
+                 
+                 // Update persistent service progress
+                 persistentService.updateStreamProgress(
+                   persistentStreamId,
+                   chunkSequence: chunkSequence,
+                   appendedContent: content,
+                 );
+                 
+                 accumulatedContent += content;
+               }
+             }
+             
+             // Check for completion in delta
+             if (delta.containsKey('finish_reason')) {
+               final finishReason = delta['finish_reason'];
+               debugPrint('Persistent: Stream finished with reason: $finishReason');
+               if (!streamController.isClosed) {
+                 streamController.close();
+               }
+               return;
+             }
+           } else if (choice.containsKey('finish_reason')) {
+             // Check for completion at choice level
+             final finishReason = choice['finish_reason'];
+             if (finishReason != null) {
+               debugPrint('Persistent: Stream finished with reason: $finishReason');
+               if (!streamController.isClosed) {
+                 streamController.close();
+               }
+               return;
+             }
+           }
+         }
+       }
+       
+       // Handle streaming chat/completions format variations
+       if (json.containsKey('delta')) {
+         final delta = json['delta'] as Map<String, dynamic>;
+         if (delta.containsKey('content')) {
+           final content = delta['content'] as String?;
+           if (content != null && content.isNotEmpty) {
+             debugPrint('Persistent: Direct delta content: "$content"');
+             
+             if (!streamController.isClosed) {
+               streamController.add(content);
+             }
+             
+             persistentService.updateStreamProgress(
+               persistentStreamId,
+               chunkSequence: chunkSequence,
+               appendedContent: content,
+             );
+             
+             accumulatedContent += content;
+           }
+         }
+       }
+       
+       // Handle OpenRouter-style streaming
+       if (json.containsKey('message')) {
+         final message = json['message'] as Map<String, dynamic>;
+         if (message.containsKey('content')) {
+           final content = message['content'] as String?;
+           if (content != null && content.isNotEmpty) {
+             debugPrint('Persistent: Message content: "$content"');
+             
+             if (!streamController.isClosed) {
+               streamController.add(content);
+             }
+             
+             persistentService.updateStreamProgress(
+               persistentStreamId,
+               chunkSequence: chunkSequence,
+               content: content, // Full content, not appended
+             );
+           }
+         }
+       }
+       
+      } catch (e) {
+        debugPrint('Persistent: Error parsing SSE event data: $e');
+        // Don't fail the entire stream for one bad event
+      }
+    }
 
   // Enhanced SSE parser that matches OpenWebUI's EventSourceParserStream approach
   void _streamChatCompletionEnhanced(

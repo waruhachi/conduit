@@ -129,26 +129,32 @@ class _ModernMessageBubbleState extends ConsumerState<ModernMessageBubble>
                       ),
                       boxShadow: ConduitShadows.high,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Display images if any
-                        if (widget.message.attachmentIds != null &&
-                            widget.message.attachmentIds!.isNotEmpty)
-                          _buildAttachmentImages(),
-
-                        // Display text content if any
-                        if (widget.message.content.isNotEmpty) ...[
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Display images if any
                           if (widget.message.attachmentIds != null &&
                               widget.message.attachmentIds!.isNotEmpty)
-                            const SizedBox(height: Spacing.sm),
-                          _buildCustomText(
-                            widget.message.content,
-                            context.conduitTheme.chatBubbleUserText,
-                          ),
+                            _buildAttachmentImages(),
+
+                          // Display text content if any
+                          if (widget.message.content.isNotEmpty) ...[
+                            if (widget.message.attachmentIds != null &&
+                                widget.message.attachmentIds!.isNotEmpty)
+                              const SizedBox(height: Spacing.sm),
+                            _buildCustomText(
+                              widget.message.content,
+                              context.conduitTheme.chatBubbleUserText,
+                            ),
+                          ],
+
+                          // Action buttons for user messages
+                          if (_showActions) ...[
+                            const SizedBox(height: Spacing.md),
+                            _buildUserActionButtons(),
+                          ],
                         ],
-                      ],
-                    ),
+                      ),
                   ),
                 ),
               ),
@@ -701,15 +707,15 @@ class _ModernMessageBubbleState extends ConsumerState<ModernMessageBubble>
   }
 
   Widget _buildActionButtons() {
+    final isErrorMessage = widget.message.content.contains('⚠️') || 
+                           widget.message.content.contains('Error') ||
+                           widget.message.content.contains('timeout') ||
+                           widget.message.content.contains('retry options');
+    
     return Wrap(
       spacing: Spacing.sm,
       runSpacing: Spacing.sm,
       children: [
-        _buildActionButton(
-          icon: Platform.isIOS ? CupertinoIcons.pencil : Icons.edit_outlined,
-          label: 'Edit',
-          onTap: widget.onEdit,
-        ),
         _buildActionButton(
           icon: Platform.isIOS
               ? CupertinoIcons.doc_on_clipboard
@@ -717,32 +723,45 @@ class _ModernMessageBubbleState extends ConsumerState<ModernMessageBubble>
           label: 'Copy',
           onTap: widget.onCopy,
         ),
-        _buildActionButton(
-          icon: Platform.isIOS
-              ? CupertinoIcons.speaker_1
-              : Icons.volume_up_outlined,
-          label: 'Read',
-          onTap: () => _handleTextToSpeech(context),
-        ),
-        _buildActionButton(
-          icon: Platform.isIOS
-              ? CupertinoIcons.hand_thumbsup
-              : Icons.thumb_up_outlined,
-          label: 'Like',
-          onTap: widget.onLike,
-        ),
-        _buildActionButton(
-          icon: Platform.isIOS
-              ? CupertinoIcons.hand_thumbsdown
-              : Icons.thumb_down_outlined,
-          label: 'Dislike',
-          onTap: widget.onDislike,
-        ),
-        _buildActionButton(
-          icon: Platform.isIOS ? CupertinoIcons.refresh : Icons.refresh,
-          label: 'Regenerate',
-          onTap: widget.onRegenerate,
-        ),
+        if (isErrorMessage) ...[
+          _buildActionButton(
+            icon: Platform.isIOS ? CupertinoIcons.arrow_clockwise : Icons.refresh,
+            label: 'Retry',
+            onTap: widget.onRegenerate,
+          ),
+        ] else ...[
+          _buildActionButton(
+            icon: Platform.isIOS ? CupertinoIcons.pencil : Icons.edit_outlined,
+            label: 'Edit',
+            onTap: widget.onEdit,
+          ),
+          _buildActionButton(
+            icon: Platform.isIOS
+                ? CupertinoIcons.speaker_1
+                : Icons.volume_up_outlined,
+            label: 'Read',
+            onTap: () => _handleTextToSpeech(context),
+          ),
+          _buildActionButton(
+            icon: Platform.isIOS
+                ? CupertinoIcons.hand_thumbsup
+                : Icons.thumb_up_outlined,
+            label: 'Like',
+            onTap: widget.onLike,
+          ),
+          _buildActionButton(
+            icon: Platform.isIOS
+                ? CupertinoIcons.hand_thumbsdown
+                : Icons.thumb_down_outlined,
+            label: 'Dislike',
+            onTap: widget.onDislike,
+          ),
+          _buildActionButton(
+            icon: Platform.isIOS ? CupertinoIcons.refresh : Icons.refresh,
+            label: 'Regenerate',
+            onTap: widget.onRegenerate,
+          ),
+        ],
       ],
     );
   }
@@ -792,6 +811,34 @@ class _ModernMessageBubbleState extends ConsumerState<ModernMessageBubble>
     ).animate().scale(
       duration: AnimationDuration.buttonPress,
       curve: AnimationCurves.buttonPress,
+    );
+  }
+
+  Widget _buildUserActionButtons() {
+    return Wrap(
+      spacing: Spacing.sm,
+      runSpacing: Spacing.sm,
+      children: [
+        _buildActionButton(
+          icon: Platform.isIOS ? CupertinoIcons.pencil : Icons.edit_outlined,
+          label: 'Edit',
+          onTap: widget.onEdit,
+        ),
+        _buildActionButton(
+          icon: Platform.isIOS
+              ? CupertinoIcons.doc_on_clipboard
+              : Icons.content_copy,
+          label: 'Copy',
+          onTap: widget.onCopy,
+        ),
+        _buildActionButton(
+          icon: Platform.isIOS
+              ? CupertinoIcons.speaker_1
+              : Icons.volume_up_outlined,
+          label: 'Read',
+          onTap: () => _handleTextToSpeech(context),
+        ),
+      ],
     );
   }
 

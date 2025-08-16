@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -138,7 +139,7 @@ class FileAttachmentService {
       final compressedBase64 = base64Encode(compressedBytes);
       return 'data:image/png;base64,$compressedBase64';
     } catch (e) {
-      debugPrint('DEBUG: Image compression failed: $e');
+      foundation.debugPrint('DEBUG: Image compression failed: $e');
       return imageDataUrl; // Return original if compression fails
     }
   }
@@ -151,7 +152,7 @@ class FileAttachmentService {
     int? maxHeight,
   }) async {
     try {
-      debugPrint('DEBUG: Converting image to data URL: ${imageFile.path}');
+      foundation.debugPrint('DEBUG: Converting image to data URL: ${imageFile.path}');
 
       // Read the file as bytes
       final bytes = await imageFile.readAsBytes();
@@ -177,24 +178,24 @@ class FileAttachmentService {
         dataUrl = await compressImage(dataUrl, maxWidth, maxHeight);
       }
 
-      debugPrint(
+      foundation.debugPrint(
         'DEBUG: Image converted to data URL with MIME type: $mimeType',
       );
       return dataUrl;
     } catch (e) {
-      debugPrint('DEBUG: Failed to convert image to data URL: $e');
+      foundation.debugPrint('DEBUG: Failed to convert image to data URL: $e');
       return null;
     }
   }
 
   // Upload file with progress tracking
   Stream<FileUploadState> uploadFile(File file) async* {
-    debugPrint('DEBUG: Starting file upload for: ${file.path}');
+    foundation.debugPrint('DEBUG: Starting file upload for: ${file.path}');
     try {
       final fileName = path.basename(file.path);
       final fileSize = await file.length();
 
-      debugPrint(
+      foundation.debugPrint(
         'DEBUG: File details - Name: $fileName, Size: $fileSize bytes',
       );
 
@@ -217,7 +218,7 @@ class FileAttachmentService {
       ].contains(ext.substring(1));
 
       if (isImage) {
-        debugPrint(
+        foundation.debugPrint(
           'DEBUG: Image file detected, converting to data URL instead of uploading',
         );
 
@@ -237,10 +238,10 @@ class FileAttachmentService {
           throw Exception('Failed to convert image to data URL');
         }
       } else {
-        debugPrint('DEBUG: Non-image file, uploading to server...');
+        foundation.debugPrint('DEBUG: Non-image file, uploading to server...');
         // Upload file using the API service
         final fileId = await _apiService.uploadFile(file.path, fileName);
-        debugPrint('DEBUG: File uploaded successfully with ID: $fileId');
+        foundation.debugPrint('DEBUG: File uploaded successfully with ID: $fileId');
 
         yield FileUploadState(
           file: file,
@@ -252,7 +253,7 @@ class FileAttachmentService {
         );
       }
     } catch (e) {
-      debugPrint('DEBUG: File upload failed: $e');
+      foundation.debugPrint('DEBUG: File upload failed: $e');
       final fileName = path.basename(file.path);
       final fileSize = await file.length();
 

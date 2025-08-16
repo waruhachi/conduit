@@ -177,14 +177,25 @@ class _DocumentationMessageWidgetState
                         width: BorderWidth.regular,
                       ),
                     ),
-                    child: Text(
-                      widget.message.content,
-                      style: TextStyle(
-                        color: context.conduitTheme.chatBubbleUserText,
-                        fontSize: AppTypography.bodyLarge,
-                        height: 1.5,
-                        letterSpacing: 0.1,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.message.content,
+                          style: TextStyle(
+                            color: context.conduitTheme.chatBubbleUserText,
+                            fontSize: AppTypography.bodyMedium,
+                            height: 1.5,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                        
+                        // Action buttons for user messages
+                        if (_showActions) ...[
+                          const SizedBox(height: 12),
+                          _buildUserActionButtons(),
+                        ],
+                      ],
                     ),
                   ),
                 ),
@@ -391,13 +402,13 @@ class _DocumentationMessageWidgetState
       if (match.start > lastIndex) {
         final textSegment = content.substring(lastIndex, match.start);
         widgets.add(
-          GptMarkdown(
-            textSegment,
-            style: TextStyle(
-              color: context.conduitTheme.textPrimary,
-              fontSize: AppTypography.bodyLarge,
-              height: 1.6,
-              letterSpacing: 0.1,
+          MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.0)),
+            child: GptMarkdown(
+              textSegment,
+              style: AppTypography.chatMessageStyle.copyWith(
+                color: context.conduitTheme.textPrimary,
+              ),
             ),
           ),
         );
@@ -414,13 +425,13 @@ class _DocumentationMessageWidgetState
     if (lastIndex < content.length) {
       final tail = content.substring(lastIndex);
       widgets.add(
-        GptMarkdown(
-          tail,
-          style: TextStyle(
-            color: context.conduitTheme.textPrimary,
-            fontSize: AppTypography.bodyLarge,
-            height: 1.6,
-            letterSpacing: 0.1,
+        MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.0)),
+          child: GptMarkdown(
+            tail,
+            style: AppTypography.chatMessageStyle.copyWith(
+              color: context.conduitTheme.textPrimary,
+            ),
           ),
         ),
       );
@@ -611,6 +622,11 @@ class _DocumentationMessageWidgetState
   }
 
   Widget _buildActionButtons() {
+    final isErrorMessage = widget.message.content.contains('⚠️') || 
+                           widget.message.content.contains('Error') ||
+                           widget.message.content.contains('timeout') ||
+                           widget.message.content.contains('retry options');
+    
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -622,25 +638,33 @@ class _DocumentationMessageWidgetState
           label: 'Copy',
           onTap: widget.onCopy,
         ),
-        _buildActionButton(
-          icon: Platform.isIOS
-              ? CupertinoIcons.hand_thumbsup
-              : Icons.thumb_up_outlined,
-          label: 'Like',
-          onTap: widget.onLike,
-        ),
-        _buildActionButton(
-          icon: Platform.isIOS
-              ? CupertinoIcons.hand_thumbsdown
-              : Icons.thumb_down_outlined,
-          label: 'Dislike',
-          onTap: widget.onDislike,
-        ),
-        _buildActionButton(
-          icon: Platform.isIOS ? CupertinoIcons.refresh : Icons.refresh,
-          label: 'Regenerate',
-          onTap: widget.onRegenerate,
-        ),
+        if (isErrorMessage) ...[
+          _buildActionButton(
+            icon: Platform.isIOS ? CupertinoIcons.arrow_clockwise : Icons.refresh,
+            label: 'Retry',
+            onTap: widget.onRegenerate,
+          ),
+        ] else ...[
+          _buildActionButton(
+            icon: Platform.isIOS
+                ? CupertinoIcons.hand_thumbsup
+                : Icons.thumb_up_outlined,
+            label: 'Like',
+            onTap: widget.onLike,
+          ),
+          _buildActionButton(
+            icon: Platform.isIOS
+                ? CupertinoIcons.hand_thumbsdown
+                : Icons.thumb_down_outlined,
+            label: 'Dislike',
+            onTap: widget.onDislike,
+          ),
+          _buildActionButton(
+            icon: Platform.isIOS ? CupertinoIcons.refresh : Icons.refresh,
+            label: 'Regenerate',
+            onTap: widget.onRegenerate,
+          ),
+        ],
       ],
     );
   }
@@ -683,6 +707,27 @@ class _DocumentationMessageWidgetState
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildUserActionButtons() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _buildActionButton(
+          icon: Platform.isIOS ? CupertinoIcons.pencil : Icons.edit_outlined,
+          label: 'Edit',
+          onTap: widget.onEdit,
+        ),
+        _buildActionButton(
+          icon: Platform.isIOS
+              ? CupertinoIcons.doc_on_clipboard
+              : Icons.content_copy,
+          label: 'Copy',
+          onTap: widget.onCopy,
+        ),
+      ],
     );
   }
 }

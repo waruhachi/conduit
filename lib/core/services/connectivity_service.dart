@@ -20,6 +20,13 @@ class ConnectivityService {
   Stream<ConnectivityStatus> get connectivityStream =>
       _connectivityController.stream;
   ConnectivityStatus get currentStatus => _lastStatus;
+  
+  /// Stream that emits true when connected, false when offline
+  Stream<bool> get isConnected => connectivityStream
+      .map((status) => status == ConnectivityStatus.online);
+      
+  /// Check if currently connected
+  bool get isCurrentlyConnected => _lastStatus == ConnectivityStatus.online;
 
   void _startConnectivityMonitoring() {
     // Initial check after a brief delay to avoid showing offline during startup

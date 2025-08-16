@@ -157,8 +157,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Message failed to send. Please try again.'),
+            content: const Text('Message failed to send. Check your connection and try again.'),
             backgroundColor: context.conduitTheme.error,
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () => _handleMessageSend(text, selectedModel),
+            ),
+            duration: const Duration(seconds: 6),
           ),
         );
       }
@@ -856,9 +862,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       // Remove the assistant message we want to regenerate
       ref.read(chatMessagesProvider.notifier).removeLastMessage();
 
-      // Resend the previous user message to get a new response
+      // Regenerate response for the previous user message (without duplicating it)
       final userMessage = messages[messageIndex - 1];
-      await sendMessage(ref, userMessage.content, null);
+      await regenerateMessage(ref, userMessage.content, userMessage.attachmentIds);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -872,8 +878,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to regenerate message: $e'),
+            content: Text('Failed to regenerate message. Try again or check your connection.'),
             backgroundColor: context.conduitTheme.error,
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () => _regenerateMessage(message),
+            ),
+            duration: const Duration(seconds: 6),
           ),
         );
       }

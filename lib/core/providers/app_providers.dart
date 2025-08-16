@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -139,7 +140,7 @@ final apiServiceProvider = Provider<ApiService?>((ref) {
       // Keep legacy callback for backward compatibility during transition
       apiService.onAuthTokenInvalid = () {
         // This will be removed once migration is complete
-        debugPrint('DEBUG: Legacy auth invalidation callback triggered');
+        foundation.debugPrint('DEBUG: Legacy auth invalidation callback triggered');
       };
 
       // Initialize with any existing token immediately
@@ -176,7 +177,7 @@ final apiTokenUpdaterProvider = Provider<void>((ref) {
     final api = ref.read(apiServiceProvider);
     if (api != null && next != null && next.isNotEmpty) {
       api.updateAuthToken(next);
-      debugPrint('DEBUG: Updated API service with unified auth token');
+      foundation.debugPrint('DEBUG: Updated API service with unified auth token');
     }
   });
 });
@@ -229,17 +230,17 @@ final modelsProvider = FutureProvider<List<Model>>((ref) async {
   if (api == null) return [];
 
   try {
-    debugPrint('DEBUG: Fetching models from server');
+    foundation.debugPrint('DEBUG: Fetching models from server');
     final models = await api.getModels();
-    debugPrint('DEBUG: Successfully fetched ${models.length} models');
+    foundation.debugPrint('DEBUG: Successfully fetched ${models.length} models');
     return models;
   } catch (e) {
-    debugPrint('ERROR: Failed to fetch models: $e');
+    foundation.debugPrint('ERROR: Failed to fetch models: $e');
 
     // If models endpoint returns 403, this should now clear auth token
     // and redirect user to login since it's marked as a core endpoint
     if (e.toString().contains('403')) {
-      debugPrint(
+      foundation.debugPrint(
         'DEBUG: Models endpoint returned 403 - authentication may be invalid',
       );
     }
@@ -267,25 +268,25 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
   }
   final api = ref.watch(apiServiceProvider);
   if (api == null) {
-    debugPrint('DEBUG: No API service available');
+    foundation.debugPrint('DEBUG: No API service available');
     return [];
   }
 
   try {
-    debugPrint('DEBUG: Fetching conversations from OpenWebUI API...');
+    foundation.debugPrint('DEBUG: Fetching conversations from OpenWebUI API...');
     final conversations = await api.getConversations(limit: 50);
-    debugPrint(
+    foundation.debugPrint(
       'DEBUG: Successfully fetched ${conversations.length} conversations',
     );
     return conversations;
   } catch (e, stackTrace) {
-    debugPrint('DEBUG: Error fetching conversations: $e');
-    debugPrint('DEBUG: Stack trace: $stackTrace');
+    foundation.debugPrint('DEBUG: Error fetching conversations: $e');
+    foundation.debugPrint('DEBUG: Stack trace: $stackTrace');
 
     // If conversations endpoint returns 403, this should now clear auth token
     // and redirect user to login since it's marked as a core endpoint
     if (e.toString().contains('403')) {
-      debugPrint(
+      foundation.debugPrint(
         'DEBUG: Conversations endpoint returned 403 - authentication may be invalid',
       );
     }
@@ -307,9 +308,9 @@ final loadConversationProvider = FutureProvider.family<Conversation, String>((
     throw Exception('No API service available');
   }
 
-  debugPrint('DEBUG: Loading full conversation: $conversationId');
+  foundation.debugPrint('DEBUG: Loading full conversation: $conversationId');
   final fullConversation = await api.getConversation(conversationId);
-  debugPrint(
+  foundation.debugPrint(
     'DEBUG: Loaded conversation with ${fullConversation.messages.length} messages',
   );
 
@@ -325,14 +326,14 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
     // Get all available models first
     final models = await ref.read(modelsProvider.future);
     if (models.isEmpty) {
-      debugPrint('DEBUG: No models available');
+      foundation.debugPrint('DEBUG: No models available');
       return null;
     }
 
     // Check if a model is already selected
     final currentSelected = ref.read(selectedModelProvider);
     if (currentSelected != null) {
-      debugPrint('DEBUG: Model already selected: ${currentSelected.name}');
+      foundation.debugPrint('DEBUG: Model already selected: ${currentSelected.name}');
       return currentSelected;
     }
 
@@ -352,11 +353,11 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
                 model.id.contains(defaultModelId) ||
                 model.name.contains(defaultModelId),
           );
-          debugPrint(
+          foundation.debugPrint(
             'DEBUG: Found server default model: ${selectedModel.name}',
           );
         } catch (e) {
-          debugPrint(
+          foundation.debugPrint(
             'DEBUG: Default model "$defaultModelId" not found in available models',
           );
           selectedModel = models.first;
@@ -364,26 +365,26 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
       } else {
         // No server default, use first available model
         selectedModel = models.first;
-        debugPrint(
+        foundation.debugPrint(
           'DEBUG: No server default model, using first available: ${selectedModel.name}',
         );
       }
     } catch (apiError) {
-      debugPrint('DEBUG: Failed to get default model from server: $apiError');
+      foundation.debugPrint('DEBUG: Failed to get default model from server: $apiError');
       // Use first available model as fallback
       selectedModel = models.first;
-      debugPrint(
+      foundation.debugPrint(
         'DEBUG: Using first available model as fallback: ${selectedModel.name}',
       );
     }
 
     // Set the selected model
     ref.read(selectedModelProvider.notifier).state = selectedModel;
-    debugPrint('DEBUG: Set default model: ${selectedModel.name}');
+    foundation.debugPrint('DEBUG: Set default model: ${selectedModel.name}');
 
     return selectedModel;
   } catch (e) {
-    debugPrint('DEBUG: Error setting default model: $e');
+    foundation.debugPrint('DEBUG: Error setting default model: $e');
 
     // Final fallback: try to select any available model
     try {
@@ -391,13 +392,13 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
       if (models.isNotEmpty) {
         final fallbackModel = models.first;
         ref.read(selectedModelProvider.notifier).state = fallbackModel;
-        debugPrint(
+        foundation.debugPrint(
           'DEBUG: Fallback to first available model: ${fallbackModel.name}',
         );
         return fallbackModel;
       }
     } catch (fallbackError) {
-      debugPrint('DEBUG: Error in fallback model selection: $fallbackError');
+      foundation.debugPrint('DEBUG: Error in fallback model selection: $fallbackError');
     }
 
     return null;
@@ -415,15 +416,15 @@ final backgroundModelLoadProvider = Provider<void>((ref) {
     // Wait a bit to ensure auth is complete
     await Future.delayed(const Duration(milliseconds: 1500));
 
-    debugPrint('DEBUG: Starting background model loading');
+    foundation.debugPrint('DEBUG: Starting background model loading');
 
     // Load default model in background
     try {
       await ref.read(defaultModelProvider.future);
-      debugPrint('DEBUG: Background model loading completed');
+      foundation.debugPrint('DEBUG: Background model loading completed');
     } catch (e) {
       // Ignore errors in background loading
-      debugPrint('DEBUG: Background model loading failed: $e');
+      foundation.debugPrint('DEBUG: Background model loading failed: $e');
     }
   });
 
@@ -448,7 +449,7 @@ final serverSearchProvider = FutureProvider.family<List<Conversation>, String>((
   if (api == null) return [];
 
   try {
-    debugPrint('DEBUG: Performing server-side search for: "$query"');
+    foundation.debugPrint('DEBUG: Performing server-side search for: "$query"');
 
     // Use the new server-side search API
     final searchResult = await api.searchChats(
@@ -467,10 +468,10 @@ final serverSearchProvider = FutureProvider.family<List<Conversation>, String>((
       return Conversation.fromJson(data as Map<String, dynamic>);
     }).toList();
 
-    debugPrint('DEBUG: Server search returned ${conversations.length} results');
+    foundation.debugPrint('DEBUG: Server search returned ${conversations.length} results');
     return conversations;
   } catch (e) {
-    debugPrint('DEBUG: Server search failed, fallback to local: $e');
+    foundation.debugPrint('DEBUG: Server search failed, fallback to local: $e');
 
     // Fallback to local search if server search fails
     final allConversations = await ref.read(conversationsProvider.future);
@@ -609,7 +610,7 @@ final userSettingsProvider = FutureProvider<UserSettings>((ref) async {
     final settingsData = await api.getUserSettings();
     return UserSettings.fromJson(settingsData);
   } catch (e) {
-    debugPrint('DEBUG: Error fetching user settings: $e');
+    foundation.debugPrint('DEBUG: Error fetching user settings: $e');
     // Return default settings on error
     return const UserSettings();
   }
@@ -625,7 +626,7 @@ final serverBannersProvider = FutureProvider<List<Map<String, dynamic>>>((
   try {
     return await api.getBanners();
   } catch (e) {
-    debugPrint('DEBUG: Error fetching banners: $e');
+    foundation.debugPrint('DEBUG: Error fetching banners: $e');
     return [];
   }
 });
@@ -640,7 +641,7 @@ final conversationSuggestionsProvider = FutureProvider<List<String>>((
   try {
     return await api.getSuggestions();
   } catch (e) {
-    debugPrint('DEBUG: Error fetching suggestions: $e');
+    foundation.debugPrint('DEBUG: Error fetching suggestions: $e');
     return [];
   }
 });
@@ -656,7 +657,7 @@ final foldersProvider = FutureProvider<List<Folder>>((ref) async {
         .map((folderData) => Folder.fromJson(folderData))
         .toList();
   } catch (e) {
-    debugPrint('DEBUG: Error fetching folders: $e');
+    foundation.debugPrint('DEBUG: Error fetching folders: $e');
     return [];
   }
 });
@@ -670,7 +671,7 @@ final userFilesProvider = FutureProvider<List<FileInfo>>((ref) async {
     final filesData = await api.getUserFiles();
     return filesData.map((fileData) => FileInfo.fromJson(fileData)).toList();
   } catch (e) {
-    debugPrint('DEBUG: Error fetching files: $e');
+    foundation.debugPrint('DEBUG: Error fetching files: $e');
     return [];
   }
 });
@@ -686,7 +687,7 @@ final fileContentProvider = FutureProvider.family<String, String>((
   try {
     return await api.getFileContent(fileId);
   } catch (e) {
-    debugPrint('DEBUG: Error fetching file content: $e');
+    foundation.debugPrint('DEBUG: Error fetching file content: $e');
     throw Exception('Failed to load file content: $e');
   }
 });
@@ -700,7 +701,7 @@ final knowledgeBasesProvider = FutureProvider<List<KnowledgeBase>>((ref) async {
     final kbData = await api.getKnowledgeBases();
     return kbData.map((data) => KnowledgeBase.fromJson(data)).toList();
   } catch (e) {
-    debugPrint('DEBUG: Error fetching knowledge bases: $e');
+    foundation.debugPrint('DEBUG: Error fetching knowledge bases: $e');
     return [];
   }
 });
@@ -716,7 +717,7 @@ final knowledgeBaseItemsProvider =
             .map((data) => KnowledgeBaseItem.fromJson(data))
             .toList();
       } catch (e) {
-        debugPrint('DEBUG: Error fetching knowledge base items: $e');
+        foundation.debugPrint('DEBUG: Error fetching knowledge base items: $e');
         return [];
       }
     });
@@ -729,7 +730,7 @@ final availableVoicesProvider = FutureProvider<List<String>>((ref) async {
   try {
     return await api.getAvailableVoices();
   } catch (e) {
-    debugPrint('DEBUG: Error fetching voices: $e');
+    foundation.debugPrint('DEBUG: Error fetching voices: $e');
     return [];
   }
 });
@@ -744,7 +745,7 @@ final imageModelsProvider = FutureProvider<List<Map<String, dynamic>>>((
   try {
     return await api.getImageModels();
   } catch (e) {
-    debugPrint('DEBUG: Error fetching image models: $e');
+    foundation.debugPrint('DEBUG: Error fetching image models: $e');
     return [];
   }
 });
