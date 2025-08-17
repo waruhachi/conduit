@@ -60,9 +60,32 @@ jobs:
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/bundle/release/app-release.aab
 
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          # Get the previous tag
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | head -2 | tail -1)
+          
+          # If no previous tag exists, use the first commit
+          if [ -z "$PREVIOUS_TAG" ]; then
+            PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD)
+          fi
+          
+          # Generate commit messages since the previous tag
+          echo "## What's Changed" > release_notes.md
+          echo "" >> release_notes.md
+          git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..${{ github.ref_name }} >> release_notes.md
+          
+          # Set the release notes as output
+          echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
+          cat release_notes.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
           artifacts: "build/app/outputs/flutter-apk/app-release.apk,build/app/outputs/bundle/release/app-release.aab"
           tag: ${{ github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
+          generateReleaseNotes: true
