@@ -162,6 +162,11 @@ class SettingsService {
   }
 }
 
+/// Sentinel class to detect when defaultModel parameter is not provided
+class _DefaultValue {
+  const _DefaultValue();
+}
+
 /// Data class for app settings
 class AppSettings {
   final bool reduceMotion;
@@ -189,7 +194,7 @@ class AppSettings {
     bool? highContrast,
     bool? largeText,
     bool? darkMode,
-    String? defaultModel,
+    Object? defaultModel = const _DefaultValue(),
   }) {
     return AppSettings(
       reduceMotion: reduceMotion ?? this.reduceMotion,
@@ -198,7 +203,7 @@ class AppSettings {
       highContrast: highContrast ?? this.highContrast,
       largeText: largeText ?? this.largeText,
       darkMode: darkMode ?? this.darkMode,
-      defaultModel: defaultModel ?? this.defaultModel,
+      defaultModel: defaultModel is _DefaultValue ? this.defaultModel : defaultModel as String?,
     );
   }
 

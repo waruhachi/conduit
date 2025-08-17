@@ -199,6 +199,7 @@ class _ModelSelectorPageState extends ConsumerState<ModelSelectorPage> {
                             onTap: () {
                               ref.read(selectedModelProvider.notifier).state =
                                   model;
+                              ref.read(isManualModelSelectionProvider.notifier).state = true;
                               Navigator.pop(context);
                             },
                           ),

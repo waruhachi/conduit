@@ -839,19 +839,19 @@ class MoreOptionsSheet extends ConsumerWidget {
     }
   }
 
-  void _showDeleteConfirmation(BuildContext context, WidgetRef ref) {
-    ThemedDialogs.confirm(
+  void _showDeleteConfirmation(BuildContext context, WidgetRef ref) async {
+    final confirmed = await ThemedDialogs.confirm(
       context,
       title: 'Delete Messages',
       message:
           'Are you sure you want to delete ${messages.length} message${messages.length == 1 ? '' : 's'}? This action cannot be undone.',
       confirmText: 'Delete',
       isDestructive: true,
-    ).then((confirmed) {
-      if (confirmed == true) {
-        _deleteMessages(context, ref);
-      }
-    });
+    );
+    
+    if (confirmed == true && context.mounted) {
+      _deleteMessages(context, ref);
+    }
   }
 
   void _deleteMessages(BuildContext context, WidgetRef ref) async {

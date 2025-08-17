@@ -109,7 +109,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       
       // Try to use the default model provider
       try {
-        final model = await ref.read(defaultModelProvider.future);
+        final Model? model = await ref.read(defaultModelProvider.future);
         if (model != null) {
           debugPrint('DEBUG: Model auto-selected via provider: ${model.name}');
         }
@@ -2170,7 +2170,7 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
           if (text.startsWith('[[AUDIO_FILE_PATH]]:')) {
             final filePath = text.split(':').skip(1).join(':');
             debugPrint(
-              'DEBUG: VoiceInputSheet received audio file path: ' + filePath,
+              'DEBUG: VoiceInputSheet received audio file path: $filePath',
             );
             _transcribeRecordedFile(filePath);
           } else {
@@ -2237,7 +2237,7 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
         language: language,
       );
       debugPrint(
-        'DEBUG: Transcription received: ' + (text.isEmpty ? '[empty]' : text),
+        'DEBUG: Transcription received: ${text.isEmpty ? '[empty]' : text}',
       );
       if (!mounted) return;
       setState(() {

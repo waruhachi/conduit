@@ -139,7 +139,7 @@ class VoiceInputService {
         path: filePath,
       );
       // ignore: avoid_print
-      print('DEBUG: VoiceInputService recording started at: ' + filePath);
+      print('DEBUG: VoiceInputService recording started at: $filePath');
 
       // Drive intensity from amplitude stream and detect silence
       // Consider amplitude less than threshold as silence; stop after ~3s of continuous silence
@@ -183,7 +183,7 @@ class VoiceInputService {
         return;
       }
       // ignore: avoid_print
-      print('DEBUG: VoiceInputService recording saved: ' + path);
+      print('DEBUG: VoiceInputService recording saved: $path');
       // Hand off recorded file path to listeners as a special token; UI layer will upload for transcription
       _textStreamController?.add('[[AUDIO_FILE_PATH]]:$path');
     } catch (e) {

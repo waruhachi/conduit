@@ -647,8 +647,12 @@ class ProfilePage extends ConsumerWidget {
       ),
     );
     
-    if (result is String || result == null) {
-      await ref.read(appSettingsProvider.notifier).setDefaultModel(result);
+    // result is non-null only when Save button is pressed
+    // null means the sheet was dismissed without saving
+    if (result != null) {
+      // Handle special case: 'auto-select' should be stored as null
+      final modelIdToSave = result == 'auto-select' ? null : result;
+      await ref.read(appSettingsProvider.notifier).setDefaultModel(modelIdToSave);
     }
   }
 
@@ -720,7 +724,8 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
   @override
   void initState() {
     super.initState();
-    _selectedModelId = widget.currentDefaultModelId;
+    // If no default model is set (null), default to auto-select
+    _selectedModelId = widget.currentDefaultModelId ?? 'auto-select';
     // Add auto-select as first item
     _filteredModels = [
       const Model(id: 'auto-select', name: 'Auto-select'),
@@ -812,7 +817,7 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                           ),
                         ),
                         TextButton(
-                          onPressed: () => Navigator.pop(context, _selectedModelId == 'auto-select' ? null : _selectedModelId),
+                          onPressed: () => Navigator.pop(context, _selectedModelId),
                           child: Text(
                             'Save',
                             style: context.conduitTheme.bodyMedium?.copyWith(

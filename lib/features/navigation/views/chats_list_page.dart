@@ -274,16 +274,16 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
                 .toList();
 
             // Debug logging
-            print('🔍 DEBUG: Total conversations: ${uniqueConversations.length} (filtered: ${filteredConversations.length}, original: ${conversations.length})');
-            print('🔍 DEBUG: Pinned: ${pinnedConversations.length}');
-            print('🔍 DEBUG: Regular: ${regularConversations.length}');
-            print('🔍 DEBUG: Folder: ${folderConversations.length}');
-            print('🔍 DEBUG: Archived: ${archivedConversations.length}');
+            debugPrint('DEBUG: Total conversations: ${uniqueConversations.length} (filtered: ${filteredConversations.length}, original: ${conversations.length})');
+            debugPrint('DEBUG: Pinned: ${pinnedConversations.length}');
+            debugPrint('DEBUG: Regular: ${regularConversations.length}');
+            debugPrint('DEBUG: Folder: ${folderConversations.length}');
+            debugPrint('DEBUG: Archived: ${archivedConversations.length}');
             
             // Check first few conversations for folder IDs
             for (int i = 0; i < uniqueConversations.take(5).length; i++) {
               final conv = uniqueConversations[i];
-              print('🔍 DEBUG: Conv ${i}: id=${conv.id.substring(0, 8)}, folderId=${conv.folderId}, pinned=${conv.pinned}, archived=${conv.archived}');
+              debugPrint('DEBUG: Conv $i: id=${conv.id.substring(0, 8)}, folderId=${conv.folderId}, pinned=${conv.pinned}, archived=${conv.archived}');
             }
 
             return ListView(
@@ -336,7 +336,7 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
                       }).toList();
                     },
                     loading: () => [const SizedBox.shrink()],
-                    error: (_, __) => [const SizedBox.shrink()],
+                    error: (_, stackTrace) => [const SizedBox.shrink()],
                   ),
                 ],
 
@@ -1246,6 +1246,13 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
   }
 
   Future<void> _createFolderFromDialog(String name, BuildContext dialogContext) async {
+    // Store theme values and messenger before async operation
+    final theme = context.conduitTheme;
+    final textInverseColor = theme.textInverse;
+    final successColor = theme.success;
+    final errorColor = theme.error;
+    final messenger = ScaffoldMessenger.of(context);
+    
     try {
       final api = ref.read(apiServiceProvider);
       if (api == null) throw Exception('No API service available');
@@ -1253,31 +1260,33 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
       await api.createFolder(name: name);
       ref.invalidate(foldersProvider);
 
-      if (mounted) {
+      if (mounted && dialogContext.mounted) {
         Navigator.pop(dialogContext);
-        ScaffoldMessenger.of(context).showSnackBar(
+      }
+      if (context.mounted) {
+        messenger.showSnackBar(
           SnackBar(
             content: Text(
               'Folder "$name" created',
               style: AppTypography.bodyMediumStyle.copyWith(
-                color: context.conduitTheme.textInverse,
+                color: textInverseColor,
               ),
             ),
-            backgroundColor: context.conduitTheme.success,
+            backgroundColor: successColor,
           ),
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (context.mounted) {
+        messenger.showSnackBar(
           SnackBar(
             content: Text(
               'Failed to create folder: $e',
               style: AppTypography.bodyMediumStyle.copyWith(
-                color: context.conduitTheme.textInverse,
+                color: textInverseColor,
               ),
             ),
-            backgroundColor: context.conduitTheme.error,
+            backgroundColor: errorColor,
           ),
         );
       }
