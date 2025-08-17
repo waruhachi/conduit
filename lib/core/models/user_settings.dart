@@ -31,6 +31,9 @@ sealed class UserSettings with _$UserSettings {
     @Default(false) bool reduceMotion,
     @Default(true) bool hapticFeedback,
 
+    // Model preferences
+    String? defaultModelId,
+
     // Advanced settings
     @Default({}) Map<String, dynamic> customSettings,
   }) = _UserSettings;

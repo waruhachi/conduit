@@ -11,6 +11,7 @@ class SettingsService {
   static const String _highContrastKey = 'high_contrast';
   static const String _largeTextKey = 'large_text';
   static const String _darkModeKey = 'dark_mode';
+  static const String _defaultModelKey = 'default_model';
 
   /// Get reduced motion preference
   static Future<bool> getReduceMotion() async {
@@ -84,6 +85,22 @@ class SettingsService {
     await prefs.setBool(_darkModeKey, value);
   }
 
+  /// Get default model preference
+  static Future<String?> getDefaultModel() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_defaultModelKey);
+  }
+
+  /// Set default model preference
+  static Future<void> setDefaultModel(String? modelId) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (modelId != null) {
+      await prefs.setString(_defaultModelKey, modelId);
+    } else {
+      await prefs.remove(_defaultModelKey);
+    }
+  }
+
   /// Load all settings
   static Future<AppSettings> loadSettings() async {
     return AppSettings(
@@ -93,6 +110,7 @@ class SettingsService {
       highContrast: await getHighContrast(),
       largeText: await getLargeText(),
       darkMode: await getDarkMode(),
+      defaultModel: await getDefaultModel(),
     );
   }
 
@@ -105,6 +123,7 @@ class SettingsService {
       setHighContrast(settings.highContrast),
       setLargeText(settings.largeText),
       setDarkMode(settings.darkMode),
+      setDefaultModel(settings.defaultModel),
     ]);
   }
 
@@ -151,6 +170,7 @@ class AppSettings {
   final bool highContrast;
   final bool largeText;
   final bool darkMode;
+  final String? defaultModel;
 
   const AppSettings({
     this.reduceMotion = false,
@@ -159,6 +179,7 @@ class AppSettings {
     this.highContrast = false,
     this.largeText = false,
     this.darkMode = true,
+    this.defaultModel,
   });
 
   AppSettings copyWith({
@@ -168,6 +189,7 @@ class AppSettings {
     bool? highContrast,
     bool? largeText,
     bool? darkMode,
+    String? defaultModel,
   }) {
     return AppSettings(
       reduceMotion: reduceMotion ?? this.reduceMotion,
@@ -176,6 +198,7 @@ class AppSettings {
       highContrast: highContrast ?? this.highContrast,
       largeText: largeText ?? this.largeText,
       darkMode: darkMode ?? this.darkMode,
+      defaultModel: defaultModel ?? this.defaultModel,
     );
   }
 
@@ -188,7 +211,8 @@ class AppSettings {
         other.hapticFeedback == hapticFeedback &&
         other.highContrast == highContrast &&
         other.largeText == largeText &&
-        other.darkMode == darkMode;
+        other.darkMode == darkMode &&
+        other.defaultModel == defaultModel;
   }
 
   @override
@@ -200,6 +224,7 @@ class AppSettings {
       highContrast,
       largeText,
       darkMode,
+      defaultModel,
     );
   }
 }
@@ -248,6 +273,11 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setDarkMode(bool value) async {
     state = state.copyWith(darkMode: value);
     await SettingsService.setDarkMode(value);
+  }
+
+  Future<void> setDefaultModel(String? modelId) async {
+    state = state.copyWith(defaultModel: modelId);
+    await SettingsService.setDefaultModel(modelId);
   }
 
   Future<void> resetToDefaults() async {

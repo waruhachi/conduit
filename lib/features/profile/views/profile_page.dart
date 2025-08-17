@@ -12,6 +12,11 @@ import '../../../shared/utils/ui_utils.dart';
 import '../../../shared/widgets/conduit_components.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../auth/providers/unified_auth_providers.dart';
+import '../../../core/services/settings_service.dart';
+import '../../../core/models/model.dart';
+import 'dart:async';
+import 'dart:io';
+import '../../chat/views/chat_page_helpers.dart';
 
 /// Profile page (You tab) showing user info and main actions
 /// Enhanced with production-grade design tokens for better cohesion
@@ -263,6 +268,8 @@ class ProfilePage extends ConsumerWidget {
           padding: EdgeInsets.zero,
           child: Column(
             children: [
+              _buildDefaultModelTile(context, ref),
+              Divider(color: context.conduitTheme.dividerColor, height: 1),
               _buildThemeToggleTile(context, ref),
               Divider(color: context.conduitTheme.dividerColor, height: 1),
               _buildAboutTile(context),
@@ -339,6 +346,141 @@ class ProfilePage extends ConsumerWidget {
           size: IconSize.small,
         ),
         onTap: onTap,
+      ),
+    );
+  }
+
+  Widget _buildDefaultModelTile(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(appSettingsProvider);
+    final modelsAsync = ref.watch(modelsProvider);
+    
+    return modelsAsync.when(
+      data: (models) {
+        final currentModel = models.firstWhere(
+          (m) => m.id == settings.defaultModel,
+          orElse: () => models.isNotEmpty ? models.first : const Model(
+            id: 'none',
+            name: 'No models available',
+          ),
+        );
+        
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: Spacing.listItemPadding,
+            vertical: Spacing.sm,
+          ),
+          leading: Container(
+            padding: const EdgeInsets.all(Spacing.sm),
+            decoration: BoxDecoration(
+              color: context.conduitTheme.buttonPrimary.withValues(
+                alpha: Alpha.highlight,
+              ),
+              borderRadius: BorderRadius.circular(AppBorderRadius.small),
+            ),
+            child: Icon(
+              UiUtils.platformIcon(
+                ios: CupertinoIcons.cube_box,
+                android: Icons.psychology,
+              ),
+              color: context.conduitTheme.buttonPrimary,
+              size: IconSize.medium,
+            ),
+          ),
+          title: Text(
+            'Default Model',
+            style: context.conduitTheme.bodyLarge?.copyWith(
+              color: context.conduitTheme.textPrimary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          subtitle: Text(
+            settings.defaultModel != null ? currentModel.name : 'Auto-select',
+            style: context.conduitTheme.bodySmall?.copyWith(
+              color: context.conduitTheme.textSecondary,
+            ),
+          ),
+          trailing: Icon(
+            UiUtils.platformIcon(
+              ios: CupertinoIcons.chevron_right,
+              android: Icons.chevron_right,
+            ),
+            color: context.conduitTheme.iconSecondary,
+            size: IconSize.small,
+          ),
+          onTap: () => _showModelSelector(context, ref, models),
+        );
+      },
+      loading: () => ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: Spacing.listItemPadding,
+          vertical: Spacing.sm,
+        ),
+        leading: Container(
+          padding: const EdgeInsets.all(Spacing.sm),
+          decoration: BoxDecoration(
+            color: context.conduitTheme.buttonPrimary.withValues(
+              alpha: Alpha.highlight,
+            ),
+            borderRadius: BorderRadius.circular(AppBorderRadius.small),
+          ),
+          child: Icon(
+            UiUtils.platformIcon(
+              ios: CupertinoIcons.cube_box,
+              android: Icons.psychology,
+            ),
+            color: context.conduitTheme.buttonPrimary,
+            size: IconSize.medium,
+          ),
+        ),
+        title: Text(
+          'Default Model',
+          style: context.conduitTheme.bodyLarge?.copyWith(
+            color: context.conduitTheme.textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(
+          'Loading models...',
+          style: context.conduitTheme.bodySmall?.copyWith(
+            color: context.conduitTheme.textSecondary,
+          ),
+        ),
+      ),
+      error: (error, stack) => ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: Spacing.listItemPadding,
+          vertical: Spacing.sm,
+        ),
+        leading: Container(
+          padding: const EdgeInsets.all(Spacing.sm),
+          decoration: BoxDecoration(
+            color: context.conduitTheme.error.withValues(
+              alpha: Alpha.highlight,
+            ),
+            borderRadius: BorderRadius.circular(AppBorderRadius.small),
+          ),
+          child: Icon(
+            UiUtils.platformIcon(
+              ios: CupertinoIcons.exclamationmark_triangle,
+              android: Icons.error_outline,
+            ),
+            color: context.conduitTheme.error,
+            size: IconSize.medium,
+          ),
+        ),
+        title: Text(
+          'Default Model',
+          style: context.conduitTheme.bodyLarge?.copyWith(
+            color: context.conduitTheme.textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(
+          'Failed to load models',
+          style: context.conduitTheme.bodySmall?.copyWith(
+            color: context.conduitTheme.error,
+          ),
+        ),
       ),
     );
   }
@@ -494,6 +636,22 @@ class ProfilePage extends ConsumerWidget {
     }
   }
 
+  Future<void> _showModelSelector(BuildContext context, WidgetRef ref, List<Model> models) async {
+    final result = await showModalBottomSheet<String?>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _DefaultModelBottomSheet(
+        models: models,
+        currentDefaultModelId: ref.read(appSettingsProvider).defaultModel,
+      ),
+    );
+    
+    if (result is String || result == null) {
+      await ref.read(appSettingsProvider.notifier).setDefaultModel(result);
+    }
+  }
+
   void _signOut(BuildContext context, WidgetRef ref) async {
     final confirm = await UiUtils.showConfirmationDialog(
       context,
@@ -506,5 +664,414 @@ class ProfilePage extends ConsumerWidget {
     if (confirm) {
       await ref.read(logoutActionProvider);
     }
+  }
+}
+
+class _DefaultModelBottomSheet extends ConsumerStatefulWidget {
+  final List<Model> models;
+  final String? currentDefaultModelId;
+
+  const _DefaultModelBottomSheet({
+    required this.models,
+    required this.currentDefaultModelId,
+  });
+
+  @override
+  ConsumerState<_DefaultModelBottomSheet> createState() => _DefaultModelBottomSheetState();
+}
+
+class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomSheet> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  List<Model> _filteredModels = [];
+  Timer? _searchDebounce;
+  String? _selectedModelId;
+
+  Widget _capabilityChip({required IconData icon, required String label}) {
+    return Container(
+      margin: const EdgeInsets.only(right: Spacing.xs),
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.xs, vertical: 2),
+      decoration: BoxDecoration(
+        color: context.conduitTheme.buttonPrimary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppBorderRadius.chip),
+        border: Border.all(
+          color: context.conduitTheme.buttonPrimary.withValues(alpha: 0.3),
+          width: BorderWidth.thin,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: context.conduitTheme.buttonPrimary),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: AppTypography.labelSmall,
+              color: context.conduitTheme.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedModelId = widget.currentDefaultModelId;
+    // Add auto-select as first item
+    _filteredModels = [
+      const Model(id: 'auto-select', name: 'Auto-select'),
+      ...widget.models,
+    ];
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _filterModels(String query) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 160), () {
+      setState(() {
+        _searchQuery = query.toLowerCase();
+        List<Model> allModels = [
+          const Model(id: 'auto-select', name: 'Auto-select'),
+          ...widget.models,
+        ];
+        
+        if (_searchQuery.isNotEmpty) {
+          _filteredModels = allModels.where((model) {
+            return model.name.toLowerCase().contains(_searchQuery) ||
+                model.id.toLowerCase().contains(_searchQuery);
+          }).toList();
+        } else {
+          _filteredModels = allModels;
+        }
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      maxChildSize: 0.92,
+      minChildSize: 0.45,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: context.conduitTheme.surfaceBackground,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppBorderRadius.bottomSheet),
+            ),
+            border: Border.all(
+              color: context.conduitTheme.dividerColor,
+              width: BorderWidth.regular,
+            ),
+            boxShadow: ConduitShadows.modal,
+          ),
+          child: SafeArea(
+            top: false,
+            bottom: true,
+            child: Padding(
+              padding: const EdgeInsets.all(Spacing.bottomSheetPadding),
+              child: Column(
+                children: [
+                  // Handle bar
+                  Container(
+                    margin: const EdgeInsets.only(
+                      top: Spacing.sm,
+                      bottom: Spacing.md,
+                    ),
+                    width: Spacing.xxl,
+                    height: Spacing.xs,
+                    decoration: BoxDecoration(
+                      color: context.conduitTheme.dividerColor,
+                      borderRadius: BorderRadius.circular(AppBorderRadius.xs),
+                    ),
+                  ),
+
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Spacing.md),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Default Model',
+                            style: context.conduitTheme.headingMedium?.copyWith(
+                              color: context.conduitTheme.textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, _selectedModelId == 'auto-select' ? null : _selectedModelId),
+                          child: Text(
+                            'Save',
+                            style: context.conduitTheme.bodyMedium?.copyWith(
+                              color: context.conduitTheme.buttonPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Search field
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Spacing.md),
+                    child: TextField(
+                      controller: _searchController,
+                      style: TextStyle(color: context.conduitTheme.textPrimary),
+                      decoration: InputDecoration(
+                        hintText: 'Search...',
+                        hintStyle: TextStyle(
+                          color: context.conduitTheme.inputPlaceholder,
+                        ),
+                        prefixIcon: Icon(
+                          Platform.isIOS ? CupertinoIcons.search : Icons.search,
+                          color: context.conduitTheme.iconSecondary,
+                        ),
+                        filled: true,
+                        fillColor: context.conduitTheme.inputBackground,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                          borderSide: BorderSide(
+                            color: context.conduitTheme.inputBorder,
+                            width: 1,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                          borderSide: BorderSide(
+                            color: context.conduitTheme.buttonPrimary,
+                            width: 1,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: Spacing.md,
+                          vertical: Spacing.md,
+                        ),
+                      ),
+                      onChanged: _filterModels,
+                    ),
+                  ),
+
+                  const SizedBox(height: Spacing.sm),
+
+                  // Models list
+                  Expanded(
+                    child: Scrollbar(
+                      controller: scrollController,
+                      child: _filteredModels.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Platform.isIOS
+                                        ? CupertinoIcons.search_circle
+                                        : Icons.search_off,
+                                    size: 48,
+                                    color: context.conduitTheme.iconSecondary,
+                                  ),
+                                  const SizedBox(height: Spacing.md),
+                                  Text(
+                                    'No results',
+                                    style: TextStyle(
+                                      color: context.conduitTheme.textSecondary,
+                                      fontSize: AppTypography.bodyLarge,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView.builder(
+                              controller: scrollController,
+                              padding: EdgeInsets.zero,
+                              itemCount: _filteredModels.length,
+                              itemBuilder: (context, index) {
+                                final model = _filteredModels[index];
+                                final isAutoSelect = model.id == 'auto-select';
+                                final isSelected = isAutoSelect 
+                                    ? _selectedModelId == null || _selectedModelId == 'auto-select'
+                                    : _selectedModelId == model.id;
+
+                                return _buildModelListTile(
+                                  model: model,
+                                  isSelected: isSelected,
+                                  isAutoSelect: isAutoSelect,
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedModelId = isAutoSelect ? 'auto-select' : model.id;
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  bool _modelSupportsReasoning(Model model) {
+    final params = model.supportedParameters ?? const [];
+    return params.any((p) => p.toLowerCase().contains('reasoning'));
+  }
+
+  Widget _buildModelListTile({
+    required Model model,
+    required bool isSelected,
+    required bool isAutoSelect,
+    required VoidCallback onTap,
+  }) {
+    return PressableScale(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppBorderRadius.md),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: Spacing.md),
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? LinearGradient(
+                  colors: [
+                    context.conduitTheme.buttonPrimary.withValues(alpha: 0.2),
+                    context.conduitTheme.buttonPrimary.withValues(alpha: 0.1),
+                  ],
+                )
+              : null,
+          color: isSelected
+              ? null
+              : context.conduitTheme.surfaceBackground.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          border: Border.all(
+            color: isSelected
+                ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.5)
+                : context.conduitTheme.dividerColor,
+            width: BorderWidth.regular,
+          ),
+          boxShadow: isSelected ? ConduitShadows.card : null,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: Spacing.sm,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: context.conduitTheme.buttonPrimary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                ),
+                child: Icon(
+                  isAutoSelect 
+                      ? (Platform.isIOS ? CupertinoIcons.wand_stars : Icons.auto_awesome)
+                      : (Platform.isIOS ? CupertinoIcons.cube : Icons.psychology),
+                  color: context.conduitTheme.buttonPrimary,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: Spacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isAutoSelect ? 'Auto-select' : model.name,
+                      style: TextStyle(
+                        color: context.conduitTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: AppTypography.bodyMedium,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (isAutoSelect) ...[
+                      const SizedBox(height: Spacing.xs),
+                      Text(
+                        'Let the app choose the best model',
+                        style: TextStyle(
+                          fontSize: AppTypography.bodySmall,
+                          color: context.conduitTheme.textSecondary,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ] else ...[
+                      const SizedBox(height: Spacing.xs),
+                      Row(
+                        children: [
+                          if (model.isMultimodal)
+                            _capabilityChip(
+                              icon: Platform.isIOS
+                                  ? CupertinoIcons.photo
+                                  : Icons.image,
+                              label: 'Multimodal',
+                            ),
+                          if (_modelSupportsReasoning(model))
+                            _capabilityChip(
+                              icon: Platform.isIOS
+                                  ? CupertinoIcons.lightbulb
+                                  : Icons.psychology_alt,
+                              label: 'Reasoning',
+                            ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: Spacing.md),
+              AnimatedOpacity(
+                opacity: isSelected ? 1 : 0.6,
+                duration: AnimationDuration.fast,
+                child: Container(
+                  padding: const EdgeInsets.all(Spacing.xxs),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? context.conduitTheme.buttonPrimary
+                        : context.conduitTheme.surfaceBackground,
+                    borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                    border: Border.all(
+                      color: isSelected
+                          ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.6)
+                          : context.conduitTheme.dividerColor,
+                    ),
+                  ),
+                  child: Icon(
+                    isSelected
+                        ? (Platform.isIOS ? CupertinoIcons.check_mark : Icons.check)
+                        : (Platform.isIOS ? CupertinoIcons.add : Icons.add),
+                    color: isSelected
+                        ? context.conduitTheme.textInverse
+                        : context.conduitTheme.iconSecondary,
+                    size: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).animate().fadeIn(duration: AnimationDuration.microInteraction);
   }
 }

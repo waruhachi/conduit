@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 // ThemedDialogs handles theming; no direct use of extensions here
 import '../../features/chat/views/chat_page.dart';
 import '../../features/auth/views/connect_signin_page.dart';
-import '../../features/settings/views/searchable_settings_page.dart';
+
 import '../../features/profile/views/profile_page.dart';
 import '../../features/files/views/files_page.dart';
 
@@ -148,10 +148,7 @@ class NavigationService {
     return navigateTo(Routes.login, clearStack: true);
   }
 
-  /// Navigate to settings
-  static Future<void> navigateToSettings() {
-    return navigateTo(Routes.settings);
-  }
+
 
   /// Navigate to profile
   static Future<void> navigateToProfile() {
@@ -202,9 +199,7 @@ class NavigationService {
         page = const ConnectAndSignInPage();
         break;
 
-      case Routes.settings:
-        page = const SearchableSettingsPage();
-        break;
+
 
       case Routes.profile:
         page = const ProfilePage();
@@ -244,7 +239,7 @@ class NavigationService {
 class Routes {
   static const String chat = '/chat';
   static const String login = '/login';
-  static const String settings = '/settings';
+
   static const String profile = '/profile';
   static const String serverConnection = '/server-connection';
   static const String search = '/search';

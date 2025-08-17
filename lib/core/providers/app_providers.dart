@@ -18,6 +18,7 @@ import '../models/folder.dart';
 import '../models/user_settings.dart';
 import '../models/file_info.dart';
 import '../models/knowledge_base.dart';
+import '../services/settings_service.dart';
 import '../services/optimized_storage_service.dart';
 
 // Storage providers
@@ -500,8 +501,10 @@ final loadConversationProvider = FutureProvider.family<Conversation, String>((
   return fullConversation;
 });
 
-// Provider to automatically load and set the default model from OpenWebUI
+// Provider to automatically load and set the default model from user settings or OpenWebUI
 final defaultModelProvider = FutureProvider<Model?>((ref) async {
+  // Watch user settings to refresh when default model changes
+  ref.watch(appSettingsProvider);
   // Handle reviewer mode first
   final reviewerMode = ref.watch(reviewerModeProvider);
   if (reviewerMode) {
@@ -562,45 +565,71 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
 
     Model? selectedModel;
 
-    // Try to get the server's default model configuration
-    try {
-      final defaultModelId = await api.getDefaultModel();
+    // First check user's preferred default model
+    final userSettings = ref.read(appSettingsProvider);
+    final userDefaultModelId = userSettings.defaultModel;
+    
+    if (userDefaultModelId != null && userDefaultModelId.isNotEmpty) {
+      try {
+        selectedModel = models.firstWhere(
+          (model) =>
+              model.id == userDefaultModelId ||
+              model.name == userDefaultModelId ||
+              model.id.contains(userDefaultModelId) ||
+              model.name.contains(userDefaultModelId),
+        );
+        foundation.debugPrint(
+          'DEBUG: Found user default model: ${selectedModel.name}',
+        );
+      } catch (e) {
+        foundation.debugPrint(
+          'DEBUG: User default model "$userDefaultModelId" not found in available models',
+        );
+        selectedModel = null; // Will fall back to server default or first model
+      }
+    }
 
-      if (defaultModelId != null && defaultModelId.isNotEmpty) {
-        // Find the model that matches the default model ID
-        try {
-          selectedModel = models.firstWhere(
-            (model) =>
-                model.id == defaultModelId ||
-                model.name == defaultModelId ||
-                model.id.contains(defaultModelId) ||
-                model.name.contains(defaultModelId),
-          );
-          foundation.debugPrint(
-            'DEBUG: Found server default model: ${selectedModel.name}',
-          );
-        } catch (e) {
-          foundation.debugPrint(
-            'DEBUG: Default model "$defaultModelId" not found in available models',
-          );
+    // If no user default or user default not found, try server's default model
+    if (selectedModel == null) {
+      try {
+        final defaultModelId = await api.getDefaultModel();
+
+        if (defaultModelId != null && defaultModelId.isNotEmpty) {
+          // Find the model that matches the default model ID
+          try {
+            selectedModel = models.firstWhere(
+              (model) =>
+                  model.id == defaultModelId ||
+                  model.name == defaultModelId ||
+                  model.id.contains(defaultModelId) ||
+                  model.name.contains(defaultModelId),
+            );
+            foundation.debugPrint(
+              'DEBUG: Found server default model: ${selectedModel.name}',
+            );
+          } catch (e) {
+            foundation.debugPrint(
+              'DEBUG: Server default model "$defaultModelId" not found in available models',
+            );
+            selectedModel = models.first;
+          }
+        } else {
+          // No server default, use first available model
           selectedModel = models.first;
+          foundation.debugPrint(
+            'DEBUG: No server default model, using first available: ${selectedModel.name}',
+          );
         }
-      } else {
-        // No server default, use first available model
+      } catch (apiError) {
+        foundation.debugPrint(
+          'DEBUG: Failed to get default model from server: $apiError',
+        );
+        // Use first available model as fallback
         selectedModel = models.first;
         foundation.debugPrint(
-          'DEBUG: No server default model, using first available: ${selectedModel.name}',
+          'DEBUG: Using first available model as fallback: ${selectedModel.name}',
         );
       }
-    } catch (apiError) {
-      foundation.debugPrint(
-        'DEBUG: Failed to get default model from server: $apiError',
-      );
-      // Use first available model as fallback
-      selectedModel = models.first;
-      foundation.debugPrint(
-        'DEBUG: Using first available model as fallback: ${selectedModel.name}',
-      );
     }
 
     // Defer the state update to avoid modifying providers during initialization
