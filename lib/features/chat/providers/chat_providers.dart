@@ -10,6 +10,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../core/auth/auth_state_manager.dart';
 import '../../../core/utils/stream_chunker.dart';
 import '../../../core/services/persistent_streaming_service.dart';
+import '../services/reviewer_mode_service.dart';
 
 // Chat messages for current conversation
 final chatMessagesProvider =
@@ -399,9 +400,13 @@ Future<void> regenerateMessage(
     );
     ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
 
+    // Use canned response for regeneration
+    final responseText = ReviewerModeService.generateResponse(
+      userMessage: userMessageContent,
+    );
+    
     // Simulate streaming response
-    final demoText = 'This is a regenerated demo response.\n\nOriginal message: "$userMessageContent"';
-    final words = demoText.split(' ');
+    final words = responseText.split(' ');
     for (final word in words) {
       await Future.delayed(const Duration(milliseconds: 40));
       ref.read(chatMessagesProvider.notifier).appendToLastMessage('$word ');
@@ -444,7 +449,7 @@ Future<void> regenerateMessage(
     }
 
     // Stream response using SSE
-    final response = await api!.sendMessage(
+    final response = api!.sendMessage(
       messages: conversationMessages,
       model: selectedModel.id,
       conversationId: activeConversation.id,
@@ -582,7 +587,10 @@ Future<void> _sendMessageInternal(
         );
         
         // Invalidate conversations provider to refresh the list
-        ref.invalidate(conversationsProvider);
+        // Adding a small delay to prevent rapid invalidations that could cause duplicates
+        Future.delayed(const Duration(milliseconds: 100), () {
+          ref.invalidate(conversationsProvider);
+        });
       } catch (e) {
         debugPrint(
           'DEBUG: Failed to create conversation on server, using local: $e',
@@ -615,10 +623,27 @@ Future<void> _sendMessageInternal(
     );
     ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
 
+    // Check if there are attachments
+    String? filename;
+    if (attachments != null && attachments.isNotEmpty) {
+      // Get the first attachment filename for the response
+      // In reviewer mode, we just simulate having a file
+      filename = "demo_file.txt";
+    }
+
+    // Check if this is voice input
+    // In reviewer mode, we don't have actual voice input state
+    final isVoiceInput = false;
+
+    // Generate appropriate canned response
+    final responseText = ReviewerModeService.generateResponse(
+      userMessage: message,
+      filename: filename,
+      isVoiceInput: isVoiceInput,
+    );
+
     // Simulate token-by-token streaming
-    final demoText =
-        'This is a demo response from Conduit.\n\nYou typed: "$message"';
-    final words = demoText.split(' ');
+    final words = responseText.split(' ');
     for (final word in words) {
       await Future.delayed(const Duration(milliseconds: 40));
       ref.read(chatMessagesProvider.notifier).appendToLastMessage('$word ');
@@ -1598,8 +1623,11 @@ Future<void> _saveConversationToServer(dynamic ref) async {
     debugPrint(
       'DEBUG: Invalidating conversations provider after successful save',
     );
-    ref.invalidate(conversationsProvider);
-    debugPrint('DEBUG: Conversations provider invalidated');
+    // Adding a small delay to prevent rapid invalidations that could cause duplicates
+    Future.delayed(const Duration(milliseconds: 100), () {
+      ref.invalidate(conversationsProvider);
+      debugPrint('DEBUG: Conversations provider invalidated');
+    });
   } catch (e) {
     debugPrint('Error saving conversation to server: $e');
     // Fallback to local storage

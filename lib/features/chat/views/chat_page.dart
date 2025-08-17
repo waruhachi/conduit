@@ -29,6 +29,7 @@ import '../../../core/models/model.dart';
 import '../../../shared/widgets/loading_states.dart';
 import 'chat_page_helpers.dart';
 import '../../../shared/widgets/themed_dialogs.dart';
+import '../../onboarding/views/onboarding_sheet.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({super.key});
@@ -58,12 +59,172 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     return display;
   }
 
+  bool validateFileCount(int currentCount, int newCount, int maxCount) {
+    return (currentCount + newCount) <= maxCount;
+  }
+
+  bool validateFileSize(int fileSize, int maxSizeMB) {
+    return fileSize <= (maxSizeMB * 1024 * 1024);
+  }
+
+  void startNewChat() {
+    // Clear current conversation
+    ref.read(chatMessagesProvider.notifier).clearMessages();
+    ref.read(activeConversationProvider.notifier).state = null;
+    
+    // Scroll to top
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
+  }
+
+  Future<void> _checkAndAutoSelectModel() async {
+    // Check if a model is already selected
+    final selectedModel = ref.read(selectedModelProvider);
+    if (selectedModel != null) {
+      debugPrint('DEBUG: Model already selected: ${selectedModel.name}');
+      return;
+    }
+    
+    debugPrint('DEBUG: No model selected, attempting auto-selection');
+    
+    try {
+      // First ensure models are loaded
+      final modelsAsync = ref.read(modelsProvider);
+      List<Model> models;
+      
+      if (modelsAsync.hasValue) {
+        models = modelsAsync.value!;
+      } else {
+        debugPrint('DEBUG: Models not loaded yet, fetching...');
+        models = await ref.read(modelsProvider.future);
+      }
+      
+      debugPrint('DEBUG: Found ${models.length} models available');
+      
+      if (models.isEmpty) {
+        debugPrint('DEBUG: No models available for selection');
+        return;
+      }
+      
+      // Try to use the default model provider
+      try {
+        final model = await ref.read(defaultModelProvider.future);
+        if (model != null) {
+          debugPrint('DEBUG: Model auto-selected via provider: ${model.name}');
+        }
+      } catch (e) {
+        debugPrint('DEBUG: Default provider failed, selecting first model directly');
+        // Fallback: select the first available model
+        ref.read(selectedModelProvider.notifier).state = models.first;
+        debugPrint('DEBUG: Fallback model selected: ${models.first.name}');
+      }
+    } catch (e) {
+      debugPrint('DEBUG: Failed to auto-select model: $e');
+    }
+  }
+
+  Future<void> _checkAndShowOnboarding() async {
+    try {
+      // Check if onboarding has been seen
+      final storage = ref.read(optimizedStorageServiceProvider);
+      final seen = await storage.getOnboardingSeen();
+      debugPrint('DEBUG: Chat page - Onboarding seen status: $seen');
+      
+      if (!seen && mounted) {
+        // Small delay to ensure navigation has settled
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (!mounted) return;
+        
+        debugPrint('DEBUG: Showing onboarding from chat page');
+        _showOnboarding();
+        await storage.setOnboardingSeen(true);
+        debugPrint('DEBUG: Onboarding marked as seen');
+      }
+    } catch (e) {
+      debugPrint('DEBUG: Error checking onboarding status: $e');
+    }
+  }
+
+  void _showOnboarding() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: context.conduitTheme.surfaceBackground,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppBorderRadius.modal),
+          ),
+          boxShadow: ConduitShadows.modal,
+        ),
+        child: const OnboardingSheet(),
+      ),
+    );
+  }
+
+  Future<void> _checkAndLoadDemoConversation() async {
+    final isReviewerMode = ref.read(reviewerModeProvider);
+    if (!isReviewerMode) return;
+    
+    // Check if there's already an active conversation
+    final activeConversation = ref.read(activeConversationProvider);
+    if (activeConversation != null) {
+      debugPrint('Conversation already active: ${activeConversation.title}');
+      return;
+    }
+    
+    // Force refresh conversations provider to ensure we get the demo conversations
+    ref.invalidate(conversationsProvider);
+    
+    // Try to load demo conversation
+    for (int i = 0; i < 10; i++) {
+      final conversationsAsync = ref.read(conversationsProvider);
+      
+      if (conversationsAsync.hasValue && conversationsAsync.value!.isNotEmpty) {
+        // Find and load the welcome conversation
+        final welcomeConv = conversationsAsync.value!.firstWhere(
+          (conv) => conv.id == 'demo-conv-1',
+          orElse: () => conversationsAsync.value!.first,
+        );
+        
+        ref.read(activeConversationProvider.notifier).state = welcomeConv;
+        debugPrint('Auto-loaded demo conversation: ${welcomeConv.title}');
+        return;
+      }
+      
+      // If conversations are still loading, wait a bit and retry
+      if (conversationsAsync.isLoading || i == 0) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        continue;
+      }
+      
+      // If there was an error or no conversations, break
+      break;
+    }
+    
+    debugPrint('Failed to auto-load demo conversation');
+  }
+
   @override
   void initState() {
     super.initState();
 
     // Listen to scroll events to show/hide scroll to bottom button
     _scrollController.addListener(_onScroll);
+    
+    // Initialize chat page components
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // First, ensure a model is selected
+      await _checkAndAutoSelectModel();
+      
+      // Then check for demo conversation in reviewer mode
+      await _checkAndLoadDemoConversation();
+      
+      // Finally, show onboarding if needed
+      await _checkAndShowOnboarding();
+    });
   }
 
   @override
@@ -89,8 +250,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
 
     final isOnline = ref.read(isOnlineProvider);
-    debugPrint('DEBUG: Online status: $isOnline');
-    if (!isOnline) {
+    final isReviewerMode = ref.read(reviewerModeProvider);
+    debugPrint('DEBUG: Online status: $isOnline, Reviewer mode: $isReviewerMode');
+    if (!isOnline && !isReviewerMode) {
       debugPrint('DEBUG: Offline - cannot send message');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -102,7 +264,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           ),
         );
       }
-      // TODO: Implement message queueing for offline mode
       return;
     }
 
@@ -402,7 +563,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   void _handleNewChat() {
     // Start a new chat using the existing function
-    startNewChat(ref);
+    startNewChat();
 
     // Hide scroll-to-bottom button for a fresh chat
     if (mounted) {
@@ -1080,6 +1241,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final selectedModel = ref.watch(
       selectedModelProvider.select((model) => model),
     );
+    
+    // Watch reviewer mode and auto-select model if needed
+    final isReviewerMode = ref.watch(reviewerModeProvider);
+    
+    // Auto-select model when in reviewer mode with no selection
+    if (isReviewerMode && selectedModel == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkAndAutoSelectModel();
+      });
+    }
 
     return ErrorBoundary(
       child: PopScope(
@@ -1181,45 +1352,76 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         (models) => _showModelDropdown(context, ref, models),
                       );
                     },
-                    child: Row(
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Flexible(
-                          child: Text(
-                            _formatModelDisplayName(selectedModel.name),
-                            style: AppTypography.headlineSmallStyle.copyWith(
-                              color: context.conduitTheme.textPrimary,
-                              fontWeight: FontWeight.w400,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                _formatModelDisplayName(selectedModel.name),
+                                style: AppTypography.headlineSmallStyle.copyWith(
+                                  color: context.conduitTheme.textPrimary,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                            const SizedBox(width: Spacing.xs),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: Spacing.xs,
+                                vertical: Spacing.xxs,
+                              ),
+                              decoration: BoxDecoration(
+                                color: context.conduitTheme.surfaceBackground
+                                    .withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(
+                                  AppBorderRadius.badge,
+                                ),
+                                border: Border.all(
+                                  color: context.conduitTheme.dividerColor,
+                                  width: BorderWidth.thin,
+                                ),
+                              ),
+                              child: Icon(
+                                Platform.isIOS
+                                    ? CupertinoIcons.chevron_down
+                                    : Icons.keyboard_arrow_down,
+                                color: context.conduitTheme.iconSecondary,
+                                size: IconSize.small,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: Spacing.xs),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: Spacing.xs,
-                            vertical: Spacing.xxs,
-                          ),
-                          decoration: BoxDecoration(
-                            color: context.conduitTheme.surfaceBackground
-                                .withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(
-                              AppBorderRadius.badge,
+                        if (ref.watch(reviewerModeProvider))
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2.0),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: Spacing.sm,
+                                vertical: 1.0,
+                              ),
+                              decoration: BoxDecoration(
+                                color: context.conduitTheme.success.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(AppBorderRadius.badge),
+                                border: Border.all(
+                                  color: context.conduitTheme.success.withValues(alpha: 0.3),
+                                  width: BorderWidth.thin,
+                                ),
+                              ),
+                              child: Text(
+                                'REVIEWER MODE',
+                                style: AppTypography.captionStyle.copyWith(
+                                  color: context.conduitTheme.success,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 9,
+                                ),
+                              ),
                             ),
-                            border: Border.all(
-                              color: context.conduitTheme.dividerColor,
-                              width: BorderWidth.thin,
-                            ),
                           ),
-                          child: Icon(
-                            Platform.isIOS
-                                ? CupertinoIcons.chevron_down
-                                : Icons.keyboard_arrow_down,
-                            color: context.conduitTheme.iconSecondary,
-                            size: IconSize.small,
-                          ),
-                        ),
                       ],
                     ),
                   )
@@ -1230,47 +1432,78 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         (models) => _showModelDropdown(context, ref, models),
                       );
                     },
-                    child: Row(
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Flexible(
-                          child: Text(
-                            'Choose Model',
-                            style: AppTypography.headlineSmallStyle.copyWith(
-                              color: context.conduitTheme.textPrimary,
-                              fontWeight: FontWeight.w400,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'Choose Model',
+                                style: AppTypography.headlineSmallStyle.copyWith(
+                                  color: context.conduitTheme.textPrimary,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                              ),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                          ),
+                            const SizedBox(width: Spacing.xs),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: Spacing.xs,
+                                vertical: Spacing.xxs,
+                              ),
+                              decoration: BoxDecoration(
+                                color: context.conduitTheme.surfaceBackground
+                                    .withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(
+                                  AppBorderRadius.badge,
+                                ),
+                                border: Border.all(
+                                  color: context.conduitTheme.dividerColor,
+                                  width: BorderWidth.thin,
+                                ),
+                              ),
+                              child: Icon(
+                                Platform.isIOS
+                                    ? CupertinoIcons.chevron_down
+                                    : Icons.keyboard_arrow_down,
+                                color: context.conduitTheme.iconSecondary,
+                                size: IconSize.small,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: Spacing.xs),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: Spacing.xs,
-                            vertical: Spacing.xxs,
-                          ),
-                          decoration: BoxDecoration(
-                            color: context.conduitTheme.surfaceBackground
-                                .withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(
-                              AppBorderRadius.badge,
+                        if (ref.watch(reviewerModeProvider))
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2.0),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: Spacing.sm,
+                                vertical: 1.0,
+                              ),
+                              decoration: BoxDecoration(
+                                color: context.conduitTheme.success.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(AppBorderRadius.badge),
+                                border: Border.all(
+                                  color: context.conduitTheme.success.withValues(alpha: 0.3),
+                                  width: BorderWidth.thin,
+                                ),
+                              ),
+                              child: Text(
+                                'REVIEWER MODE',
+                                style: AppTypography.captionStyle.copyWith(
+                                  color: context.conduitTheme.success,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 9,
+                                ),
+                              ),
                             ),
-                            border: Border.all(
-                              color: context.conduitTheme.dividerColor,
-                              width: BorderWidth.thin,
-                            ),
                           ),
-                          child: Icon(
-                            Platform.isIOS
-                                ? CupertinoIcons.chevron_down
-                                : Icons.keyboard_arrow_down,
-                            color: context.conduitTheme.iconSecondary,
-                            size: IconSize.small,
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -1344,7 +1577,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
                   // Modern Input (root matches input background including safe area)
                   ModernChatInput(
-                    enabled: selectedModel != null && isOnline,
+                    enabled: selectedModel != null && (isOnline || ref.watch(reviewerModeProvider)),
                     onSendMessage: (text) =>
                         _handleMessageSend(text, selectedModel),
                     onVoiceInput: _handleVoiceInput,

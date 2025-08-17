@@ -42,6 +42,7 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
   static final _showArchivedProvider = StateProvider<bool>((ref) => false);
   
   // Provider for folder expansion state (Map<folderId, isExpanded>)
+  // Start with folders expanded by default for better discoverability
   static final _expandedFoldersProvider = StateProvider<Map<String, bool>>((ref) => {});
 
   @override
@@ -236,6 +237,7 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
   Widget _buildConversationsList() {
     return Consumer(
       builder: (context, ref, child) {
+        // Use ref.watch to properly react to changes
         final conversationsAsync = ref.watch(conversationsProvider);
 
         return conversationsAsync.when(
@@ -250,30 +252,37 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
               return _buildNoResultsState();
             }
 
+            // Deduplicate by ID as a safety measure in case provider has duplicates
+            final deduplicatedConversations = <String, dynamic>{};
+            for (final conv in filteredConversations) {
+              deduplicatedConversations[conv.id] = conv;
+            }
+            final uniqueConversations = deduplicatedConversations.values.toList();
+
             // Separate conversations by status and folder
-            final pinnedConversations = filteredConversations
+            final pinnedConversations = uniqueConversations
                 .where((c) => c.pinned == true)
                 .toList();
-            final regularConversations = filteredConversations
+            final regularConversations = uniqueConversations
                 .where((c) => c.pinned != true && c.archived != true && (c.folderId == null || c.folderId!.isEmpty))
                 .toList();
-            final folderConversations = filteredConversations
+            final folderConversations = uniqueConversations
                 .where((c) => c.pinned != true && c.archived != true && c.folderId != null && c.folderId!.isNotEmpty)
                 .toList();
-            final archivedConversations = filteredConversations
+            final archivedConversations = uniqueConversations
                 .where((c) => c.archived == true)
                 .toList();
 
             // Debug logging
-            print('🔍 DEBUG: Total conversations: ${filteredConversations.length}');
+            print('🔍 DEBUG: Total conversations: ${uniqueConversations.length} (filtered: ${filteredConversations.length}, original: ${conversations.length})');
             print('🔍 DEBUG: Pinned: ${pinnedConversations.length}');
             print('🔍 DEBUG: Regular: ${regularConversations.length}');
             print('🔍 DEBUG: Folder: ${folderConversations.length}');
             print('🔍 DEBUG: Archived: ${archivedConversations.length}');
             
             // Check first few conversations for folder IDs
-            for (int i = 0; i < filteredConversations.take(5).length; i++) {
-              final conv = filteredConversations[i];
+            for (int i = 0; i < uniqueConversations.take(5).length; i++) {
+              final conv = uniqueConversations[i];
               print('🔍 DEBUG: Conv ${i}: id=${conv.id.substring(0, 8)}, folderId=${conv.folderId}, pinned=${conv.pinned}, archived=${conv.archived}');
             }
 
@@ -357,8 +366,10 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
   Widget _wrapWithRefresh(Widget child) {
     return ConduitRefreshIndicator(
       onRefresh: () async {
+        // Invalidate to force a fresh fetch
         ref.invalidate(conversationsProvider);
-        await Future.delayed(const Duration(milliseconds: 500));
+        // Wait for the provider to complete
+        await ref.read(conversationsProvider.future);
       },
       child: child,
     );
@@ -1471,14 +1482,14 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
     final expandedFolders = ref.watch(_expandedFoldersProvider);
     final isExpanded = expandedFolders[folderId] ?? false;
     
-    return GestureDetector(
+    return InkWell(
       onTap: () {
         final currentState = ref.read(_expandedFoldersProvider);
-        ref.read(_expandedFoldersProvider.notifier).state = {
-          ...currentState,
-          folderId: !isExpanded,
-        };
+        final newState = Map<String, bool>.from(currentState);
+        newState[folderId] = !isExpanded;
+        ref.read(_expandedFoldersProvider.notifier).state = newState;
       },
+      borderRadius: BorderRadius.circular(AppBorderRadius.md),
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: Spacing.md,

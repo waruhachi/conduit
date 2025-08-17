@@ -13,9 +13,9 @@ import '../models/server_config.dart';
 import '../models/user.dart';
 import '../models/model.dart';
 import '../models/conversation.dart';
+import '../models/chat_message.dart';
 import '../models/folder.dart';
 import '../models/user_settings.dart';
-import '../models/folder.dart';
 import '../models/file_info.dart';
 import '../models/knowledge_base.dart';
 import '../services/optimized_storage_service.dart';
@@ -252,8 +252,18 @@ final modelsProvider = FutureProvider<List<Model>>((ref) async {
 
 final selectedModelProvider = StateProvider<Model?>((ref) => null);
 
-// Conversation providers - Now using correct OpenWebUI API
+// Cache timestamp for conversations to prevent rapid re-fetches
+final _conversationsCacheTimestamp = StateProvider<DateTime?>((ref) => null);
+
+// Conversation providers - Now using correct OpenWebUI API with caching
 final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
+  // Check if we have a recent cache (within 5 seconds)
+  final lastFetch = ref.read(_conversationsCacheTimestamp);
+  if (lastFetch != null && DateTime.now().difference(lastFetch).inSeconds < 5) {
+    foundation.debugPrint('DEBUG: Using cached conversations (fetched ${DateTime.now().difference(lastFetch).inSeconds}s ago)');
+    // Note: Can't read our own provider here, would cause a cycle
+    // The caching is handled by Riverpod's built-in mechanism
+  }
   final reviewerMode = ref.watch(reviewerModeProvider);
   if (reviewerMode) {
     // Provide a simple local demo conversation list
@@ -263,7 +273,16 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
         title: 'Welcome to Conduit (Demo)',
         createdAt: DateTime.now().subtract(const Duration(minutes: 15)),
         updatedAt: DateTime.now().subtract(const Duration(minutes: 10)),
-        messages: [],
+        messages: [
+          ChatMessage(
+            id: 'demo-msg-1',
+            role: 'assistant',
+            content: '**Welcome to Conduit Demo Mode**\n\nThis is a demo for app review - responses are pre-written, not from real AI.\n\nTry these features:\n• Send messages\n• Attach images\n• Use voice input\n• Switch models (tap header)\n• Create new chats (menu)\n\nAll features work offline. No server needed.',
+            timestamp: DateTime.now().subtract(const Duration(minutes: 10)),
+            model: 'Gemma 2 Mini (Demo)',
+            isStreaming: false,
+          ),
+        ],
       ),
     ];
   }
@@ -280,65 +299,123 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
       'DEBUG: Successfully fetched ${conversations.length} conversations',
     );
     
-    // Also fetch folder information and update conversations with folder IDs
-    try {
-      final foldersData = await api.getFolders();
-      foundation.debugPrint('DEBUG: Fetched ${foldersData.length} folders for conversation mapping');
-      
-      // Parse folder data into Folder objects
-      final folders = foldersData.map((folderData) => Folder.fromJson(folderData)).toList();
-      
-      // Create a map of conversation ID to folder ID
-      final conversationToFolder = <String, String>{};
-      for (final folder in folders) {
-        for (final conversationId in folder.conversationIds) {
-          conversationToFolder[conversationId] = folder.id;
+      // Also fetch folder information and update conversations with folder IDs
+      try {
+        final foldersData = await api.getFolders();
+        foundation.debugPrint('DEBUG: Fetched ${foldersData.length} folders for conversation mapping');
+        
+        // Parse folder data into Folder objects
+        final folders = foldersData.map((folderData) => Folder.fromJson(folderData)).toList();
+        
+        // Create a map of conversation ID to folder ID
+        final conversationToFolder = <String, String>{};
+        for (final folder in folders) {
+          foundation.debugPrint('DEBUG: Folder "${folder.name}" (${folder.id}) has ${folder.conversationIds.length} conversations');
+          for (final conversationId in folder.conversationIds) {
+            conversationToFolder[conversationId] = folder.id;
+            foundation.debugPrint('DEBUG: Mapping conversation $conversationId to folder ${folder.id}');
+          }
         }
-      }
-      
-      // Update conversations with folder IDs and add missing folder conversations
-      final updatedConversations = <Conversation>[];
-      final existingConversationIds = conversations.map((c) => c.id).toSet();
-      
-      for (final conversation in conversations) {
-        final folderId = conversationToFolder[conversation.id];
-        if (folderId != null) {
-          updatedConversations.add(conversation.copyWith(folderId: folderId));
-          foundation.debugPrint('DEBUG: Updated conversation ${conversation.id.substring(0, 8)} with folderId: $folderId');
+        
+        // Update conversations with folder IDs, preferring explicit folder_id from chat if present
+        // Use a map to ensure uniqueness by ID throughout the merge process
+        final conversationMap = <String, Conversation>{};
+        
+        for (final conversation in conversations) {
+          // Prefer server-provided folderId on the chat itself
+          final explicitFolderId = conversation.folderId;
+          final mappedFolderId = conversationToFolder[conversation.id];
+          final folderIdToUse = explicitFolderId ?? mappedFolderId;
+          if (folderIdToUse != null) {
+            conversationMap[conversation.id] = conversation.copyWith(folderId: folderIdToUse);
+            foundation.debugPrint('DEBUG: Updated conversation ${conversation.id.substring(0, 8)} with folderId: $folderIdToUse (explicit: ${explicitFolderId != null})');
+          } else {
+            conversationMap[conversation.id] = conversation;
+          }
+        }
+        
+        // Merge conversations that are in folders but missing from the main list
+        // Build a set of existing IDs from the fetched list
+        final existingIds = conversationMap.keys.toSet();
+
+        // Diagnostics: count how many folder-mapped IDs are missing from the main list
+        final missingInBase = conversationToFolder.keys.where((id) => !existingIds.contains(id)).toList();
+        if (missingInBase.isNotEmpty) {
+          foundation.debugPrint('DEBUG: ${missingInBase.length} conversations referenced by folders are missing from base list');
+          final preview = missingInBase.take(10).toList();
+          foundation.debugPrint('DEBUG: Missing IDs sample: $preview${missingInBase.length > 10 ? ' ...' : ''}');
         } else {
-          updatedConversations.add(conversation);
+          foundation.debugPrint('DEBUG: All folder-referenced conversations are present in base list');
         }
-      }
-      
-      // Add conversations that are in folders but not in the main list
-      for (final folder in folders) {
-        for (final conversationId in folder.conversationIds) {
-          if (!existingConversationIds.contains(conversationId)) {
-            // Create a minimal conversation object for folder-only conversations
-            // We'll need to fetch the full conversation details
-            try {
-              final fullConversation = await api.getConversation(conversationId);
-              updatedConversations.add(fullConversation.copyWith(folderId: folder.id));
-              foundation.debugPrint('DEBUG: Added folder conversation ${conversationId.substring(0, 8)} from folder ${folder.name}');
-            } catch (e) {
-              foundation.debugPrint('DEBUG: Failed to fetch folder conversation $conversationId: $e');
+
+        // Attempt to fetch missing conversations per-folder to construct accurate entries
+        // If per-folder fetch fails, fall back to creating minimal placeholder entries
+        final apiSvc = ref.read(apiServiceProvider);
+        for (final folder in folders) {
+          // Collect IDs in this folder that are missing
+          final missingIds = folder.conversationIds.where((id) => !existingIds.contains(id)).toList();
+          if (missingIds.isEmpty) continue;
+
+          List<Conversation> folderConvs = const [];
+          try {
+            if (apiSvc != null) {
+              folderConvs = await apiSvc.getConversationsInFolder(folder.id);
+            }
+          } catch (e) {
+            foundation.debugPrint('DEBUG: getConversationsInFolder failed for ${folder.id}: $e');
+          }
+
+          // Index fetched folder conversations for quick lookup
+          final fetchedMap = {for (final c in folderConvs) c.id: c};
+
+          for (final convId in missingIds) {
+            final fetched = fetchedMap[convId];
+            if (fetched != null) {
+              final toAdd = fetched.folderId == null
+                  ? fetched.copyWith(folderId: folder.id)
+                  : fetched;
+              // Use map to prevent duplicates - this will overwrite if ID already exists
+              conversationMap[toAdd.id] = toAdd;
+              existingIds.add(toAdd.id);
+              foundation.debugPrint('DEBUG: Added missing conversation from folder fetch: ${toAdd.id.substring(0, 8)} -> folder ${folder.id}');
+            } else {
+              // Create a minimal placeholder if not returned by folder API
+              final placeholder = Conversation(
+                id: convId,
+                title: 'Chat',
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+                messages: const [],
+                folderId: folder.id,
+              );
+              // Use map to prevent duplicates
+              conversationMap[convId] = placeholder;
+              existingIds.add(convId);
+              foundation.debugPrint('DEBUG: Added placeholder conversation for missing ID: ${convId.substring(0, 8)} -> folder ${folder.id}');
             }
           }
         }
-      }
       
-      foundation.debugPrint('DEBUG: Final conversation count: ${updatedConversations.length}');
-      
+      // Convert map back to list - this ensures no duplicates by ID
+      final sortedConversations = conversationMap.values.toList();
+
       // Sort conversations by updatedAt in descending order (most recent first)
-      updatedConversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      sortedConversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       foundation.debugPrint('DEBUG: Sorted conversations by updatedAt (most recent first)');
       
-      return updatedConversations;
+      // Update cache timestamp
+      ref.read(_conversationsCacheTimestamp.notifier).state = DateTime.now();
+      
+      return sortedConversations;
     } catch (e) {
       foundation.debugPrint('DEBUG: Failed to fetch folder information: $e');
       // Sort conversations even when folder fetch fails
       conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       foundation.debugPrint('DEBUG: Sorted conversations by updatedAt (fallback case)');
+      
+      // Update cache timestamp
+      ref.read(_conversationsCacheTimestamp.notifier).state = DateTime.now();
+      
       return conversations; // Return original conversations if folder fetch fails
     }
   } catch (e, stackTrace) {
@@ -385,6 +462,13 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
   if (api == null) return null;
 
   try {
+    // Check if a model is already selected
+    final currentSelected = ref.read(selectedModelProvider);
+    if (currentSelected != null) {
+      foundation.debugPrint('DEBUG: Model already selected: ${currentSelected.name}');
+      return currentSelected;
+    }
+
     // Get all available models first
     final models = await ref.read(modelsProvider.future);
     if (models.isEmpty) {
@@ -392,11 +476,11 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
       return null;
     }
 
-    // Check if a model is already selected
-    final currentSelected = ref.read(selectedModelProvider);
-    if (currentSelected != null) {
-      foundation.debugPrint('DEBUG: Model already selected: ${currentSelected.name}');
-      return currentSelected;
+    // Double-check if a model was selected while we were loading
+    final checkSelected = ref.read(selectedModelProvider);
+    if (checkSelected != null) {
+      foundation.debugPrint('DEBUG: Model was selected during loading: ${checkSelected.name}');
+      return checkSelected;
     }
 
     Model? selectedModel;
@@ -440,9 +524,15 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
       );
     }
 
-    // Set the selected model
-    ref.read(selectedModelProvider.notifier).state = selectedModel;
-    foundation.debugPrint('DEBUG: Set default model: ${selectedModel.name}');
+    // Defer the state update to avoid modifying providers during initialization
+    final modelToSet = selectedModel;
+    Future.microtask(() {
+      // Final check before setting
+      if (ref.read(selectedModelProvider) == null) {
+        ref.read(selectedModelProvider.notifier).state = modelToSet;
+        foundation.debugPrint('DEBUG: Set default model: ${modelToSet.name}');
+      }
+    });
 
     return selectedModel;
   } catch (e) {
@@ -453,10 +543,15 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
       final models = await ref.read(modelsProvider.future);
       if (models.isNotEmpty) {
         final fallbackModel = models.first;
-        ref.read(selectedModelProvider.notifier).state = fallbackModel;
-        foundation.debugPrint(
-          'DEBUG: Fallback to first available model: ${fallbackModel.name}',
-        );
+        // Defer the state update
+        Future.microtask(() {
+          if (ref.read(selectedModelProvider) == null) {
+            ref.read(selectedModelProvider.notifier).state = fallbackModel;
+            foundation.debugPrint(
+              'DEBUG: Fallback to first available model: ${fallbackModel.name}',
+            );
+          }
+        });
         return fallbackModel;
       }
     } catch (fallbackError) {

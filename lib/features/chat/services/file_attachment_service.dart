@@ -383,8 +383,132 @@ class FileUploadState {
 
 enum FileUploadStatus { pending, uploading, completed, failed }
 
+// Mock file attachment service for reviewer mode
+class MockFileAttachmentService {
+  final ImagePicker _imagePicker = ImagePicker();
+
+  // Reuse the same methods from parent class
+  Future<List<File>> pickFiles({
+    bool allowMultiple = true,
+    List<String>? allowedExtensions,
+  }) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: allowMultiple,
+        type: allowedExtensions != null ? FileType.custom : FileType.any,
+        allowedExtensions: allowedExtensions,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        return [];
+      }
+
+      return result.files
+          .where((file) => file.path != null)
+          .map((file) => File(file.path!))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to pick files: $e');
+    }
+  }
+
+  Future<File?> pickImage() async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+      return image != null ? File(image.path) : null;
+    } catch (e) {
+      throw Exception('Failed to pick image: $e');
+    }
+  }
+
+  Future<File?> takePhoto() async {
+    try {
+      final XFile? photo = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+      return photo != null ? File(photo.path) : null;
+    } catch (e) {
+      throw Exception('Failed to take photo: $e');
+    }
+  }
+
+  // Mock upload file with progress tracking
+  Stream<FileUploadState> uploadFile(File file) async* {
+    foundation.debugPrint('DEBUG: Mock file upload for: ${file.path}');
+    
+    final fileName = path.basename(file.path);
+    final fileSize = await file.length();
+    
+    // Yield initial state
+    yield FileUploadState(
+      file: file,
+      fileName: fileName,
+      fileSize: fileSize,
+      progress: 0.0,
+      status: FileUploadStatus.uploading,
+    );
+    
+    // Simulate upload progress
+    for (int i = 1; i <= 10; i++) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      yield FileUploadState(
+        file: file,
+        fileName: fileName,
+        fileSize: fileSize,
+        progress: i / 10,
+        status: FileUploadStatus.uploading,
+      );
+    }
+    
+    // Yield completed state with mock file ID
+    yield FileUploadState(
+      file: file,
+      fileName: fileName,
+      fileSize: fileSize,
+      progress: 1.0,
+      status: FileUploadStatus.completed,
+      fileId: 'mock_file_${DateTime.now().millisecondsSinceEpoch}',
+    );
+    
+    foundation.debugPrint('DEBUG: Mock file upload completed');
+  }
+  
+  Future<List<String>> uploadFiles(
+    List<File> files, {
+    Function(int, int)? onProgress,
+    required String conversationId,
+  }) async {
+    // Simulate upload progress for reviewer mode
+    final uploadIds = <String>[];
+    
+    for (int i = 0; i < files.length; i++) {
+      if (onProgress != null) {
+        // Simulate progress
+        for (int j = 0; j <= 100; j += 10) {
+          await Future.delayed(const Duration(milliseconds: 50));
+          onProgress(i, j);
+        }
+      }
+      // Generate mock upload ID
+      uploadIds.add('mock_upload_${DateTime.now().millisecondsSinceEpoch}_$i');
+    }
+    
+    return uploadIds;
+  }
+}
+
 // Providers
-final fileAttachmentServiceProvider = Provider<FileAttachmentService?>((ref) {
+final fileAttachmentServiceProvider = Provider<dynamic>((ref) {
+  final isReviewerMode = ref.watch(reviewerModeProvider);
+  
+  if (isReviewerMode) {
+    return MockFileAttachmentService();
+  }
+  
   final apiService = ref.watch(apiServiceProvider);
   if (apiService == null) return null;
   return FileAttachmentService(apiService);

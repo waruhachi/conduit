@@ -133,7 +133,8 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
       if (mounted && next.isAuthenticated && previous?.isAuthenticated != true) {
         debugPrint('DEBUG: Authentication successful, initializing background resources');
         
-
+        // Model selection and onboarding will be handled by the chat page
+        // to avoid widget disposal issues
         
         debugPrint('DEBUG: Navigating to chat page');
         // Navigate directly to chat page on successful authentication
@@ -620,4 +621,6 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
       curve: Curves.easeOutCubic,
     );
   }
+
+
 }
