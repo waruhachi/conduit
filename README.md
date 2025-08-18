@@ -1,5 +1,17 @@
 # Conduit
 
+<div align="center">
+  <a href="https://groups.google.com/g/conduit">
+    <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" style="height:80px; vertical-align:middle;"/>
+  </a>
+  <a href="https://apps.apple.com/us/app/conduit-open-webui-client/id6749840287">
+    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" style="height:56px; vertical-align:middle;"/>
+  </a>
+  <br><br>
+</div>
+
+<br>
+
 <p align="center">
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" alt="Screenshot 1" width="250" />
   
