@@ -22,6 +22,7 @@ import '../services/file_attachment_service.dart';
 import '../../navigation/views/chats_list_page.dart';
 import '../../files/views/files_page.dart';
 import '../../profile/views/profile_page.dart';
+import '../../tools/providers/tools_providers.dart';
 import '../../../shared/widgets/offline_indicator.dart';
 import '../../../core/services/connectivity_service.dart';
 import '../../../core/models/chat_message.dart';
@@ -289,11 +290,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
       debugPrint('DEBUG: Uploaded file IDs: $uploadedFileIds');
 
-      // Send message with file attachments using existing provider logic
+      // Get selected tools
+      final toolIds = ref.read(selectedToolIdsProvider);
+      debugPrint('DEBUG: Selected tool IDs: $toolIds');
+
+      // Send message with file attachments and tools using existing provider logic
       await sendMessage(
         ref,
         text,
         uploadedFileIds.isNotEmpty ? uploadedFileIds : null,
+        toolIds.isNotEmpty ? toolIds : null,
       );
 
       debugPrint('DEBUG: Message sent successfully');
@@ -743,8 +749,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       context,
     ).push(MaterialPageRoute(builder: (context) => const FilesPage()));
   }
-
-
 
   void _navigateToProfile() {
     Navigator.of(

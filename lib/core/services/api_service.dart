@@ -24,6 +24,9 @@ class ApiService {
   late final ApiAuthInterceptor _authInterceptor;
   // Removed legacy websocket/socket.io fields
 
+  // Public getter for dio instance
+  Dio get dio => _dio;
+
   // Callback to notify when auth token becomes invalid
   void Function()? onAuthTokenInvalid;
 
@@ -2415,7 +2418,7 @@ class ApiService {
     required List<Map<String, dynamic>> messages,
     required String model,
     String? conversationId,
-    List<Map<String, dynamic>>? tools,
+    List<String>? toolIds,
     bool enableWebSearch = false,
     Map<String, dynamic>? modelItem,
   }) {
@@ -2498,6 +2501,12 @@ class ApiService {
         'memory': false,
       };
       debugPrint('DEBUG: Web search enabled in SSE request');
+    }
+
+    // Add tool_ids if provided (Open-WebUI expects tool_ids as array of strings)
+    if (toolIds != null && toolIds.isNotEmpty) {
+      data['tool_ids'] = toolIds;
+      debugPrint('DEBUG: Including tool_ids in SSE request: $toolIds');
     }
 
     // Don't add session_id or id - they break SSE streaming!

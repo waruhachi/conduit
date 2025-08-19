@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io' show Platform;
 import 'dart:async';
 import '../providers/chat_providers.dart';
+import '../../tools/widgets/tool_selector.dart';
+import '../../tools/providers/tools_providers.dart';
 
 import '../../../shared/utils/platform_utils.dart';
 
@@ -47,6 +49,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   late AnimationController _pulseController;
   Timer? _blurCollapseTimer;
   bool _hasAutoFocusedOnce = false;
+  bool _showToolSelector = false;
 
   @override
   void initState() {
@@ -165,6 +168,11 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     PlatformUtils.lightHaptic();
     widget.onSendMessage(text);
     _controller.clear();
+    setState(() {
+      _showToolSelector = false;
+    });
+    // Clear selected tools after sending
+    ref.read(selectedToolIdsProvider.notifier).state = [];
     // Keep input expanded and focused for better UX - don't dismiss keyboard
     // KeyboardUtils.dismissKeyboard(context);
     // _setExpanded(false);
@@ -346,6 +354,14 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
                       // Expanded bottom row with additional options
                       if (_isExpanded) ...[
+                        // Tool selector
+                        if (_showToolSelector)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: Spacing.inputPadding,
+                            ),
+                            child: ToolSelector(),
+                          ),
                         Container(
                           padding: const EdgeInsets.only(
                             left: Spacing.inputPadding,
@@ -362,6 +378,20 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                       ? _showAttachmentOptions
                                       : null,
                                   tooltip: 'Add attachment',
+                                ),
+                                const SizedBox(width: Spacing.sm),
+                                // Tools button
+                                _buildRoundButton(
+                                  icon: Icons.build,
+                                  onTap: widget.enabled
+                                      ? () {
+                                          setState(() {
+                                            _showToolSelector = !_showToolSelector;
+                                          });
+                                        }
+                                      : null,
+                                  tooltip: 'Tools',
+                                  isActive: _showToolSelector || ref.watch(selectedToolIdsProvider).isNotEmpty,
                                 ),
                                 const SizedBox(width: Spacing.sm),
                                 Flexible(

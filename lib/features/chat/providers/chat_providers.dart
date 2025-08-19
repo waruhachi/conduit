@@ -507,20 +507,22 @@ Future<void> regenerateMessage(
 Future<void> sendMessage(
   WidgetRef ref,
   String message,
-  List<String>? attachments,
-) async {
+  List<String>? attachments, [
+  List<String>? toolIds,
+]) async {
   debugPrint(
-    'DEBUG: sendMessage called with message: $message, attachments: $attachments',
+    'DEBUG: sendMessage called with message: $message, attachments: $attachments, tools: $toolIds',
   );
-  await _sendMessageInternal(ref, message, attachments);
+  await _sendMessageInternal(ref, message, attachments, toolIds);
 }
 
 // Internal send message implementation
 Future<void> _sendMessageInternal(
   dynamic ref,
   String message,
-  List<String>? attachments,
-) async {
+  List<String>? attachments, [
+  List<String>? toolIds,
+]) async {
   debugPrint('DEBUG: _sendMessageInternal called');
   debugPrint('DEBUG: Message: $message');
   debugPrint('DEBUG: Attachments: $attachments');
@@ -543,7 +545,7 @@ Future<void> _sendMessageInternal(
   debugPrint('DEBUG: Active conversation before send: ${activeConversation?.id}');
 
   // Create user message first
-  debugPrint('DEBUG: Creating user message with attachments: $attachments');
+  debugPrint('DEBUG: Creating user message with attachments: $attachments, tools: $toolIds');
   final userMessage = ChatMessage(
     id: const Uuid().v4(),
     role: 'user',
@@ -794,8 +796,11 @@ Future<void> _sendMessageInternal(
   // Debug log to track web search state
   debugPrint('DEBUG: Web search toggle state: $webSearchEnabled');
 
-  // No need for function calling tools since we're using retrieval directly
-  final tools = <Map<String, dynamic>>[];
+  // Prepare tools list - pass tool IDs directly
+  final List<String>? toolIdsForApi = (toolIds != null && toolIds.isNotEmpty) ? toolIds : null;
+  if (toolIdsForApi != null) {
+    debugPrint('DEBUG: Including tool IDs: $toolIdsForApi');
+  }
 
   try {
     // Use the model's actual supported parameters if available
@@ -927,7 +932,7 @@ Future<void> _sendMessageInternal(
       messages: conversationMessages,
       model: selectedModel.id,
       conversationId: activeConversation?.id,
-      tools: tools.isNotEmpty ? tools : null,
+      toolIds: toolIdsForApi,
       enableWebSearch: webSearchEnabled,
       modelItem: modelItem,
     );
