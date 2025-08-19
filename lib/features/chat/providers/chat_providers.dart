@@ -163,6 +163,18 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
       lastMessage.copyWith(content: content),
     ];
   }
+  
+  void updateLastMessageWithFunction(ChatMessage Function(ChatMessage) updater) {
+    if (state.isEmpty) return;
+
+    final lastMessage = state.last;
+    if (lastMessage.role != 'assistant') return;
+
+    state = [
+      ...state.sublist(0, state.length - 1),
+      updater(lastMessage),
+    ];
+  }
 
   void appendToLastMessage(String content) {
     debugPrint('DEBUG: appendToLastMessage called with: "$content"');
@@ -778,6 +790,9 @@ Future<void> _sendMessageInternal(
 
   // Check if web search is enabled for API
   final webSearchEnabled = ref.read(webSearchEnabledProvider);
+  
+  // Debug log to track web search state
+  debugPrint('DEBUG: Web search toggle state: $webSearchEnabled');
 
   // No need for function calling tools since we're using retrieval directly
   final tools = <Map<String, dynamic>>[];
@@ -979,10 +994,49 @@ Future<void> _sendMessageInternal(
       },
     );
 
+    // Track web search status
+    bool isSearching = false;
+    
     final streamSubscription = persistentController.stream.listen(
       (chunk) {
         debugPrint('DEBUG: Received stream chunk: "$chunk"');
-        ref.read(chatMessagesProvider.notifier).appendToLastMessage(chunk);
+        
+        // Check for web search indicators in the stream
+        if (webSearchEnabled && !isSearching) {
+          // Check if this is the start of web search
+          if (chunk.contains('[SEARCHING]') || 
+              chunk.contains('Searching the web') || 
+              chunk.contains('web search')) {
+            isSearching = true;
+            // Update the message to show search status
+            ref.read(chatMessagesProvider.notifier).updateLastMessageWithFunction(
+              (message) => message.copyWith(
+                content: '🔍 Searching the web...',
+                metadata: {'webSearchActive': true},
+              ),
+            );
+            return; // Don't append this chunk
+          }
+        }
+        
+        // Check if web search is complete
+        if (isSearching && (chunk.contains('[/SEARCHING]') || 
+            chunk.contains('Search complete'))) {
+          isSearching = false;
+          // Clear the search status message
+          ref.read(chatMessagesProvider.notifier).updateLastMessageWithFunction(
+            (message) => message.copyWith(
+              content: '',
+              metadata: {'webSearchActive': false},
+            ),
+          );
+          return; // Don't append this chunk
+        }
+        
+        // Regular content - append to message
+        if (!chunk.contains('[SEARCHING]') && !chunk.contains('[/SEARCHING]')) {
+          ref.read(chatMessagesProvider.notifier).appendToLastMessage(chunk);
+        }
       },
 
       onDone: () async {

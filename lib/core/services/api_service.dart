@@ -2470,6 +2470,19 @@ class ApiService {
       data['chat_id'] = conversationId;
     }
     
+    // Add web search flag if enabled
+    if (enableWebSearch) {
+      data['web_search'] = true;
+      // Also add it in features for compatibility
+      data['features'] = {
+        'web_search': true,
+        'image_generation': false,
+        'code_interpreter': false,
+        'memory': false,
+      };
+      debugPrint('DEBUG: Web search enabled in SSE request');
+    }
+    
     // Don't add session_id or id - they break SSE streaming!
     // The server falls back to task-based async when these are present
 

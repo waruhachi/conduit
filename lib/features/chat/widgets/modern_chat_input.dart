@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import '../../../shared/theme/theme_extensions.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -558,64 +559,76 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       webSearchEnabledProvider.select((enabled) => enabled),
     );
 
-    return GestureDetector(
-      onTap: widget.enabled
-          ? () {
-              ref.read(webSearchEnabledProvider.notifier).state =
-                  !webSearchEnabled;
-            }
-          : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: Spacing.md,
-          vertical: Spacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: webSearchEnabled
-              ? context.conduitTheme.textPrimary.withValues(
-                  alpha: Alpha.buttonHover,
-                )
-              : context.conduitTheme.surfaceBackground.withValues(
-                  alpha: Alpha.subtle,
-                ),
-          borderRadius: BorderRadius.circular(AppBorderRadius.xl),
-          border: Border.all(
+    return AnimatedContainer(
+      duration: AnimationDuration.fast,
+      curve: Curves.easeInOut,
+      child: GestureDetector(
+        onTap: widget.enabled
+            ? () {
+                // Toggle web search with haptic feedback
+                HapticFeedback.lightImpact();
+                ref.read(webSearchEnabledProvider.notifier).state =
+                    !webSearchEnabled;
+                
+                // Show a snackbar to confirm the toggle
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      webSearchEnabled 
+                        ? 'Web search disabled' 
+                        : 'Web search enabled - I can now search the internet',
+                      style: TextStyle(
+                        color: context.conduitTheme.textPrimary,
+                      ),
+                    ),
+                    backgroundColor: context.conduitTheme.surfaceBackground,
+                    duration: const Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                    margin: const EdgeInsets.all(Spacing.md),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                    ),
+                  ),
+                );
+              }
+            : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: Spacing.sm,
+          ),
+          decoration: BoxDecoration(
             color: webSearchEnabled
-                ? context.conduitTheme.textPrimary.withValues(
-                    alpha: Alpha.buttonHover + Alpha.subtle,
+                ? context.conduitTheme.info.withValues(
+                    alpha: Alpha.buttonHover,
                   )
-                : context.conduitTheme.textPrimary.withValues(
+                : context.conduitTheme.surfaceBackground.withValues(
                     alpha: Alpha.subtle,
                   ),
-            width: BorderWidth.regular,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Platform.isIOS ? CupertinoIcons.search : Icons.travel_explore,
-              size: IconSize.small,
-              color: widget.enabled
-                  ? (webSearchEnabled
-                        ? context.conduitTheme.textPrimary
-                        : context.conduitTheme.textPrimary.withValues(
-                            alpha: Alpha.strong,
-                          ))
+            borderRadius: BorderRadius.circular(AppBorderRadius.xl),
+            border: Border.all(
+              color: webSearchEnabled
+                  ? context.conduitTheme.info
                   : context.conduitTheme.textPrimary.withValues(
-                      alpha: Alpha.disabled,
+                      alpha: Alpha.subtle,
                     ),
+              width: BorderWidth.regular,
             ),
-            const SizedBox(width: Spacing.sm),
-            Flexible(
-              child: Text(
-                'Search',
-                style: TextStyle(
-                  fontSize: AppTypography.bodySmall,
-                  fontWeight: FontWeight.w500,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedSwitcher(
+                duration: AnimationDuration.fast,
+                child: Icon(
+                  webSearchEnabled
+                      ? (Platform.isIOS ? CupertinoIcons.globe : Icons.public)
+                      : (Platform.isIOS ? CupertinoIcons.search : Icons.search),
+                  key: ValueKey(webSearchEnabled),
+                  size: IconSize.small,
                   color: widget.enabled
                       ? (webSearchEnabled
-                            ? context.conduitTheme.textPrimary
+                            ? Colors.white
                             : context.conduitTheme.textPrimary.withValues(
                                 alpha: Alpha.strong,
                               ))
@@ -624,8 +637,27 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                         ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: Spacing.sm),
+              Flexible(
+                child: Text(
+                  webSearchEnabled ? 'Web' : 'Search',
+                  style: TextStyle(
+                    fontSize: AppTypography.bodySmall,
+                    fontWeight: webSearchEnabled ? FontWeight.w600 : FontWeight.w500,
+                    color: widget.enabled
+                        ? (webSearchEnabled
+                              ? Colors.white
+                              : context.conduitTheme.textPrimary.withValues(
+                                  alpha: Alpha.strong,
+                                ))
+                        : context.conduitTheme.textPrimary.withValues(
+                            alpha: Alpha.disabled,
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -638,7 +670,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
     if (!webSearchEnabled) return const SizedBox.shrink();
 
-    return Container(
+    return AnimatedContainer(
+      duration: AnimationDuration.fast,
+      curve: Curves.easeInOut,
       padding: const EdgeInsets.symmetric(
         horizontal: Spacing.md,
         vertical: Spacing.xs,
@@ -662,14 +696,26 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Platform.isIOS ? CupertinoIcons.search : Icons.travel_explore,
+            Platform.isIOS ? CupertinoIcons.globe : Icons.travel_explore,
             size: IconSize.small,
             color: context.conduitTheme.info,
           ),
           const SizedBox(width: Spacing.xs),
           Text(
-            'Web search on',
+            'Web search enabled',
             style: AppTypography.captionStyle.copyWith(
+              color: context.conduitTheme.info,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: Spacing.xs),
+          GestureDetector(
+            onTap: () {
+              ref.read(webSearchEnabledProvider.notifier).state = false;
+            },
+            child: Icon(
+              Icons.close,
+              size: 12,
               color: context.conduitTheme.info,
             ),
           ),
