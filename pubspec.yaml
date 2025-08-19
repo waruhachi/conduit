@@ -16,9 +16,7 @@ dependencies:
   # Network & API
   dio: ^5.5.0
   http_parser: ^4.0.2
-  web_socket_channel: ^3.0.1
-  socket_io_client: ^3.0.4
-  sse: ^4.1.2
+  
   
   # Storage
   flutter_secure_storage: ^9.2.2
