@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import '../../../shared/theme/theme_extensions.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io' show Platform;
 import 'dart:async';
 import '../providers/chat_providers.dart';
-import '../../tools/widgets/tool_selector.dart';
+import '../../tools/widgets/unified_tools_modal.dart';
 import '../../tools/providers/tools_providers.dart';
 
 import '../../../shared/utils/platform_utils.dart';
@@ -49,7 +48,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   late AnimationController _pulseController;
   Timer? _blurCollapseTimer;
   bool _hasAutoFocusedOnce = false;
-  bool _showToolSelector = false;
 
   @override
   void initState() {
@@ -168,11 +166,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     PlatformUtils.lightHaptic();
     widget.onSendMessage(text);
     _controller.clear();
-    setState(() {
-      _showToolSelector = false;
-    });
-    // Clear selected tools after sending
-    ref.read(selectedToolIdsProvider.notifier).state = [];
+    // Keep tools and web search enabled for the conversation
     // Keep input expanded and focused for better UX - don't dismiss keyboard
     // KeyboardUtils.dismissKeyboard(context);
     // _setExpanded(false);
@@ -212,9 +206,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Web search status indicator
-          _buildWebSearchStatusIndicator(),
-
           // Main input area with unified 2-row design
           Container(
             clipBehavior: Clip.antiAlias,
@@ -354,14 +345,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
                       // Expanded bottom row with additional options
                       if (_isExpanded) ...[
-                        // Tool selector
-                        if (_showToolSelector)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: Spacing.inputPadding,
-                            ),
-                            child: ToolSelector(),
-                          ),
                         Container(
                           padding: const EdgeInsets.only(
                             left: Spacing.inputPadding,
@@ -385,19 +368,17 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                   icon: Icons.build,
                                   onTap: widget.enabled
                                       ? () {
-                                          setState(() {
-                                            _showToolSelector = !_showToolSelector;
-                                          });
+                                          _showUnifiedToolsModal();
                                         }
                                       : null,
                                   tooltip: 'Tools',
-                                  isActive: _showToolSelector || ref.watch(selectedToolIdsProvider).isNotEmpty,
+                                  isActive:
+                                      ref
+                                          .watch(selectedToolIdsProvider)
+                                          .isNotEmpty ||
+                                      ref.watch(webSearchEnabledProvider),
                                 ),
-                                const SizedBox(width: Spacing.sm),
-                                Flexible(
-                                  child: Center(child: _buildResearchToggle()),
-                                ),
-                                const SizedBox(width: Spacing.md),
+                                const Spacer(),
                                 // Microphone button: call provided callback for premium voice UI
                                 _buildRoundButton(
                                   icon: Platform.isIOS
@@ -584,176 +565,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     );
   }
 
-  Widget _buildResearchToggle() {
-    final webSearchEnabled = ref.watch(
-      webSearchEnabledProvider.select((enabled) => enabled),
-    );
-
-    return AnimatedContainer(
-      duration: AnimationDuration.fast,
-      curve: Curves.easeInOut,
-      child: GestureDetector(
-        onTap: widget.enabled
-            ? () {
-                // Toggle web search with haptic feedback
-                HapticFeedback.lightImpact();
-                ref.read(webSearchEnabledProvider.notifier).state =
-                    !webSearchEnabled;
-                
-                // Show a snackbar to confirm the toggle
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      webSearchEnabled 
-                        ? 'Web search disabled' 
-                        : 'Web search enabled - I can now search the internet',
-                      style: TextStyle(
-                        color: context.conduitTheme.textPrimary,
-                      ),
-                    ),
-                    backgroundColor: context.conduitTheme.surfaceBackground,
-                    duration: const Duration(seconds: 2),
-                    behavior: SnackBarBehavior.floating,
-                    margin: const EdgeInsets.all(Spacing.md),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                    ),
-                  ),
-                );
-              }
-            : null,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.md,
-            vertical: Spacing.sm,
-          ),
-          decoration: BoxDecoration(
-            color: webSearchEnabled
-                ? context.conduitTheme.info.withValues(
-                    alpha: Alpha.buttonHover,
-                  )
-                : context.conduitTheme.surfaceBackground.withValues(
-                    alpha: Alpha.subtle,
-                  ),
-            borderRadius: BorderRadius.circular(AppBorderRadius.xl),
-            border: Border.all(
-              color: webSearchEnabled
-                  ? context.conduitTheme.info
-                  : context.conduitTheme.textPrimary.withValues(
-                      alpha: Alpha.subtle,
-                    ),
-              width: BorderWidth.regular,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedSwitcher(
-                duration: AnimationDuration.fast,
-                child: Icon(
-                  webSearchEnabled
-                      ? (Platform.isIOS ? CupertinoIcons.globe : Icons.public)
-                      : (Platform.isIOS ? CupertinoIcons.search : Icons.search),
-                  key: ValueKey(webSearchEnabled),
-                  size: IconSize.small,
-                  color: widget.enabled
-                      ? (webSearchEnabled
-                            ? Colors.white
-                            : context.conduitTheme.textPrimary.withValues(
-                                alpha: Alpha.strong,
-                              ))
-                      : context.conduitTheme.textPrimary.withValues(
-                          alpha: Alpha.disabled,
-                        ),
-                ),
-              ),
-              const SizedBox(width: Spacing.sm),
-              Flexible(
-                child: Text(
-                  webSearchEnabled ? 'Web' : 'Search',
-                  style: TextStyle(
-                    fontSize: AppTypography.bodySmall,
-                    fontWeight: webSearchEnabled ? FontWeight.w600 : FontWeight.w500,
-                    color: widget.enabled
-                        ? (webSearchEnabled
-                              ? Colors.white
-                              : context.conduitTheme.textPrimary.withValues(
-                                  alpha: Alpha.strong,
-                                ))
-                        : context.conduitTheme.textPrimary.withValues(
-                            alpha: Alpha.disabled,
-                          ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWebSearchStatusIndicator() {
-    final webSearchEnabled = ref.watch(
-      webSearchEnabledProvider.select((enabled) => enabled),
-    );
-
-    if (!webSearchEnabled) return const SizedBox.shrink();
-
-    return AnimatedContainer(
-      duration: AnimationDuration.fast,
-      curve: Curves.easeInOut,
-      padding: const EdgeInsets.symmetric(
-        horizontal: Spacing.md,
-        vertical: Spacing.xs,
-      ),
-      margin: const EdgeInsets.only(
-        left: Spacing.md,
-        right: Spacing.md,
-        bottom: Spacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: context.conduitTheme.info.withValues(
-          alpha: Alpha.badgeBackground,
-        ),
-        borderRadius: BorderRadius.circular(AppBorderRadius.badge),
-        border: Border.all(
-          color: context.conduitTheme.info.withValues(alpha: Alpha.subtle),
-          width: BorderWidth.regular,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Platform.isIOS ? CupertinoIcons.globe : Icons.travel_explore,
-            size: IconSize.small,
-            color: context.conduitTheme.info,
-          ),
-          const SizedBox(width: Spacing.xs),
-          Text(
-            'Web search enabled',
-            style: AppTypography.captionStyle.copyWith(
-              color: context.conduitTheme.info,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: Spacing.xs),
-          GestureDetector(
-            onTap: () {
-              ref.read(webSearchEnabledProvider.notifier).state = false;
-            },
-            child: Icon(
-              Icons.close,
-              size: 12,
-              color: context.conduitTheme.info,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showAttachmentOptions() {
     showModalBottomSheet(
       context: context,
@@ -819,6 +630,14 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
           ],
         ),
       ),
+    );
+  }
+
+  void _showUnifiedToolsModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const UnifiedToolsModal(),
     );
   }
 
