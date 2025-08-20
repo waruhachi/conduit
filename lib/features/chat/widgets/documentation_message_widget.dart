@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:async';
-import 'package:gpt_markdown/gpt_markdown.dart';
 import 'dart:io' show Platform;
 import '../../../shared/theme/theme_extensions.dart';
+import '../../../shared/widgets/markdown/streaming_markdown_widget.dart';
 import '../../../core/utils/reasoning_parser.dart';
 
 class DocumentationMessageWidget extends ConsumerStatefulWidget {
@@ -409,175 +408,13 @@ class _DocumentationMessageWidgetState
       return const SizedBox.shrink();
     }
 
-    final codeFence = RegExp(
-      r"```([\w\-\+\.#]*)\n([\s\S]*?)```",
-      multiLine: true,
-    );
-    final widgets = <Widget>[];
-    int lastIndex = 0;
-    for (final match in codeFence.allMatches(content)) {
-      if (match.start > lastIndex) {
-        final textSegment = content.substring(lastIndex, match.start);
-        widgets.add(
-          MediaQuery(
-            data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.0)),
-            child: GptMarkdown(
-              textSegment,
-              style: AppTypography.chatMessageStyle.copyWith(
-                color: context.conduitTheme.textPrimary,
-              ),
-            ),
-          ),
-        );
-      }
-
-      final language = match.group(1)?.trim().isEmpty == true
-          ? null
-          : match.group(1)!.trim();
-      final code = match.group(2) ?? '';
-      widgets.add(_buildCodeBlock(code, language));
-      lastIndex = match.end;
-    }
-
-    if (lastIndex < content.length) {
-      final tail = content.substring(lastIndex);
-      widgets.add(
-        MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.0)),
-          child: GptMarkdown(
-            tail,
-            style: AppTypography.chatMessageStyle.copyWith(
-              color: context.conduitTheme.textPrimary,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: widgets
-          .map(
-            (w) => Padding(
-              padding: const EdgeInsets.only(bottom: Spacing.xs),
-              child: w,
-            ),
-          )
-          .toList(),
+    return StreamingMarkdownWidget(
+      staticContent: content,
+      isStreaming: widget.isStreaming,
     );
   }
 
-  Widget _buildCodeBlock(String code, String? language) {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.conduitTheme.surfaceBackground.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        border: Border.all(
-          color: context.conduitTheme.dividerColor.withValues(alpha: 0.7),
-          width: BorderWidth.thin,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Spacing.sm,
-              vertical: Spacing.xs,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Platform.isIOS
-                      ? CupertinoIcons.chevron_left_slash_chevron_right
-                      : Icons.code,
-                  size: 14,
-                  color: context.conduitTheme.iconSecondary,
-                ),
-                const SizedBox(width: Spacing.xs),
-                Expanded(
-                  child: Text(
-                    language?.toUpperCase() ?? 'CODE',
-                    style: TextStyle(
-                      fontSize: AppTypography.labelSmall,
-                      color: context.conduitTheme.textSecondary,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => _copyToClipboard(code),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.xs,
-                      vertical: Spacing.xxs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: context.conduitTheme.surfaceBackground.withValues(
-                        alpha: 0.2,
-                      ),
-                      borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Platform.isIOS
-                              ? CupertinoIcons.doc_on_clipboard
-                              : Icons.copy,
-                          size: 14,
-                          color: context.conduitTheme.iconSecondary,
-                        ),
-                        const SizedBox(width: Spacing.xs),
-                        Text(
-                          'Copy',
-                          style: TextStyle(
-                            fontSize: AppTypography.labelSmall,
-                            color: context.conduitTheme.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(Spacing.sm),
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(AppBorderRadius.md),
-              ),
-            ),
-            child: SelectableText(
-              code.trimRight(),
-              style: TextStyle(
-                color: context.conduitTheme.textSecondary,
-                fontFamily: AppTypography.monospaceFontFamily,
-                fontSize: AppTypography.bodySmall,
-                height: 1.5,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  void _copyToClipboard(String text) {
-    Clipboard.setData(ClipboardData(text: text));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Code copied'),
-          backgroundColor: context.conduitTheme.buttonPrimary,
-        ),
-      );
-    }
-  }
 
   // Removed lightweight streaming text; we now stream markdown with throttling
 
