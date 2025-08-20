@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../auth/providers/unified_auth_providers.dart';
 
 // Global cache for image data to prevent reloading
 final _globalImageCache = <String, String>{};
@@ -68,6 +69,32 @@ class _EnhancedImageAttachmentState
         });
       }
       return;
+    }
+    
+    // Check if this is a relative URL that needs base URL prepending
+    if (widget.attachmentId.startsWith('/')) {
+      // This is a relative URL, prepend the base URL
+      final api = ref.read(apiServiceProvider);
+      if (api != null) {
+        final fullUrl = api.baseUrl + widget.attachmentId;
+        _globalImageCache[widget.attachmentId] = fullUrl;
+        if (mounted) {
+          setState(() {
+            _cachedImageData = fullUrl;
+            _isLoading = false;
+          });
+        }
+        return;
+      } else {
+        // If API service is not available, show error
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'Unable to load image: API service not available';
+            _isLoading = false;
+          });
+        }
+        return;
+      }
     }
 
     final api = ref.read(apiServiceProvider);
@@ -231,9 +258,28 @@ class _EnhancedImageAttachmentState
   }
 
   Widget _buildNetworkImage() {
+    // Get authentication headers if available
+    final api = ref.read(apiServiceProvider);
+    final authToken = ref.read(authTokenProvider3);
+    final headers = <String, String>{};
+    
+    // Add auth token from unified auth provider
+    if (authToken != null && authToken.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $authToken';
+    } else if (api?.serverConfig.apiKey != null && api!.serverConfig.apiKey!.isNotEmpty) {
+      // Fallback to API key from server config
+      headers['Authorization'] = 'Bearer ${api.serverConfig.apiKey}';
+    }
+    
+    // Add any custom headers from server config
+    if (api != null && api.serverConfig.customHeaders.isNotEmpty) {
+      headers.addAll(api.serverConfig.customHeaders);
+    }
+    
     final imageWidget = CachedNetworkImage(
       imageUrl: _cachedImageData!,
       fit: BoxFit.cover,
+      httpHeaders: headers.isNotEmpty ? headers : null,
       placeholder: (context, url) => _buildLoadingState(),
       errorWidget: (context, url, error) {
         _errorMessage = error.toString();
@@ -312,7 +358,7 @@ class _EnhancedImageAttachmentState
   }
 }
 
-class FullScreenImageViewer extends StatelessWidget {
+class FullScreenImageViewer extends ConsumerWidget {
   final String imageData;
   final String tag;
 
@@ -323,13 +369,32 @@ class FullScreenImageViewer extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     Widget imageWidget;
 
     if (imageData.startsWith('http')) {
+      // Get authentication headers if available
+      final api = ref.read(apiServiceProvider);
+      final authToken = ref.read(authTokenProvider3);
+      final headers = <String, String>{};
+      
+      // Add auth token from unified auth provider
+      if (authToken != null && authToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $authToken';
+      } else if (api?.serverConfig.apiKey != null && api!.serverConfig.apiKey!.isNotEmpty) {
+        // Fallback to API key from server config
+        headers['Authorization'] = 'Bearer ${api.serverConfig.apiKey}';
+      }
+      
+      // Add any custom headers from server config
+      if (api != null && api.serverConfig.customHeaders.isNotEmpty) {
+        headers.addAll(api.serverConfig.customHeaders);
+      }
+      
       imageWidget = CachedNetworkImage(
         imageUrl: imageData,
         fit: BoxFit.contain,
+        httpHeaders: headers.isNotEmpty ? headers : null,
         placeholder: (context, url) => Center(
           child: CircularProgressIndicator(
             color: context.conduitTheme.buttonPrimary,

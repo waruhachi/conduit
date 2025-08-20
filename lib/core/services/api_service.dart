@@ -27,6 +27,9 @@ class ApiService {
 
   // Public getter for dio instance
   Dio get dio => _dio;
+  
+  // Public getter for base URL
+  String get baseUrl => serverConfig.url;
 
   // Callback to notify when auth token becomes invalid
   void Function()? onAuthTokenInvalid;
@@ -718,18 +721,34 @@ class ApiService {
       role = 'user';
     }
 
-    // Parse attachments from 'files' field
+    // Parse attachments and generated images from 'files' field
     List<String>? attachmentIds;
+    List<Map<String, dynamic>>? files;
+    
     if (msgData['files'] != null) {
       final filesList = msgData['files'] as List;
-      attachmentIds = filesList
-          .where((file) => file is Map && file['file_id'] != null)
-          .map((file) => file['file_id'] as String)
-          .toList();
-
-      if (attachmentIds.isEmpty) {
-        attachmentIds = null;
+      
+      // Separate user uploads (with file_id) from generated images (with type and url)
+      final userAttachments = <String>[];
+      final generatedFiles = <Map<String, dynamic>>[];
+      
+      for (final file in filesList) {
+        if (file is Map) {
+          if (file['file_id'] != null) {
+            // User uploaded file
+            userAttachments.add(file['file_id'] as String);
+          } else if (file['type'] == 'image' && file['url'] != null) {
+            // Generated image
+            generatedFiles.add({
+              'type': file['type'],
+              'url': file['url'],
+            });
+          }
+        }
       }
+      
+      attachmentIds = userAttachments.isNotEmpty ? userAttachments : null;
+      files = generatedFiles.isNotEmpty ? generatedFiles : null;
     }
 
     return ChatMessage(
@@ -739,6 +758,7 @@ class ApiService {
       timestamp: _parseTimestamp(msgData['timestamp']),
       model: msgData['model'] as String?,
       attachmentIds: attachmentIds,
+      files: files,
     );
   }
 

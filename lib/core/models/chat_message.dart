@@ -13,6 +13,7 @@ sealed class ChatMessage with _$ChatMessage {
     String? model,
     @Default(false) bool isStreaming,
     List<String>? attachmentIds,
+    List<Map<String, dynamic>>? files, // For generated images
     Map<String, dynamic>? metadata,
     List<Map<String, dynamic>>? sources,
     Map<String, dynamic>? usage,

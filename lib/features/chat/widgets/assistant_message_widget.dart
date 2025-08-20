@@ -287,6 +287,13 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                       const SizedBox(height: Spacing.md),
                     ],
 
+                    // Display generated images from files property
+                    if (widget.message.files != null &&
+                        widget.message.files!.isNotEmpty) ...[
+                      _buildGeneratedImages(),
+                      const SizedBox(height: Spacing.md),
+                    ],
+
                     if (widget.isStreaming &&
                         (widget.message.content.trim().isEmpty ||
                             widget.message.content == '[TYPING_INDICATOR]'))
@@ -388,6 +395,59 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
             borderRadius: BorderRadius.circular(AppBorderRadius.md),
             child: EnhancedImageAttachment(
               attachmentId: attachmentId,
+              isMarkdownFormat: true,
+              constraints: BoxConstraints(
+                maxWidth: imageCount == 2 ? 245 : 160,
+                maxHeight: imageCount == 2 ? 245 : 160,
+              ),
+            ),
+          );
+        }).toList(),
+      );
+    }
+  }
+
+  Widget _buildGeneratedImages() {
+    if (widget.message.files == null || widget.message.files!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    // Filter for image files
+    final imageFiles = widget.message.files!
+        .where((file) => file['type'] == 'image')
+        .toList();
+
+    if (imageFiles.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final imageCount = imageFiles.length;
+
+    // Display generated images using EnhancedImageAttachment for consistency
+    if (imageCount == 1) {
+      final imageUrl = imageFiles[0]['url'] as String?;
+      if (imageUrl == null) return const SizedBox.shrink();
+      
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        child: EnhancedImageAttachment(
+          attachmentId: imageUrl, // Pass URL directly as it handles URLs
+          isMarkdownFormat: true,
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 400),
+        ),
+      );
+    } else {
+      return Wrap(
+        spacing: Spacing.sm,
+        runSpacing: Spacing.sm,
+        children: imageFiles.map<Widget>((file) {
+          final imageUrl = file['url'] as String?;
+          if (imageUrl == null) return const SizedBox.shrink();
+          
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(AppBorderRadius.md),
+            child: EnhancedImageAttachment(
+              attachmentId: imageUrl, // Pass URL directly
               isMarkdownFormat: true,
               constraints: BoxConstraints(
                 maxWidth: imageCount == 2 ? 245 : 160,
