@@ -1,19 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 // ThemedDialogs handles theming; no direct use of extensions here
-import '../../features/chat/views/chat_page.dart';
 import '../../features/auth/views/connect_signin_page.dart';
-
-import '../../features/profile/views/profile_page.dart';
+import '../../features/chat/views/chat_page.dart';
 import '../../features/files/views/files_page.dart';
-
-import '../../features/chat/views/conversation_search_page.dart';
+import '../../features/navigation/views/chats_list_page.dart';
+import '../../features/profile/views/profile_page.dart';
 import '../../shared/widgets/themed_dialogs.dart';
 
-import '../../features/navigation/views/chats_list_page.dart';
-
-/// Centralized navigation service to handle all routing logic
-/// Prevents navigation stack issues and memory leaks
+/// Service for handling navigation throughout the app
 class NavigationService {
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
@@ -21,87 +15,33 @@ class NavigationService {
   static NavigatorState? get navigator => navigatorKey.currentState;
   static BuildContext? get context => navigatorKey.currentContext;
 
-  // Navigation stack tracking for analytics and debugging
   static final List<String> _navigationStack = [];
+  static String? _currentRoute;
+
+  /// Get current route
+  static String? get currentRoute => _currentRoute;
+
+  /// Get navigation stack
   static List<String> get navigationStack =>
       List.unmodifiable(_navigationStack);
 
-  // Prevent duplicate navigation
-  static String? _currentRoute;
-  static bool _isNavigating = false;
-  static DateTime? _lastNavigationTime;
-
-  /// Navigate to a named route with optional arguments
-  static Future<T?> navigateTo<T>(
-    String routeName, {
-    Object? arguments,
-    bool replace = false,
-    bool clearStack = false,
-  }) async {
-    // Only block if we're already navigating to the exact same route
-    // Allow navigation to different routes even if currently navigating
-    if (_isNavigating && _currentRoute == routeName) {
-      debugPrint('Navigation blocked: Already navigating to same route');
-      return null;
-    }
-
-    // Prevent rapid successive navigation attempts
-    final now = DateTime.now();
-    if (_lastNavigationTime != null &&
-        now.difference(_lastNavigationTime!).inMilliseconds < 300) {
-      debugPrint('Navigation blocked: Too rapid navigation attempts');
-      return null;
-    }
-
-    _isNavigating = true;
-
-    try {
-      // Add haptic feedback for navigation
-      HapticFeedback.lightImpact();
-
-      // Track navigation
-      if (!replace && !clearStack) {
-        _navigationStack.add(routeName);
-      }
+  /// Navigate to a specific route
+  static Future<void> navigateTo(String routeName) async {
+    if (_currentRoute != routeName) {
+      _navigationStack.add(routeName);
       _currentRoute = routeName;
-
-      if (clearStack) {
-        _navigationStack.clear();
-        _navigationStack.add(routeName);
-        return await navigator?.pushNamedAndRemoveUntil<T>(
-          routeName,
-          (route) => false,
-          arguments: arguments,
-        );
-      } else if (replace) {
-        if (_navigationStack.isNotEmpty) {
-          _navigationStack.removeLast();
-        }
-        _navigationStack.add(routeName);
-        return await navigator?.pushReplacementNamed<T, T>(
-          routeName,
-          arguments: arguments,
-        );
-      } else {
-        return await navigator?.pushNamed<T>(routeName, arguments: arguments);
-      }
-    } catch (e) {
-      debugPrint('Navigation error: $e');
-      rethrow;
-    } finally {
-      _isNavigating = false;
-      _lastNavigationTime = DateTime.now();
     }
   }
 
   /// Navigate back with optional result
   static void goBack<T>([T? result]) {
     if (navigator?.canPop() == true) {
-      HapticFeedback.lightImpact();
       if (_navigationStack.isNotEmpty) {
         _navigationStack.removeLast();
       }
-      _currentRoute = _navigationStack.isEmpty ? null : _navigationStack.last;
+      _currentRoute = _navigationStack.isNotEmpty
+          ? _navigationStack.last
+          : null;
       navigator?.pop<T>(result);
     }
   }
@@ -132,23 +72,15 @@ class NavigationService {
     return result;
   }
 
-  // Removed tabbed main navigation
-
   /// Navigate to chat
-  static Future<void> navigateToChat({String? conversationId}) {
-    return navigateTo(
-      Routes.chat,
-      arguments: {'conversationId': conversationId},
-      replace: true,
-    );
+  static Future<void> navigateToChat() {
+    return navigateTo(Routes.chat);
   }
 
   /// Navigate to login
   static Future<void> navigateToLogin() {
-    return navigateTo(Routes.login, clearStack: true);
+    return navigateTo(Routes.login);
   }
-
-
 
   /// Navigate to profile
   static Future<void> navigateToProfile() {
@@ -158,11 +90,6 @@ class NavigationService {
   /// Navigate to server connection
   static Future<void> navigateToServerConnection() {
     return navigateTo(Routes.serverConnection);
-  }
-
-  /// Navigate to search
-  static Future<void> navigateToSearch() {
-    return navigateTo(Routes.search);
   }
 
   /// Navigate to chats list
@@ -199,8 +126,6 @@ class NavigationService {
         page = const ConnectAndSignInPage();
         break;
 
-
-
       case Routes.profile:
         page = const ProfilePage();
         break;
@@ -209,15 +134,9 @@ class NavigationService {
         page = const ConnectAndSignInPage();
         break;
 
-      case Routes.search:
-        page = const ConversationSearchPage();
-        break;
-
       case Routes.files:
         page = const FilesPage();
         break;
-
-
 
       case Routes.chatsList:
         page = const ChatsListPage();
@@ -239,11 +158,8 @@ class NavigationService {
 class Routes {
   static const String chat = '/chat';
   static const String login = '/login';
-
   static const String profile = '/profile';
   static const String serverConnection = '/server-connection';
-  static const String search = '/search';
   static const String files = '/files';
-
   static const String chatsList = '/chats-list';
 }
