@@ -12,7 +12,6 @@
 .swiftpm/
 migrate_working_dir/
 AGENTS.md
-flutter_*.png
 
 # IntelliJ related
 *.iml

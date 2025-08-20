@@ -122,13 +122,10 @@ class _StreamingMarkdownWidgetState extends State<StreamingMarkdownWidget> {
 
     if (widget.isStreaming && _renderedContent.isNotEmpty) {
       // Use MarkdownBlock for streaming - it's optimized for live updates
-      return Container(
-        padding: widget.padding,
-        child: MarkdownBlock(
-          data: _renderedContent,
-          config: config,
-          selectable: true,
-        ),
+      return MarkdownBlock(
+        data: _renderedContent,
+        config: config,
+        selectable: true,
       );
     } else {
       // Use MarkdownWidget for completed messages
@@ -139,7 +136,7 @@ class _StreamingMarkdownWidgetState extends State<StreamingMarkdownWidget> {
         selectable: true,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        padding: widget.padding,
+        padding: EdgeInsets.zero,
       );
     }
   }

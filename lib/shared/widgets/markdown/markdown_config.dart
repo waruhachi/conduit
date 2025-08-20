@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 import 'package:flutter_highlight/themes/atom-one-dark.dart';
@@ -41,7 +42,7 @@ class ConduitMarkdownConfig {
         // Link config
         LinkConfig(
           style: TextStyle(
-            color: AppTheme.brandPrimary,
+            color: theme.buttonPrimary,
             decoration: TextDecoration.underline,
           ),
           onTap: (url) async {
@@ -51,30 +52,60 @@ class ConduitMarkdownConfig {
           },
         ),
 
-        // Image config - optimized for mobile
+        // Image config - optimized for mobile with support for base64 and network images
         ImgConfig(
-          builder: (url, attributes) => CachedNetworkImage(
-            imageUrl: url,
-            placeholder: (context, url) => Container(
-              height: 200,
-              color: theme.surfaceBackground,
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: AppTheme.brandPrimary,
+          builder: (url, attributes) {
+            // Check if it's a base64 data URL
+            if (url.startsWith('data:')) {
+              return _buildBase64Image(url, theme);
+            }
+            // Network image
+            return CachedNetworkImage(
+              imageUrl: url,
+              placeholder: (context, url) => Container(
+                height: 200,
+                decoration: BoxDecoration(
+                  color: theme.surfaceBackground.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                ),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: theme.loadingIndicator,
+                    strokeWidth: 2,
+                  ),
                 ),
               ),
-            ),
-            errorWidget: (context, url, error) => Container(
-              height: 100,
-              color: theme.surfaceBackground,
-              child: Center(
-                child: Icon(
-                  Icons.broken_image,
-                  color: theme.iconSecondary,
+              errorWidget: (context, url, error) => Container(
+                height: 100,
+                decoration: BoxDecoration(
+                  color: theme.surfaceBackground.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                  border: Border.all(
+                    color: theme.error.withValues(alpha: 0.3),
+                    width: BorderWidth.thin,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.broken_image_outlined,
+                      color: theme.error,
+                      size: 32,
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    Text(
+                      'Failed to load image',
+                      style: TextStyle(
+                        color: theme.error,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
 
         // Table config - mobile responsive
@@ -89,6 +120,7 @@ class ConduitMarkdownConfig {
         PConfig(
           textStyle: AppTypography.chatMessageStyle.copyWith(
             color: theme.textPrimary,
+            height: 1.3,
           ),
         ),
 
@@ -122,6 +154,82 @@ class ConduitMarkdownConfig {
       ],
     );
   }
+
+  static Widget _buildBase64Image(String dataUrl, ConduitThemeExtension theme) {
+    try {
+      // Extract base64 part from data URL
+      final commaIndex = dataUrl.indexOf(',');
+      if (commaIndex == -1) {
+        throw Exception('Invalid data URL format');
+      }
+      
+      final base64String = dataUrl.substring(commaIndex + 1);
+      final imageBytes = base64.decode(base64String);
+      
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
+        constraints: const BoxConstraints(
+          maxWidth: 500,
+          maxHeight: 500,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          child: Image.memory(
+            imageBytes,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                height: 100,
+                decoration: BoxDecoration(
+                  color: theme.surfaceBackground.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                  border: Border.all(
+                    color: theme.error.withValues(alpha: 0.3),
+                    width: BorderWidth.thin,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      color: theme.error,
+                      size: 32,
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    Text(
+                      'Invalid image data',
+                      style: TextStyle(
+                        color: theme.error,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      return Container(
+        height: 100,
+        decoration: BoxDecoration(
+          color: theme.surfaceBackground.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        ),
+        child: Center(
+          child: Text(
+            'Invalid image format',
+            style: TextStyle(
+              color: theme.error,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      );
+    }
+  }
 }
 
 /// Custom wrapper for code blocks with copy functionality
@@ -148,7 +256,7 @@ class CodeBlockWrapper extends StatelessWidget {
           top: 8,
           right: 8,
           child: Material(
-            color: Colors.transparent,
+            color: theme.surfaceBackground.withValues(alpha: 0.0),
             child: InkWell(
               borderRadius: BorderRadius.circular(AppBorderRadius.sm),
               onTap: () {

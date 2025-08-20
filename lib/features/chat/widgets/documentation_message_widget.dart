@@ -7,6 +7,7 @@ import 'dart:io' show Platform;
 import '../../../shared/theme/theme_extensions.dart';
 import '../../../shared/widgets/markdown/streaming_markdown_widget.dart';
 import '../../../core/utils/reasoning_parser.dart';
+import 'enhanced_image_attachment.dart';
 
 class DocumentationMessageWidget extends ConsumerStatefulWidget {
   final dynamic message;
@@ -138,7 +139,7 @@ class _DocumentationMessageWidgetState
 
   void _buildCachedAvatar() {
     _cachedAvatar = Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
           Container(
@@ -175,6 +176,7 @@ class _DocumentationMessageWidgetState
   void dispose() {
     _fadeController.dispose();
     _slideController.dispose();
+    _throttleTimer?.cancel();
     super.dispose();
   }
 
@@ -202,54 +204,74 @@ class _DocumentationMessageWidgetState
   }
 
   Widget _buildUserMessage() {
-    return Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 16, left: 50, right: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
+    final hasImages = widget.message.attachmentIds != null &&
+        widget.message.attachmentIds!.isNotEmpty;
+    final hasText = widget.message.content.isNotEmpty;
+
+    return GestureDetector(
+      onLongPress: () => _toggleActions(),
+      behavior: HitTestBehavior.translucent,
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 12, left: 50, right: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // Display images outside and above the text bubble
+            if (hasImages) ...[
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Flexible(
-                    child: GestureDetector(
-                      onLongPress: () => _toggleActions(),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+                    child: _buildUserAttachmentImages(),
+                  ),
+                ],
+              ),
+              if (hasText) const SizedBox(height: Spacing.xs),
+            ],
+
+            // Display text bubble if there's text content
+            if (hasText)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: context.conduitTheme.chatBubbleUser,
+                        borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+                        border: Border.all(
+                          color: context.conduitTheme.chatBubbleUserBorder,
+                          width: BorderWidth.regular,
                         ),
-                        decoration: BoxDecoration(
-                          color: context.conduitTheme.chatBubbleUser,
-                          borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-                          border: Border.all(
-                            color: context.conduitTheme.chatBubbleUserBorder,
-                            width: BorderWidth.regular,
-                          ),
-                        ),
-                        child: Text(
-                          widget.message.content,
-                          style: TextStyle(
-                            color: context.conduitTheme.chatBubbleUserText,
-                            fontSize: AppTypography.bodyMedium,
-                            height: 1.5,
-                            letterSpacing: 0.1,
-                          ),
+                      ),
+                      child: Text(
+                        widget.message.content,
+                        style: TextStyle(
+                          color: context.conduitTheme.chatBubbleUserText,
+                          fontSize: AppTypography.bodyMedium,
+                          height: 1.3,
+                          letterSpacing: 0.1,
                         ),
                       ),
                     ),
                   ),
                 ],
               ),
-              
-              // Action buttons below the message bubble
-              if (_showActions) ...[
-                const SizedBox(height: Spacing.sm),
-                _buildUserActionButtons(),
-              ],
+            
+            // Action buttons below the message bubble
+            if (_showActions) ...[
+              const SizedBox(height: Spacing.sm),
+              _buildUserActionButtons(),
             ],
-          ),
-        )
+          ],
+        ),
+      ),
+    )
         .animate()
         .fadeIn(duration: const Duration(milliseconds: 400))
         .slideX(
@@ -261,138 +283,146 @@ class _DocumentationMessageWidgetState
   }
 
   Widget _buildDocumentationMessage() {
-    return Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 24, left: 12, right: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Cached AI Name and Avatar to prevent flashing
-              _cachedAvatar ?? const SizedBox.shrink(),
+    return GestureDetector(
+      onLongPress: () => _toggleActions(),
+      behavior: HitTestBehavior.translucent,
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 16, left: 12, right: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Cached AI Name and Avatar to prevent flashing
+            _cachedAvatar ?? const SizedBox.shrink(),
 
-              // Reasoning Section (if present)
-              if (_reasoningContent != null) ...[
-                InkWell(
-                  onTap: () => setState(() => _showReasoning = !_showReasoning),
-                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.sm,
-                      vertical: Spacing.xs,
+            // Reasoning Section (if present)
+            if (_reasoningContent != null) ...[
+              InkWell(
+                onTap: () => setState(() => _showReasoning = !_showReasoning),
+                borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Spacing.sm,
+                    vertical: Spacing.xs,
+                  ),
+                  decoration: BoxDecoration(
+                    color: context.conduitTheme.surfaceContainer.withValues(
+                      alpha: 0.5,
                     ),
-                    decoration: BoxDecoration(
-                      color: context.conduitTheme.surfaceContainer.withValues(
-                        alpha: 0.5,
-                      ),
-                      borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                      border: Border.all(
-                        color: context.conduitTheme.dividerColor,
-                        width: BorderWidth.thin,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _showReasoning
-                              ? Icons.expand_less_rounded
-                              : Icons.expand_more_rounded,
-                          size: 16,
-                          color: context.conduitTheme.textSecondary,
-                        ),
-                        const SizedBox(width: Spacing.xs),
-                        Icon(
-                          Icons.psychology_outlined,
-                          size: 14,
-                          color: context.conduitTheme.buttonPrimary,
-                        ),
-                        const SizedBox(width: Spacing.xs),
-                        Text(
-                          _reasoningContent!.summary.isNotEmpty
-                              ? _reasoningContent!.summary
-                              : 'Thought for ${_reasoningContent!.formattedDuration}',
-                          style: TextStyle(
-                            fontSize: AppTypography.bodySmall,
-                            color: context.conduitTheme.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+                    borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                    border: Border.all(
+                      color: context.conduitTheme.dividerColor,
+                      width: BorderWidth.thin,
                     ),
                   ),
-                ),
-
-                // Expandable reasoning content
-                AnimatedCrossFade(
-                  firstChild: const SizedBox.shrink(),
-                  secondChild: Container(
-                    margin: const EdgeInsets.only(top: Spacing.sm),
-                    padding: const EdgeInsets.all(Spacing.sm),
-                    decoration: BoxDecoration(
-                      color: context.conduitTheme.surfaceContainer.withValues(
-                        alpha: 0.3,
-                      ),
-                      borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                      border: Border.all(
-                        color: context.conduitTheme.dividerColor,
-                        width: BorderWidth.thin,
-                      ),
-                    ),
-                    child: SelectableText(
-                      _reasoningContent!.cleanedReasoning,
-                      style: TextStyle(
-                        fontSize: AppTypography.bodySmall,
-                        color: context.conduitTheme.textSecondary,
-                        fontFamily: 'monospace',
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                  crossFadeState: _showReasoning
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-                  duration: const Duration(milliseconds: 200),
-                ),
-
-                const SizedBox(height: Spacing.md),
-              ],
-
-              // Documentation-style content without heavy bubble; premium markdown
-              GestureDetector(
-                onLongPress: () => _toggleActions(),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (widget.isStreaming &&
-                          (widget.message.content.trim().isEmpty ||
-                              widget.message.content == '[TYPING_INDICATOR]'))
-                        _buildTypingIndicator()
-                      else if (widget.isStreaming &&
-                          widget.message.content.isNotEmpty &&
-                          widget.message.content != '[TYPING_INDICATOR]')
-                        // While streaming, render markdown with throttling and safety fixes
-                        _buildEnhancedMarkdownContent(_renderedContent)
-                      else
-                        // After streaming finishes (or static content), render full markdown
-                        _buildEnhancedMarkdownContent(
-                          _reasoningContent?.mainContent ??
-                              widget.message.content,
+                      Icon(
+                        _showReasoning
+                            ? Icons.expand_less_rounded
+                            : Icons.expand_more_rounded,
+                        size: 16,
+                        color: context.conduitTheme.textSecondary,
+                      ),
+                      const SizedBox(width: Spacing.xs),
+                      Icon(
+                        Icons.psychology_outlined,
+                        size: 14,
+                        color: context.conduitTheme.buttonPrimary,
+                      ),
+                      const SizedBox(width: Spacing.xs),
+                      Text(
+                        _reasoningContent!.summary.isNotEmpty
+                            ? _reasoningContent!.summary
+                            : 'Thought for ${_reasoningContent!.formattedDuration}',
+                        style: TextStyle(
+                          fontSize: AppTypography.bodySmall,
+                          color: context.conduitTheme.textSecondary,
+                          fontWeight: FontWeight.w500,
                         ),
+                      ),
                     ],
                   ),
                 ),
               ),
 
-              // Action buttons below the message content
-              if (_showActions) ...[
-                const SizedBox(height: Spacing.sm),
-                _buildActionButtons(),
-              ],
+              // Expandable reasoning content
+              AnimatedCrossFade(
+                firstChild: const SizedBox.shrink(),
+                secondChild: Container(
+                  margin: const EdgeInsets.only(top: Spacing.sm),
+                  padding: const EdgeInsets.all(Spacing.sm),
+                  decoration: BoxDecoration(
+                    color: context.conduitTheme.surfaceContainer.withValues(
+                      alpha: 0.3,
+                    ),
+                    borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                    border: Border.all(
+                      color: context.conduitTheme.dividerColor,
+                      width: BorderWidth.thin,
+                    ),
+                  ),
+                  child: SelectableText(
+                    _reasoningContent!.cleanedReasoning,
+                    style: TextStyle(
+                      fontSize: AppTypography.bodySmall,
+                      color: context.conduitTheme.textSecondary,
+                      fontFamily: 'monospace',
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+                crossFadeState: _showReasoning
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 200),
+              ),
+
+              const SizedBox(height: Spacing.md),
             ],
-          ),
-        )
+
+            // Documentation-style content without heavy bubble; premium markdown
+            SizedBox(
+              width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Display attachment images if any (for user uploaded images)
+                  if (widget.message.attachmentIds != null &&
+                      widget.message.attachmentIds!.isNotEmpty) ...[
+                    _buildAttachmentImages(),
+                    const SizedBox(height: Spacing.md),
+                  ],
+                  
+                  if (widget.isStreaming &&
+                      (widget.message.content.trim().isEmpty ||
+                          widget.message.content == '[TYPING_INDICATOR]'))
+                    _buildTypingIndicator()
+                  else if (widget.isStreaming &&
+                      widget.message.content.isNotEmpty &&
+                      widget.message.content != '[TYPING_INDICATOR]')
+                    // While streaming, render markdown with throttling and safety fixes
+                    _buildEnhancedMarkdownContent(_renderedContent)
+                  else
+                    // After streaming finishes (or static content), render full markdown
+                    _buildEnhancedMarkdownContent(
+                      _reasoningContent?.mainContent ??
+                          widget.message.content,
+                    ),
+                ],
+              ),
+            ),
+
+            // Action buttons below the message content
+            if (_showActions) ...[
+              const SizedBox(height: Spacing.sm),
+              _buildActionButtons(),
+            ],
+          ],
+        ),
+      ),
+    )
         .animate()
         .fadeIn(duration: const Duration(milliseconds: 300))
         .slideY(
@@ -408,15 +438,150 @@ class _DocumentationMessageWidgetState
       return const SizedBox.shrink();
     }
 
+    // Process content to ensure proper image rendering
+    final processedContent = _processContentForImages(content);
+
     return StreamingMarkdownWidget(
-      staticContent: content,
+      staticContent: processedContent,
       isStreaming: widget.isStreaming,
     );
   }
 
+  String _processContentForImages(String content) {
+    // Check if content contains image markdown or base64 data URLs
+    // This ensures images generated by AI are properly formatted
+    
+    // Pattern to detect base64 images that might not be in markdown format
+    final base64Pattern = RegExp(r'data:image/[^;]+;base64,[A-Za-z0-9+/]+=*');
+    
+    // If we find base64 images not wrapped in markdown, wrap them
+    if (base64Pattern.hasMatch(content) && !content.contains('![')) {
+      content = content.replaceAllMapped(base64Pattern, (match) {
+        final imageData = match.group(0)!;
+        // Check if this image is already in markdown format
+        final markdownCheck = RegExp(r'!\[.*?\]\(' + RegExp.escape(imageData) + r'\)');
+        if (!markdownCheck.hasMatch(content)) {
+          return '\n![Generated Image]($imageData)\n';
+        }
+        return imageData;
+      });
+    }
+    
+    return content;
+  }
 
+  Widget _buildUserAttachmentImages() {
+    if (widget.message.attachmentIds == null ||
+        widget.message.attachmentIds!.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
-  // Removed lightweight streaming text; we now stream markdown with throttling
+    final imageCount = widget.message.attachmentIds!.length;
+    
+    // Similar to iMessage style but adapted for documentation widget
+    if (imageCount == 1) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+        child: EnhancedImageAttachment(
+          attachmentId: widget.message.attachmentIds![0],
+          isUserMessage: true,
+          constraints: const BoxConstraints(
+            maxWidth: 280,
+            maxHeight: 350,
+          ),
+        ),
+      );
+    } else if (imageCount == 2) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: widget.message.attachmentIds!.map((attachmentId) {
+          return Padding(
+            padding: EdgeInsets.only(
+              left: attachmentId == widget.message.attachmentIds!.first 
+                  ? 0 
+                  : Spacing.xs,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+              child: EnhancedImageAttachment(
+                attachmentId: attachmentId,
+                isUserMessage: true,
+                constraints: const BoxConstraints(
+                  maxWidth: 135,
+                  maxHeight: 180,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      );
+    } else {
+      return Container(
+        constraints: const BoxConstraints(maxWidth: 280),
+        child: Wrap(
+          alignment: WrapAlignment.end,
+          spacing: Spacing.xs,
+          runSpacing: Spacing.xs,
+          children: widget.message.attachmentIds!.map((attachmentId) {
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(AppBorderRadius.md),
+              child: EnhancedImageAttachment(
+                attachmentId: attachmentId,
+                isUserMessage: true,
+                constraints: BoxConstraints(
+                  maxWidth: imageCount == 3 ? 135 : 90,
+                  maxHeight: imageCount == 3 ? 135 : 90,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      );
+    }
+  }
+
+  Widget _buildAttachmentImages() {
+    if (widget.message.attachmentIds == null ||
+        widget.message.attachmentIds!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final imageCount = widget.message.attachmentIds!.length;
+
+    // Display images in a clean, modern layout for assistant messages
+    if (imageCount == 1) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        child: EnhancedImageAttachment(
+          attachmentId: widget.message.attachmentIds![0],
+          isMarkdownFormat: true,
+          constraints: const BoxConstraints(
+            maxWidth: 500,
+            maxHeight: 400,
+          ),
+        ),
+      );
+    } else {
+      return Wrap(
+        spacing: Spacing.sm,
+        runSpacing: Spacing.sm,
+        children: widget.message.attachmentIds!.map<Widget>((attachmentId) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(AppBorderRadius.md),
+            child: EnhancedImageAttachment(
+              attachmentId: attachmentId,
+              isMarkdownFormat: true,
+              constraints: BoxConstraints(
+                maxWidth: imageCount == 2 ? 245 : 160,
+                maxHeight: imageCount == 2 ? 245 : 160,
+              ),
+            ),
+          );
+        }).toList(),
+      );
+    }
+  }
 
   Widget _buildTypingIndicator() {
     return Consumer(
