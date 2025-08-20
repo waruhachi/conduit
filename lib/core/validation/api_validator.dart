@@ -1,7 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'schema_registry.dart';
 import 'validation_result.dart';
 import 'field_mapper.dart';
+import '../utils/debug_logger.dart';
 
 /// Comprehensive API request and response validator
 /// Validates against OpenAPI specification schemas
@@ -24,9 +24,9 @@ class ApiValidator {
     try {
       await _schemaRegistry.loadSchemas();
       _initialized = true;
-      debugPrint('ApiValidator: Successfully initialized with schemas');
+      DebugLogger.validation('Successfully initialized with schemas');
     } catch (e) {
-      debugPrint('ApiValidator: Failed to initialize: $e');
+      DebugLogger.error('Failed to initialize', e);
       // Continue without validation if schemas can't be loaded
     }
   }

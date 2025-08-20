@@ -12,10 +12,11 @@ import 'dart:async';
 import 'package:path/path.dart' as path;
 import '../../../core/providers/app_providers.dart';
 import '../providers/chat_providers.dart';
+import '../../../core/utils/debug_logger.dart';
 
 import '../widgets/modern_chat_input.dart';
-import '../widgets/modern_message_bubble.dart';
-import '../widgets/documentation_message_widget.dart';
+import '../widgets/user_message_bubble.dart';
+import '../widgets/assistant_message_widget.dart' as assistant;
 import '../widgets/file_attachment_widget.dart';
 import '../services/voice_input_service.dart';
 import '../services/file_attachment_service.dart';
@@ -72,7 +73,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     // Clear current conversation
     ref.read(chatMessagesProvider.notifier).clearMessages();
     ref.read(activeConversationProvider.notifier).state = null;
-    
+
     // Scroll to top
     if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
@@ -83,45 +84,47 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     // Check if a model is already selected
     final selectedModel = ref.read(selectedModelProvider);
     if (selectedModel != null) {
-      debugPrint('DEBUG: Model already selected: ${selectedModel.name}');
+      DebugLogger.log('Model already selected: ${selectedModel.name}');
       return;
     }
-    
-    debugPrint('DEBUG: No model selected, attempting auto-selection');
-    
+
+    DebugLogger.log('No model selected, attempting auto-selection');
+
     try {
       // First ensure models are loaded
       final modelsAsync = ref.read(modelsProvider);
       List<Model> models;
-      
+
       if (modelsAsync.hasValue) {
         models = modelsAsync.value!;
       } else {
-        debugPrint('DEBUG: Models not loaded yet, fetching...');
+        DebugLogger.log('Models not loaded yet, fetching...');
         models = await ref.read(modelsProvider.future);
       }
-      
-      debugPrint('DEBUG: Found ${models.length} models available');
-      
+
+      DebugLogger.log('Found ${models.length} models available');
+
       if (models.isEmpty) {
-        debugPrint('DEBUG: No models available for selection');
+        DebugLogger.log('No models available for selection');
         return;
       }
-      
+
       // Try to use the default model provider
       try {
         final Model? model = await ref.read(defaultModelProvider.future);
         if (model != null) {
-          debugPrint('DEBUG: Model auto-selected via provider: ${model.name}');
+          DebugLogger.log('Model auto-selected via provider: ${model.name}');
         }
       } catch (e) {
-        debugPrint('DEBUG: Default provider failed, selecting first model directly');
+        DebugLogger.log(
+          'Default provider failed, selecting first model directly',
+        );
         // Fallback: select the first available model
         ref.read(selectedModelProvider.notifier).state = models.first;
-        debugPrint('DEBUG: Fallback model selected: ${models.first.name}');
+        DebugLogger.log('Fallback model selected: ${models.first.name}');
       }
     } catch (e) {
-      debugPrint('DEBUG: Failed to auto-select model: $e');
+      DebugLogger.error('Failed to auto-select model', e);
     }
   }
 
@@ -130,20 +133,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       // Check if onboarding has been seen
       final storage = ref.read(optimizedStorageServiceProvider);
       final seen = await storage.getOnboardingSeen();
-      debugPrint('DEBUG: Chat page - Onboarding seen status: $seen');
-      
+      DebugLogger.log('Chat page - Onboarding seen status: $seen');
+
       if (!seen && mounted) {
         // Small delay to ensure navigation has settled
         await Future.delayed(const Duration(milliseconds: 500));
         if (!mounted) return;
-        
-        debugPrint('DEBUG: Showing onboarding from chat page');
+
+        DebugLogger.log('Showing onboarding from chat page');
         _showOnboarding();
         await storage.setOnboardingSeen(true);
-        debugPrint('DEBUG: Onboarding marked as seen');
+        DebugLogger.log('Onboarding marked as seen');
       }
     } catch (e) {
-      debugPrint('DEBUG: Error checking onboarding status: $e');
+      DebugLogger.error('Error checking onboarding status', e);
     }
   }
 
@@ -168,43 +171,45 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   Future<void> _checkAndLoadDemoConversation() async {
     final isReviewerMode = ref.read(reviewerModeProvider);
     if (!isReviewerMode) return;
-    
+
     // Check if there's already an active conversation
     final activeConversation = ref.read(activeConversationProvider);
     if (activeConversation != null) {
-      debugPrint('Conversation already active: ${activeConversation.title}');
+      DebugLogger.log(
+        'Conversation already active: ${activeConversation.title}',
+      );
       return;
     }
-    
+
     // Force refresh conversations provider to ensure we get the demo conversations
     ref.invalidate(conversationsProvider);
-    
+
     // Try to load demo conversation
     for (int i = 0; i < 10; i++) {
       final conversationsAsync = ref.read(conversationsProvider);
-      
+
       if (conversationsAsync.hasValue && conversationsAsync.value!.isNotEmpty) {
         // Find and load the welcome conversation
         final welcomeConv = conversationsAsync.value!.firstWhere(
           (conv) => conv.id == 'demo-conv-1',
           orElse: () => conversationsAsync.value!.first,
         );
-        
+
         ref.read(activeConversationProvider.notifier).state = welcomeConv;
         debugPrint('Auto-loaded demo conversation: ${welcomeConv.title}');
         return;
       }
-      
+
       // If conversations are still loading, wait a bit and retry
       if (conversationsAsync.isLoading || i == 0) {
         await Future.delayed(const Duration(milliseconds: 200));
         continue;
       }
-      
+
       // If there was an error or no conversations, break
       break;
     }
-    
+
     debugPrint('Failed to auto-load demo conversation');
   }
 
@@ -214,15 +219,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     // Listen to scroll events to show/hide scroll to bottom button
     _scrollController.addListener(_onScroll);
-    
+
     // Initialize chat page components
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // First, ensure a model is selected
       await _checkAndAutoSelectModel();
-      
+
       // Then check for demo conversation in reviewer mode
       await _checkAndLoadDemoConversation();
-      
+
       // Finally, show onboarding if needed
       await _checkAndShowOnboarding();
     });
@@ -252,7 +257,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     final isOnline = ref.read(isOnlineProvider);
     final isReviewerMode = ref.read(reviewerModeProvider);
-    debugPrint('DEBUG: Online status: $isOnline, Reviewer mode: $isReviewerMode');
+    debugPrint(
+      'DEBUG: Online status: $isOnline, Reviewer mode: $isReviewerMode',
+    );
     if (!isOnline && !isReviewerMode) {
       debugPrint('DEBUG: Offline - cannot send message');
       if (mounted) {
@@ -324,7 +331,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Message failed to send. Check your connection and try again.'),
+            content: const Text(
+              'Message failed to send. Check your connection and try again.',
+            ),
             backgroundColor: context.conduitTheme.error,
             action: SnackBarAction(
               label: 'Retry',
@@ -852,7 +861,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         controller: _scrollController,
         padding: const EdgeInsets.fromLTRB(
           Spacing.lg,
-          Spacing.xl,
+          Spacing.md,
           Spacing.lg,
           Spacing.lg,
         ),
@@ -928,7 +937,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       items: messages,
       padding: const EdgeInsets.fromLTRB(
         Spacing.lg,
-        Spacing.xl,
+        Spacing.md,
         Spacing.lg,
         Spacing.lg,
       ),
@@ -943,7 +952,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
         // Use documentation style for assistant messages, bubble for user messages
         if (isUser) {
-          messageWidget = ModernMessageBubble(
+          messageWidget = UserMessageBubble(
             key: ValueKey('user-${message.id}'),
             message: message,
             isUser: isUser,
@@ -956,14 +965,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             onDislike: () => _dislikeMessage(message),
           );
         } else {
-          messageWidget = DocumentationMessageWidget(
+          messageWidget = assistant.AssistantMessageWidget(
             key: ValueKey('assistant-${message.id}'),
             message: message,
-            isUser: isUser,
             isStreaming: isStreaming,
             modelName: message.model,
             onCopy: () => _copyMessage(message.content),
-            onEdit: () => _editMessage(message),
             onRegenerate: () => _regenerateMessage(message),
             onLike: () => _likeMessage(message),
             onDislike: () => _dislikeMessage(message),
@@ -1032,7 +1039,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
       // Regenerate response for the previous user message (without duplicating it)
       final userMessage = messages[messageIndex - 1];
-      await regenerateMessage(ref, userMessage.content, userMessage.attachmentIds);
+      await regenerateMessage(
+        ref,
+        userMessage.content,
+        userMessage.attachmentIds,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1046,7 +1057,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to regenerate message. Try again or check your connection.'),
+            content: Text(
+              'Failed to regenerate message. Try again or check your connection.',
+            ),
             backgroundColor: context.conduitTheme.error,
             action: SnackBarAction(
               label: 'Retry',
@@ -1245,10 +1258,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final selectedModel = ref.watch(
       selectedModelProvider.select((model) => model),
     );
-    
+
     // Watch reviewer mode and auto-select model if needed
     final isReviewerMode = ref.watch(reviewerModeProvider);
-    
+
     // Auto-select model when in reviewer mode with no selection
     if (isReviewerMode && selectedModel == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1267,12 +1280,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           if (messages.isNotEmpty) {
             // Check if currently streaming
             final isStreaming = messages.any((msg) => msg.isStreaming);
-            
+
             final shouldPop = await NavigationService.confirmNavigation(
               title: 'Leave Chat?',
-              message: isStreaming 
-                ? 'The AI is still responding. Leave anyway?'
-                : 'Your conversation will be saved.',
+              message: isStreaming
+                  ? 'The AI is still responding. Leave anyway?'
+                  : 'Your conversation will be saved.',
               confirmText: 'Leave',
               cancelText: 'Stay',
             );
@@ -1281,10 +1294,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               if (isStreaming) {
                 ref.read(chatMessagesProvider.notifier).finishStreaming();
               }
-              
+
               // Save the conversation before leaving
               await _saveConversationBeforeLeaving(ref);
-              
+
               if (context.mounted) {
                 final canPopNavigator = Navigator.of(context).canPop();
                 if (canPopNavigator) {
@@ -1365,10 +1378,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                             Flexible(
                               child: Text(
                                 _formatModelDisplayName(selectedModel.name),
-                                style: AppTypography.headlineSmallStyle.copyWith(
-                                  color: context.conduitTheme.textPrimary,
-                                  fontWeight: FontWeight.w400,
-                                ),
+                                style: AppTypography.headlineSmallStyle
+                                    .copyWith(
+                                      color: context.conduitTheme.textPrimary,
+                                      fontWeight: FontWeight.w400,
+                                    ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1409,10 +1423,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                 vertical: 1.0,
                               ),
                               decoration: BoxDecoration(
-                                color: context.conduitTheme.success.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(AppBorderRadius.badge),
+                                color: context.conduitTheme.success.withValues(
+                                  alpha: 0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  AppBorderRadius.badge,
+                                ),
                                 border: Border.all(
-                                  color: context.conduitTheme.success.withValues(alpha: 0.3),
+                                  color: context.conduitTheme.success
+                                      .withValues(alpha: 0.3),
                                   width: BorderWidth.thin,
                                 ),
                               ),
@@ -1446,10 +1465,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                             Flexible(
                               child: Text(
                                 'Choose Model',
-                                style: AppTypography.headlineSmallStyle.copyWith(
-                                  color: context.conduitTheme.textPrimary,
-                                  fontWeight: FontWeight.w400,
-                                ),
+                                style: AppTypography.headlineSmallStyle
+                                    .copyWith(
+                                      color: context.conduitTheme.textPrimary,
+                                      fontWeight: FontWeight.w400,
+                                    ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 textAlign: TextAlign.center,
@@ -1491,10 +1511,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                 vertical: 1.0,
                               ),
                               decoration: BoxDecoration(
-                                color: context.conduitTheme.success.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(AppBorderRadius.badge),
+                                color: context.conduitTheme.success.withValues(
+                                  alpha: 0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  AppBorderRadius.badge,
+                                ),
                                 border: Border.all(
-                                  color: context.conduitTheme.success.withValues(alpha: 0.3),
+                                  color: context.conduitTheme.success
+                                      .withValues(alpha: 0.3),
                                   width: BorderWidth.thin,
                                 ),
                               ),
@@ -1540,8 +1565,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             children: [
               Column(
                 children: [
-
-
                   // Messages Area with pull-to-refresh
                   Expanded(
                     child: ConduitRefreshIndicator(
@@ -1557,7 +1580,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                     .state =
                                 full;
                           } catch (e) {
-                            debugPrint('DEBUG: Failed to refresh conversation: $e');
+                            debugPrint(
+                              'DEBUG: Failed to refresh conversation: $e',
+                            );
                             // Could show a snackbar here if needed
                           }
                         }
@@ -1581,7 +1606,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
                   // Modern Input (root matches input background including safe area)
                   ModernChatInput(
-                    enabled: selectedModel != null && (isOnline || ref.watch(reviewerModeProvider)),
+                    enabled:
+                        selectedModel != null &&
+                        (isOnline || ref.watch(reviewerModeProvider)),
                     onSendMessage: (text) =>
                         _handleMessageSend(text, selectedModel),
                     onVoiceInput: _handleVoiceInput,
@@ -1643,7 +1670,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
       // Check if the last message (assistant) has content
       final lastMessage = messages.last;
-      if (lastMessage.role == 'assistant' && lastMessage.content.trim().isEmpty) {
+      if (lastMessage.role == 'assistant' &&
+          lastMessage.content.trim().isEmpty) {
         // Remove empty assistant message before saving
         messages.removeLast();
         if (messages.isEmpty) return;
@@ -1835,8 +1863,6 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
                       borderRadius: BorderRadius.circular(AppBorderRadius.xs),
                     ),
                   ),
-
-
 
                   // Search field
                   Padding(
@@ -2691,6 +2717,4 @@ class _SelectableMessageWrapper extends StatelessWidget {
 }
 
 // Extension on _ChatPageState for utility methods
-extension on _ChatPageState {
-
-}
+extension on _ChatPageState {}

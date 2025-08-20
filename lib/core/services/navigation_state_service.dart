@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/debug_logger.dart';
 
 /// Navigation state data model
 class NavigationState {
@@ -58,9 +59,9 @@ class NavigationStateService {
     try {
       _prefs = await SharedPreferences.getInstance();
       await _loadNavigationState();
-      debugPrint('DEBUG: NavigationStateService initialized');
+      DebugLogger.navigation('NavigationStateService initialized');
     } catch (e) {
-      debugPrint('ERROR: Failed to initialize NavigationStateService: $e');
+      DebugLogger.error('Failed to initialize NavigationStateService', e);
     }
   }
 
@@ -95,9 +96,9 @@ class NavigationStateService {
 
       await _saveNavigationState();
 
-      debugPrint('DEBUG: Navigation state pushed - ${state.routeName}');
+      DebugLogger.navigation('Navigation state pushed - ${state.routeName}');
     } catch (e) {
-      debugPrint('ERROR: Failed to push navigation state: $e');
+      DebugLogger.error('Failed to push navigation state', e);
     }
   }
 
@@ -114,10 +115,12 @@ class NavigationStateService {
 
       await _saveNavigationState();
 
-      debugPrint('DEBUG: Navigation state popped - ${poppedState.routeName}');
+      DebugLogger.navigation(
+        'Navigation state popped - ${poppedState.routeName}',
+      );
       return poppedState;
     } catch (e) {
-      debugPrint('ERROR: Failed to pop navigation state: $e');
+      DebugLogger.error('Failed to pop navigation state', e);
       return null;
     }
   }
@@ -153,9 +156,9 @@ class NavigationStateService {
       _stateNotifier.value = updatedState;
       await _saveNavigationState();
 
-      debugPrint('DEBUG: Navigation state updated');
+      DebugLogger.navigation('Navigation state updated');
     } catch (e) {
-      debugPrint('ERROR: Failed to update navigation state: $e');
+      DebugLogger.error('Failed to update navigation state', e);
     }
   }
 
@@ -167,9 +170,9 @@ class NavigationStateService {
         _navigationStack.add(_currentState!);
       }
       await _saveNavigationState();
-      debugPrint('DEBUG: Navigation stack cleared');
+      DebugLogger.navigation('Navigation stack cleared');
     } catch (e) {
-      debugPrint('ERROR: Failed to clear navigation stack: $e');
+      DebugLogger.error('Failed to clear navigation stack', e);
     }
   }
 
@@ -182,11 +185,11 @@ class NavigationStateService {
       _stateNotifier.value = _currentState;
 
       await _saveNavigationState();
-      debugPrint(
-        'DEBUG: Navigation stack replaced with ${newStack.length} states',
+      DebugLogger.navigation(
+        'Navigation stack replaced with ${newStack.length} states',
       );
     } catch (e) {
-      debugPrint('ERROR: Failed to replace navigation stack: $e');
+      DebugLogger.error('Failed to replace navigation stack', e);
     }
   }
 
@@ -219,9 +222,9 @@ class NavigationStateService {
         await replaceStack([deepLinkState]);
       }
 
-      debugPrint('DEBUG: Deep link handled - $routeName');
+      DebugLogger.navigation('Deep link handled - $routeName');
     } catch (e) {
-      debugPrint('ERROR: Failed to handle deep link: $e');
+      DebugLogger.error('Failed to handle deep link', e);
     }
   }
 
@@ -275,8 +278,8 @@ class NavigationStateService {
 
       if (_currentState != null) {
         // Attempt to restore to the last known state
-        debugPrint(
-          'DEBUG: Restoring navigation to ${_currentState!.routeName}',
+        DebugLogger.navigation(
+          'Restoring navigation to ${_currentState!.routeName}',
         );
 
         // This would need to be implemented based on your routing setup
@@ -287,7 +290,7 @@ class NavigationStateService {
         // );
       }
     } catch (e) {
-      debugPrint('ERROR: Failed to restore navigation state: $e');
+      DebugLogger.error('Failed to restore navigation state', e);
     }
   }
 
@@ -302,9 +305,9 @@ class NavigationStateService {
       await _prefs?.remove(_currentStateKey);
       await _prefs?.remove(_deepLinkStateKey);
 
-      debugPrint('DEBUG: All navigation state cleared');
+      DebugLogger.navigation('All navigation state cleared');
     } catch (e) {
-      debugPrint('ERROR: Failed to clear navigation state: $e');
+      DebugLogger.error('Failed to clear navigation state', e);
     }
   }
 
@@ -329,7 +332,7 @@ class NavigationStateService {
         await _prefs!.remove(_currentStateKey);
       }
     } catch (e) {
-      debugPrint('ERROR: Failed to save navigation state: $e');
+      DebugLogger.error('Failed to save navigation state', e);
     }
   }
 
@@ -359,11 +362,11 @@ class NavigationStateService {
         _stateNotifier.value = _currentState;
       }
 
-      debugPrint(
-        'DEBUG: Navigation state loaded - ${_navigationStack.length} states',
+      DebugLogger.navigation(
+        'Navigation state loaded - ${_navigationStack.length} states',
       );
     } catch (e) {
-      debugPrint('ERROR: Failed to load navigation state: $e');
+      DebugLogger.error('Failed to load navigation state', e);
       // Clear corrupted state
       await clearAll();
     }
@@ -376,7 +379,7 @@ class NavigationStateService {
     try {
       await _prefs!.setString(_deepLinkStateKey, jsonEncode(state.toJson()));
     } catch (e) {
-      debugPrint('ERROR: Failed to save deep link state: $e');
+      DebugLogger.error('Failed to save deep link state', e);
     }
   }
 

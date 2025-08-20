@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import '../utils/debug_logger.dart';
 
 /// Handles field name transformations between API and client formats
 /// Converts between snake_case (API) and camelCase (client)
@@ -224,7 +224,7 @@ class FieldMapper {
   void clearCache() {
     _toCamelCaseCache.clear();
     _toSnakeCaseCache.clear();
-    debugPrint('FieldMapper: Cleared transformation caches');
+    DebugLogger.validation('Cleared transformation caches');
   }
 
   /// Add custom field mapping
@@ -236,7 +236,7 @@ class FieldMapper {
     _toCamelCaseCache.remove(apiField);
     _toSnakeCaseCache.remove(clientField);
 
-    debugPrint('FieldMapper: Added custom mapping: $apiField <-> $clientField');
+    DebugLogger.validation('Added custom mapping: $apiField <-> $clientField');
   }
 
   /// Validate that field transformations are reversible
@@ -266,14 +266,14 @@ class FieldMapper {
     }
 
     if (errors.isNotEmpty) {
-      debugPrint('FieldMapper: Transformation validation errors:');
+      DebugLogger.error('Transformation validation errors:');
       for (final error in errors) {
-        debugPrint('  $error');
+        DebugLogger.error('  $error');
       }
       return false;
     }
 
-    debugPrint('FieldMapper: All transformations validated successfully');
+    DebugLogger.validation('All transformations validated successfully');
     return true;
   }
 }

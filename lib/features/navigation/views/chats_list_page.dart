@@ -14,7 +14,7 @@ import '../../../shared/widgets/themed_dialogs.dart';
 import '../../../shared/widgets/conduit_components.dart';
 import '../../chat/providers/chat_providers.dart';
 import '../../chat/views/chat_page_helpers.dart';
-
+import '../../../core/utils/debug_logger.dart';
 
 /// Optimized conversation list page with Conduit design aesthetics
 class ChatsListPage extends ConsumerStatefulWidget {
@@ -40,10 +40,12 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
 
   // Provider for archived section visibility
   static final _showArchivedProvider = StateProvider<bool>((ref) => false);
-  
+
   // Provider for folder expansion state (Map<folderId, isExpanded>)
   // Start with folders expanded by default for better discoverability
-  static final _expandedFoldersProvider = StateProvider<Map<String, bool>>((ref) => {});
+  static final _expandedFoldersProvider = StateProvider<Map<String, bool>>(
+    (ref) => {},
+  );
 
   @override
   bool get wantKeepAlive => true; // Keep state alive for better performance
@@ -195,7 +197,9 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
           decoration: InputDecoration(
             hintText: 'Search conversations...',
             hintStyle: TextStyle(
-              color: context.conduitTheme.inputPlaceholder.withValues(alpha: 0.8),
+              color: context.conduitTheme.inputPlaceholder.withValues(
+                alpha: 0.8,
+              ),
               fontSize: AppTypography.bodyMedium,
             ),
             prefixIcon: Icon(
@@ -257,33 +261,49 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
             for (final conv in filteredConversations) {
               deduplicatedConversations[conv.id] = conv;
             }
-            final uniqueConversations = deduplicatedConversations.values.toList();
+            final uniqueConversations = deduplicatedConversations.values
+                .toList();
 
             // Separate conversations by status and folder
             final pinnedConversations = uniqueConversations
                 .where((c) => c.pinned == true)
                 .toList();
             final regularConversations = uniqueConversations
-                .where((c) => c.pinned != true && c.archived != true && (c.folderId == null || c.folderId!.isEmpty))
+                .where(
+                  (c) =>
+                      c.pinned != true &&
+                      c.archived != true &&
+                      (c.folderId == null || c.folderId!.isEmpty),
+                )
                 .toList();
             final folderConversations = uniqueConversations
-                .where((c) => c.pinned != true && c.archived != true && c.folderId != null && c.folderId!.isNotEmpty)
+                .where(
+                  (c) =>
+                      c.pinned != true &&
+                      c.archived != true &&
+                      c.folderId != null &&
+                      c.folderId!.isNotEmpty,
+                )
                 .toList();
             final archivedConversations = uniqueConversations
                 .where((c) => c.archived == true)
                 .toList();
 
             // Debug logging
-            debugPrint('DEBUG: Total conversations: ${uniqueConversations.length} (filtered: ${filteredConversations.length}, original: ${conversations.length})');
-            debugPrint('DEBUG: Pinned: ${pinnedConversations.length}');
-            debugPrint('DEBUG: Regular: ${regularConversations.length}');
-            debugPrint('DEBUG: Folder: ${folderConversations.length}');
-            debugPrint('DEBUG: Archived: ${archivedConversations.length}');
-            
+            DebugLogger.log(
+              'Total conversations: ${uniqueConversations.length} (filtered: ${filteredConversations.length}, original: ${conversations.length})',
+            );
+            DebugLogger.log('Pinned: ${pinnedConversations.length}');
+            DebugLogger.log('Regular: ${regularConversations.length}');
+            DebugLogger.log('Folder: ${folderConversations.length}');
+            DebugLogger.log('Archived: ${archivedConversations.length}');
+
             // Check first few conversations for folder IDs
             for (int i = 0; i < uniqueConversations.take(5).length; i++) {
               final conv = uniqueConversations[i];
-              debugPrint('DEBUG: Conv $i: id=${conv.id.substring(0, 8)}, folderId=${conv.folderId}, pinned=${conv.pinned}, archived=${conv.archived}');
+              DebugLogger.log(
+                'Conv $i: id=${conv.id.substring(0, 8)}, folderId=${conv.folderId}, pinned=${conv.pinned}, archived=${conv.archived}',
+              );
             }
 
             return ListView(
@@ -305,39 +325,63 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
 
                 // Folder conversations sections (after pinned, before recent)
                 if (folderConversations.isNotEmpty) ...[
-                  ...ref.watch(foldersProvider).when(
-                    data: (folders) {
-                      // Group conversations by folder
-                      final groupedByFolder = <String, List<dynamic>>{};
-                      for (final conv in folderConversations) {
-                        if (conv.folderId != null) {
-                          groupedByFolder.putIfAbsent(conv.folderId!, () => []).add(conv);
-                        }
-                      }
+                  ...ref
+                      .watch(foldersProvider)
+                      .when(
+                        data: (folders) {
+                          // Group conversations by folder
+                          final groupedByFolder = <String, List<dynamic>>{};
+                          for (final conv in folderConversations) {
+                            if (conv.folderId != null) {
+                              groupedByFolder
+                                  .putIfAbsent(conv.folderId!, () => [])
+                                  .add(conv);
+                            }
+                          }
 
-                      // Build folder sections
-                      return folders.where((folder) => groupedByFolder.containsKey(folder.id)).map((folder) {
-                        final conversations = groupedByFolder[folder.id]!;
-                        final expandedFolders = ref.watch(_expandedFoldersProvider);
-                        final isExpanded = expandedFolders[folder.id] ?? false;
-                        
-                        return Column(
-                          children: [
-                            _buildFolderHeader(folder.id, folder.name, conversations.length),
-                            // Only show conversations if folder is expanded
-                            if (isExpanded) ...[
-                              ...conversations.asMap().entries.map((entry) {
-                                return _buildConversationTile(entry.value, entry.key, inFolder: true);
-                              }),
-                            ],
-                  const SizedBox(height: Spacing.md),
-                          ],
-                        );
-                      }).toList();
-                    },
-                    loading: () => [const SizedBox.shrink()],
-                    error: (_, stackTrace) => [const SizedBox.shrink()],
-                  ),
+                          // Build folder sections
+                          return folders
+                              .where(
+                                (folder) =>
+                                    groupedByFolder.containsKey(folder.id),
+                              )
+                              .map((folder) {
+                                final conversations =
+                                    groupedByFolder[folder.id]!;
+                                final expandedFolders = ref.watch(
+                                  _expandedFoldersProvider,
+                                );
+                                final isExpanded =
+                                    expandedFolders[folder.id] ?? false;
+
+                                return Column(
+                                  children: [
+                                    _buildFolderHeader(
+                                      folder.id,
+                                      folder.name,
+                                      conversations.length,
+                                    ),
+                                    // Only show conversations if folder is expanded
+                                    if (isExpanded) ...[
+                                      ...conversations.asMap().entries.map((
+                                        entry,
+                                      ) {
+                                        return _buildConversationTile(
+                                          entry.value,
+                                          entry.key,
+                                          inFolder: true,
+                                        );
+                                      }),
+                                    ],
+                                    const SizedBox(height: Spacing.md),
+                                  ],
+                                );
+                              })
+                              .toList();
+                        },
+                        loading: () => [const SizedBox.shrink()],
+                        error: (_, stackTrace) => [const SizedBox.shrink()],
+                      ),
                 ],
 
                 // Regular conversations section
@@ -815,8 +859,6 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
     }).toList();
   }
 
-
-
   String _formatConversationDate(DateTime? date) {
     if (date == null) return '';
 
@@ -944,10 +986,10 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
       // Load the full conversation with messages
       final api = ref.read(apiServiceProvider);
       if (api != null) {
-        debugPrint('DEBUG: Loading full conversation: ${conversation.id}');
+        DebugLogger.log('Loading full conversation: ${conversation.id}');
         final fullConversation = await api.getConversation(conversation.id);
-        debugPrint(
-          'DEBUG: Loaded conversation with ${fullConversation.messages.length} messages',
+        DebugLogger.log(
+          'Loaded conversation with ${fullConversation.messages.length} messages',
         );
 
         // Set the full conversation as active
@@ -971,7 +1013,7 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
         }
       });
     } catch (e) {
-      debugPrint('DEBUG: Error loading conversation: $e');
+      DebugLogger.error('Error loading conversation', e);
       // Fallback to the conversation from the list
       ref.read(activeConversationProvider.notifier).state = conversation;
       // Ensure global loading is cleared even on error
@@ -1163,11 +1205,15 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: context.conduitTheme.buttonPrimary.withValues(alpha: 0.1),
+                      color: context.conduitTheme.buttonPrimary.withValues(
+                        alpha: 0.1,
+                      ),
                       borderRadius: BorderRadius.circular(AppBorderRadius.lg),
                     ),
                     child: Icon(
-                      Platform.isIOS ? CupertinoIcons.chat_bubble : Icons.chat_rounded,
+                      Platform.isIOS
+                          ? CupertinoIcons.chat_bubble
+                          : Icons.chat_rounded,
                       color: context.conduitTheme.buttonPrimary,
                       size: IconSize.medium,
                     ),
@@ -1200,7 +1246,9 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
                       borderRadius: BorderRadius.circular(AppBorderRadius.lg),
                     ),
                     child: Icon(
-                      Platform.isIOS ? CupertinoIcons.folder_badge_plus : Icons.create_new_folder_rounded,
+                      Platform.isIOS
+                          ? CupertinoIcons.folder_badge_plus
+                          : Icons.create_new_folder_rounded,
                       color: context.conduitTheme.info,
                       size: IconSize.medium,
                     ),
@@ -1231,8 +1279,6 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
     );
   }
 
-
-
   void _showCreateFolderDialog() {
     final nameController = TextEditingController();
 
@@ -1245,14 +1291,17 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
     );
   }
 
-  Future<void> _createFolderFromDialog(String name, BuildContext dialogContext) async {
+  Future<void> _createFolderFromDialog(
+    String name,
+    BuildContext dialogContext,
+  ) async {
     // Store theme values and messenger before async operation
     final theme = context.conduitTheme;
     final textInverseColor = theme.textInverse;
     final successColor = theme.success;
     final errorColor = theme.error;
     final messenger = ScaffoldMessenger.of(context);
-    
+
     try {
       final api = ref.read(apiServiceProvider);
       if (api == null) throw Exception('No API service available');
@@ -1318,7 +1367,7 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
         }
       }
     } catch (e) {
-      debugPrint('DEBUG: Error toggling pin: $e');
+      DebugLogger.error('Error toggling pin', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1334,8 +1383,6 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
       }
     }
   }
-
-
 
   void _archiveConversation(dynamic conversation) async {
     try {
@@ -1361,7 +1408,7 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
         }
       }
     } catch (e) {
-      debugPrint('DEBUG: Error archiving conversation: $e');
+      DebugLogger.error('Error archiving conversation', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1414,7 +1461,7 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
           }
         }
       } catch (e) {
-        debugPrint('DEBUG: Error deleting conversation: $e');
+        DebugLogger.error('Error deleting conversation', e);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1490,7 +1537,7 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
   Widget _buildFolderHeader(String folderId, String folderName, int count) {
     final expandedFolders = ref.watch(_expandedFoldersProvider);
     final isExpanded = expandedFolders[folderId] ?? false;
-    
+
     return InkWell(
       onTap: () {
         final currentState = ref.read(_expandedFoldersProvider);
@@ -1507,15 +1554,21 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
         child: Row(
           children: [
             Icon(
-              isExpanded 
-                ? (Platform.isIOS ? CupertinoIcons.chevron_down : Icons.expand_more_rounded)
-                : (Platform.isIOS ? CupertinoIcons.chevron_right : Icons.chevron_right_rounded),
+              isExpanded
+                  ? (Platform.isIOS
+                        ? CupertinoIcons.chevron_down
+                        : Icons.expand_more_rounded)
+                  : (Platform.isIOS
+                        ? CupertinoIcons.chevron_right
+                        : Icons.chevron_right_rounded),
               size: IconSize.small,
               color: context.conduitTheme.textSecondary,
             ),
             const SizedBox(width: Spacing.sm),
             Icon(
-              Platform.isIOS ? CupertinoIcons.folder_fill : Icons.folder_rounded,
+              Platform.isIOS
+                  ? CupertinoIcons.folder_fill
+                  : Icons.folder_rounded,
               size: IconSize.small,
               color: context.conduitTheme.textSecondary,
             ),
@@ -1664,213 +1717,263 @@ class _CreateFolderDialogState extends State<_CreateFolderDialog> {
       textDirection: TextDirection.ltr,
       child: Dialog(
         backgroundColor: Colors.transparent,
-        child: Container(
-          width: 400,
-          decoration: BoxDecoration(
-            color: context.conduitTheme.surfaceBackground,
-            borderRadius: BorderRadius.circular(AppBorderRadius.modal),
-            border: Border.all(
-              color: context.conduitTheme.cardBorder.withValues(alpha: 0.2),
-              width: BorderWidth.regular,
-            ),
-            boxShadow: ConduitShadows.modal,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(Spacing.xl),
-                decoration: BoxDecoration(
-                  color: context.conduitTheme.cardBackground,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(AppBorderRadius.modal),
-                  ),
-                  border: Border(
-                    bottom: BorderSide(
-                      color: context.conduitTheme.dividerColor.withValues(alpha: 0.1),
+        child:
+            Container(
+                  width: 400,
+                  decoration: BoxDecoration(
+                    color: context.conduitTheme.surfaceBackground,
+                    borderRadius: BorderRadius.circular(AppBorderRadius.modal),
+                    border: Border.all(
+                      color: context.conduitTheme.cardBorder.withValues(
+                        alpha: 0.2,
+                      ),
                       width: BorderWidth.regular,
                     ),
+                    boxShadow: ConduitShadows.modal,
                   ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: context.conduitTheme.info.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-                      ),
-                      child: Icon(
-                        Platform.isIOS ? CupertinoIcons.folder_badge_plus : Icons.create_new_folder_rounded,
-                        color: context.conduitTheme.info,
-                        size: IconSize.medium,
-                      ),
-                    ),
-                    const SizedBox(width: Spacing.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Create New Folder',
-                            style: AppTypography.headlineSmallStyle.copyWith(
-                              color: context.conduitTheme.textPrimary,
-                              fontWeight: FontWeight.w600,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Header
+                      Container(
+                        padding: const EdgeInsets.all(Spacing.xl),
+                        decoration: BoxDecoration(
+                          color: context.conduitTheme.cardBackground,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(AppBorderRadius.modal),
+                          ),
+                          border: Border(
+                            bottom: BorderSide(
+                              color: context.conduitTheme.dividerColor
+                                  .withValues(alpha: 0.1),
+                              width: BorderWidth.regular,
                             ),
                           ),
-                          const SizedBox(height: Spacing.xs),
-                          Text(
-                            'Enter a name for your folder',
-                            style: AppTypography.bodyMediumStyle.copyWith(
-                              color: context.conduitTheme.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    ConduitIconButton(
-                      icon: Platform.isIOS ? CupertinoIcons.xmark : Icons.close_rounded,
-                      onPressed: isCreating ? null : () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Content
-              Padding(
-                padding: const EdgeInsets.all(Spacing.xl),
-                child: TextField(
-                  controller: widget.nameController,
-                  autofocus: true,
-                  enabled: !isCreating,
-                  decoration: InputDecoration(
-                    labelText: 'Folder Name',
-                    hintText: 'Enter folder name',
-                    prefixIcon: Icon(
-                      Platform.isIOS ? CupertinoIcons.folder : Icons.folder_outlined,
-                      color: context.conduitTheme.iconSecondary,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppBorderRadius.input),
-                      borderSide: BorderSide(
-                        color: context.conduitTheme.inputBorder,
-                        width: BorderWidth.regular,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppBorderRadius.input),
-                      borderSide: BorderSide(
-                        color: context.conduitTheme.buttonPrimary,
-                        width: BorderWidth.regular,
-                      ),
-                    ),
-                    labelStyle: AppTypography.bodyMediumStyle.copyWith(
-                      color: context.conduitTheme.textSecondary,
-                    ),
-                    hintStyle: AppTypography.bodyMediumStyle.copyWith(
-                      color: context.conduitTheme.inputPlaceholder,
-                    ),
-                  ),
-                  style: AppTypography.bodyMediumStyle.copyWith(
-                    color: context.conduitTheme.textPrimary,
-                  ),
-                  onSubmitted: (value) {
-                    if (value.trim().isNotEmpty && !isCreating) {
-                      _createFolder();
-                    }
-                  },
-                ),
-              ),
-              
-              // Actions
-              Container(
-                padding: const EdgeInsets.all(Spacing.xl),
-                decoration: BoxDecoration(
-                  color: context.conduitTheme.cardBackground,
-                  borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(AppBorderRadius.modal),
-                  ),
-                  border: Border(
-                    top: BorderSide(
-                      color: context.conduitTheme.dividerColor.withValues(alpha: 0.1),
-                      width: BorderWidth.regular,
-                    ),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: isCreating ? null : () => Navigator.pop(context),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppBorderRadius.button),
-                          ),
                         ),
-                        child: Text(
-                          'Cancel',
-                          style: AppTypography.labelStyle.copyWith(
-                            color: context.conduitTheme.textSecondary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: Spacing.md),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: isCreating ? null : () {
-                          final name = widget.nameController.text.trim();
-                          if (name.isNotEmpty) {
-                            _createFolder();
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: context.conduitTheme.buttonPrimary,
-                          foregroundColor: context.conduitTheme.buttonPrimaryText,
-                          padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppBorderRadius.button),
-                          ),
-                          elevation: Elevation.none,
-                        ),
-                        child: isCreating
-                            ? SizedBox(
-                                width: IconSize.medium,
-                                height: IconSize.medium,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    context.conduitTheme.buttonPrimaryText,
-                                  ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: context.conduitTheme.info.withValues(
+                                  alpha: 0.1,
                                 ),
-                              )
-                            : Text(
-                                'Create',
-                                style: AppTypography.labelStyle.copyWith(
-                                  color: context.conduitTheme.buttonPrimaryText,
-                                  fontWeight: FontWeight.w600,
+                                borderRadius: BorderRadius.circular(
+                                  AppBorderRadius.lg,
                                 ),
                               ),
+                              child: Icon(
+                                Platform.isIOS
+                                    ? CupertinoIcons.folder_badge_plus
+                                    : Icons.create_new_folder_rounded,
+                                color: context.conduitTheme.info,
+                                size: IconSize.medium,
+                              ),
+                            ),
+                            const SizedBox(width: Spacing.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Create New Folder',
+                                    style: AppTypography.headlineSmallStyle
+                                        .copyWith(
+                                          color:
+                                              context.conduitTheme.textPrimary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
+                                  const SizedBox(height: Spacing.xs),
+                                  Text(
+                                    'Enter a name for your folder',
+                                    style: AppTypography.bodyMediumStyle
+                                        .copyWith(
+                                          color: context
+                                              .conduitTheme
+                                              .textSecondary,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            ConduitIconButton(
+                              icon: Platform.isIOS
+                                  ? CupertinoIcons.xmark
+                                  : Icons.close_rounded,
+                              onPressed: isCreating
+                                  ? null
+                                  : () => Navigator.pop(context),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+
+                      // Content
+                      Padding(
+                        padding: const EdgeInsets.all(Spacing.xl),
+                        child: TextField(
+                          controller: widget.nameController,
+                          autofocus: true,
+                          enabled: !isCreating,
+                          decoration: InputDecoration(
+                            labelText: 'Folder Name',
+                            hintText: 'Enter folder name',
+                            prefixIcon: Icon(
+                              Platform.isIOS
+                                  ? CupertinoIcons.folder
+                                  : Icons.folder_outlined,
+                              color: context.conduitTheme.iconSecondary,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppBorderRadius.input,
+                              ),
+                              borderSide: BorderSide(
+                                color: context.conduitTheme.inputBorder,
+                                width: BorderWidth.regular,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppBorderRadius.input,
+                              ),
+                              borderSide: BorderSide(
+                                color: context.conduitTheme.buttonPrimary,
+                                width: BorderWidth.regular,
+                              ),
+                            ),
+                            labelStyle: AppTypography.bodyMediumStyle.copyWith(
+                              color: context.conduitTheme.textSecondary,
+                            ),
+                            hintStyle: AppTypography.bodyMediumStyle.copyWith(
+                              color: context.conduitTheme.inputPlaceholder,
+                            ),
+                          ),
+                          style: AppTypography.bodyMediumStyle.copyWith(
+                            color: context.conduitTheme.textPrimary,
+                          ),
+                          onSubmitted: (value) {
+                            if (value.trim().isNotEmpty && !isCreating) {
+                              _createFolder();
+                            }
+                          },
+                        ),
+                      ),
+
+                      // Actions
+                      Container(
+                        padding: const EdgeInsets.all(Spacing.xl),
+                        decoration: BoxDecoration(
+                          color: context.conduitTheme.cardBackground,
+                          borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(AppBorderRadius.modal),
+                          ),
+                          border: Border(
+                            top: BorderSide(
+                              color: context.conduitTheme.dividerColor
+                                  .withValues(alpha: 0.1),
+                              width: BorderWidth.regular,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextButton(
+                                onPressed: isCreating
+                                    ? null
+                                    : () => Navigator.pop(context),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: Spacing.md,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      AppBorderRadius.button,
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Cancel',
+                                  style: AppTypography.labelStyle.copyWith(
+                                    color: context.conduitTheme.textSecondary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: Spacing.md),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: isCreating
+                                    ? null
+                                    : () {
+                                        final name = widget.nameController.text
+                                            .trim();
+                                        if (name.isNotEmpty) {
+                                          _createFolder();
+                                        }
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      context.conduitTheme.buttonPrimary,
+                                  foregroundColor:
+                                      context.conduitTheme.buttonPrimaryText,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: Spacing.md,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      AppBorderRadius.button,
+                                    ),
+                                  ),
+                                  elevation: Elevation.none,
+                                ),
+                                child: isCreating
+                                    ? SizedBox(
+                                        width: IconSize.medium,
+                                        height: IconSize.medium,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                context
+                                                    .conduitTheme
+                                                    .buttonPrimaryText,
+                                              ),
+                                        ),
+                                      )
+                                    : Text(
+                                        'Create',
+                                        style: AppTypography.labelStyle
+                                            .copyWith(
+                                              color: context
+                                                  .conduitTheme
+                                                  .buttonPrimaryText,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+                .animate()
+                .slideY(
+                  begin: 0.1,
+                  duration: AnimationDuration.modalPresentation,
+                  curve: AnimationCurves.modalPresentation,
+                )
+                .fadeIn(
+                  duration: AnimationDuration.modalPresentation,
+                  curve: AnimationCurves.easeOut,
                 ),
-              ),
-            ],
-          ),
-        ).animate().slideY(
-          begin: 0.1,
-          duration: AnimationDuration.modalPresentation,
-          curve: AnimationCurves.modalPresentation,
-        ).fadeIn(
-          duration: AnimationDuration.modalPresentation,
-          curve: AnimationCurves.easeOut,
-        ),
       ),
     );
   }

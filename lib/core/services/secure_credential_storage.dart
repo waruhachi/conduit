@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
+import '../utils/debug_logger.dart';
 
 /// Enhanced secure credential storage with platform-specific optimizations
 class SecureCredentialStorage {
@@ -73,9 +73,9 @@ class SecureCredentialStorage {
         );
       }
 
-      debugPrint('DEBUG: Credentials saved and verified securely');
+      DebugLogger.storage('Credentials saved and verified securely');
     } catch (e) {
-      debugPrint('ERROR: Failed to save credentials: $e');
+      DebugLogger.error('Failed to save credentials', e);
       rethrow;
     }
   }
@@ -92,7 +92,7 @@ class SecureCredentialStorage {
       final decoded = jsonDecode(jsonString);
 
       if (decoded is! Map<String, dynamic>) {
-        debugPrint('Warning: Invalid credentials format');
+        DebugLogger.warning('Invalid credentials format');
         await deleteSavedCredentials();
         return null;
       }
@@ -103,8 +103,8 @@ class SecureCredentialStorage {
         final currentDeviceId = await _getDeviceFingerprint();
 
         if (savedDeviceId != currentDeviceId) {
-          debugPrint(
-            'Info: Device fingerprint changed, but allowing credential access for better UX',
+          DebugLogger.info(
+            'Device fingerprint changed, but allowing credential access for better UX',
           );
           // Don't clear credentials immediately - allow the user to continue
           // They can re-login if needed, which will update the fingerprint
@@ -115,8 +115,8 @@ class SecureCredentialStorage {
       if (!decoded.containsKey('serverId') ||
           !decoded.containsKey('username') ||
           !decoded.containsKey('password')) {
-        debugPrint(
-          'Warning: Invalid saved credentials format - missing required fields',
+        DebugLogger.warning(
+          'Invalid saved credentials format - missing required fields',
         );
         await deleteSavedCredentials();
         return null;
@@ -132,12 +132,12 @@ class SecureCredentialStorage {
 
           // Warn if credentials are very old (but don't delete them)
           if (daysSinceCreated > 90) {
-            debugPrint(
-              'Info: Saved credentials are $daysSinceCreated days old',
+            DebugLogger.info(
+              'Saved credentials are $daysSinceCreated days old',
             );
           }
         } catch (e) {
-          debugPrint('Warning: Could not parse savedAt timestamp: $e');
+          DebugLogger.warning('Could not parse savedAt timestamp: $e');
         }
       }
 
@@ -148,7 +148,7 @@ class SecureCredentialStorage {
         'savedAt': decoded['savedAt']?.toString() ?? '',
       };
     } catch (e) {
-      debugPrint('ERROR: Failed to retrieve credentials: $e');
+      DebugLogger.error('Failed to retrieve credentials', e);
       // Don't delete credentials on retrieval errors - they might be recoverable
       return null;
     }
@@ -158,9 +158,9 @@ class SecureCredentialStorage {
   Future<void> deleteSavedCredentials() async {
     try {
       await _secureStorage.delete(key: _credentialsKey);
-      debugPrint('DEBUG: Credentials deleted');
+      DebugLogger.storage('Credentials deleted');
     } catch (e) {
-      debugPrint('ERROR: Failed to delete credentials: $e');
+      DebugLogger.error('Failed to delete credentials', e);
     }
   }
 
@@ -170,7 +170,7 @@ class SecureCredentialStorage {
       final encryptedToken = await _encryptData(token);
       await _secureStorage.write(key: _authTokenKey, value: encryptedToken);
     } catch (e) {
-      debugPrint('ERROR: Failed to save auth token: $e');
+      DebugLogger.error('Failed to save auth token', e);
       rethrow;
     }
   }
@@ -183,7 +183,7 @@ class SecureCredentialStorage {
 
       return await _decryptData(encryptedToken);
     } catch (e) {
-      debugPrint('ERROR: Failed to retrieve auth token: $e');
+      DebugLogger.error('Failed to retrieve auth token', e);
       return null;
     }
   }
@@ -193,7 +193,7 @@ class SecureCredentialStorage {
     try {
       await _secureStorage.delete(key: _authTokenKey);
     } catch (e) {
-      debugPrint('ERROR: Failed to delete auth token: $e');
+      DebugLogger.error('Failed to delete auth token', e);
     }
   }
 
@@ -206,7 +206,7 @@ class SecureCredentialStorage {
         value: encryptedConfigs,
       );
     } catch (e) {
-      debugPrint('ERROR: Failed to save server configs: $e');
+      DebugLogger.error('Failed to save server configs', e);
       rethrow;
     }
   }
@@ -221,7 +221,7 @@ class SecureCredentialStorage {
 
       return await _decryptData(encryptedConfigs);
     } catch (e) {
-      debugPrint('ERROR: Failed to retrieve server configs: $e');
+      DebugLogger.error('Failed to retrieve server configs', e);
       return null;
     }
   }
@@ -239,7 +239,7 @@ class SecureCredentialStorage {
 
       return result == testValue;
     } catch (e) {
-      debugPrint('WARNING: Secure storage not available: $e');
+      DebugLogger.warning('Secure storage not available: $e');
       return false;
     }
   }
@@ -248,9 +248,9 @@ class SecureCredentialStorage {
   Future<void> clearAll() async {
     try {
       await _secureStorage.deleteAll();
-      debugPrint('DEBUG: All secure data cleared');
+      DebugLogger.storage('All secure data cleared');
     } catch (e) {
-      debugPrint('ERROR: Failed to clear secure data: $e');
+      DebugLogger.error('Failed to clear secure data', e);
     }
   }
 
@@ -261,7 +261,7 @@ class SecureCredentialStorage {
       // In a more advanced implementation, you could add an additional layer of AES encryption
       return data;
     } catch (e) {
-      debugPrint('ERROR: Failed to encrypt data: $e');
+      DebugLogger.error('Failed to encrypt data', e);
       rethrow;
     }
   }
@@ -273,7 +273,7 @@ class SecureCredentialStorage {
       // This matches the encryption method above
       return encryptedData;
     } catch (e) {
-      debugPrint('ERROR: Failed to decrypt data: $e');
+      DebugLogger.error('Failed to decrypt data', e);
       rethrow;
     }
   }
@@ -297,7 +297,7 @@ class SecureCredentialStorage {
 
       return digest.toString();
     } catch (e) {
-      debugPrint('WARNING: Failed to generate device fingerprint: $e');
+      DebugLogger.warning('Failed to generate device fingerprint: $e');
       // Return a consistent fallback fingerprint
       return 'stable_fallback_device_id';
     }
@@ -315,11 +315,11 @@ class SecureCredentialStorage {
         username: oldCredentials['username'] ?? '',
         password: oldCredentials['password'] ?? '',
       );
-      debugPrint(
-        'DEBUG: Successfully migrated credentials to new secure format',
+      DebugLogger.storage(
+        'Successfully migrated credentials to new secure format',
       );
     } catch (e) {
-      debugPrint('ERROR: Failed to migrate credentials: $e');
+      DebugLogger.error('Failed to migrate credentials', e);
     }
   }
 }

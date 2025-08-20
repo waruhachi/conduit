@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'auth_state_manager.dart';
+import '../utils/debug_logger.dart';
 
 /// Comprehensive caching manager for auth-related operations
 /// Reduces redundant operations and improves app performance
@@ -31,13 +31,13 @@ class AuthCacheManager {
   void cacheUserData(dynamic userData) {
     _cache[_userDataKey] = userData;
     _cacheTimestamps[_userDataKey] = DateTime.now();
-    debugPrint('DEBUG: User data cached');
+    DebugLogger.storage('User data cached');
   }
 
   /// Get cached user data
   dynamic getCachedUserData() {
     if (_isCacheValid(_userDataKey, _mediumCache)) {
-      debugPrint('DEBUG: Using cached user data');
+      DebugLogger.storage('Using cached user data');
       return _cache[_userDataKey];
     }
     return null;
@@ -97,14 +97,14 @@ class AuthCacheManager {
   void clearCacheEntry(String key) {
     _cache.remove(key);
     _cacheTimestamps.remove(key);
-    debugPrint('DEBUG: Cache entry cleared: $key');
+    DebugLogger.storage('Cache entry cleared: $key');
   }
 
   /// Clear all auth-related cache
   void clearAuthCache() {
     _cache.clear();
     _cacheTimestamps.clear();
-    debugPrint('DEBUG: All auth cache cleared');
+    DebugLogger.storage('All auth cache cleared');
   }
 
   /// Clear expired cache entries
@@ -125,7 +125,9 @@ class AuthCacheManager {
     }
 
     if (expiredKeys.isNotEmpty) {
-      debugPrint('DEBUG: Cleaned ${expiredKeys.length} expired cache entries');
+      DebugLogger.storage(
+        'Cleaned ${expiredKeys.length} expired cache entries',
+      );
     }
   }
 
@@ -168,7 +170,9 @@ class AuthCacheManager {
       _cacheTimestamps.remove(key);
     }
 
-    debugPrint('DEBUG: Cache optimized, removed $entriesToRemove old entries');
+    DebugLogger.storage(
+      'Cache optimized, removed $entriesToRemove old entries',
+    );
   }
 
   /// Cache state from AuthState for quick access

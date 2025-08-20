@@ -11,6 +11,7 @@ import '../../../shared/widgets/empty_states.dart';
 import '../../../shared/utils/platform_utils.dart';
 import '../services/conversation_search_service.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/utils/debug_logger.dart';
 
 /// Advanced conversation search widget with filters and results
 class ConversationSearchWidget extends ConsumerStatefulWidget {
@@ -87,7 +88,7 @@ class _ConversationSearchWidgetState
 
       ref.read(conversationSearchResultsProvider.notifier).state = results;
     } catch (e) {
-      debugPrint('Search error: $e');
+      DebugLogger.error('Search error', e);
     } finally {
       if (mounted) {
         setState(() {

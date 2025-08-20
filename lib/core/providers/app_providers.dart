@@ -20,6 +20,7 @@ import '../models/file_info.dart';
 import '../models/knowledge_base.dart';
 import '../services/settings_service.dart';
 import '../services/optimized_storage_service.dart';
+import '../utils/debug_logger.dart';
 
 // Storage providers
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
@@ -236,11 +237,9 @@ final modelsProvider = FutureProvider<List<Model>>((ref) async {
   if (api == null) return [];
 
   try {
-    foundation.debugPrint('DEBUG: Fetching models from server');
+    DebugLogger.log('Fetching models from server');
     final models = await api.getModels();
-    foundation.debugPrint(
-      'DEBUG: Successfully fetched ${models.length} models',
-    );
+    DebugLogger.log('Successfully fetched ${models.length} models');
     return models;
   } catch (e) {
     foundation.debugPrint('ERROR: Failed to fetch models: $e');
@@ -248,8 +247,8 @@ final modelsProvider = FutureProvider<List<Model>>((ref) async {
     // If models endpoint returns 403, this should now clear auth token
     // and redirect user to login since it's marked as a core endpoint
     if (e.toString().contains('403')) {
-      foundation.debugPrint(
-        'DEBUG: Models endpoint returned 403 - authentication may be invalid',
+      DebugLogger.warning(
+        'Models endpoint returned 403 - authentication may be invalid',
       );
     }
 
@@ -280,8 +279,8 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
   // Check if we have a recent cache (within 5 seconds)
   final lastFetch = ref.read(_conversationsCacheTimestamp);
   if (lastFetch != null && DateTime.now().difference(lastFetch).inSeconds < 5) {
-    foundation.debugPrint(
-      'DEBUG: Using cached conversations (fetched ${DateTime.now().difference(lastFetch).inSeconds}s ago)',
+    DebugLogger.log(
+      'Using cached conversations (fetched ${DateTime.now().difference(lastFetch).inSeconds}s ago)',
     );
     // Note: Can't read our own provider here, would cause a cycle
     // The caching is handled by Riverpod's built-in mechanism
@@ -311,25 +310,23 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
   }
   final api = ref.watch(apiServiceProvider);
   if (api == null) {
-    foundation.debugPrint('DEBUG: No API service available');
+    DebugLogger.log('No API service available');
     return [];
   }
 
   try {
-    foundation.debugPrint(
-      'DEBUG: Fetching conversations from OpenWebUI API...',
-    );
+    DebugLogger.log('Fetching conversations from OpenWebUI API...');
     final conversations = await api
         .getConversations(); // Fetch all conversations
-    foundation.debugPrint(
-      'DEBUG: Successfully fetched ${conversations.length} conversations',
+    DebugLogger.log(
+      'Successfully fetched ${conversations.length} conversations',
     );
 
     // Also fetch folder information and update conversations with folder IDs
     try {
       final foldersData = await api.getFolders();
-      foundation.debugPrint(
-        'DEBUG: Fetched ${foldersData.length} folders for conversation mapping',
+      DebugLogger.log(
+        'Fetched ${foldersData.length} folders for conversation mapping',
       );
 
       // Parse folder data into Folder objects
@@ -526,7 +523,7 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
     // Check if a model is manually selected
     final currentSelected = ref.read(selectedModelProvider);
     final isManualSelection = ref.read(isManualModelSelectionProvider);
-    
+
     if (currentSelected != null && isManualSelection) {
       foundation.debugPrint(
         'DEBUG: Manual model selected in reviewer mode: ${currentSelected.name}',
@@ -567,7 +564,7 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
     // First check user's preferred default model
     final userSettings = ref.read(appSettingsProvider);
     final userDefaultModelId = userSettings.defaultModel;
-    
+
     if (userDefaultModelId != null && userDefaultModelId.isNotEmpty) {
       try {
         selectedModel = models.firstWhere(
@@ -910,7 +907,7 @@ final foldersProvider = FutureProvider<List<Folder>>((ref) async {
   try {
     foundation.debugPrint('DEBUG: Fetching folders from API...');
     final foldersData = await api.getFolders();
-    foundation.debugPrint('DEBUG: Raw folders data: $foldersData');
+    foundation.debugPrint('DEBUG: Raw folders data received successfully');
     final folders = foldersData
         .map((folderData) => Folder.fromJson(folderData))
         .toList();

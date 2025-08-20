@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import '../utils/debug_logger.dart';
 
 /// Consistent authentication interceptor for all API requests
 /// Implements security requirements from OpenAPI specification
@@ -77,8 +77,8 @@ class ApiAuthInterceptor extends Interceptor {
     final requiresAuth = _requiresAuth(path);
     final hasOptionalAuth = _hasOptionalAuth(path);
 
-    debugPrint(
-      'DEBUG: Auth interceptor for $path - requires: $requiresAuth, optional: $hasOptionalAuth, token present: ${_authToken != null}',
+    DebugLogger.auth(
+      'Auth interceptor for $path - requires: $requiresAuth, optional: $hasOptionalAuth, token present: ${_authToken != null}',
     );
 
     if (requiresAuth) {
@@ -109,12 +109,14 @@ class ApiAuthInterceptor extends Interceptor {
       customHeaders.forEach((key, value) {
         // Don't override critical headers that we manage
         final lowerKey = key.toLowerCase();
-        if (lowerKey != 'authorization' && 
-            lowerKey != 'content-type' && 
+        if (lowerKey != 'authorization' &&
+            lowerKey != 'content-type' &&
             lowerKey != 'accept') {
           options.headers[key] = value;
         } else {
-          debugPrint('WARNING: Skipping reserved header override attempt: $key');
+          DebugLogger.warning(
+            'Skipping reserved header override attempt: $key',
+          );
         }
       });
     }
@@ -134,20 +136,20 @@ class ApiAuthInterceptor extends Interceptor {
     // Handle authentication errors consistently
     if (statusCode == 401) {
       // 401 always indicates invalid/expired auth token
-      debugPrint('DEBUG: 401 Unauthorized on $path - clearing auth token');
+      DebugLogger.auth('401 Unauthorized on $path - clearing auth token');
       _clearAuthToken();
     } else if (statusCode == 403) {
       // 403 on protected endpoints indicates insufficient permissions or invalid token
       final requiresAuth = _requiresAuth(path);
       final optionalAuth = _hasOptionalAuth(path);
       if (requiresAuth && !optionalAuth) {
-        debugPrint(
-          'DEBUG: 403 Forbidden on protected endpoint $path - clearing auth token',
+        DebugLogger.auth(
+          '403 Forbidden on protected endpoint $path - clearing auth token',
         );
         _clearAuthToken();
       } else {
-        debugPrint(
-          'DEBUG: 403 Forbidden on public/optional endpoint $path - keeping auth token',
+        DebugLogger.auth(
+          '403 Forbidden on public/optional endpoint $path - keeping auth token',
         );
       }
     }

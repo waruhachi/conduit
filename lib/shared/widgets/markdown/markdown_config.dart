@@ -5,7 +5,6 @@ import 'package:flutter_highlight/themes/atom-one-dark.dart';
 import 'package:flutter_highlight/themes/atom-one-light.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher_string.dart';
-import 'package:conduit/shared/theme/app_theme.dart';
 import 'package:conduit/shared/theme/theme_extensions.dart';
 
 class ConduitMarkdownConfig {
@@ -96,10 +95,7 @@ class ConduitMarkdownConfig {
                     const SizedBox(height: Spacing.xs),
                     Text(
                       'Failed to load image',
-                      style: TextStyle(
-                        color: theme.error,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: theme.error, fontSize: 12),
                     ),
                   ],
                 ),
@@ -162,16 +158,13 @@ class ConduitMarkdownConfig {
       if (commaIndex == -1) {
         throw Exception('Invalid data URL format');
       }
-      
+
       final base64String = dataUrl.substring(commaIndex + 1);
       final imageBytes = base64.decode(base64String);
-      
+
       return Container(
         margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-        constraints: const BoxConstraints(
-          maxWidth: 500,
-          maxHeight: 500,
-        ),
+        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 500),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(AppBorderRadius.md),
           child: Image.memory(
@@ -191,18 +184,11 @@ class ConduitMarkdownConfig {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.error_outline,
-                      color: theme.error,
-                      size: 32,
-                    ),
+                    Icon(Icons.error_outline, color: theme.error, size: 32),
                     const SizedBox(height: Spacing.xs),
                     Text(
                       'Invalid image data',
-                      style: TextStyle(
-                        color: theme.error,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: theme.error, fontSize: 12),
                     ),
                   ],
                 ),
@@ -221,10 +207,7 @@ class ConduitMarkdownConfig {
         child: Center(
           child: Text(
             'Invalid image format',
-            style: TextStyle(
-              color: theme.error,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: theme.error, fontSize: 12),
           ),
         ),
       );

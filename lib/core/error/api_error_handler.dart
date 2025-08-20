@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'api_error.dart';
 import 'error_parser.dart';
+import '../utils/debug_logger.dart';
 
 /// Comprehensive API error handler with structured error parsing
 /// Handles all types of API errors and converts them to standardized format
@@ -319,7 +320,7 @@ class ApiErrorHandler {
       debugPrint('  Status: ${dioError.response?.statusCode}');
 
       if (dioError.response?.data != null) {
-        debugPrint('  Response: ${dioError.response?.data}');
+        DebugLogger.error('Response data available (truncated for security)');
       }
 
       if (dioError.requestOptions.data != null) {

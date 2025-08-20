@@ -12,6 +12,7 @@ import 'shared/widgets/offline_indicator.dart';
 import 'features/auth/views/connect_signin_page.dart';
 import 'features/auth/providers/unified_auth_providers.dart';
 import 'core/auth/auth_state_manager.dart';
+import 'core/utils/debug_logger.dart';
 
 import 'features/onboarding/views/onboarding_sheet.dart';
 import 'features/chat/views/chat_page.dart';
@@ -57,7 +58,7 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
   void _initializeAppState() {
     // Initialize unified auth state manager and API integration synchronously
     // This ensures auth state is loaded before first widget build
-    debugPrint('DEBUG: Initializing unified auth system');
+    DebugLogger.auth('Initializing unified auth system');
 
     // Initialize auth state manager (will handle token validation automatically)
     ref.read(authStateManagerProvider);
@@ -172,7 +173,7 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
           },
           loading: () => _buildInitialLoadingSkeleton(context),
           error: (error, stackTrace) {
-            debugPrint('DEBUG: Server provider error: $error');
+            DebugLogger.error('Server provider error', error);
             return _buildErrorState('Server connection failed: $error');
           },
         );
@@ -187,8 +188,8 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
         // Get the API service
         final api = ref.read(apiServiceProvider);
         if (api == null) {
-          debugPrint(
-            'DEBUG: API service not available for background initialization',
+          DebugLogger.warning(
+            'API service not available for background initialization',
           );
           return;
         }
@@ -197,9 +198,9 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
         final authToken = ref.read(authTokenProvider3);
         if (authToken != null && authToken.isNotEmpty) {
           api.updateAuthToken(authToken);
-          debugPrint('DEBUG: Background - Set auth token on API service');
+          DebugLogger.auth('Background: Set auth token on API service');
         } else {
-          debugPrint('DEBUG: Background - No auth token available yet');
+          DebugLogger.warning('Background: No auth token available yet');
           return;
         }
 
@@ -208,26 +209,26 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
 
         // Load models and set default in background
         await ref.read(defaultModelProvider.future);
-        debugPrint('DEBUG: Background initialization completed');
+        DebugLogger.info('Background initialization completed');
 
         // Onboarding: show once if not seen
         final storage = ref.read(optimizedStorageServiceProvider);
         final seen = await storage.getOnboardingSeen();
-        
+
         if (!seen && mounted) {
           await Future.delayed(const Duration(milliseconds: 300));
           if (!mounted) return;
-          
+
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             final navContext = NavigationService.navigatorKey.currentContext;
             if (!mounted || navContext == null) return;
-            
+
             _showOnboarding(navContext);
             await storage.setOnboardingSeen(true);
           });
         }
       } catch (e) {
-        debugPrint('DEBUG: Background initialization failed: $e');
+        DebugLogger.error('Background initialization failed', e);
         // Don't throw - this is background initialization
       }
     });
@@ -305,12 +306,12 @@ class _NavigationObserver extends NavigatorObserver {
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPush(route, previousRoute);
     // Log navigation for debugging and analytics
-    debugPrint('DEBUG: Navigation - Pushed: ${route.settings.name}');
+    DebugLogger.navigation('Pushed: ${route.settings.name}');
   }
 
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPop(route, previousRoute);
-    debugPrint('DEBUG: Navigation - Popped: ${route.settings.name}');
+    DebugLogger.navigation('Popped: ${route.settings.name}');
   }
 }

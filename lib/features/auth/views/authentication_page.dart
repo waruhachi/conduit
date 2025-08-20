@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-
 import '../../../core/models/server_config.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/services/input_validation_service.dart';
@@ -15,16 +14,12 @@ import '../../../shared/services/brand_service.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import '../../../shared/widgets/conduit_components.dart';
 import '../../../core/auth/auth_state_manager.dart';
-
-
+import '../../../core/utils/debug_logger.dart';
 
 class AuthenticationPage extends ConsumerStatefulWidget {
   final ServerConfig serverConfig;
-  
-  const AuthenticationPage({
-    super.key,
-    required this.serverConfig,
-  });
+
+  const AuthenticationPage({super.key, required this.serverConfig});
 
   @override
   ConsumerState<AuthenticationPage> createState() => _AuthenticationPageState();
@@ -35,7 +30,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _apiKeyController = TextEditingController();
-  
+
   bool _obscurePassword = true;
   bool _useApiKey = false;
   String? _loginError;
@@ -67,7 +62,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
 
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() {
       _isSigningIn = true;
       _loginError = null;
@@ -94,7 +89,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
         final authState = ref.read(authStateManagerProvider);
         throw Exception(authState.error ?? 'Login failed');
       }
-      
+
       // Success - navigation will be handled by auth state change
     } catch (e) {
       setState(() {
@@ -108,10 +103,6 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
       }
     }
   }
-
-
-
-
 
   String _formatLoginError(String error) {
     if (error.contains('401') || error.contains('Unauthorized')) {
@@ -130,13 +121,17 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
   Widget build(BuildContext context) {
     // Listen for auth state changes to navigate on successful login
     ref.listen<AuthState>(authStateManagerProvider, (previous, next) {
-      if (mounted && next.isAuthenticated && previous?.isAuthenticated != true) {
-        debugPrint('DEBUG: Authentication successful, initializing background resources');
-        
+      if (mounted &&
+          next.isAuthenticated &&
+          previous?.isAuthenticated != true) {
+        DebugLogger.auth(
+          'Authentication successful, initializing background resources',
+        );
+
         // Model selection and onboarding will be handled by the chat page
         // to avoid widget disposal issues
-        
-        debugPrint('DEBUG: Navigating to chat page');
+
+        DebugLogger.auth('Navigating to chat page');
         // Navigate directly to chat page on successful authentication
         Navigator.of(context).pushNamedAndRemoveUntil(
           Routes.chat,
@@ -144,7 +139,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
         );
       }
     });
-    
+
     return ErrorBoundary(
       child: Scaffold(
         backgroundColor: context.conduitTheme.surfaceBackground,
@@ -158,9 +153,9 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
               children: [
                 // Header with progress indicator
                 _buildHeader(),
-                
+
                 const SizedBox(height: Spacing.extraLarge),
-                
+
                 // Main content
                 Expanded(
                   child: SingleChildScrollView(
@@ -189,7 +184,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
                     ),
                   ),
                 ),
-                
+
                 // Bottom action button
                 _buildSignInButton(),
               ],
@@ -255,7 +250,9 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
               ),
             ),
             child: Icon(
-              Platform.isIOS ? CupertinoIcons.checkmark_circle_fill : Icons.check_circle,
+              Platform.isIOS
+                  ? CupertinoIcons.checkmark_circle_fill
+                  : Icons.check_circle,
               color: context.conduitTheme.success,
               size: IconSize.medium,
             ),
@@ -340,12 +337,12 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
         children: [
           // Authentication mode toggle
           _buildAuthModeToggle(),
-          
+
           const SizedBox(height: Spacing.lg),
-          
+
           // Authentication form fields
           _buildAuthFields(),
-          
+
           if (_loginError != null) ...[
             const SizedBox(height: Spacing.md),
             _buildErrorMessage(_loginError!),
@@ -370,7 +367,9 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
         children: [
           Expanded(
             child: _buildAuthToggleOption(
-              icon: Platform.isIOS ? CupertinoIcons.person_circle : Icons.account_circle_outlined,
+              icon: Platform.isIOS
+                  ? CupertinoIcons.person_circle
+                  : Icons.account_circle_outlined,
               label: 'Credentials',
               isSelected: !_useApiKey,
               onTap: () => setState(() => _useApiKey = false),
@@ -378,7 +377,9 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
           ),
           Expanded(
             child: _buildAuthToggleOption(
-              icon: Platform.isIOS ? CupertinoIcons.lock_shield : Icons.vpn_key_outlined,
+              icon: Platform.isIOS
+                  ? CupertinoIcons.lock_shield
+                  : Icons.vpn_key_outlined,
               label: 'API Key',
               isSelected: _useApiKey,
               onTap: () => setState(() => _useApiKey = true),
@@ -482,17 +483,22 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
           obscureText: _obscurePassword,
           semanticLabel: 'Enter your API key',
           prefixIcon: Icon(
-            Platform.isIOS ? CupertinoIcons.lock_shield : Icons.vpn_key_outlined,
+            Platform.isIOS
+                ? CupertinoIcons.lock_shield
+                : Icons.vpn_key_outlined,
             color: context.conduitTheme.iconSecondary,
           ),
           suffixIcon: IconButton(
             icon: Icon(
               _obscurePassword
-                  ? (Platform.isIOS ? CupertinoIcons.eye_slash : Icons.visibility_off)
+                  ? (Platform.isIOS
+                        ? CupertinoIcons.eye_slash
+                        : Icons.visibility_off)
                   : (Platform.isIOS ? CupertinoIcons.eye : Icons.visibility),
               color: context.conduitTheme.iconSecondary,
             ),
-            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+            onPressed: () =>
+                setState(() => _obscurePassword = !_obscurePassword),
           ),
           onSubmitted: (_) => _signIn(),
           isRequired: true,
@@ -520,10 +526,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
             Platform.isIOS ? CupertinoIcons.person : Icons.person_outline,
             color: context.conduitTheme.iconSecondary,
           ),
-          autofillHints: const [
-            AutofillHints.username,
-            AutofillHints.email,
-          ],
+          autofillHints: const [AutofillHints.username, AutofillHints.email],
           isRequired: true,
         ),
         const SizedBox(height: Spacing.lg),
@@ -548,11 +551,14 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
           suffixIcon: IconButton(
             icon: Icon(
               _obscurePassword
-                  ? (Platform.isIOS ? CupertinoIcons.eye_slash : Icons.visibility_off)
+                  ? (Platform.isIOS
+                        ? CupertinoIcons.eye_slash
+                        : Icons.visibility_off)
                   : (Platform.isIOS ? CupertinoIcons.eye : Icons.visibility),
               color: context.conduitTheme.iconSecondary,
             ),
-            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+            onPressed: () =>
+                setState(() => _obscurePassword = !_obscurePassword),
           ),
           onSubmitted: (_) => _signIn(),
           autofillHints: const [AutofillHints.password],
@@ -565,22 +571,25 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
   Widget _buildSignInButton() {
     return Padding(
       padding: const EdgeInsets.only(top: Spacing.lg),
-      child: ConduitButton(
-        text: _isSigningIn 
-            ? 'Signing in...' 
-            : _useApiKey 
-                ? 'Sign in with API Key' 
+      child:
+          ConduitButton(
+            text: _isSigningIn
+                ? 'Signing in...'
+                : _useApiKey
+                ? 'Sign in with API Key'
                 : 'Sign In',
-        icon: _isSigningIn 
-            ? null 
-            : (Platform.isIOS ? CupertinoIcons.arrow_right : Icons.arrow_forward),
-        onPressed: _isSigningIn ? null : _signIn,
-        isLoading: _isSigningIn,
-        isFullWidth: true,
-      ).animate().fadeIn(
-        duration: AnimationDuration.pageTransition,
-        delay: AnimationDuration.fast,
-      ),
+            icon: _isSigningIn
+                ? null
+                : (Platform.isIOS
+                      ? CupertinoIcons.arrow_right
+                      : Icons.arrow_forward),
+            onPressed: _isSigningIn ? null : _signIn,
+            isLoading: _isSigningIn,
+            isFullWidth: true,
+          ).animate().fadeIn(
+            duration: AnimationDuration.pageTransition,
+            delay: AnimationDuration.fast,
+          ),
     );
   }
 
@@ -598,8 +607,8 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
       child: Row(
         children: [
           Icon(
-            Platform.isIOS 
-                ? CupertinoIcons.exclamationmark_circle_fill 
+            Platform.isIOS
+                ? CupertinoIcons.exclamationmark_circle_fill
                 : Icons.error_outline,
             color: context.conduitTheme.error,
             size: IconSize.medium,
@@ -621,6 +630,4 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
       curve: Curves.easeOutCubic,
     );
   }
-
-
 }

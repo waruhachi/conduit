@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import '../utils/debug_logger.dart';
 
 /// Registry for OpenAPI schemas
 /// Loads and provides access to request/response schemas for validation
@@ -19,15 +19,15 @@ class SchemaRegistry {
   /// Load schemas from OpenAPI specification
   Future<void> loadSchemas() async {
     try {
-      debugPrint('SchemaRegistry: Loading OpenAPI specification...');
+      DebugLogger.validation('Loading OpenAPI specification...');
 
       // Try to load from assets first, then from file system as fallback
       String openApiContent;
       try {
         openApiContent = await rootBundle.loadString('assets/openapi.json');
       } catch (e) {
-        debugPrint(
-          'SchemaRegistry: Could not load from assets, trying file system...',
+        DebugLogger.warning(
+          'Could not load from assets, trying file system...',
         );
         // Fallback - in a real app you might load from network or local file
         throw Exception('OpenAPI specification not found in assets');
@@ -35,14 +35,14 @@ class SchemaRegistry {
 
       _openApiSpec = jsonDecode(openApiContent) as Map<String, dynamic>;
 
-      debugPrint(
-        'SchemaRegistry: Successfully loaded OpenAPI spec with ${_getPaths().length} paths',
+      DebugLogger.validation(
+        'Successfully loaded OpenAPI spec with ${_getPaths().length} paths',
       );
 
       // Pre-process and cache commonly used schemas
       await _buildSchemaCache();
     } catch (e) {
-      debugPrint('SchemaRegistry: Failed to load schemas: $e');
+      DebugLogger.error('Failed to load schemas', e);
       rethrow;
     }
   }
@@ -86,8 +86,9 @@ class SchemaRegistry {
 
       return schema;
     } catch (e) {
-      debugPrint(
-        'SchemaRegistry: Error getting request schema for $method $endpoint: $e',
+      DebugLogger.error(
+        'Error getting request schema for $method $endpoint',
+        e,
       );
       return null;
     }
@@ -146,8 +147,9 @@ class SchemaRegistry {
 
       return schema;
     } catch (e) {
-      debugPrint(
-        'SchemaRegistry: Error getting response schema for $method $endpoint ($code): $e',
+      DebugLogger.error(
+        'Error getting response schema for $method $endpoint ($code)',
+        e,
       );
       return null;
     }
@@ -240,7 +242,7 @@ class SchemaRegistry {
   /// Resolve $ref reference
   Map<String, dynamic>? _resolveReference(String ref) {
     if (!ref.startsWith('#/')) {
-      debugPrint('SchemaRegistry: External references not supported: $ref');
+      DebugLogger.warning('External references not supported: $ref');
       return null;
     }
 
@@ -251,7 +253,7 @@ class SchemaRegistry {
       if (current is Map<String, dynamic> && current.containsKey(segment)) {
         current = current[segment];
       } else {
-        debugPrint('SchemaRegistry: Could not resolve reference: $ref');
+        DebugLogger.warning('Could not resolve reference: $ref');
         return null;
       }
     }
@@ -329,9 +331,7 @@ class SchemaRegistry {
       }
     }
 
-    debugPrint(
-      'SchemaRegistry: Pre-cached schemas for $cachedCount operations',
-    );
+    DebugLogger.validation('Pre-cached schemas for $cachedCount operations');
   }
 
   /// Get all available endpoints

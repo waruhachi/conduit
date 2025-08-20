@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'api_validator.dart';
 import 'validation_result.dart';
+import '../utils/debug_logger.dart';
 
 /// Dio interceptor for automatic API validation
 /// Validates requests and responses against OpenAPI schemas
@@ -61,7 +62,7 @@ class ValidationInterceptor extends Interceptor {
           );
           return;
         } else {
-          debugPrint('ValidationInterceptor: Request validation error: $e');
+          DebugLogger.error('Request validation error', e);
         }
       }
     }
@@ -120,7 +121,7 @@ class ValidationInterceptor extends Interceptor {
           );
           return;
         } else {
-          debugPrint('ValidationInterceptor: Response validation error: $e');
+          DebugLogger.error('Response validation error', e);
         }
       }
     }
@@ -165,9 +166,7 @@ class ValidationInterceptor extends Interceptor {
           err.response!.extra['validationResult'] = result;
         }
       } catch (e) {
-        debugPrint(
-          'ValidationInterceptor: Error response validation failed: $e',
-        );
+        DebugLogger.error('Error response validation failed', e);
       }
     }
 
@@ -187,21 +186,21 @@ class ValidationInterceptor extends Interceptor {
     final statusText = statusCode != null ? ' ($statusCode)' : '';
     final icon = result.isValid ? '✅' : '❌';
 
-    debugPrint(
+    DebugLogger.validation(
       '$icon Validation $type: ${method.toUpperCase()} $path$statusText - ${result.status.name}',
     );
 
     if (result.hasErrors) {
-      debugPrint('   Errors: ${result.errors.join(', ')}');
+      DebugLogger.error('   Errors: ${result.errors.join(', ')}');
     }
 
     if (result.hasWarnings) {
-      debugPrint('   Warnings: ${result.warnings.join(', ')}');
+      DebugLogger.warning('   Warnings: ${result.warnings.join(', ')}');
     }
 
     if (result.message.isNotEmpty &&
         result.status != ValidationStatus.success) {
-      debugPrint('   Message: ${result.message}');
+      DebugLogger.info('   Message: ${result.message}');
     }
   }
 

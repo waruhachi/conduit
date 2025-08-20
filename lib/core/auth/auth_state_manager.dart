@@ -5,6 +5,7 @@ import '../providers/app_providers.dart';
 import '../models/user.dart';
 import 'token_validator.dart';
 import 'auth_cache_manager.dart';
+import '../utils/debug_logger.dart';
 
 /// Comprehensive auth state representation
 @immutable
@@ -95,10 +96,10 @@ class AuthStateManager extends StateNotifier<AuthState> {
       final token = await storage.getAuthToken();
 
       if (token != null && token.isNotEmpty) {
-        debugPrint('DEBUG: Found stored token during initialization: ${token.substring(0, 10)}...');
+        DebugLogger.auth('Found stored token during initialization');
         // Validate token before setting authenticated state
         final isValid = await _validateToken(token);
-        debugPrint('DEBUG: Token validation result: $isValid');
+        DebugLogger.auth('Token validation result: $isValid');
         if (isValid) {
           state = state.copyWith(
             status: AuthStatus.authenticated,
@@ -114,7 +115,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
           _loadUserData();
         } else {
           // Token is invalid, clear it
-          debugPrint('DEBUG: Token validation failed, deleting token');
+          DebugLogger.auth('Token validation failed, deleting token');
           await storage.deleteAuthToken();
           state = state.copyWith(
             status: AuthStatus.unauthenticated,
@@ -167,19 +168,19 @@ class AuthStateManager extends StateNotifier<AuthState> {
 
       // Use API key directly as Bearer token
       final tokenStr = apiKey.trim();
-      
+
       // Validate token format (consistent with credentials method)
       if (!_isValidTokenFormat(tokenStr)) {
         throw Exception('Invalid API key format');
       }
-      
+
       // Update API service with the API key
       _updateApiServiceToken(tokenStr);
 
       // Validate by attempting to fetch user info
       try {
         await api.getCurrentUser(); // Just validate, don't store user data yet
-        
+
         // Save token to storage
         final storage = _ref.read(optimizedStorageServiceProvider);
         await storage.saveAuthToken(tokenStr);
@@ -191,7 +192,8 @@ class AuthStateManager extends StateNotifier<AuthState> {
             // Store API key as a special credential type
             await storage.saveCredentials(
               serverId: activeServer.id,
-              username: 'api_key_user', // Special username to indicate API key auth
+              username:
+                  'api_key_user', // Special username to indicate API key auth
               password: tokenStr, // Store API key in password field
             );
             await storage.setRememberCredentials(true);
@@ -215,7 +217,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
         // Load user data in background (consistent with credentials method)
         _loadUserData();
 
-        debugPrint('DEBUG: API key login successful');
+        DebugLogger.auth('API key login successful');
         return true;
       } catch (e) {
         // If user fetch fails, the API key might be invalid
@@ -300,7 +302,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
       // Load user data in background
       _loadUserData();
 
-      debugPrint('DEBUG: Login successful');
+      DebugLogger.auth('Login successful');
       return true;
     } catch (e) {
       debugPrint('ERROR: Login failed: $e');
@@ -399,7 +401,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
 
   /// Handle token invalidation (called by API service)
   Future<void> onTokenInvalidated() async {
-    debugPrint('DEBUG: Auth token invalidated');
+    DebugLogger.auth('Auth token invalidated');
 
     // Clear token from storage
     final storage = _ref.read(optimizedStorageServiceProvider);
@@ -416,7 +418,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
     // Attempt silent re-login if credentials are available
     final hasCredentials = await storage.getSavedCredentials() != null;
     if (hasCredentials) {
-      debugPrint('DEBUG: Attempting silent re-login after token invalidation');
+      DebugLogger.auth('Attempting silent re-login after token invalidation');
       await silentLogin();
     }
   }
@@ -449,7 +451,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
         clearError: true,
       );
 
-      debugPrint('DEBUG: Logout complete');
+      DebugLogger.auth('Logout complete');
     } catch (e) {
       debugPrint('ERROR: Logout failed: $e');
       // Even if logout fails, clear local state
@@ -470,7 +472,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
       if (state.token != null) {
         final jwtUserInfo = TokenValidator.extractUserInfo(state.token!);
         if (jwtUserInfo != null) {
-          debugPrint('DEBUG: Extracted user info from JWT token');
+          DebugLogger.auth('Extracted user info from JWT token');
           state = state.copyWith(user: jwtUserInfo);
 
           // Still try to load from server in background for complete data
@@ -502,7 +504,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
 
         final user = await api.getCurrentUser();
         state = state.copyWith(user: user);
-        debugPrint('DEBUG: Loaded complete user data from server');
+        DebugLogger.auth('Loaded complete user data from server');
       }
     } catch (e) {
       debugPrint('Warning: Failed to load server user data: $e');
@@ -527,8 +529,8 @@ class AuthStateManager extends StateNotifier<AuthState> {
     // Check cache first
     final cachedResult = TokenValidationCache.getCachedResult(token);
     if (cachedResult != null) {
-      debugPrint(
-        'DEBUG: Using cached token validation result: ${cachedResult.isValid}',
+      DebugLogger.auth(
+        'Using cached token validation result: ${cachedResult.isValid}',
       );
       return cachedResult.isValid;
     }
@@ -571,13 +573,13 @@ class AuthStateManager extends StateNotifier<AuthState> {
           validationUser != null &&
           state.isAuthenticated) {
         state = state.copyWith(user: validationUser);
-        debugPrint('DEBUG: Cached user data from token validation');
+        DebugLogger.auth('Cached user data from token validation');
       }
 
       TokenValidationCache.cacheResult(token, serverResult);
 
-      debugPrint(
-        'DEBUG: Server token validation: ${serverResult.isValid} - ${serverResult.message}',
+      DebugLogger.auth(
+        'Server token validation: ${serverResult.isValid} - ${serverResult.message}',
       );
       return serverResult.isValid;
     } catch (e) {

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'api_error_handler.dart';
 import 'api_error.dart';
+import '../utils/debug_logger.dart';
 
 /// Dio interceptor for automatic error handling and transformation
 /// Converts all HTTP errors into standardized ApiError format
@@ -152,7 +153,7 @@ class ApiErrorInterceptor extends Interceptor {
     // Log response data if available and not too large
     final responseData = originalError.response?.data;
     if (responseData != null && responseData.toString().length < 1000) {
-      debugPrint('  Response: $responseData');
+      DebugLogger.error('Response data available (truncated for security)');
     }
   }
 

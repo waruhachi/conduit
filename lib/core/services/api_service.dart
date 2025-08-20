@@ -17,6 +17,7 @@ import '../error/api_error_interceptor.dart';
 import 'sse_parser.dart';
 import 'stream_recovery_service.dart';
 import 'persistent_streaming_service.dart';
+import '../utils/debug_logger.dart';
 
 class ApiService {
   final Dio _dio;
@@ -98,19 +99,23 @@ class ApiService {
               if (options.data != null) {
                 if (options.data is Map) {
                   final dataMap = options.data as Map<String, dynamic>;
-                  debugPrint('Data type: Map');
-                  debugPrint('Data keys: ${dataMap.keys.toList()}');
-                  debugPrint(
+                  DebugLogger.log('Data type: Map');
+                  DebugLogger.log('Data keys: ${dataMap.keys.toList()}');
+                  DebugLogger.log(
                     'Has background_tasks: ${dataMap.containsKey('background_tasks')}',
                   );
-                  debugPrint(
+                  DebugLogger.log(
                     'Has session_id: ${dataMap.containsKey('session_id')}',
                   );
-                  debugPrint('Has id: ${dataMap.containsKey('id')}');
-                  debugPrint('Full data: ${jsonEncode(dataMap)}');
+                  DebugLogger.log('Has id: ${dataMap.containsKey('id')}');
+                  DebugLogger.log(
+                    'Data structure logged (full data suppressed)',
+                  );
                 } else {
-                  debugPrint('Data type: ${options.data.runtimeType}');
-                  debugPrint('Data: ${options.data}');
+                  DebugLogger.log('Data type: ${options.data.runtimeType}');
+                  DebugLogger.log(
+                    'Data structure logged (full data suppressed)',
+                  );
                 }
               }
               debugPrint('===== END SSE REQUEST DEBUG =====');
@@ -120,17 +125,8 @@ class ApiService {
         ),
       );
 
-      // 5. Standard logging interceptor
-      _dio.interceptors.add(
-        LogInterceptor(
-          requestBody: true,
-          responseBody: false, // Don't log response bodies to reduce noise
-          requestHeader: true,
-          responseHeader: false,
-          error: true,
-          logPrint: (obj) => debugPrint('API: $obj'),
-        ),
-      );
+      // LogInterceptor removed - was exposing sensitive data and creating verbose logs
+      // We now use custom interceptors with secure logging via DebugLogger
     }
 
     // Initialize validation interceptor asynchronously
@@ -247,14 +243,13 @@ class ApiService {
   // User info
   Future<User> getCurrentUser() async {
     final response = await _dio.get('/api/v1/auths/');
-    debugPrint('DEBUG: /api/v1/auths/ response: ${jsonEncode(response.data)}');
+    DebugLogger.log('User info retrieved successfully');
     return User.fromJson(response.data);
   }
 
   // Models
   Future<List<Model>> getModels() async {
     final response = await _dio.get('/api/models');
-    debugPrint('DEBUG: /api/models raw response: ${jsonEncode(response.data)}');
 
     // Handle different response formats
     List<dynamic> models;
@@ -265,11 +260,11 @@ class ApiService {
       // Response is a direct array
       models = response.data as List;
     } else {
-      debugPrint('ERROR: Unexpected models response format');
+      DebugLogger.error('Unexpected models response format');
       return [];
     }
 
-    debugPrint('DEBUG: Found ${models.length} models');
+    DebugLogger.log('Found ${models.length} models');
     return models.map((m) => Model.fromJson(m)).toList();
   }
 
@@ -279,7 +274,7 @@ class ApiService {
       debugPrint('DEBUG: Fetching default model from user settings');
       final response = await _dio.get('/api/v1/users/user/settings');
 
-      debugPrint('DEBUG: User settings response: ${jsonEncode(response.data)}');
+      DebugLogger.log('User settings retrieved successfully');
 
       final settings = response.data as Map<String, dynamic>;
 
@@ -290,20 +285,20 @@ class ApiService {
         if (models != null && models.isNotEmpty) {
           // Return the first model in the user's preferred models list
           final defaultModel = models.first.toString();
-          debugPrint(
-            'DEBUG: Found default model from user settings: $defaultModel',
+          DebugLogger.log(
+            'Found default model from user settings: $defaultModel',
           );
           return defaultModel;
         }
       }
 
-      debugPrint('DEBUG: No default model found in user settings');
+      DebugLogger.log('No default model found in user settings');
       return null;
     } catch (e) {
-      debugPrint('DEBUG: Error fetching default model from user settings: $e');
+      DebugLogger.error('Error fetching default model from user settings', e);
       // Fall back to trying the old endpoint
       try {
-        debugPrint('DEBUG: Falling back to configs/models endpoint');
+        DebugLogger.log('Falling back to configs/models endpoint');
         final response = await _dio.get('/api/v1/configs/models');
         final config = response.data as Map<String, dynamic>;
 
@@ -313,11 +308,11 @@ class ApiService {
             config['default_model'] as String?;
 
         if (defaultModel != null && defaultModel.isNotEmpty) {
-          debugPrint('DEBUG: Found default model from fallback: $defaultModel');
+          DebugLogger.log('Found default model from fallback: $defaultModel');
           return defaultModel;
         }
       } catch (fallbackError) {
-        debugPrint('DEBUG: Fallback also failed: $fallbackError');
+        DebugLogger.error('Fallback also failed', fallbackError);
       }
 
       return null;
@@ -572,10 +567,10 @@ class ApiService {
   }
 
   Future<Conversation> getConversation(String id) async {
-    debugPrint('DEBUG: Fetching individual chat: $id');
+    DebugLogger.log('Fetching individual chat: $id');
     final response = await _dio.get('/api/v1/chats/$id');
 
-    debugPrint('DEBUG: Chat response: ${response.data}');
+    DebugLogger.log('Chat response received successfully');
 
     // Parse OpenWebUI ChatResponse format
     final chatData = response.data as Map<String, dynamic>;
@@ -820,10 +815,10 @@ class ApiService {
 
     final response = await _dio.post('/api/v1/chats/new', data: chatData);
 
-    debugPrint(
-      'DEBUG: Create conversation response status: ${response.statusCode}',
+    DebugLogger.log(
+      'Create conversation response status: ${response.statusCode}',
     );
-    debugPrint('DEBUG: Create conversation response data: ${response.data}');
+    DebugLogger.log('Create conversation response received successfully');
 
     // Parse the response
     final responseData = response.data as Map<String, dynamic>;
@@ -914,12 +909,9 @@ class ApiService {
     debugPrint('DEBUG: Updating chat with OpenWebUI format data using POST');
 
     // OpenWebUI uses POST not PUT for updating chats
-    final response = await _dio.post(
-      '/api/v1/chats/$conversationId',
-      data: chatData,
-    );
+    await _dio.post('/api/v1/chats/$conversationId', data: chatData);
 
-    debugPrint('DEBUG: Update conversation response: ${response.data}');
+    DebugLogger.log('Update conversation response received successfully');
   }
 
   Future<void> updateConversation(
@@ -1012,15 +1004,15 @@ class ApiService {
     try {
       debugPrint('DEBUG: Fetching folders from /api/v1/folders/');
       final response = await _dio.get('/api/v1/folders/');
-      debugPrint('DEBUG: Folders response status: ${response.statusCode}');
-      debugPrint('DEBUG: Folders response data: ${response.data}');
+      DebugLogger.log('Folders response status: ${response.statusCode}');
+      DebugLogger.log('Folders response received successfully');
 
       final data = response.data;
       if (data is List) {
         debugPrint('DEBUG: Found ${data.length} folders');
         return data.cast<Map<String, dynamic>>();
       } else {
-        debugPrint('DEBUG: Response data is not a list: ${data.runtimeType}');
+        DebugLogger.log('Response data is not a list: ${data.runtimeType}');
         return [];
       }
     } catch (e) {
@@ -1379,17 +1371,17 @@ class ApiService {
         data: {'queries': queries},
       );
 
-      debugPrint('DEBUG: Web search response status: ${response.statusCode}');
-      debugPrint(
-        'DEBUG: Web search response type: ${response.data.runtimeType}',
-      );
-      debugPrint('DEBUG: Web search response data: ${response.data}');
+      DebugLogger.log('Web search response status: ${response.statusCode}');
+      DebugLogger.log('Web search response type: ${response.data.runtimeType}');
+      DebugLogger.log('Web search response received successfully');
 
       return response.data as Map<String, dynamic>;
     } catch (e) {
       debugPrint('DEBUG: Web search API error: $e');
       if (e is DioException) {
-        debugPrint('DEBUG: Web search error response: ${e.response?.data}');
+        DebugLogger.error(
+          'Web search error response available (truncated for security)',
+        );
         debugPrint('DEBUG: Web search error status: ${e.response?.statusCode}');
       }
       rethrow;
@@ -1406,7 +1398,7 @@ class ApiService {
 
       if (response.statusCode == 200 && response.data != null) {
         final modelData = response.data as Map<String, dynamic>;
-        debugPrint('DEBUG: Model details for $modelId: $modelData');
+        DebugLogger.log('Model details for $modelId retrieved successfully');
         return modelData;
       }
     } catch (e) {
@@ -1430,7 +1422,7 @@ class ApiService {
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        debugPrint('DEBUG: Raw title response: ${response.data}');
+        DebugLogger.log('Raw title response received successfully');
 
         // Parse the complex response structure
         String? extractedTitle;
@@ -1604,7 +1596,7 @@ class ApiService {
       debugPrint(
         'DEBUG: Collection query response type: ${response.data.runtimeType}',
       );
-      debugPrint('DEBUG: Collection query response data: ${response.data}');
+      DebugLogger.log('Collection query response received successfully');
 
       if (response.data is List) {
         return response.data as List<dynamic>;
@@ -1644,7 +1636,7 @@ class ApiService {
       debugPrint(
         'DEBUG: Retrieval config response status: ${response.statusCode}',
       );
-      debugPrint('DEBUG: Retrieval config response data: ${response.data}');
+      DebugLogger.log('Retrieval config response received successfully');
 
       return response.data as Map<String, dynamic>;
     } catch (e) {
@@ -1730,7 +1722,7 @@ class ApiService {
       debugPrint(
         'DEBUG: Transcription response status: ${response.statusCode}',
       );
-      debugPrint('DEBUG: Transcription response data: $data');
+      DebugLogger.log('Transcription response received successfully');
       if (data is String) return data;
       if (data is Map<String, dynamic>) {
         final text = data['text'] ?? data['transcription'] ?? data['result'];
@@ -1760,7 +1752,9 @@ class ApiService {
             debugPrint(
               'DEBUG: Transcription retry status: ${retryResponse.statusCode}',
             );
-            debugPrint('DEBUG: Transcription retry data: $rdata');
+            DebugLogger.log(
+              'Transcription retry response received successfully',
+            );
             if (rdata is String) return rdata;
             if (rdata is Map<String, dynamic>) {
               final text =
@@ -2603,7 +2597,7 @@ class ApiService {
         ),
       );
 
-      debugPrint('DEBUG: Sending SSE request with data: ${jsonEncode(data)}');
+      DebugLogger.log('Sending SSE request with data structure logged');
 
       final response = await streamDio.post(
         '/api/chat/completions',
@@ -2678,8 +2672,8 @@ class ApiService {
 
             // Log what we got if we couldn't extract content
             if (!streamController.isClosed) {
-              debugPrint('DEBUG: JSON response structure: ${json.keys}');
-              debugPrint('DEBUG: Full JSON response: $json');
+              DebugLogger.log('JSON response structure: ${json.keys}');
+              DebugLogger.log('JSON response received (full data suppressed)');
 
               // Check if it's a task-based response
               if (json is Map && json.containsKey('task_id')) {
@@ -3020,8 +3014,8 @@ class ApiService {
       debugPrint('DEBUG: Uploading to /api/v1/files/');
       final response = await _dio.post('/api/v1/files/', data: formData);
 
-      debugPrint('DEBUG: Upload response status: ${response.statusCode}');
-      debugPrint('DEBUG: Upload response data: ${response.data}');
+      DebugLogger.log('Upload response status: ${response.statusCode}');
+      DebugLogger.log('Upload response received successfully');
 
       if (response.data is Map && response.data['id'] != null) {
         final fileId = response.data['id'] as String;
@@ -3065,13 +3059,13 @@ class ApiService {
         debugPrint('Testing endpoint: $endpoint');
         final response = await _dio.get(endpoint);
         debugPrint('✅ $endpoint - Status: ${response.statusCode}');
-        debugPrint('   Response type: ${response.data.runtimeType}');
+        DebugLogger.log('   Response type: ${response.data.runtimeType}');
         if (response.data is List) {
-          debugPrint('   Array length: ${(response.data as List).length}');
+          DebugLogger.log('   Array length: ${(response.data as List).length}');
         } else if (response.data is Map) {
-          debugPrint('   Object keys: ${(response.data as Map).keys}');
+          DebugLogger.log('   Object keys: ${(response.data as Map).keys}');
         }
-        debugPrint(
+        DebugLogger.log(
           '   Sample data: ${response.data.toString().substring(0, 200)}...',
         );
       } catch (e) {
