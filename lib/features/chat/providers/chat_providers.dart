@@ -940,6 +940,127 @@ Future<void> _sendMessageInternal(
       }
     }
 
+    // If image generation is enabled and we want image-only, skip assistant SSE
+    if (imageGenerationEnabled) {
+      // Create assistant placeholder
+      final imageOnlyAssistantId = const Uuid().v4();
+      final imageOnlyAssistant = ChatMessage(
+        id: imageOnlyAssistantId,
+        role: 'assistant',
+        content: '',
+        timestamp: DateTime.now(),
+        model: selectedModel.name,
+        isStreaming: true,
+      );
+      ref.read(chatMessagesProvider.notifier).addMessage(imageOnlyAssistant);
+
+      try {
+        debugPrint('DEBUG: Image-only mode - triggering image generation');
+        final imageResponse = await api.generateImage(prompt: message);
+
+        // Extract image URLs or base64 data URIs from response
+        List<Map<String, dynamic>> extractGeneratedFiles(dynamic resp) {
+          final results = <Map<String, dynamic>>[];
+
+          if (resp is List) {
+            for (final item in resp) {
+              if (item is String && item.isNotEmpty) {
+                results.add({'type': 'image', 'url': item});
+              } else if (item is Map) {
+                final url = item['url'];
+                final b64 = item['b64_json'] ?? item['b64'];
+                if (url is String && url.isNotEmpty) {
+                  results.add({'type': 'image', 'url': url});
+                } else if (b64 is String && b64.isNotEmpty) {
+                  results.add({
+                    'type': 'image',
+                    'url': 'data:image/png;base64,$b64',
+                  });
+                }
+              }
+            }
+            return results;
+          }
+
+          if (resp is! Map) return results;
+
+          final data = resp['data'];
+          if (data is List) {
+            for (final item in data) {
+              if (item is Map) {
+                final url = item['url'];
+                final b64 = item['b64_json'] ?? item['b64'];
+                if (url is String && url.isNotEmpty) {
+                  results.add({'type': 'image', 'url': url});
+                } else if (b64 is String && b64.isNotEmpty) {
+                  results.add({
+                    'type': 'image',
+                    'url': 'data:image/png;base64,$b64',
+                  });
+                }
+              } else if (item is String && item.isNotEmpty) {
+                results.add({'type': 'image', 'url': item});
+              }
+            }
+          }
+
+          final images = resp['images'];
+          if (images is List) {
+            for (final item in images) {
+              if (item is String && item.isNotEmpty) {
+                results.add({'type': 'image', 'url': item});
+              } else if (item is Map) {
+                final url = item['url'];
+                final b64 = item['b64_json'] ?? item['b64'];
+                if (url is String && url.isNotEmpty) {
+                  results.add({'type': 'image', 'url': url});
+                } else if (b64 is String && b64.isNotEmpty) {
+                  results.add({
+                    'type': 'image',
+                    'url': 'data:image/png;base64,$b64',
+                  });
+                }
+              }
+            }
+          }
+
+          final singleUrl = resp['url'];
+          if (singleUrl is String && singleUrl.isNotEmpty) {
+            results.add({'type': 'image', 'url': singleUrl});
+          }
+          final singleB64 = resp['b64_json'] ?? resp['b64'];
+          if (singleB64 is String && singleB64.isNotEmpty) {
+            results.add({
+              'type': 'image',
+              'url': 'data:image/png;base64,$singleB64',
+            });
+          }
+
+          return results;
+        }
+
+        final generatedFiles = extractGeneratedFiles(imageResponse);
+        if (generatedFiles.isNotEmpty) {
+          ref
+              .read(chatMessagesProvider.notifier)
+              .updateLastMessageWithFunction(
+                (ChatMessage m) =>
+                    m.copyWith(files: generatedFiles, isStreaming: false),
+              );
+          await _saveConversationToServer(ref);
+        } else {
+          // No images; mark done
+          ref.read(chatMessagesProvider.notifier).finishStreaming();
+        }
+      } catch (e) {
+        debugPrint('DEBUG: Image-only mode generation failed: $e');
+        ref.read(chatMessagesProvider.notifier).finishStreaming();
+      }
+
+      // Image-only done; do not start SSE
+      return;
+    }
+
     // Stream response using SSE
     final response = await api.sendMessage(
       messages: conversationMessages,
@@ -947,7 +1068,9 @@ Future<void> _sendMessageInternal(
       conversationId: activeConversation?.id,
       toolIds: toolIdsForApi,
       enableWebSearch: webSearchEnabled,
-      enableImageGeneration: imageGenerationEnabled,
+      // Disable server-side image generation to avoid duplicate images;
+      // handled via pre-stream client-side request above
+      enableImageGeneration: false,
       modelItem: modelItem,
     );
 
@@ -970,11 +1093,7 @@ Future<void> _sendMessageInternal(
     );
     ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
 
-    // For built-in web search, the status will be updated when function calls are detected
-    // in the streaming response. Manual status update is not needed here.
-
-    // Set up stream subscription with proper management
-    // Apply chunking for smoother word-by-word streaming
+    // Prepare streaming and background handling BEFORE image generation
     final chunkedStream = StreamChunker.chunkStream(
       stream,
       enableChunking: true,
@@ -988,9 +1107,20 @@ Future<void> _sendMessageInternal(
 
     // Register stream with persistent service for app lifecycle handling
     final persistentService = PersistentStreamingService();
+
+    // Defer UI updates until images attach if image generation is enabled
+    bool deferUntilImagesAttached = imageGenerationEnabled;
+    bool imagesAttached = !imageGenerationEnabled;
+    final StringBuffer prebuffer = StringBuffer();
+
     final streamId = persistentService.registerStream(
       subscription: chunkedStream.listen(
         (chunk) {
+          // Buffer chunks until images are attached
+          if (deferUntilImagesAttached && !imagesAttached) {
+            prebuffer.write(chunk);
+            return;
+          }
           persistentController.add(chunk);
         },
         onDone: () {
@@ -1012,6 +1142,141 @@ Future<void> _sendMessageInternal(
         'modelId': selectedModel.id,
       },
     );
+
+    // If image generation is enabled, trigger it BEFORE starting the SSE stream
+    if (imageGenerationEnabled) {
+      try {
+        debugPrint(
+          'DEBUG: Image generation enabled - triggering request (pre-stream)',
+        );
+        final imageResponse = await api.generateImage(prompt: message);
+
+        // Extract image URLs or base64 data URIs from response
+        List<Map<String, dynamic>> extractGeneratedFiles(dynamic resp) {
+          final results = <Map<String, dynamic>>[];
+
+          // If it's already a list (e.g., list of URLs or file maps)
+          if (resp is List) {
+            for (final item in resp) {
+              if (item is String && item.isNotEmpty) {
+                results.add({'type': 'image', 'url': item});
+              } else if (item is Map) {
+                final url = item['url'];
+                final b64 = item['b64_json'] ?? item['b64'];
+                if (url is String && url.isNotEmpty) {
+                  results.add({'type': 'image', 'url': url});
+                } else if (b64 is String && b64.isNotEmpty) {
+                  results.add({
+                    'type': 'image',
+                    'url': 'data:image/png;base64,$b64',
+                  });
+                }
+              }
+            }
+            return results;
+          }
+
+          if (resp is! Map) return results;
+
+          // Common patterns: { data: [ { url }, { b64_json } ] }
+          final data = resp['data'];
+          if (data is List) {
+            for (final item in data) {
+              if (item is Map) {
+                final url = item['url'];
+                final b64 = item['b64_json'] ?? item['b64'];
+                if (url is String && url.isNotEmpty) {
+                  results.add({'type': 'image', 'url': url});
+                } else if (b64 is String && b64.isNotEmpty) {
+                  results.add({
+                    'type': 'image',
+                    'url': 'data:image/png;base64,$b64',
+                  });
+                }
+              } else if (item is String && item.isNotEmpty) {
+                // Some servers may return a list of URLs
+                results.add({'type': 'image', 'url': item});
+              }
+            }
+          }
+
+          // Alternative patterns
+          final images = resp['images'];
+          if (images is List) {
+            for (final item in images) {
+              if (item is String && item.isNotEmpty) {
+                results.add({'type': 'image', 'url': item});
+              } else if (item is Map) {
+                final url = item['url'];
+                final b64 = item['b64_json'] ?? item['b64'];
+                if (url is String && url.isNotEmpty) {
+                  results.add({'type': 'image', 'url': url});
+                } else if (b64 is String && b64.isNotEmpty) {
+                  results.add({
+                    'type': 'image',
+                    'url': 'data:image/png;base64,$b64',
+                  });
+                }
+              }
+            }
+          }
+
+          // Single fields
+          final singleUrl = resp['url'];
+          if (singleUrl is String && singleUrl.isNotEmpty) {
+            results.add({'type': 'image', 'url': singleUrl});
+          }
+          final singleB64 = resp['b64_json'] ?? resp['b64'];
+          if (singleB64 is String && singleB64.isNotEmpty) {
+            results.add({
+              'type': 'image',
+              'url': 'data:image/png;base64,$singleB64',
+            });
+          }
+
+          return results;
+        }
+
+        final generatedFiles = extractGeneratedFiles(imageResponse);
+        if (generatedFiles.isNotEmpty) {
+          debugPrint(
+            'DEBUG: Image generation returned ${generatedFiles.length} file(s) (pre-stream)',
+          );
+
+          // Attach images to the last assistant message (placeholder)
+          ref.read(chatMessagesProvider.notifier).updateLastMessageWithFunction(
+            (ChatMessage m) {
+              final currentFiles = m.files ?? <Map<String, dynamic>>[];
+              return m.copyWith(files: [...currentFiles, ...generatedFiles]);
+            },
+          );
+
+          // Save updated conversation with images before streaming content
+          await _saveConversationToServer(ref);
+
+          // Now that images are attached and persisted, allow streaming to flow
+          imagesAttached = true;
+          if (deferUntilImagesAttached && prebuffer.isNotEmpty) {
+            // Flush buffered chunks
+            ref
+                .read(chatMessagesProvider.notifier)
+                .appendToLastMessage(prebuffer.toString());
+            prebuffer.clear();
+          }
+        } else {
+          debugPrint(
+            'DEBUG: No images found in generation response (pre-stream)',
+          );
+        }
+      } catch (e) {
+        debugPrint('DEBUG: Image generation failed (pre-stream): $e');
+      }
+    }
+
+    // For built-in web search, the status will be updated when function calls are detected
+    // in the streaming response. Manual status update is not needed here.
+
+    // (moved above) streaming registration is already set up
 
     // Track web search status
     bool isSearching = false;
@@ -1055,6 +1320,12 @@ Future<void> _sendMessageInternal(
                 ),
               );
           return; // Don't append this chunk
+        }
+
+        // If we buffered chunks before images attached, flush once
+        if (deferUntilImagesAttached && !imagesAttached) {
+          // do nothing; still waiting
+          return;
         }
 
         // Regular content - append to message

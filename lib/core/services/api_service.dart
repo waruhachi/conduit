@@ -879,6 +879,7 @@ class ApiService {
         if (msg.role == 'user' && model != null) 'models': [model],
         if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty)
           'files': msg.attachmentIds!.map((id) => {'file_id': id}).toList(),
+        if (msg.files != null && msg.files!.isNotEmpty) 'files': msg.files,
       };
 
       // Update parent's childrenIds
@@ -902,6 +903,7 @@ class ApiService {
         if (msg.role == 'user' && model != null) 'models': [model],
         if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty)
           'files': msg.attachmentIds!.map((id) => {'file_id': id}).toList(),
+        if (msg.files != null && msg.files!.isNotEmpty) 'files': msg.files,
       });
 
       previousId = messageId;
