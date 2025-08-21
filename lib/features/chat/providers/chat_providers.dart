@@ -1048,6 +1048,28 @@ Future<void> _sendMessageInternal(
                     m.copyWith(files: generatedFiles, isStreaming: false),
               );
           await _saveConversationToServer(ref);
+
+          // Trigger title generation for image-only flow
+          final activeConv = ref.read(activeConversationProvider);
+          if (activeConv != null) {
+            // Build minimal formatted messages
+            final currentMessages = ref.read(chatMessagesProvider);
+            final List<Map<String, dynamic>> formattedMessages = [];
+            for (final msg in currentMessages) {
+              formattedMessages.add({
+                'id': msg.id,
+                'role': msg.role,
+                'content': msg.content,
+                'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
+              });
+            }
+            _triggerTitleGeneration(
+              ref,
+              activeConv.id,
+              formattedMessages,
+              selectedModel.id,
+            );
+          }
         } else {
           // No images; mark done
           ref.read(chatMessagesProvider.notifier).finishStreaming();
@@ -2055,11 +2077,15 @@ Future<void> _saveConversationToServer(dynamic ref) async {
       return;
     }
 
-    // Check if the last message (assistant) has content
+    // Check if the last assistant message is truly empty (no text and no files)
     final lastMessage = messages.last;
-    if (lastMessage.role == 'assistant' && lastMessage.content.trim().isEmpty) {
+    if (lastMessage.role == 'assistant' &&
+        lastMessage.content.trim().isEmpty &&
+        (lastMessage.files == null || lastMessage.files!.isEmpty) &&
+        (lastMessage.attachmentIds == null ||
+            lastMessage.attachmentIds!.isEmpty)) {
       debugPrint(
-        'DEBUG: Skipping conversation save - assistant message has no content',
+        'DEBUG: Skipping conversation save - assistant message has no content or files',
       );
       return;
     }
@@ -2294,6 +2320,14 @@ final regenerateLastMessageProvider = Provider<void Function()>((ref) {
 
     // Find last user message with proper bounds checking
     ChatMessage? lastUserMessage;
+    // Detect if last assistant message had generated images
+    final ChatMessage? lastAssistantMessage = messages.isNotEmpty
+        ? messages.last
+        : null;
+    final bool lastAssistantHadImages =
+        lastAssistantMessage != null &&
+        lastAssistantMessage.role == 'assistant' &&
+        (lastAssistantMessage.files?.any((f) => f['type'] == 'image') == true);
     for (int i = messages.length - 2; i >= 0 && i < messages.length; i--) {
       if (i >= 0 && messages[i].role == 'user') {
         lastUserMessage = messages[i];
@@ -2306,7 +2340,146 @@ final regenerateLastMessageProvider = Provider<void Function()>((ref) {
     // Remove last assistant message
     ref.read(chatMessagesProvider.notifier).removeLastMessage();
 
-    // Resend the message
+    // If previous assistant was image-only or had images, regenerate images instead of text
+    if (lastAssistantHadImages) {
+      final api = ref.read(apiServiceProvider);
+      final selectedModel = ref.read(selectedModelProvider);
+      if (api == null || selectedModel == null) return;
+
+      // Add assistant placeholder
+      final placeholder = ChatMessage(
+        id: const Uuid().v4(),
+        role: 'assistant',
+        content: '',
+        timestamp: DateTime.now(),
+        model: selectedModel.name,
+        isStreaming: true,
+      );
+      ref.read(chatMessagesProvider.notifier).addMessage(placeholder);
+
+      try {
+        debugPrint(
+          'DEBUG: Regenerate image-only - triggering image generation',
+        );
+        final imageResponse = await api.generateImage(
+          prompt: lastUserMessage.content,
+        );
+
+        List<Map<String, dynamic>> extractGeneratedFiles(dynamic resp) {
+          final results = <Map<String, dynamic>>[];
+          if (resp is List) {
+            for (final item in resp) {
+              if (item is String && item.isNotEmpty) {
+                results.add({'type': 'image', 'url': item});
+              } else if (item is Map) {
+                final url = item['url'];
+                final b64 = item['b64_json'] ?? item['b64'];
+                if (url is String && url.isNotEmpty) {
+                  results.add({'type': 'image', 'url': url});
+                } else if (b64 is String && b64.isNotEmpty) {
+                  results.add({
+                    'type': 'image',
+                    'url': 'data:image/png;base64,$b64',
+                  });
+                }
+              }
+            }
+            return results;
+          }
+          if (resp is! Map) return results;
+          final data = resp['data'];
+          if (data is List) {
+            for (final item in data) {
+              if (item is Map) {
+                final url = item['url'];
+                final b64 = item['b64_json'] ?? item['b64'];
+                if (url is String && url.isNotEmpty) {
+                  results.add({'type': 'image', 'url': url});
+                } else if (b64 is String && b64.isNotEmpty) {
+                  results.add({
+                    'type': 'image',
+                    'url': 'data:image/png;base64,$b64',
+                  });
+                }
+              } else if (item is String && item.isNotEmpty) {
+                results.add({'type': 'image', 'url': item});
+              }
+            }
+          }
+          final images = resp['images'];
+          if (images is List) {
+            for (final item in images) {
+              if (item is String && item.isNotEmpty) {
+                results.add({'type': 'image', 'url': item});
+              } else if (item is Map) {
+                final url = item['url'];
+                final b64 = item['b64_json'] ?? item['b64'];
+                if (url is String && url.isNotEmpty) {
+                  results.add({'type': 'image', 'url': url});
+                } else if (b64 is String && b64.isNotEmpty) {
+                  results.add({
+                    'type': 'image',
+                    'url': 'data:image/png;base64,$b64',
+                  });
+                }
+              }
+            }
+          }
+          final singleUrl = resp['url'];
+          if (singleUrl is String && singleUrl.isNotEmpty) {
+            results.add({'type': 'image', 'url': singleUrl});
+          }
+          final singleB64 = resp['b64_json'] ?? resp['b64'];
+          if (singleB64 is String && singleB64.isNotEmpty) {
+            results.add({
+              'type': 'image',
+              'url': 'data:image/png;base64,$singleB64',
+            });
+          }
+          return results;
+        }
+
+        final generatedFiles = extractGeneratedFiles(imageResponse);
+        if (generatedFiles.isNotEmpty) {
+          ref
+              .read(chatMessagesProvider.notifier)
+              .updateLastMessageWithFunction(
+                (ChatMessage m) =>
+                    m.copyWith(files: generatedFiles, isStreaming: false),
+              );
+          await _saveConversationToServer(ref);
+
+          // Trigger title generation after image-only regenerate
+          final activeConv = ref.read(activeConversationProvider);
+          if (activeConv != null) {
+            final currentMsgs = ref.read(chatMessagesProvider);
+            final List<Map<String, dynamic>> formatted = [];
+            for (final msg in currentMsgs) {
+              formatted.add({
+                'id': msg.id,
+                'role': msg.role,
+                'content': msg.content,
+                'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
+              });
+            }
+            _triggerTitleGeneration(
+              ref,
+              activeConv.id,
+              formatted,
+              selectedModel.id,
+            );
+          }
+        } else {
+          ref.read(chatMessagesProvider.notifier).finishStreaming();
+        }
+      } catch (e) {
+        debugPrint('DEBUG: Regenerate image-only failed: $e');
+        ref.read(chatMessagesProvider.notifier).finishStreaming();
+      }
+      return;
+    }
+
+    // Resend the message via normal flow
     await _sendMessageInternal(
       ref,
       lastUserMessage.content,

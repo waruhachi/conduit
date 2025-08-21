@@ -885,7 +885,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         Spacing.lg,
         Spacing.lg,
       ),
-      physics: const NeverScrollableScrollPhysics(), // Prevent scrolling during load
+      physics:
+          const NeverScrollableScrollPhysics(), // Prevent scrolling during load
       itemCount: 6,
       itemBuilder: (context, index) {
         final isUser = index.isOdd;
@@ -1691,11 +1692,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         return;
       }
 
-      // Check if the last message (assistant) has content
-      final lastMessage = messages.last;
-      if (lastMessage.role == 'assistant' &&
-          lastMessage.content.trim().isEmpty) {
-        // Remove empty assistant message before saving
+      // Remove trailing assistant message only if it has no text and no files
+      final lastMessage = messages.isNotEmpty ? messages.last : null;
+      if (lastMessage != null &&
+          lastMessage.role == 'assistant' &&
+          lastMessage.content.trim().isEmpty &&
+          (lastMessage.files == null || lastMessage.files!.isEmpty) &&
+          (lastMessage.attachmentIds == null ||
+              lastMessage.attachmentIds!.isEmpty)) {
         messages.removeLast();
         if (messages.isEmpty) return;
       }
