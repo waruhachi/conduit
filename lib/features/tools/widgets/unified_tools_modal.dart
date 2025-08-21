@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io' show Platform;
+import '../../../core/models/tool.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import '../../chat/providers/chat_providers.dart';
 import '../providers/tools_providers.dart';
@@ -60,110 +61,83 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
           const SizedBox(height: Spacing.md),
 
           // Tools Section
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(Spacing.md),
-            decoration: BoxDecoration(
-              color: context.conduitTheme.cardBackground,
-              borderRadius: BorderRadius.circular(AppBorderRadius.md),
-              border: Border.all(
-                color: context.conduitTheme.cardBorder,
-                width: BorderWidth.regular,
+          toolsAsync.when(
+            data: (tools) {
+              if (tools.isEmpty) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(Spacing.md),
+                  decoration: BoxDecoration(
+                    color: context.conduitTheme.cardBackground,
+                    borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                    border: Border.all(
+                      color: context.conduitTheme.cardBorder,
+                      width: BorderWidth.regular,
+                    ),
+                  ),
+                  child: Text(
+                    'No tools available',
+                    style: AppTypography.bodySmallStyle.copyWith(
+                      color: context.conduitTheme.textSecondary,
+                    ),
+                  ),
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Available Tools',
+                    style: AppTypography.labelStyle.copyWith(
+                      color: context.conduitTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: Spacing.sm),
+                  ...tools.map((tool) => Padding(
+                    padding: const EdgeInsets.only(bottom: Spacing.sm),
+                    child: _buildToolCard(tool, selectedToolIds.contains(tool.id)),
+                  )),
+                ],
+              );
+            },
+            loading: () => Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(Spacing.md),
+              decoration: BoxDecoration(
+                color: context.conduitTheme.cardBackground,
+                borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                border: Border.all(
+                  color: context.conduitTheme.cardBorder,
+                  width: BorderWidth.regular,
+                ),
+              ),
+              child: const Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Available Tools',
-                  style: AppTypography.labelStyle.copyWith(
-                    color: context.conduitTheme.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
+            error: (error, stack) => Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(Spacing.md),
+              decoration: BoxDecoration(
+                color: context.conduitTheme.cardBackground,
+                borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                border: Border.all(
+                  color: context.conduitTheme.cardBorder,
+                  width: BorderWidth.regular,
                 ),
-                const SizedBox(height: Spacing.sm),
-                toolsAsync.when(
-                  data: (tools) {
-                    if (tools.isEmpty) {
-                      return Text(
-                        'No tools available',
-                        style: AppTypography.bodySmallStyle.copyWith(
-                          color: context.conduitTheme.textSecondary,
-                        ),
-                      );
-                    }
-
-                    return Wrap(
-                      spacing: Spacing.sm,
-                      runSpacing: Spacing.sm,
-                      children: tools.map((tool) {
-                        final isSelected = selectedToolIds.contains(tool.id);
-                        return FilterChip(
-                          label: Text(
-                            tool.name,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? context.conduitTheme.buttonPrimaryText
-                                  : context.conduitTheme.textPrimary,
-                            ),
-                          ),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            HapticFeedback.lightImpact();
-                            final currentIds = ref.read(
-                              selectedToolIdsProvider,
-                            );
-                            if (selected) {
-                              ref.read(selectedToolIdsProvider.notifier).state =
-                                  [...currentIds, tool.id];
-                            } else {
-                              ref
-                                  .read(selectedToolIdsProvider.notifier)
-                                  .state = currentIds
-                                  .where((id) => id != tool.id)
-                                  .toList();
-                            }
-                          },
-                          avatar: Icon(
-                            Icons.build,
-                            size: IconSize.small,
-                            color: isSelected
-                                ? context.conduitTheme.buttonPrimaryText
-                                : context.conduitTheme.textSecondary,
-                          ),
-                          backgroundColor:
-                              context.conduitTheme.surfaceBackground,
-                          selectedColor: context.conduitTheme.buttonPrimary,
-                          showCheckmark: false,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppBorderRadius.md,
-                            ),
-                            side: BorderSide(
-                              color: isSelected
-                                  ? context.conduitTheme.buttonPrimary
-                                  : context.conduitTheme.cardBorder,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  },
-                  loading: () => const Center(
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                  error: (error, stack) => Text(
-                    'Failed to load tools',
-                    style: AppTypography.bodySmallStyle.copyWith(
-                      color: context.conduitTheme.error,
-                    ),
-                  ),
+              ),
+              child: Text(
+                'Failed to load tools',
+                style: AppTypography.bodySmallStyle.copyWith(
+                  color: context.conduitTheme.error,
                 ),
-              ],
+              ),
             ),
           ),
         ],
@@ -245,5 +219,110 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
         ),
       ),
     );
+  }
+
+  Widget _buildToolCard(Tool tool, bool isSelected) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        final currentIds = ref.read(selectedToolIdsProvider);
+        if (isSelected) {
+          ref.read(selectedToolIdsProvider.notifier).state = 
+              currentIds.where((id) => id != tool.id).toList();
+        } else {
+          ref.read(selectedToolIdsProvider.notifier).state = 
+              [...currentIds, tool.id];
+        }
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(Spacing.md),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? context.conduitTheme.buttonPrimary
+              : context.conduitTheme.cardBackground,
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          border: Border.all(
+            color: isSelected
+                ? context.conduitTheme.buttonPrimary
+                : context.conduitTheme.cardBorder,
+            width: BorderWidth.regular,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              _getToolIcon(tool),
+              size: IconSize.medium,
+              color: isSelected
+                  ? context.conduitTheme.buttonPrimaryText
+                  : context.conduitTheme.textPrimary.withValues(
+                      alpha: Alpha.strong,
+                    ),
+            ),
+            const SizedBox(width: Spacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tool.name,
+                    style: AppTypography.labelStyle.copyWith(
+                      color: isSelected
+                          ? context.conduitTheme.buttonPrimaryText
+                          : context.conduitTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (tool.meta?['description'] != null && 
+                      tool.meta!['description'].toString().isNotEmpty)
+                    Text(
+                      tool.meta!['description'].toString(),
+                      style: AppTypography.captionStyle.copyWith(
+                        color: isSelected
+                            ? context.conduitTheme.buttonPrimaryText.withValues(
+                                alpha: Alpha.strong,
+                              )
+                            : context.conduitTheme.textSecondary,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+            Icon(
+              isSelected ? Icons.toggle_on : Icons.toggle_off,
+              size: IconSize.large,
+              color: isSelected
+                  ? context.conduitTheme.buttonPrimaryText
+                  : context.conduitTheme.textSecondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _getToolIcon(Tool tool) {
+    final toolName = tool.name.toLowerCase();
+    
+    if (toolName.contains('image') || toolName.contains('vision')) {
+      return Platform.isIOS ? CupertinoIcons.photo : Icons.image;
+    } else if (toolName.contains('code') || toolName.contains('python')) {
+      return Platform.isIOS ? CupertinoIcons.chevron_left_slash_chevron_right : Icons.code;
+    } else if (toolName.contains('calculator') || toolName.contains('math')) {
+      return Icons.calculate;
+    } else if (toolName.contains('file') || toolName.contains('document')) {
+      return Platform.isIOS ? CupertinoIcons.doc : Icons.description;
+    } else if (toolName.contains('api') || toolName.contains('request')) {
+      return Platform.isIOS ? CupertinoIcons.link : Icons.api;
+    } else if (toolName.contains('chart') || toolName.contains('graph')) {
+      return Icons.bar_chart;
+    } else if (toolName.contains('data') || toolName.contains('database')) {
+      return Icons.storage;
+    } else {
+      return Icons.build;
+    }
   }
 }
