@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -797,7 +798,7 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                     width: Spacing.xxl,
                     height: Spacing.xs,
                     decoration: BoxDecoration(
-                      color: context.conduitTheme.dividerColor,
+                      color: context.conduitTheme.textPrimary.withValues(alpha: Alpha.medium),
                       borderRadius: BorderRadius.circular(AppBorderRadius.xs),
                     ),
                   ),
@@ -807,6 +808,11 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                     padding: const EdgeInsets.only(bottom: Spacing.md),
                     child: Row(
                       children: [
+                        Icon(
+                          Platform.isIOS ? CupertinoIcons.cube : Icons.psychology,
+                          color: context.conduitTheme.iconPrimary,
+                        ),
+                        const SizedBox(width: Spacing.sm),
                         Expanded(
                           child: Text(
                             'Default Model',
@@ -817,7 +823,10 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                           ),
                         ),
                         TextButton(
-                          onPressed: () => Navigator.pop(context, _selectedModelId),
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.pop(context, _selectedModelId);
+                          },
                           child: Text(
                             'Save',
                             style: context.conduitTheme.bodyMedium?.copyWith(
@@ -837,7 +846,7 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                       controller: _searchController,
                       style: TextStyle(color: context.conduitTheme.textPrimary),
                       decoration: InputDecoration(
-                        hintText: 'Search...',
+                        hintText: 'Search models...',
                         hintStyle: TextStyle(
                           color: context.conduitTheme.inputPlaceholder,
                         ),
@@ -871,6 +880,41 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                         ),
                       ),
                       onChanged: _filterModels,
+                    ),
+                  ),
+
+                  // Section header (cohesive with Chats Drawer)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Spacing.sm),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Available Models',
+                          style: AppTypography.bodySmallStyle.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: context.conduitTheme.textSecondary,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        const SizedBox(width: Spacing.xs),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: context.conduitTheme.surfaceBackground.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(AppBorderRadius.xs),
+                            border: Border.all(
+                              color: context.conduitTheme.dividerColor,
+                              width: BorderWidth.thin,
+                            ),
+                          ),
+                          child: Text(
+                            '${_filteredModels.length}',
+                            style: AppTypography.bodySmallStyle.copyWith(
+                              color: context.conduitTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
@@ -919,6 +963,7 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                                   isSelected: isSelected,
                                   isAutoSelect: isAutoSelect,
                                   onTap: () {
+                                    HapticFeedback.selectionClick();
                                     setState(() {
                                       _selectedModelId = isAutoSelect ? 'auto-select' : model.id;
                                     });

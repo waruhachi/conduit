@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/navigation_service.dart';
 import '../../../core/widgets/error_boundary.dart';
 import '../../../shared/widgets/optimized_list.dart';
 import '../../../shared/theme/theme_extensions.dart';
@@ -19,10 +18,10 @@ import '../widgets/assistant_message_widget.dart' as assistant;
 import '../widgets/file_attachment_widget.dart';
 import '../services/voice_input_service.dart';
 import '../services/file_attachment_service.dart';
-import '../../navigation/views/chats_list_page.dart';
 import '../../files/views/files_page.dart';
 import '../../profile/views/profile_page.dart';
 import '../../tools/providers/tools_providers.dart';
+import '../../navigation/widgets/chats_drawer.dart';
 import '../../../shared/widgets/offline_indicator.dart';
 import '../../../core/services/connectivity_service.dart';
 import '../../../core/models/chat_message.dart';
@@ -463,47 +462,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
   }
 
-  void _showChatsListOverlay() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.9,
-        decoration: BoxDecoration(
-          color: context.conduitTheme.surfaceBackground,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(AppBorderRadius.bottomSheet),
-          ),
-          border: Border.all(
-            color: context.conduitTheme.dividerColor,
-            width: BorderWidth.regular,
-          ),
-          boxShadow: ConduitShadows.modal,
-        ),
-        child: SafeArea(
-          top: false,
-          bottom: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-                decoration: BoxDecoration(
-                  color: context.conduitTheme.dividerColor,
-                  borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-                ),
-              ),
-              Expanded(child: const ChatsListPage(isOverlay: true)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // Replaced bottom-sheet chat list with left drawer (see ChatsDrawer)
 
   void _showQuickAccessMenu() {
     showModalBottomSheet(
@@ -1117,39 +1076,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         onPopInvokedWithResult: (bool didPop, Object? result) async {
           if (didPop) return;
 
-          // Check if there's unsaved content
+          // Auto-handle leaving without confirmation
           final messages = ref.read(chatMessagesProvider);
-          if (messages.isNotEmpty) {
-            // Check if currently streaming
-            final isStreaming = messages.any((msg) => msg.isStreaming);
+          final isStreaming = messages.any((msg) => msg.isStreaming);
+          if (isStreaming) {
+            ref.read(chatMessagesProvider.notifier).finishStreaming();
+          }
 
-            final shouldPop = await NavigationService.confirmNavigation(
-              title: 'Leave Chat?',
-              message: isStreaming
-                  ? 'The AI is still responding. Leave anyway?'
-                  : 'Your conversation will be saved.',
-              confirmText: 'Leave',
-              cancelText: 'Stay',
-            );
-            if (shouldPop && context.mounted) {
-              // If streaming, stop it first
-              if (isStreaming) {
-                ref.read(chatMessagesProvider.notifier).finishStreaming();
-              }
+          await _saveConversationBeforeLeaving(ref);
 
-              // Save the conversation before leaving
-              await _saveConversationBeforeLeaving(ref);
-
-              if (context.mounted) {
-                final canPopNavigator = Navigator.of(context).canPop();
-                if (canPopNavigator) {
-                  Navigator.of(context).pop();
-                } else {
-                  SystemNavigator.pop();
-                }
-              }
-            }
-          } else if (context.mounted) {
+          if (context.mounted) {
             final canPopNavigator = Navigator.of(context).canPop();
             if (canPopNavigator) {
               Navigator.of(context).pop();
@@ -1160,6 +1096,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         },
         child: Scaffold(
           backgroundColor: context.conduitTheme.surfaceBackground,
+          // Left navigation drawer with draggable edge open
+          drawerEnableOpenDragGesture: true,
+          drawerEdgeDragWidth: 32,
+          drawer: Drawer(
+            width: (MediaQuery.of(context).size.width * 0.88).clamp(280.0, 420.0),
+            backgroundColor: context.conduitTheme.surfaceBackground,
+            child: const SafeArea(child: ChatsDrawer()),
+          ),
           appBar: AppBar(
             backgroundColor: context.conduitTheme.surfaceBackground,
             elevation: Elevation.none,
@@ -1176,22 +1120,25 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     ),
                     onPressed: _clearSelection,
                   )
-                : GestureDetector(
-                    onTap: () {
-                      _showChatsListOverlay();
-                    },
-                    onLongPress: () {
-                      HapticFeedback.mediumImpact();
-                      _showQuickAccessMenu();
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(4.0),
-                      child: Icon(
-                        Platform.isIOS
-                            ? CupertinoIcons.line_horizontal_3
-                            : Icons.menu,
-                        color: context.conduitTheme.textPrimary,
-                        size: IconSize.appBar,
+                : Builder(
+                    builder: (ctx) => GestureDetector(
+                      onTap: () {
+                        // Open left drawer instead of bottom sheet
+                        Scaffold.of(ctx).openDrawer();
+                      },
+                      onLongPress: () {
+                        HapticFeedback.mediumImpact();
+                        _showQuickAccessMenu();
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(4.0),
+                        child: Icon(
+                          Platform.isIOS
+                              ? CupertinoIcons.line_horizontal_3
+                              : Icons.menu,
+                          color: context.conduitTheme.textPrimary,
+                          size: IconSize.appBar,
+                        ),
                       ),
                     ),
                   ),

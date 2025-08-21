@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import '../../../shared/theme/theme_extensions.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -220,18 +221,17 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               ),
               border: Border(
                 top: BorderSide(
-                  color: context.conduitTheme.inputBorder,
+                  color: context.conduitTheme.dividerColor,
                   width: BorderWidth.regular,
                 ),
                 left: BorderSide(
-                  color: context.conduitTheme.inputBorder,
+                  color: context.conduitTheme.dividerColor,
                   width: BorderWidth.regular,
                 ),
                 right: BorderSide(
-                  color: context.conduitTheme.inputBorder,
+                  color: context.conduitTheme.dividerColor,
                   width: BorderWidth.regular,
                 ),
-                // Removed bottom border to eliminate divider
               ),
               boxShadow: ConduitShadows.input,
             ),
@@ -431,41 +431,48 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     if (isGenerating) {
       return Tooltip(
         message: 'Stop generating',
-        child: GestureDetector(
-          onTap: stopGeneration,
-          child: Container(
-            width: buttonSize,
-            height: buttonSize,
-            decoration: BoxDecoration(
-              color: context.conduitTheme.error.withValues(
-                alpha: Alpha.buttonPressed,
+        child: Material(
+          color: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radius),
+            side: BorderSide(color: context.conduitTheme.error, width: BorderWidth.regular),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(radius),
+            onTap: () {
+              HapticFeedback.lightImpact();
+              stopGeneration();
+            },
+            child: Container(
+              width: buttonSize,
+              height: buttonSize,
+              decoration: BoxDecoration(
+                color: context.conduitTheme.error.withValues(
+                  alpha: Alpha.buttonPressed,
+                ),
+                borderRadius: BorderRadius.circular(radius),
+                boxShadow: ConduitShadows.button,
               ),
-              borderRadius: BorderRadius.circular(radius),
-              border: Border.all(
-                color: context.conduitTheme.error,
-                width: BorderWidth.regular,
-              ),
-              boxShadow: ConduitShadows.button,
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: buttonSize - 18,
-                  height: buttonSize - 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: BorderWidth.medium,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      context.conduitTheme.error,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: buttonSize - 18,
+                    height: buttonSize - 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: BorderWidth.medium,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        context.conduitTheme.error,
+                      ),
                     ),
                   ),
-                ),
-                Icon(
-                  Platform.isIOS ? CupertinoIcons.stop_fill : Icons.stop,
-                  size: IconSize.medium,
-                  color: context.conduitTheme.error,
-                ),
-              ],
+                  Icon(
+                    Platform.isIOS ? CupertinoIcons.stop_fill : Icons.stop,
+                    size: IconSize.medium,
+                    color: context.conduitTheme.error,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -475,36 +482,44 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     // Default SEND variant
     return Tooltip(
       message: enabled ? 'Send message' : 'Send',
-      child: GestureDetector(
-        onTap: enabled ? _sendMessage : null,
-        child: Opacity(
+      child: Opacity(
           opacity: enabled ? Alpha.primary : Alpha.disabled,
-          child: IgnorePointer(
-            ignoring: !enabled,
-            child: Container(
-              width: buttonSize,
-              height: buttonSize,
-              decoration: BoxDecoration(
-                color: context.conduitTheme.cardBackground,
-                borderRadius: BorderRadius.circular(radius),
-                border: Border.all(
-                  color: enabled
-                      ? context.conduitTheme.cardBorder
-                      : context.conduitTheme.cardBorder.withValues(
-                          alpha: Alpha.medium,
-                        ),
-                  width: BorderWidth.regular,
-                ),
-                boxShadow: ConduitShadows.button,
-              ),
-              child: Icon(
-                Platform.isIOS ? CupertinoIcons.arrow_up : Icons.arrow_upward,
-                size: IconSize.medium,
+        child: IgnorePointer(
+          ignoring: !enabled,
+          child: Material(
+            color: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(radius),
+              side: BorderSide(
                 color: enabled
-                    ? context.conduitTheme.textPrimary
-                    : context.conduitTheme.textPrimary.withValues(
-                        alpha: Alpha.disabled,
-                      ),
+                    ? context.conduitTheme.cardBorder
+                    : context.conduitTheme.cardBorder.withValues(alpha: Alpha.medium),
+                width: BorderWidth.regular,
+              ),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(radius),
+              onTap: enabled
+                  ? () {
+                      PlatformUtils.lightHaptic();
+                      _sendMessage();
+                    }
+                  : null,
+              child: Container(
+                width: buttonSize,
+                height: buttonSize,
+                decoration: BoxDecoration(
+                  color: context.conduitTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(radius),
+                  boxShadow: ConduitShadows.button,
+                ),
+                child: Icon(
+                  Platform.isIOS ? CupertinoIcons.arrow_up : Icons.arrow_upward,
+                  size: IconSize.medium,
+                  color: enabled
+                      ? context.conduitTheme.textPrimary
+                      : context.conduitTheme.textPrimary.withValues(alpha: Alpha.disabled),
+                ),
               ),
             ),
           ),
@@ -522,9 +537,30 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   }) {
     return Tooltip(
       message: tooltip ?? '',
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
+      child: Material(
+        color: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppBorderRadius.xl),
+          side: BorderSide(
+            color: isActive
+                ? context.conduitTheme.textPrimary.withValues(
+                    alpha: Alpha.buttonHover + Alpha.subtle,
+                  )
+                : showBackground
+                    ? context.conduitTheme.cardBorder
+                    : Colors.transparent,
+            width: BorderWidth.regular,
+          ),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppBorderRadius.xl),
+          onTap: onTap == null
+              ? null
+              : () {
+                  HapticFeedback.selectionClick();
+                  onTap();
+                },
+          child: Container(
           width: TouchTarget.comfortable,
           height: TouchTarget.comfortable,
           decoration: BoxDecoration(
@@ -536,16 +572,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                 ? context.conduitTheme.cardBackground
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(AppBorderRadius.xl),
-            border: Border.all(
-              color: isActive
-                  ? context.conduitTheme.textPrimary.withValues(
-                      alpha: Alpha.buttonHover + Alpha.subtle,
-                    )
-                  : showBackground
-                  ? context.conduitTheme.cardBorder
-                  : Colors.transparent,
-              width: BorderWidth.regular,
-            ),
             boxShadow: (isActive || showBackground)
                 ? ConduitShadows.button
                 : null,
@@ -565,10 +591,11 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
           ),
         ),
       ),
-    );
+    ));
   }
 
   void _showAttachmentOptions() {
+    HapticFeedback.selectionClick();
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -577,6 +604,10 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
           color: context.conduitTheme.surfaceBackground,
           borderRadius: const BorderRadius.vertical(
             top: Radius.circular(AppBorderRadius.bottomSheet),
+          ),
+          border: Border.all(
+            color: context.conduitTheme.dividerColor,
+            width: BorderWidth.regular,
           ),
           boxShadow: ConduitShadows.modal,
         ),
@@ -599,34 +630,41 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
             // Options grid
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildAttachmentOption(
+                Expanded(
+                  child: _buildAttachmentOption(
                   icon: Platform.isIOS ? CupertinoIcons.doc : Icons.attach_file,
                   label: 'File',
                   onTap: () {
+                    HapticFeedback.lightImpact();
                     Navigator.pop(context); // Close modal
                     widget.onFileAttachment?.call();
                   },
-                ),
-                _buildAttachmentOption(
+                )),
+                const SizedBox(width: Spacing.md),
+                Expanded(
+                  child: _buildAttachmentOption(
                   icon: Platform.isIOS ? CupertinoIcons.photo : Icons.image,
                   label: 'Photo',
                   onTap: () {
+                    HapticFeedback.lightImpact();
                     Navigator.pop(context); // Close modal
                     widget.onImageAttachment?.call();
                   },
-                ),
-                _buildAttachmentOption(
+                )),
+                const SizedBox(width: Spacing.md),
+                Expanded(
+                  child: _buildAttachmentOption(
                   icon: Platform.isIOS
                       ? CupertinoIcons.camera
                       : Icons.camera_alt,
                   label: 'Camera',
                   onTap: () {
+                    HapticFeedback.lightImpact();
                     Navigator.pop(context); // Close modal
                     widget.onCameraCapture?.call();
                   },
-                ),
+                )),
               ],
             ),
             const SizedBox(height: Spacing.lg),
@@ -637,6 +675,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   }
 
   void _showUnifiedToolsModal() {
+    HapticFeedback.selectionClick();
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -649,40 +688,45 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     required String label,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: context.conduitTheme.textPrimary.withValues(
-                alpha: Alpha.subtle,
-              ),
-              borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-              border: Border.all(
-                color: context.conduitTheme.textPrimary.withValues(
-                  alpha: Alpha.subtle,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+        onTap: onTap == null
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                onTap();
+              },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: context.conduitTheme.cardBackground,
+                borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+                border: Border.all(
+                  color: context.conduitTheme.cardBorder,
+                  width: BorderWidth.regular,
                 ),
-                width: BorderWidth.regular,
+              ),
+              child: Icon(
+                icon,
+                color: context.conduitTheme.iconPrimary,
+                size: IconSize.xl,
               ),
             ),
-            child: Icon(
-              icon,
-              color: context.conduitTheme.textPrimary,
-              size: IconSize.xl,
+            const SizedBox(height: Spacing.sm),
+            Text(
+              label,
+              style: AppTypography.labelStyle.copyWith(
+                color: context.conduitTheme.textPrimary,
+              ),
             ),
-          ),
-          const SizedBox(height: Spacing.sm),
-          Text(
-            label,
-            style: AppTypography.labelStyle.copyWith(
-              color: context.conduitTheme.textPrimary,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

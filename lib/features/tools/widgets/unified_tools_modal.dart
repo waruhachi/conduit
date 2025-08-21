@@ -25,161 +25,184 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
     final selectedToolIds = ref.watch(selectedToolIdsProvider);
     final toolsAsync = ref.watch(toolsListProvider);
 
+    final theme = context.conduitTheme;
     return Container(
       decoration: BoxDecoration(
-        color: context.conduitTheme.surfaceBackground,
+        color: theme.surfaceBackground,
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(AppBorderRadius.bottomSheet),
         ),
+        border: Border.all(color: theme.dividerColor, width: BorderWidth.regular),
         boxShadow: ConduitShadows.modal,
       ),
-      padding: const EdgeInsets.all(Spacing.bottomSheetPadding),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle bar
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: context.conduitTheme.textPrimary.withValues(
-                alpha: Alpha.medium,
-              ),
-              borderRadius: BorderRadius.circular(2),
-            ),
+      child: SafeArea(
+        top: false,
+        bottom: true,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
           ),
-          const SizedBox(height: Spacing.lg),
-
-          // Title
-          Text(
-            'Tools & Search',
-            style: AppTypography.headlineSmallStyle.copyWith(
-              color: context.conduitTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: Spacing.lg),
-
-          // Web Search Toggle
-          _buildWebSearchToggle(webSearchEnabled),
-          const SizedBox(height: Spacing.md),
-
-          // Image Generation Toggle (conditionally shown)
-          if (imageGenAvailable) ...[
-            _buildImageGenerationToggle(imageGenEnabled),
-            const SizedBox(height: Spacing.md),
-          ],
-
-          // Tools Section
-          toolsAsync.when(
-            data: (tools) {
-              if (tools.isEmpty) {
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(Spacing.md),
-                  decoration: BoxDecoration(
-                    color: context.conduitTheme.cardBackground,
-                    borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                    border: Border.all(
-                      color: context.conduitTheme.cardBorder,
-                      width: BorderWidth.regular,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(Spacing.bottomSheetPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Handle bar
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: theme.textPrimary.withValues(alpha: Alpha.medium),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  child: Text(
-                    'No tools available',
-                    style: AppTypography.bodySmallStyle.copyWith(
-                      color: context.conduitTheme.textSecondary,
-                    ),
-                  ),
-                );
-              }
+                ),
+                const SizedBox(height: Spacing.md),
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Available Tools',
-                    style: AppTypography.labelStyle.copyWith(
-                      color: context.conduitTheme.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: Spacing.sm),
-                  ...tools.map(
-                    (tool) => Padding(
-                      padding: const EdgeInsets.only(bottom: Spacing.sm),
-                      child: _buildToolCard(
-                        tool,
-                        selectedToolIds.contains(tool.id),
+                // Removed header for minimal, focused layout
+
+                // Web Search Toggle
+                _buildWebSearchToggle(webSearchEnabled),
+                const SizedBox(height: Spacing.md),
+
+                // Image Generation Toggle (conditionally shown)
+                if (imageGenAvailable) ...[
+                  _buildImageGenerationToggle(imageGenEnabled),
+                  const SizedBox(height: Spacing.md),
+                ],
+
+                // Tools Section
+                toolsAsync.when(
+                  data: (tools) {
+                    if (tools.isEmpty) {
+                      return _buildNeutralCard(
+                        child: Text(
+                          'No tools available',
+                          style: AppTypography.bodySmallStyle.copyWith(
+                            color: theme.textSecondary,
+                          ),
+                        ),
+                      );
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionHeader('Available Tools', tools.length),
+                        const SizedBox(height: Spacing.sm),
+                        ...tools.map(
+                          (tool) => Padding(
+                            padding: const EdgeInsets.only(bottom: Spacing.sm),
+                            child: _buildToolCard(
+                              tool,
+                              selectedToolIds.contains(tool.id),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                  loading: () => _buildNeutralCard(
+                    child: const Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                     ),
                   ),
-                ],
-              );
-            },
-            loading: () => Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(Spacing.md),
-              decoration: BoxDecoration(
-                color: context.conduitTheme.cardBackground,
-                borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                border: Border.all(
-                  color: context.conduitTheme.cardBorder,
-                  width: BorderWidth.regular,
+                  error: (error, stack) => _buildNeutralCard(
+                    child: Text(
+                      'Failed to load tools',
+                      style: AppTypography.bodySmallStyle.copyWith(
+                        color: theme.error,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              child: const Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            ),
-            error: (error, stack) => Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(Spacing.md),
-              decoration: BoxDecoration(
-                color: context.conduitTheme.cardBackground,
-                borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                border: Border.all(
-                  color: context.conduitTheme.cardBorder,
-                  width: BorderWidth.regular,
-                ),
-              ),
-              child: Text(
-                'Failed to load tools',
-                style: AppTypography.bodySmallStyle.copyWith(
-                  color: context.conduitTheme.error,
-                ),
-              ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildWebSearchToggle(bool webSearchEnabled) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        ref.read(webSearchEnabledProvider.notifier).state = !webSearchEnabled;
-      },
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(Spacing.md),
-        decoration: BoxDecoration(
-          color: webSearchEnabled
-              ? context.conduitTheme.buttonPrimary
-              : context.conduitTheme.cardBackground,
-          borderRadius: BorderRadius.circular(AppBorderRadius.md),
-          border: Border.all(
-            color: webSearchEnabled
-                ? context.conduitTheme.buttonPrimary
-                : context.conduitTheme.cardBorder,
-            width: BorderWidth.regular,
+  Widget _buildNeutralCard({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(Spacing.md),
+      decoration: BoxDecoration(
+        color: context.conduitTheme.cardBackground,
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        border: Border.all(
+          color: context.conduitTheme.cardBorder,
+          width: BorderWidth.regular,
+        ),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildSectionHeader(String title, int count) {
+    final theme = context.conduitTheme;
+    return Row(
+      children: [
+        Text(
+          title,
+          style: AppTypography.bodySmallStyle.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.textSecondary,
+            letterSpacing: 0.2,
           ),
         ),
+        const SizedBox(width: Spacing.xs),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: theme.surfaceBackground.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(AppBorderRadius.xs),
+            border: Border.all(color: theme.dividerColor, width: BorderWidth.thin),
+          ),
+          child: Text(
+            '$count',
+            style: AppTypography.bodySmallStyle.copyWith(
+              color: theme.textSecondary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWebSearchToggle(bool webSearchEnabled) {
+    return Material(
+      color: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        side: BorderSide(
+          color: webSearchEnabled
+              ? context.conduitTheme.buttonPrimary
+              : context.conduitTheme.cardBorder,
+          width: BorderWidth.regular,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          ref.read(webSearchEnabledProvider.notifier).state = !webSearchEnabled;
+        },
+        child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(Spacing.md),
+          decoration: BoxDecoration(
+            color: webSearchEnabled
+                ? context.conduitTheme.buttonPrimary
+                : context.conduitTheme.cardBackground,
+            borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          ),
         child: Row(
           children: [
             Icon(
@@ -231,32 +254,39 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
 
   Widget _buildImageGenerationToggle(bool imageGenEnabled) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        ref.read(imageGenerationEnabledProvider.notifier).state =
-            !imageGenEnabled;
-      },
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(Spacing.md),
-        decoration: BoxDecoration(
+    return Material(
+      color: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        side: BorderSide(
           color: imageGenEnabled
               ? context.conduitTheme.buttonPrimary
-              : context.conduitTheme.cardBackground,
-          borderRadius: BorderRadius.circular(AppBorderRadius.md),
-          border: Border.all(
+              : context.conduitTheme.cardBorder,
+          width: BorderWidth.regular,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          ref.read(imageGenerationEnabledProvider.notifier).state =
+              !imageGenEnabled;
+        },
+        child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(Spacing.md),
+          decoration: BoxDecoration(
             color: imageGenEnabled
                 ? context.conduitTheme.buttonPrimary
-                : context.conduitTheme.cardBorder,
-            width: BorderWidth.regular,
+                : context.conduitTheme.cardBackground,
+            borderRadius: BorderRadius.circular(AppBorderRadius.md),
           ),
-        ),
         child: Row(
           children: [
             Icon(
@@ -306,42 +336,49 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
 
   Widget _buildToolCard(Tool tool, bool isSelected) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        final currentIds = ref.read(selectedToolIdsProvider);
-        if (isSelected) {
-          ref.read(selectedToolIdsProvider.notifier).state = currentIds
-              .where((id) => id != tool.id)
-              .toList();
-        } else {
-          ref.read(selectedToolIdsProvider.notifier).state = [
-            ...currentIds,
-            tool.id,
-          ];
-        }
-      },
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(Spacing.md),
-        decoration: BoxDecoration(
+    return Material(
+      color: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        side: BorderSide(
           color: isSelected
               ? context.conduitTheme.buttonPrimary
-              : context.conduitTheme.cardBackground,
-          borderRadius: BorderRadius.circular(AppBorderRadius.md),
-          border: Border.all(
+              : context.conduitTheme.cardBorder,
+          width: BorderWidth.regular,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          final currentIds = ref.read(selectedToolIdsProvider);
+          if (isSelected) {
+            ref.read(selectedToolIdsProvider.notifier).state = currentIds
+                .where((id) => id != tool.id)
+                .toList();
+          } else {
+            ref.read(selectedToolIdsProvider.notifier).state = [
+              ...currentIds,
+              tool.id,
+            ];
+          }
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(Spacing.md),
+          decoration: BoxDecoration(
             color: isSelected
                 ? context.conduitTheme.buttonPrimary
-                : context.conduitTheme.cardBorder,
-            width: BorderWidth.regular,
+                : context.conduitTheme.cardBackground,
+            borderRadius: BorderRadius.circular(AppBorderRadius.md),
           ),
-        ),
-        child: Row(
+          child: Row(
           children: [
             Icon(
               _getToolIcon(tool),
@@ -391,6 +428,7 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
                   : context.conduitTheme.textSecondary,
             ),
           ],
+          ),
         ),
       ),
     );

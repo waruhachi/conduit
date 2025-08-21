@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../features/auth/views/connect_signin_page.dart';
 import '../../features/chat/views/chat_page.dart';
 import '../../features/files/views/files_page.dart';
-import '../../features/navigation/views/chats_list_page.dart';
 import '../../features/profile/views/profile_page.dart';
 import '../../shared/widgets/themed_dialogs.dart';
 
@@ -92,10 +91,7 @@ class NavigationService {
     return navigateTo(Routes.serverConnection);
   }
 
-  /// Navigate to chats list
-  static Future<void> navigateToChatsList() {
-    return navigateTo(Routes.chatsList);
-  }
+  // Chats list is now provided as a left drawer in ChatPage
 
   /// Clear navigation stack (useful for logout)
   static void clearNavigationStack() {
@@ -138,9 +134,7 @@ class NavigationService {
         page = const FilesPage();
         break;
 
-      case Routes.chatsList:
-        page = const ChatsListPage();
-        break;
+      // chats list route removed (replaced by drawer)
 
       // Removed navigation drawer route
 
@@ -161,5 +155,4 @@ class Routes {
   static const String profile = '/profile';
   static const String serverConnection = '/server-connection';
   static const String files = '/files';
-  static const String chatsList = '/chats-list';
 }
