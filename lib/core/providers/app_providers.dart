@@ -896,6 +896,37 @@ final conversationSuggestionsProvider = FutureProvider<List<String>>((
   }
 });
 
+// Server features and permissions
+final userPermissionsProvider = FutureProvider<Map<String, dynamic>>((
+  ref,
+) async {
+  final api = ref.watch(apiServiceProvider);
+  if (api == null) return {};
+
+  try {
+    return await api.getUserPermissions();
+  } catch (e) {
+    foundation.debugPrint('DEBUG: Error fetching user permissions: $e');
+    return {};
+  }
+});
+
+final imageGenerationAvailableProvider = Provider<bool>((ref) {
+  final perms = ref.watch(userPermissionsProvider);
+  return perms.maybeWhen(
+    data: (data) {
+      final features = data['features'];
+      if (features is Map<String, dynamic>) {
+        final value = features['image_generation'];
+        if (value is bool) return value;
+        if (value is String) return value.toLowerCase() == 'true';
+      }
+      return false;
+    },
+    orElse: () => false,
+  );
+});
+
 // Folders provider
 final foldersProvider = FutureProvider<List<Folder>>((ref) async {
   final api = ref.watch(apiServiceProvider);

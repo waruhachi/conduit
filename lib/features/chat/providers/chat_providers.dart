@@ -54,7 +54,7 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
           'DEBUG: Loading ${next.messages.length} messages for conversation ${next.id}',
         );
         state = next.messages;
-        
+
         // Update selected model if conversation has a different model
         _updateModelForConversation(next);
       } else {
@@ -76,39 +76,43 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
   }
 
   Future<void> _updateModelForConversation(Conversation conversation) async {
-    debugPrint('DEBUG: _updateModelForConversation called for conversation ${conversation.id}');
-    
+    debugPrint(
+      'DEBUG: _updateModelForConversation called for conversation ${conversation.id}',
+    );
+
     // Check if conversation has a model specified
     if (conversation.model == null || conversation.model!.isEmpty) {
       debugPrint('DEBUG: Conversation has no model specified');
       return;
     }
-    
+
     debugPrint('DEBUG: Conversation model: ${conversation.model}');
 
     final currentSelectedModel = _ref.read(selectedModelProvider);
-    
+
     // If the conversation's model is different from the currently selected one
     if (currentSelectedModel?.id != conversation.model) {
       debugPrint(
         'DEBUG: Conversation model (${conversation.model}) differs from selected model (${currentSelectedModel?.id})',
       );
-      
+
       // Get available models to find the matching one
       try {
         final models = await _ref.read(modelsProvider.future);
         debugPrint('DEBUG: Available models count: ${models.length}');
-        
+
         if (models.isEmpty) {
-          debugPrint('DEBUG: No models available, cannot update selected model');
+          debugPrint(
+            'DEBUG: No models available, cannot update selected model',
+          );
           return;
         }
-        
+
         // Look for exact match first
-        final conversationModel = models.where(
-          (model) => model.id == conversation.model,
-        ).firstOrNull;
-        
+        final conversationModel = models
+            .where((model) => model.id == conversation.model)
+            .firstOrNull;
+
         if (conversationModel != null) {
           // Update the selected model
           _ref.read(selectedModelProvider.notifier).state = conversationModel;
@@ -163,17 +167,16 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
       lastMessage.copyWith(content: content),
     ];
   }
-  
-  void updateLastMessageWithFunction(ChatMessage Function(ChatMessage) updater) {
+
+  void updateLastMessageWithFunction(
+    ChatMessage Function(ChatMessage) updater,
+  ) {
     if (state.isEmpty) return;
 
     final lastMessage = state.last;
     if (lastMessage.role != 'assistant') return;
 
-    state = [
-      ...state.sublist(0, state.length - 1),
-      updater(lastMessage),
-    ];
+    state = [...state.sublist(0, state.length - 1), updater(lastMessage)];
   }
 
   void appendToLastMessage(String content) {
@@ -286,6 +289,9 @@ final availableToolsProvider = StateProvider<List<String>>((ref) => []);
 // Web search enabled state for API-based web search
 final webSearchEnabledProvider = StateProvider<bool>((ref) => false);
 
+// Image generation enabled state - behaves like web search
+final imageGenerationEnabledProvider = StateProvider<bool>((ref) => false);
+
 // Vision capable models provider
 final visionCapableModelsProvider = StateProvider<List<String>>((ref) {
   final selectedModel = ref.watch(selectedModelProvider);
@@ -383,8 +389,10 @@ Future<void> regenerateMessage(
   String userMessageContent,
   List<String>? attachments,
 ) async {
-  debugPrint('DEBUG: regenerateMessage called with content: $userMessageContent');
-  
+  debugPrint(
+    'DEBUG: regenerateMessage called with content: $userMessageContent',
+  );
+
   final reviewerMode = ref.read(reviewerModeProvider);
   final api = ref.read(apiServiceProvider);
   final selectedModel = ref.read(selectedModelProvider);
@@ -416,14 +424,14 @@ Future<void> regenerateMessage(
     final responseText = ReviewerModeService.generateResponse(
       userMessage: userMessageContent,
     );
-    
+
     // Simulate streaming response
     final words = responseText.split(' ');
     for (final word in words) {
       await Future.delayed(const Duration(milliseconds: 40));
       ref.read(chatMessagesProvider.notifier).appendToLastMessage('$word ');
     }
-    
+
     ref.read(chatMessagesProvider.notifier).finishStreaming();
     await _saveConversationLocally(ref);
     return;
@@ -433,14 +441,15 @@ Future<void> regenerateMessage(
   try {
     // Get conversation history for context (excluding the removed assistant message)
     final List<ChatMessage> messages = ref.read(chatMessagesProvider);
-    final List<Map<String, dynamic>> conversationMessages = <Map<String, dynamic>>[];
+    final List<Map<String, dynamic>> conversationMessages =
+        <Map<String, dynamic>>[];
 
     for (final msg in messages) {
       if (msg.role.isNotEmpty && msg.content.isNotEmpty && !msg.isStreaming) {
         // Handle messages with attachments
         if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty) {
           final List<Map<String, dynamic>> contentArray = [];
-          
+
           // Add text content first
           if (msg.content.isNotEmpty) {
             contentArray.add({'type': 'text', 'text': msg.content});
@@ -452,10 +461,7 @@ Future<void> regenerateMessage(
           });
         } else {
           // Regular text message
-          conversationMessages.add({
-            'role': msg.role,
-            'content': msg.content,
-          });
+          conversationMessages.add({'role': msg.role, 'content': msg.content});
         }
       }
     }
@@ -496,7 +502,6 @@ Future<void> regenerateMessage(
 
     ref.read(chatMessagesProvider.notifier).finishStreaming();
     await _saveConversationLocally(ref);
-    
   } catch (e) {
     debugPrint('DEBUG: Error during message regeneration: $e');
     rethrow;
@@ -541,11 +546,15 @@ Future<void> _sendMessageInternal(
 
   // Check if we need to create a new conversation first
   var activeConversation = ref.read(activeConversationProvider);
-  
-  debugPrint('DEBUG: Active conversation before send: ${activeConversation?.id}');
+
+  debugPrint(
+    'DEBUG: Active conversation before send: ${activeConversation?.id}',
+  );
 
   // Create user message first
-  debugPrint('DEBUG: Creating user message with attachments: $attachments, tools: $toolIds');
+  debugPrint(
+    'DEBUG: Creating user message with attachments: $attachments, tools: $toolIds',
+  );
   final userMessage = ChatMessage(
     id: const Uuid().v4(),
     role: 'user',
@@ -581,25 +590,25 @@ Future<void> _sendMessageInternal(
         );
         final updatedConversation = localConversation.copyWith(
           id: serverConversation.id,
-          messages: serverConversation.messages.isNotEmpty 
-              ? serverConversation.messages 
+          messages: serverConversation.messages.isNotEmpty
+              ? serverConversation.messages
               : [userMessage],
         );
         ref.read(activeConversationProvider.notifier).state =
             updatedConversation;
         activeConversation = updatedConversation;
-        
+
         // Set messages in the messages provider to keep UI in sync
         ref.read(chatMessagesProvider.notifier).clearMessages();
         ref.read(chatMessagesProvider.notifier).addMessage(userMessage);
-        
+
         debugPrint(
           'DEBUG: Created conversation ${serverConversation.id} on server with first message',
         );
         debugPrint(
           'DEBUG: Server conversation ID: ${serverConversation.id}, Title: ${serverConversation.title}',
         );
-        
+
         // Invalidate conversations provider to refresh the list
         // Adding a small delay to prevent rapid invalidations that could cause duplicates
         Future.delayed(const Duration(milliseconds: 100), () {
@@ -790,14 +799,18 @@ Future<void> _sendMessageInternal(
     }
   }
 
-  // Check if web search is enabled for API
+  // Check feature toggles for API
   final webSearchEnabled = ref.read(webSearchEnabledProvider);
-  
-  // Debug log to track web search state
+  final imageGenerationEnabled = ref.read(imageGenerationEnabledProvider);
+
+  // Debug log to track feature toggle states
   debugPrint('DEBUG: Web search toggle state: $webSearchEnabled');
+  debugPrint('DEBUG: Image generation toggle state: $imageGenerationEnabled');
 
   // Prepare tools list - pass tool IDs directly
-  final List<String>? toolIdsForApi = (toolIds != null && toolIds.isNotEmpty) ? toolIds : null;
+  final List<String>? toolIdsForApi = (toolIds != null && toolIds.isNotEmpty)
+      ? toolIds
+      : null;
   if (toolIdsForApi != null) {
     debugPrint('DEBUG: Including tool IDs: $toolIdsForApi');
   }
@@ -934,6 +947,7 @@ Future<void> _sendMessageInternal(
       conversationId: activeConversation?.id,
       toolIds: toolIdsForApi,
       enableWebSearch: webSearchEnabled,
+      enableImageGeneration: imageGenerationEnabled,
       modelItem: modelItem,
     );
 
@@ -971,7 +985,7 @@ Future<void> _sendMessageInternal(
 
     // Create a stream controller for persistent handling
     final persistentController = StreamController<String>.broadcast();
-    
+
     // Register stream with persistent service for app lifecycle handling
     final persistentService = PersistentStreamingService();
     final streamId = persistentService.registerStream(
@@ -1001,43 +1015,48 @@ Future<void> _sendMessageInternal(
 
     // Track web search status
     bool isSearching = false;
-    
+
     final streamSubscription = persistentController.stream.listen(
       (chunk) {
         debugPrint('DEBUG: Received stream chunk: "$chunk"');
-        
+
         // Check for web search indicators in the stream
         if (webSearchEnabled && !isSearching) {
           // Check if this is the start of web search
-          if (chunk.contains('[SEARCHING]') || 
-              chunk.contains('Searching the web') || 
+          if (chunk.contains('[SEARCHING]') ||
+              chunk.contains('Searching the web') ||
               chunk.contains('web search')) {
             isSearching = true;
             // Update the message to show search status
-            ref.read(chatMessagesProvider.notifier).updateLastMessageWithFunction(
-              (message) => message.copyWith(
-                content: '🔍 Searching the web...',
-                metadata: {'webSearchActive': true},
-              ),
-            );
+            ref
+                .read(chatMessagesProvider.notifier)
+                .updateLastMessageWithFunction(
+                  (message) => message.copyWith(
+                    content: '🔍 Searching the web...',
+                    metadata: {'webSearchActive': true},
+                  ),
+                );
             return; // Don't append this chunk
           }
         }
-        
+
         // Check if web search is complete
-        if (isSearching && (chunk.contains('[/SEARCHING]') || 
-            chunk.contains('Search complete'))) {
+        if (isSearching &&
+            (chunk.contains('[/SEARCHING]') ||
+                chunk.contains('Search complete'))) {
           isSearching = false;
           // Clear the search status message
-          ref.read(chatMessagesProvider.notifier).updateLastMessageWithFunction(
-            (message) => message.copyWith(
-              content: '',
-              metadata: {'webSearchActive': false},
-            ),
-          );
+          ref
+              .read(chatMessagesProvider.notifier)
+              .updateLastMessageWithFunction(
+                (message) => message.copyWith(
+                  content: '',
+                  metadata: {'webSearchActive': false},
+                ),
+              );
           return; // Don't append this chunk
         }
-        
+
         // Regular content - append to message
         if (!chunk.contains('[SEARCHING]') && !chunk.contains('[/SEARCHING]')) {
           ref.read(chatMessagesProvider.notifier).appendToLastMessage(chunk);
@@ -1071,7 +1090,7 @@ Future<void> _sendMessageInternal(
                 // For assistant messages, add completion details
                 if (msg.role == 'assistant') {
                   messageMap['model'] = selectedModel.id;
-                  
+
                   // Add mock usage data if not available (OpenWebUI expects this)
                   if (msg.usage != null) {
                     messageMap['usage'] = msg.usage;
@@ -1110,7 +1129,6 @@ Future<void> _sendMessageInternal(
                 debugPrint(
                   'DEBUG: Chat completed notification sent successfully for chat ID: ${activeConversation.id}',
                 );
-
               } catch (e) {
                 debugPrint('DEBUG: Chat completed notification failed: $e');
                 debugPrint('DEBUG: Error details: $e');
@@ -1120,7 +1138,7 @@ Future<void> _sendMessageInternal(
               // Fetch the latest conversation state without waiting for title generation
               debugPrint('DEBUG: Fetching latest conversation state...');
               debugPrint('DEBUG: Current message count: ${messages.length}');
-              
+
               try {
                 // Quick fetch to get the current state - no waiting for title generation
                 final updatedConv = await api.getConversation(
@@ -1133,11 +1151,18 @@ Future<void> _sendMessageInternal(
                     messages.length <= 2 &&
                     updatedConv.title != 'New Chat' &&
                     updatedConv.title.isNotEmpty;
-                
+
                 // If title is still "New Chat" and this is the first exchange, trigger title generation
                 if (messages.length <= 2 && updatedConv.title == 'New Chat') {
-                  debugPrint('DEBUG: Triggering title generation for conversation ${activeConversation.id}');
-                  _triggerTitleGeneration(ref, activeConversation.id, formattedMessages, selectedModel.id);
+                  debugPrint(
+                    'DEBUG: Triggering title generation for conversation ${activeConversation.id}',
+                  );
+                  _triggerTitleGeneration(
+                    ref,
+                    activeConversation.id,
+                    formattedMessages,
+                    selectedModel.id,
+                  );
                 }
 
                 // Always combine current local messages with updated server content
@@ -1292,10 +1317,8 @@ Future<void> _sendMessageInternal(
                 }
 
                 // Streaming already marked as complete when stream ended
-                debugPrint(
-                  'DEBUG: Server content replacement completed',
-                );
-                
+                debugPrint('DEBUG: Server content replacement completed');
+
                 // Start background title check for first message exchanges
                 if (messages.length <= 2 && updatedConv.title == 'New Chat') {
                   debugPrint('DEBUG: Starting background title check...');
@@ -1320,6 +1343,127 @@ Future<void> _sendMessageInternal(
         await Future.delayed(const Duration(milliseconds: 100));
         await _saveConversationToServer(ref);
         debugPrint('DEBUG: Conversation save completed');
+
+        // If image generation is enabled, trigger image generation with the user's prompt
+        if (imageGenerationEnabled) {
+          try {
+            debugPrint('DEBUG: Image generation enabled - triggering request');
+            final imageResponse = await api.generateImage(prompt: message);
+
+            // Extract image URLs or base64 data URIs from response
+            List<Map<String, dynamic>> extractGeneratedFiles(dynamic resp) {
+              final results = <Map<String, dynamic>>[];
+
+              // If it's already a list (e.g., list of URLs or file maps)
+              if (resp is List) {
+                for (final item in resp) {
+                  if (item is String && item.isNotEmpty) {
+                    results.add({'type': 'image', 'url': item});
+                  } else if (item is Map) {
+                    final url = item['url'];
+                    final b64 = item['b64_json'] ?? item['b64'];
+                    if (url is String && url.isNotEmpty) {
+                      results.add({'type': 'image', 'url': url});
+                    } else if (b64 is String && b64.isNotEmpty) {
+                      results.add({
+                        'type': 'image',
+                        'url': 'data:image/png;base64,$b64',
+                      });
+                    }
+                  }
+                }
+                return results;
+              }
+
+              if (resp is! Map) {
+                return results;
+              }
+
+              // Common patterns: { data: [ { url }, { b64_json } ] }
+              final data = resp['data'];
+              if (data is List) {
+                for (final item in data) {
+                  if (item is Map) {
+                    final url = item['url'];
+                    final b64 = item['b64_json'] ?? item['b64'];
+                    if (url is String && url.isNotEmpty) {
+                      results.add({'type': 'image', 'url': url});
+                    } else if (b64 is String && b64.isNotEmpty) {
+                      // Default to PNG for base64 images
+                      results.add({
+                        'type': 'image',
+                        'url': 'data:image/png;base64,$b64',
+                      });
+                    }
+                  } else if (item is String && item.isNotEmpty) {
+                    // Some servers may return a list of URLs
+                    results.add({'type': 'image', 'url': item});
+                  }
+                }
+              }
+
+              // Alternative patterns
+              final images = resp['images'];
+              if (images is List) {
+                for (final item in images) {
+                  if (item is String && item.isNotEmpty) {
+                    results.add({'type': 'image', 'url': item});
+                  } else if (item is Map) {
+                    final url = item['url'];
+                    final b64 = item['b64_json'] ?? item['b64'];
+                    if (url is String && url.isNotEmpty) {
+                      results.add({'type': 'image', 'url': url});
+                    } else if (b64 is String && b64.isNotEmpty) {
+                      results.add({
+                        'type': 'image',
+                        'url': 'data:image/png;base64,$b64',
+                      });
+                    }
+                  }
+                }
+              }
+
+              // Single fields
+              final singleUrl = resp['url'];
+              if (singleUrl is String && singleUrl.isNotEmpty) {
+                results.add({'type': 'image', 'url': singleUrl});
+              }
+              final singleB64 = resp['b64_json'] ?? resp['b64'];
+              if (singleB64 is String && singleB64.isNotEmpty) {
+                results.add({
+                  'type': 'image',
+                  'url': 'data:image/png;base64,$singleB64',
+                });
+              }
+
+              return results;
+            }
+
+            final generatedFiles = extractGeneratedFiles(imageResponse);
+            if (generatedFiles.isNotEmpty) {
+              debugPrint(
+                'DEBUG: Image generation returned ${generatedFiles.length} file(s)',
+              );
+
+              // Attach images to the last assistant message
+              ref
+                  .read(chatMessagesProvider.notifier)
+                  .updateLastMessageWithFunction((ChatMessage m) {
+                    final currentFiles = m.files ?? <Map<String, dynamic>>[];
+                    return m.copyWith(
+                      files: [...currentFiles, ...generatedFiles],
+                    );
+                  });
+
+              // Save updated conversation with images
+              await _saveConversationToServer(ref);
+            } else {
+              debugPrint('DEBUG: No images found in generation response');
+            }
+          } catch (e) {
+            debugPrint('DEBUG: Image generation failed: $e');
+          }
+        }
       },
       onError: (error) {
         debugPrint('DEBUG: Stream error in chat provider: $error');
@@ -1354,8 +1498,7 @@ Future<void> _sendMessageInternal(
           final errorMessage = ChatMessage(
             id: const Uuid().v4(),
             role: 'assistant',
-            content:
-                 '''⚠️ **Message Format Error**
+            content: '''⚠️ **Message Format Error**
 
 This might be because:
 • Image attachment couldn't be processed
@@ -1382,8 +1525,7 @@ This might be because:
           final errorMessage = ChatMessage(
             id: const Uuid().v4(),
             role: 'assistant',
-            content:
-                 '''⚠️ **Server Error**
+            content: '''⚠️ **Server Error**
 
 This usually means:
 • OpenWebUI server is experiencing issues
@@ -1407,8 +1549,7 @@ This usually means:
           final errorMessage = ChatMessage(
             id: const Uuid().v4(),
             role: 'assistant',
-            content:
-                 '''⏱️ **Request Timeout**
+            content: '''⏱️ **Request Timeout**
 
 This might be because:
 • Server taking too long to respond
@@ -1511,19 +1652,23 @@ Future<void> _triggerTitleGeneration(
   try {
     final api = ref.read(apiServiceProvider);
     if (api == null) return;
-    
-    debugPrint('DEBUG: Requesting title generation for conversation $conversationId');
-    
+
+    debugPrint(
+      'DEBUG: Requesting title generation for conversation $conversationId',
+    );
+
     // Call the title generation endpoint
     final generatedTitle = await api.generateTitle(
       conversationId: conversationId,
       messages: messages,
       model: model,
     );
-    
-    if (generatedTitle != null && generatedTitle.isNotEmpty && generatedTitle != 'New Chat') {
+
+    if (generatedTitle != null &&
+        generatedTitle.isNotEmpty &&
+        generatedTitle != 'New Chat') {
       debugPrint('DEBUG: Title generated successfully: $generatedTitle');
-      
+
       // Update the active conversation with the new title
       final activeConversation = ref.read(activeConversationProvider);
       if (activeConversation?.id == conversationId) {
@@ -1532,10 +1677,12 @@ Future<void> _triggerTitleGeneration(
           updatedAt: DateTime.now(),
         );
         ref.read(activeConversationProvider.notifier).state = updated;
-        
+
         // Save the updated title to the server
         try {
-          debugPrint('DEBUG: Saving generated title to server: $generatedTitle');
+          debugPrint(
+            'DEBUG: Saving generated title to server: $generatedTitle',
+          );
           final currentMessages = ref.read(chatMessagesProvider);
           await api.updateConversationWithMessages(
             conversationId,
@@ -1547,7 +1694,7 @@ Future<void> _triggerTitleGeneration(
         } catch (e) {
           debugPrint('DEBUG: Failed to save title to server: $e');
         }
-        
+
         // Refresh the conversations list
         ref.invalidate(conversationsProvider);
       }
@@ -1564,22 +1711,27 @@ Future<void> _triggerTitleGeneration(
 }
 
 // Background function to check for title updates without blocking UI
-Future<void> _checkForTitleInBackground(dynamic ref, String conversationId) async {
+Future<void> _checkForTitleInBackground(
+  dynamic ref,
+  String conversationId,
+) async {
   try {
     final api = ref.read(apiServiceProvider);
     if (api == null) return;
 
     // Wait a bit before first check to give server time to generate
     await Future.delayed(const Duration(seconds: 3));
-    
+
     // Try a few times with increasing delays
     for (int i = 0; i < 3; i++) {
       try {
         final updatedConv = await api.getConversation(conversationId);
-        
+
         if (updatedConv.title != 'New Chat' && updatedConv.title.isNotEmpty) {
-          debugPrint('DEBUG: Background title update found: ${updatedConv.title}');
-          
+          debugPrint(
+            'DEBUG: Background title update found: ${updatedConv.title}',
+          );
+
           // Update the active conversation with the new title
           final activeConversation = ref.read(activeConversationProvider);
           if (activeConversation?.id == conversationId) {
@@ -1588,14 +1740,14 @@ Future<void> _checkForTitleInBackground(dynamic ref, String conversationId) asyn
               updatedAt: DateTime.now(),
             );
             ref.read(activeConversationProvider.notifier).state = updated;
-            
+
             // Refresh the conversations list
             ref.invalidate(conversationsProvider);
           }
-          
+
           return; // Title found, stop checking
         }
-        
+
         // Wait before next check (3s, 5s, 7s)
         if (i < 2) {
           await Future.delayed(Duration(seconds: 2 + (i * 2)));
@@ -1605,8 +1757,10 @@ Future<void> _checkForTitleInBackground(dynamic ref, String conversationId) asyn
         break; // Stop on error
       }
     }
-    
-    debugPrint('DEBUG: Background title check completed without finding generated title');
+
+    debugPrint(
+      'DEBUG: Background title check completed without finding generated title',
+    );
   } catch (e) {
     debugPrint('DEBUG: Background title check failed: $e');
   }
@@ -1646,9 +1800,7 @@ Future<void> _saveConversationToServer(dynamic ref) async {
     debugPrint(
       'DEBUG: Conversation ID being updated: ${activeConversation.id}',
     );
-    debugPrint(
-      'DEBUG: Number of messages to save: ${messages.length}',
-    );
+    debugPrint('DEBUG: Number of messages to save: ${messages.length}');
 
     try {
       await api.updateConversationWithMessages(
@@ -1722,15 +1874,17 @@ Future<void> _saveConversationLocally(dynamic ref) async {
     // Store conversation locally using the storage service's actual methods
     final conversationsJson = await storage.getString('conversations') ?? '[]';
     final List<dynamic> conversations = jsonDecode(conversationsJson);
-    
+
     // Find and update or add the conversation
-    final existingIndex = conversations.indexWhere((c) => c['id'] == updatedConversation.id);
+    final existingIndex = conversations.indexWhere(
+      (c) => c['id'] == updatedConversation.id,
+    );
     if (existingIndex >= 0) {
       conversations[existingIndex] = updatedConversation.toJson();
     } else {
       conversations.add(updatedConversation.toJson());
     }
-    
+
     await storage.setString('conversations', jsonEncode(conversations));
     ref.read(activeConversationProvider.notifier).state = updatedConversation;
     ref.invalidate(conversationsProvider);

@@ -27,7 +27,7 @@ class ApiService {
 
   // Public getter for dio instance
   Dio get dio => _dio;
-  
+
   // Public getter for base URL
   String get baseUrl => serverConfig.url;
 
@@ -724,14 +724,14 @@ class ApiService {
     // Parse attachments and generated images from 'files' field
     List<String>? attachmentIds;
     List<Map<String, dynamic>>? files;
-    
+
     if (msgData['files'] != null) {
       final filesList = msgData['files'] as List;
-      
+
       // Separate user uploads (with file_id) from generated images (with type and url)
       final userAttachments = <String>[];
       final generatedFiles = <Map<String, dynamic>>[];
-      
+
       for (final file in filesList) {
         if (file is Map) {
           if (file['file_id'] != null) {
@@ -739,14 +739,11 @@ class ApiService {
             userAttachments.add(file['file_id'] as String);
           } else if (file['type'] == 'image' && file['url'] != null) {
             // Generated image
-            generatedFiles.add({
-              'type': file['type'],
-              'url': file['url'],
-            });
+            generatedFiles.add({'type': file['type'], 'url': file['url']});
           }
         }
       }
-      
+
       attachmentIds = userAttachments.isNotEmpty ? userAttachments : null;
       files = generatedFiles.isNotEmpty ? generatedFiles : null;
     }
@@ -1688,9 +1685,8 @@ class ApiService {
     required String text,
     String? voice,
   }) async {
-    debugPrint(
-      'DEBUG: Generating speech for text: ${text.substring(0, 50)}...',
-    );
+    final textPreview = text.length > 50 ? text.substring(0, 50) : text;
+    debugPrint('DEBUG: Generating speech for text: $textPreview...');
     final response = await _dio.post(
       '/api/v1/audio/speech',
       data: {'text': text, if (voice != null) 'voice': voice},
@@ -1805,7 +1801,7 @@ class ApiService {
     return [];
   }
 
-  Future<Map<String, dynamic>> generateImage({
+  Future<dynamic> generateImage({
     required String prompt,
     String? model,
     int? width,
@@ -1813,21 +1809,37 @@ class ApiService {
     int? steps,
     double? guidance,
   }) async {
-    debugPrint(
-      'DEBUG: Generating image with prompt: ${prompt.substring(0, 50)}...',
-    );
-    final response = await _dio.post(
-      '/api/v1/images/generations',
-      data: {
-        'prompt': prompt,
-        if (model != null) 'model': model,
-        if (width != null) 'width': width,
-        if (height != null) 'height': height,
-        if (steps != null) 'steps': steps,
-        if (guidance != null) 'guidance': guidance,
-      },
-    );
-    return response.data as Map<String, dynamic>;
+    final promptPreview = prompt.length > 50 ? prompt.substring(0, 50) : prompt;
+    debugPrint('DEBUG: Generating image with prompt: $promptPreview...');
+    try {
+      final response = await _dio.post(
+        '/api/v1/images/generations',
+        data: {
+          'prompt': prompt,
+          if (model != null) 'model': model,
+          if (width != null) 'width': width,
+          if (height != null) 'height': height,
+          if (steps != null) 'steps': steps,
+          if (guidance != null) 'guidance': guidance,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      debugPrint('DEBUG: images/generations failed: ${e.response?.statusCode}');
+      // Fallback to singular path some servers use
+      final response = await _dio.post(
+        '/api/v1/image/generations',
+        data: {
+          'prompt': prompt,
+          if (model != null) 'model': model,
+          if (width != null) 'width': width,
+          if (height != null) 'height': height,
+          if (steps != null) 'steps': steps,
+          if (guidance != null) 'guidance': guidance,
+        },
+      );
+      return response.data;
+    }
   }
 
   // Prompts
@@ -1839,6 +1851,24 @@ class ApiService {
       return data.cast<Map<String, dynamic>>();
     }
     return [];
+  }
+
+  // Permissions & Features
+  Future<Map<String, dynamic>> getUserPermissions() async {
+    debugPrint('DEBUG: Fetching user permissions');
+    try {
+      final response = await _dio.get('/api/v1/users/permissions');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('DEBUG: Error fetching user permissions: $e');
+      if (e is DioException) {
+        debugPrint('DEBUG: Permissions error response: ${e.response?.data}');
+        debugPrint(
+          'DEBUG: Permissions error status: ${e.response?.statusCode}',
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>> createPrompt({
@@ -2434,6 +2464,7 @@ class ApiService {
     String? conversationId,
     List<String>? toolIds,
     bool enableWebSearch = false,
+    bool enableImageGeneration = false,
     Map<String, dynamic>? modelItem,
   }) {
     final streamController = StreamController<String>();
@@ -2504,17 +2535,25 @@ class ApiService {
       data['chat_id'] = conversationId;
     }
 
-    // Add web search flag if enabled
+    // Add feature flags if enabled
     if (enableWebSearch) {
       data['web_search'] = true;
-      // Also add it in features for compatibility
+      debugPrint('DEBUG: Web search enabled in SSE request');
+    }
+    if (enableImageGeneration) {
+      // Mirror web_search behavior for image generation
+      data['image_generation'] = true;
+      debugPrint('DEBUG: Image generation enabled in SSE request');
+    }
+
+    if (enableWebSearch || enableImageGeneration) {
+      // Include features map for compatibility
       data['features'] = {
-        'web_search': true,
-        'image_generation': false,
+        'web_search': enableWebSearch,
+        'image_generation': enableImageGeneration,
         'code_interpreter': false,
         'memory': false,
       };
-      debugPrint('DEBUG: Web search enabled in SSE request');
     }
 
     // Add tool_ids if provided (Open-WebUI expects tool_ids as array of strings)
