@@ -377,34 +377,38 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     final imageCount = widget.message.attachmentIds!.length;
 
     // Display images in a clean, modern layout for assistant messages
-    if (imageCount == 1) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        child: EnhancedImageAttachment(
-          attachmentId: widget.message.attachmentIds![0],
-          isMarkdownFormat: true,
-          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 400),
-        ),
-      );
-    } else {
-      return Wrap(
-        spacing: Spacing.sm,
-        runSpacing: Spacing.sm,
-        children: widget.message.attachmentIds!.map<Widget>((attachmentId) {
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(AppBorderRadius.md),
-            child: EnhancedImageAttachment(
-              attachmentId: attachmentId,
-              isMarkdownFormat: true,
-              constraints: BoxConstraints(
-                maxWidth: imageCount == 2 ? 245 : 160,
-                maxHeight: imageCount == 2 ? 245 : 160,
+    // Use AnimatedSwitcher for smooth transitions when loading
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      switchInCurve: Curves.easeInOut,
+      child: imageCount == 1
+          ? Container(
+              key: ValueKey('single_image_${widget.message.attachmentIds![0]}'),
+              child: EnhancedImageAttachment(
+                attachmentId: widget.message.attachmentIds![0],
+                isMarkdownFormat: true,
+                constraints: const BoxConstraints(maxWidth: 500, maxHeight: 400),
+                disableAnimation: widget.isStreaming, // Disable animation during streaming
               ),
+            )
+          : Wrap(
+              key: ValueKey('multi_images_${widget.message.attachmentIds!.join('_')}'),
+              spacing: Spacing.sm,
+              runSpacing: Spacing.sm,
+              children: widget.message.attachmentIds!.map<Widget>((attachmentId) {
+                return EnhancedImageAttachment(
+                  key: ValueKey('attachment_$attachmentId'),
+                  attachmentId: attachmentId,
+                  isMarkdownFormat: true,
+                  constraints: BoxConstraints(
+                    maxWidth: imageCount == 2 ? 245 : 160,
+                    maxHeight: imageCount == 2 ? 245 : 160,
+                  ),
+                  disableAnimation: widget.isStreaming, // Disable animation during streaming
+                );
+              }).toList(),
             ),
-          );
-        }).toList(),
-      );
-    }
+    );
   }
 
   Widget _buildGeneratedImages() {
@@ -424,40 +428,48 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     final imageCount = imageFiles.length;
 
     // Display generated images using EnhancedImageAttachment for consistency
-    if (imageCount == 1) {
-      final imageUrl = imageFiles[0]['url'] as String?;
-      if (imageUrl == null) return const SizedBox.shrink();
-      
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        child: EnhancedImageAttachment(
-          attachmentId: imageUrl, // Pass URL directly as it handles URLs
-          isMarkdownFormat: true,
-          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 400),
-        ),
-      );
-    } else {
-      return Wrap(
-        spacing: Spacing.sm,
-        runSpacing: Spacing.sm,
-        children: imageFiles.map<Widget>((file) {
-          final imageUrl = file['url'] as String?;
-          if (imageUrl == null) return const SizedBox.shrink();
-          
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(AppBorderRadius.md),
-            child: EnhancedImageAttachment(
-              attachmentId: imageUrl, // Pass URL directly
-              isMarkdownFormat: true,
-              constraints: BoxConstraints(
-                maxWidth: imageCount == 2 ? 245 : 160,
-                maxHeight: imageCount == 2 ? 245 : 160,
+    // Use AnimatedSwitcher for smooth transitions
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      switchInCurve: Curves.easeInOut,
+      child: imageCount == 1
+          ? Container(
+              key: ValueKey('gen_single_${imageFiles[0]['url']}'),
+              child: Builder(
+                builder: (context) {
+                  final imageUrl = imageFiles[0]['url'] as String?;
+                  if (imageUrl == null) return const SizedBox.shrink();
+                  
+                  return EnhancedImageAttachment(
+                    attachmentId: imageUrl, // Pass URL directly as it handles URLs
+                    isMarkdownFormat: true,
+                    constraints: const BoxConstraints(maxWidth: 500, maxHeight: 400),
+                    disableAnimation: widget.isStreaming, // Disable animation during streaming
+                  );
+                },
               ),
+            )
+          : Wrap(
+              key: ValueKey('gen_multi_${imageFiles.map((f) => f['url']).join('_')}'),
+              spacing: Spacing.sm,
+              runSpacing: Spacing.sm,
+              children: imageFiles.map<Widget>((file) {
+                final imageUrl = file['url'] as String?;
+                if (imageUrl == null) return const SizedBox.shrink();
+                
+                return EnhancedImageAttachment(
+                  key: ValueKey('gen_attachment_$imageUrl'),
+                  attachmentId: imageUrl, // Pass URL directly
+                  isMarkdownFormat: true,
+                  constraints: BoxConstraints(
+                    maxWidth: imageCount == 2 ? 245 : 160,
+                    maxHeight: imageCount == 2 ? 245 : 160,
+                  ),
+                  disableAnimation: widget.isStreaming, // Disable animation during streaming
+                );
+              }).toList(),
             ),
-          );
-        }).toList(),
-      );
-    }
+    );
   }
 
   Widget _buildTypingIndicator() {

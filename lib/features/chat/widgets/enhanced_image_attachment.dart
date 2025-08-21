@@ -2,12 +2,15 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../auth/providers/unified_auth_providers.dart';
 
-// Global cache for image data to prevent reloading
+// Simple global cache to prevent reloading
 final _globalImageCache = <String, String>{};
+final _globalLoadingStates = <String, bool>{};
+final _globalErrorStates = <String, String>{};
 
 class EnhancedImageAttachment extends ConsumerStatefulWidget {
   final String attachmentId;
@@ -15,6 +18,7 @@ class EnhancedImageAttachment extends ConsumerStatefulWidget {
   final VoidCallback? onTap;
   final BoxConstraints? constraints;
   final bool isUserMessage;
+  final bool disableAnimation;
 
   const EnhancedImageAttachment({
     super.key,
@@ -23,6 +27,7 @@ class EnhancedImageAttachment extends ConsumerStatefulWidget {
     this.onTap,
     this.constraints,
     this.isUserMessage = false,
+    this.disableAnimation = false,
   });
 
   @override
@@ -32,10 +37,13 @@ class EnhancedImageAttachment extends ConsumerStatefulWidget {
 
 class _EnhancedImageAttachmentState
     extends ConsumerState<EnhancedImageAttachment>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
   String? _cachedImageData;
   bool _isLoading = true;
   String? _errorMessage;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  bool _hasShownContent = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -43,7 +51,21 @@ class _EnhancedImageAttachmentState
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
     _loadImage();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadImage() async {
@@ -53,20 +75,43 @@ class _EnhancedImageAttachmentState
         setState(() {
           _cachedImageData = _globalImageCache[widget.attachmentId];
           _isLoading = false;
+          _hasShownContent = true;
+        });
+        if (!widget.disableAnimation) {
+          _animationController.forward();
+        }
+      }
+      return;
+    }
+
+    // Check if there was a previous error
+    if (_globalErrorStates.containsKey(widget.attachmentId)) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = _globalErrorStates[widget.attachmentId];
+          _isLoading = false;
         });
       }
       return;
     }
 
+    // Set loading state
+    _globalLoadingStates[widget.attachmentId] = true;
+
     // Check if this is already a data URL or base64 image
     if (widget.attachmentId.startsWith('data:') ||
         widget.attachmentId.startsWith('http')) {
       _globalImageCache[widget.attachmentId] = widget.attachmentId;
+      _globalLoadingStates[widget.attachmentId] = false;
       if (mounted) {
         setState(() {
           _cachedImageData = widget.attachmentId;
           _isLoading = false;
+          _hasShownContent = true;
         });
+        if (!widget.disableAnimation) {
+          _animationController.forward();
+        }
       }
       return;
     }
@@ -78,18 +123,26 @@ class _EnhancedImageAttachmentState
       if (api != null) {
         final fullUrl = api.baseUrl + widget.attachmentId;
         _globalImageCache[widget.attachmentId] = fullUrl;
+        _globalLoadingStates[widget.attachmentId] = false;
         if (mounted) {
           setState(() {
             _cachedImageData = fullUrl;
             _isLoading = false;
+            _hasShownContent = true;
           });
+          if (!widget.disableAnimation) {
+            _animationController.forward();
+          }
         }
         return;
       } else {
         // If API service is not available, show error
+        final error = 'Unable to load image: API service not available';
+        _globalErrorStates[widget.attachmentId] = error;
+        _globalLoadingStates[widget.attachmentId] = false;
         if (mounted) {
           setState(() {
-            _errorMessage = 'Unable to load image: API service not available';
+            _errorMessage = error;
             _isLoading = false;
           });
         }
@@ -99,9 +152,12 @@ class _EnhancedImageAttachmentState
 
     final api = ref.read(apiServiceProvider);
     if (api == null) {
+      final error = 'API service not available';
+      _globalErrorStates[widget.attachmentId] = error;
+      _globalLoadingStates[widget.attachmentId] = false;
       if (mounted) {
         setState(() {
-          _errorMessage = 'API service not available';
+          _errorMessage = error;
           _isLoading = false;
         });
       }
@@ -115,9 +171,12 @@ class _EnhancedImageAttachmentState
       final ext = fileName.toLowerCase().split('.').last;
 
       if (!['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].contains(ext)) {
+        final error = 'Not an image file: $fileName';
+        _globalErrorStates[widget.attachmentId] = error;
+        _globalLoadingStates[widget.attachmentId] = false;
         if (mounted) {
           setState(() {
-            _errorMessage = 'Not an image file: $fileName';
+            _errorMessage = error;
             _isLoading = false;
           });
         }
@@ -129,22 +188,33 @@ class _EnhancedImageAttachmentState
       
       // Cache globally
       _globalImageCache[widget.attachmentId] = fileContent;
+      _globalLoadingStates[widget.attachmentId] = false;
       
       // Limit cache size
       if (_globalImageCache.length > 50) {
-        _globalImageCache.remove(_globalImageCache.keys.first);
+        final firstKey = _globalImageCache.keys.first;
+        _globalImageCache.remove(firstKey);
+        _globalLoadingStates.remove(firstKey);
+        _globalErrorStates.remove(firstKey);
       }
       
       if (mounted) {
         setState(() {
           _cachedImageData = fileContent;
           _isLoading = false;
+          _hasShownContent = true;
         });
+        if (!widget.disableAnimation) {
+          _animationController.forward();
+        }
       }
     } catch (e) {
+      final error = 'Failed to load image: ${e.toString()}';
+      _globalErrorStates[widget.attachmentId] = error;
+      _globalLoadingStates[widget.attachmentId] = false;
       if (mounted) {
         setState(() {
-          _errorMessage = 'Failed to load image: ${e.toString()}';
+          _errorMessage = error;
           _isLoading = false;
         });
       }
@@ -165,6 +235,25 @@ class _EnhancedImageAttachmentState
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     
+    // Use a single container with AnimatedSwitcher for smooth transitions
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      switchInCurve: Curves.easeInOut,
+      switchOutCurve: Curves.easeInOut,
+      layoutBuilder: (currentChild, previousChildren) {
+        return Stack(
+          alignment: Alignment.center,
+          children: <Widget>[
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        );
+      },
+      child: _buildContent(),
+    );
+  }
+
+  Widget _buildContent() {
     if (_isLoading) {
       return _buildLoadingState();
     }
@@ -178,22 +267,36 @@ class _EnhancedImageAttachmentState
     }
 
     // Handle different image data formats
+    Widget imageWidget;
     if (_cachedImageData!.startsWith('http')) {
-      return _buildNetworkImage();
+      imageWidget = _buildNetworkImage();
     } else {
-      return _buildBase64Image();
+      imageWidget = _buildBase64Image();
     }
+
+    // Apply fade animation only when first showing content
+    if (!widget.disableAnimation && _hasShownContent) {
+      return FadeTransition(
+        opacity: _fadeAnimation,
+        child: imageWidget,
+      );
+    }
+    
+    return imageWidget;
   }
 
   Widget _buildLoadingState() {
+    final constraints = widget.constraints ??
+        const BoxConstraints(
+          maxWidth: 300,
+          maxHeight: 300,
+          minHeight: 150,
+          minWidth: 200,
+        );
+    
     return Container(
-      constraints: widget.constraints ??
-          const BoxConstraints(
-            maxWidth: 300,
-            maxHeight: 300,
-            minHeight: 150,
-            minWidth: 200,
-          ),
+      key: const ValueKey('loading'),
+      constraints: constraints,
       margin: const EdgeInsets.only(bottom: Spacing.xs),
       decoration: BoxDecoration(
         color: context.conduitTheme.surfaceBackground.withValues(alpha: 0.5),
@@ -203,17 +306,42 @@ class _EnhancedImageAttachmentState
           width: BorderWidth.thin,
         ),
       ),
-      child: Center(
-        child: CircularProgressIndicator(
-          color: context.conduitTheme.buttonPrimary,
-          strokeWidth: 2,
-        ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Shimmer effect placeholder
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppBorderRadius.md),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  context.conduitTheme.shimmerBase,
+                  context.conduitTheme.shimmerHighlight,
+                  context.conduitTheme.shimmerBase,
+                ],
+              ),
+            ),
+          )
+          .animate(onPlay: (controller) => controller.repeat())
+          .shimmer(
+            duration: const Duration(milliseconds: 1500),
+            color: context.conduitTheme.shimmerHighlight.withValues(alpha: 0.3),
+          ),
+          // Progress indicator overlay
+          CircularProgressIndicator(
+            color: context.conduitTheme.buttonPrimary,
+            strokeWidth: 2,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildErrorState() {
     return Container(
+      key: const ValueKey('error'),
       constraints: widget.constraints ??
           const BoxConstraints(
             maxWidth: 300,
@@ -254,7 +382,9 @@ class _EnhancedImageAttachmentState
           ),
         ],
       ),
-    );
+    )
+    .animate()
+    .fadeIn(duration: const Duration(milliseconds: 200));
   }
 
   Widget _buildNetworkImage() {
@@ -277,10 +407,19 @@ class _EnhancedImageAttachmentState
     }
     
     final imageWidget = CachedNetworkImage(
+      key: ValueKey('image_${widget.attachmentId}'),
       imageUrl: _cachedImageData!,
       fit: BoxFit.cover,
       httpHeaders: headers.isNotEmpty ? headers : null,
-      placeholder: (context, url) => _buildLoadingState(),
+      fadeInDuration: const Duration(milliseconds: 200),
+      fadeOutDuration: const Duration(milliseconds: 200),
+      placeholder: (context, url) => Container(
+        constraints: widget.constraints,
+        decoration: BoxDecoration(
+          color: context.conduitTheme.shimmerBase,
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        ),
+      ),
       errorWidget: (context, url, error) {
         _errorMessage = error.toString();
         return _buildErrorState();
@@ -307,8 +446,10 @@ class _EnhancedImageAttachmentState
 
       final imageBytes = base64.decode(actualBase64);
       final imageWidget = Image.memory(
+        key: ValueKey('image_${widget.attachmentId}'),
         imageBytes,
         fit: BoxFit.cover,
+        gaplessPlayback: true, // Prevents flashing during rebuilds
         errorBuilder: (context, error, stackTrace) {
           _errorMessage = 'Failed to decode image';
           return _buildErrorState();
@@ -323,7 +464,7 @@ class _EnhancedImageAttachmentState
   }
 
   Widget _wrapImage(Widget imageWidget) {
-    return Container(
+    final wrappedImage = Container(
       constraints: widget.constraints ??
           const BoxConstraints(
             maxWidth: 400,
@@ -332,17 +473,43 @@ class _EnhancedImageAttachmentState
       margin: widget.isMarkdownFormat
           ? const EdgeInsets.symmetric(vertical: Spacing.sm)
           : EdgeInsets.zero,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onTap ?? () => _showFullScreenImage(context),
-          child: Hero(
-            tag: 'image_${widget.attachmentId}',
-            child: imageWidget,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        // Add subtle shadow for depth
+        boxShadow: [
+          BoxShadow(
+            color: context.conduitTheme.cardShadow.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onTap ?? () => _showFullScreenImage(context),
+            child: Hero(
+              tag: 'image_${widget.attachmentId}_${DateTime.now().millisecondsSinceEpoch}',
+              flightShuttleBuilder: (flightContext, animation, flightDirection,
+                  fromHeroContext, toHeroContext) {
+                final hero = flightDirection == HeroFlightDirection.push
+                    ? fromHeroContext.widget as Hero
+                    : toHeroContext.widget as Hero;
+                return FadeTransition(
+                  opacity: animation,
+                  child: hero.child,
+                );
+              },
+              child: imageWidget,
+            ),
           ),
         ),
       ),
     );
+
+    return wrappedImage;
   }
 
   void _showFullScreenImage(BuildContext context) {

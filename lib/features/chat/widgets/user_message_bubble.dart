@@ -62,18 +62,40 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
 
     final imageCount = widget.message.attachmentIds!.length;
 
-    // iMessage-style image layout
+    // iMessage-style image layout with AnimatedSwitcher for smooth transitions
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      switchInCurve: Curves.easeInOut,
+      child: _buildImageLayout(imageCount),
+    );
+  }
+
+  Widget _buildImageLayout(int imageCount) {
     if (imageCount == 1) {
       // Single image - larger display
       return Row(
+        key: ValueKey('user_single_${widget.message.attachmentIds![0]}'),
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppBorderRadius.messageBubble),
-            child: EnhancedImageAttachment(
-              attachmentId: widget.message.attachmentIds![0],
-              isUserMessage: true,
-              constraints: const BoxConstraints(maxWidth: 280, maxHeight: 350),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppBorderRadius.messageBubble),
+              boxShadow: [
+                BoxShadow(
+                  color: context.conduitTheme.cardShadow.withValues(alpha: 0.1),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppBorderRadius.messageBubble),
+              child: EnhancedImageAttachment(
+                attachmentId: widget.message.attachmentIds![0],
+                isUserMessage: true,
+                constraints: const BoxConstraints(maxWidth: 280, maxHeight: 350),
+                disableAnimation: widget.isStreaming,
+              ),
             ),
           ),
         ],
@@ -81,29 +103,40 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
     } else if (imageCount == 2) {
       // Two images side by side
       return Row(
+        key: ValueKey('user_double_${widget.message.attachmentIds!.join('_')}'),
         mainAxisAlignment: MainAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
         children: [
           Flexible(
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: widget.message.attachmentIds!.map((attachmentId) {
+              children: widget.message.attachmentIds!.asMap().entries.map((entry) {
+                final index = entry.key;
+                final attachmentId = entry.value;
                 return Padding(
-                  padding: EdgeInsets.only(
-                    left: attachmentId == widget.message.attachmentIds!.first
-                        ? 0
-                        : Spacing.xs,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(
-                      AppBorderRadius.messageBubble,
+                  padding: EdgeInsets.only(left: index == 0 ? 0 : Spacing.xs),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppBorderRadius.messageBubble),
+                      boxShadow: [
+                        BoxShadow(
+                          color: context.conduitTheme.cardShadow.withValues(alpha: 0.08),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
                     ),
-                    child: EnhancedImageAttachment(
-                      attachmentId: attachmentId,
-                      isUserMessage: true,
-                      constraints: const BoxConstraints(
-                        maxWidth: 135,
-                        maxHeight: 180,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(AppBorderRadius.messageBubble),
+                      child: EnhancedImageAttachment(
+                        key: ValueKey('user_attachment_$attachmentId'),
+                        attachmentId: attachmentId,
+                        isUserMessage: true,
+                        constraints: const BoxConstraints(
+                          maxWidth: 135,
+                          maxHeight: 180,
+                        ),
+                        disableAnimation: widget.isStreaming,
                       ),
                     ),
                   ),
@@ -116,6 +149,7 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
     } else {
       // Grid layout for 3+ images
       return Row(
+        key: ValueKey('user_grid_${widget.message.attachmentIds!.join('_')}'),
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Flexible(
@@ -126,14 +160,28 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
                 spacing: Spacing.xs,
                 runSpacing: Spacing.xs,
                 children: widget.message.attachmentIds!.map((attachmentId) {
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                    child: EnhancedImageAttachment(
-                      attachmentId: attachmentId,
-                      isUserMessage: true,
-                      constraints: BoxConstraints(
-                        maxWidth: imageCount == 3 ? 135 : 90,
-                        maxHeight: imageCount == 3 ? 135 : 90,
+                  return Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                      boxShadow: [
+                        BoxShadow(
+                          color: context.conduitTheme.cardShadow.withValues(alpha: 0.06),
+                          blurRadius: 3,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                      child: EnhancedImageAttachment(
+                        key: ValueKey('user_grid_attachment_$attachmentId'),
+                        attachmentId: attachmentId,
+                        isUserMessage: true,
+                        constraints: BoxConstraints(
+                          maxWidth: imageCount == 3 ? 135 : 90,
+                          maxHeight: imageCount == 3 ? 135 : 90,
+                        ),
+                        disableAnimation: widget.isStreaming,
                       ),
                     ),
                   );

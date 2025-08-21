@@ -855,84 +855,107 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     );
     final isLoadingConversation = ref.watch(isLoadingConversationProvider);
 
-    if (isLoadingConversation && messages.isEmpty) {
-      // Show message skeletons during conversation load
-      return ListView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.fromLTRB(
-          Spacing.lg,
-          Spacing.md,
-          Spacing.lg,
-          Spacing.lg,
-        ),
-        itemCount: 6,
-        itemBuilder: (context, index) {
-          final isUser = index.isOdd;
-          return Align(
-            alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-            child: Container(
-              margin: const EdgeInsets.only(bottom: Spacing.md),
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.82,
+    // Use AnimatedSwitcher for smooth transition between loading and loaded states
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      switchInCurve: Curves.easeInOut,
+      switchOutCurve: Curves.easeInOut,
+      layoutBuilder: (currentChild, previousChildren) {
+        return Stack(
+          alignment: Alignment.topCenter,
+          children: <Widget>[
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        );
+      },
+      child: isLoadingConversation && messages.isEmpty
+          ? _buildLoadingMessagesList()
+          : _buildActualMessagesList(messages),
+    );
+  }
+
+  Widget _buildLoadingMessagesList() {
+    return ListView.builder(
+      key: const ValueKey('loading_messages'),
+      controller: _scrollController,
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.lg,
+        Spacing.md,
+        Spacing.lg,
+        Spacing.lg,
+      ),
+      physics: const NeverScrollableScrollPhysics(), // Prevent scrolling during load
+      itemCount: 6,
+      itemBuilder: (context, index) {
+        final isUser = index.isOdd;
+        return Align(
+          alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: Spacing.md),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.82,
+            ),
+            padding: const EdgeInsets.all(Spacing.md),
+            decoration: BoxDecoration(
+              color: isUser
+                  ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.15)
+                  : context.conduitTheme.cardBackground,
+              borderRadius: BorderRadius.circular(
+                AppBorderRadius.messageBubble,
               ),
-              padding: const EdgeInsets.all(Spacing.md),
-              decoration: BoxDecoration(
-                color: isUser
-                    ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.15)
-                    : context.conduitTheme.cardBackground,
-                borderRadius: BorderRadius.circular(
-                  AppBorderRadius.messageBubble,
-                ),
-                border: Border.all(
-                  color: context.conduitTheme.cardBorder,
-                  width: BorderWidth.regular,
-                ),
-                boxShadow: ConduitShadows.messageBubble,
+              border: Border.all(
+                color: context.conduitTheme.cardBorder,
+                width: BorderWidth.regular,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 14,
-                    width: index % 3 == 0 ? 140 : 220,
-                    decoration: BoxDecoration(
-                      color: context.conduitTheme.shimmerBase,
-                      borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-                    ),
-                  ).animate().shimmer(duration: AnimationDuration.slow),
+              boxShadow: ConduitShadows.messageBubble,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 14,
+                  width: index % 3 == 0 ? 140 : 220,
+                  decoration: BoxDecoration(
+                    color: context.conduitTheme.shimmerBase,
+                    borderRadius: BorderRadius.circular(AppBorderRadius.xs),
+                  ),
+                ).animate().shimmer(duration: AnimationDuration.slow),
+                const SizedBox(height: Spacing.xs),
+                Container(
+                  height: 14,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: context.conduitTheme.shimmerBase,
+                    borderRadius: BorderRadius.circular(AppBorderRadius.xs),
+                  ),
+                ).animate().shimmer(duration: AnimationDuration.slow),
+                if (index % 3 != 0) ...[
                   const SizedBox(height: Spacing.xs),
                   Container(
                     height: 14,
-                    width: double.infinity,
+                    width: index % 2 == 0 ? 180 : 120,
                     decoration: BoxDecoration(
                       color: context.conduitTheme.shimmerBase,
                       borderRadius: BorderRadius.circular(AppBorderRadius.xs),
                     ),
                   ).animate().shimmer(duration: AnimationDuration.slow),
-                  if (index % 3 != 0) ...[
-                    const SizedBox(height: Spacing.xs),
-                    Container(
-                      height: 14,
-                      width: index % 2 == 0 ? 180 : 120,
-                      decoration: BoxDecoration(
-                        color: context.conduitTheme.shimmerBase,
-                        borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-                      ),
-                    ).animate().shimmer(duration: AnimationDuration.slow),
-                  ],
                 ],
-              ),
+              ],
             ),
-          );
-        },
-      );
-    }
+          ),
+        );
+      },
+    );
+  }
 
+  Widget _buildActualMessagesList(List<ChatMessage> messages) {
     if (messages.isEmpty) {
-      return _buildEmptyState(theme);
+      return _buildEmptyState(Theme.of(context));
     }
 
     return OptimizedList<ChatMessage>(
+      key: const ValueKey('actual_messages'),
       scrollController: _scrollController,
       items: messages,
       padding: const EdgeInsets.fromLTRB(
