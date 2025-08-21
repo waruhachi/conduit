@@ -8,6 +8,7 @@ import '../../../shared/theme/theme_extensions.dart';
 import '../../chat/providers/chat_providers.dart';
 import '../../../core/providers/app_providers.dart';
 import '../providers/tools_providers.dart';
+import '../../../shared/widgets/sheet_handle.dart';
 
 class UnifiedToolsModal extends ConsumerStatefulWidget {
   const UnifiedToolsModal({super.key});
@@ -47,17 +48,8 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Handle bar
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: theme.textPrimary.withValues(alpha: Alpha.medium),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
+                // Handle bar (standardized)
+                const SheetHandle(),
                 const SizedBox(height: Spacing.md),
 
                 // Removed header for minimal, focused layout

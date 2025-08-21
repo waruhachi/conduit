@@ -18,8 +18,6 @@ import '../widgets/assistant_message_widget.dart' as assistant;
 import '../widgets/file_attachment_widget.dart';
 import '../services/voice_input_service.dart';
 import '../services/file_attachment_service.dart';
-import '../../files/views/files_page.dart';
-import '../../profile/views/profile_page.dart';
 import '../../tools/providers/tools_providers.dart';
 import '../../navigation/widgets/chats_drawer.dart';
 import '../../../shared/widgets/offline_indicator.dart';
@@ -30,6 +28,7 @@ import '../../../shared/widgets/loading_states.dart';
 import 'chat_page_helpers.dart';
 import '../../../shared/widgets/themed_dialogs.dart';
 import '../../onboarding/views/onboarding_sheet.dart';
+import '../../../shared/widgets/sheet_handle.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({super.key});
@@ -463,133 +462,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   // Replaced bottom-sheet chat list with left drawer (see ChatsDrawer)
-
-  void _showQuickAccessMenu() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: context.conduitTheme.surfaceBackground,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(AppBorderRadius.modal),
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-                decoration: BoxDecoration(
-                  color: context.conduitTheme.dividerColor,
-                  borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-                ),
-              ),
-              // Hint text
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-                child: Text(
-                  'Quick Actions',
-                  style: AppTypography.bodySmallStyle.copyWith(
-                    color: context.conduitTheme.textSecondary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(height: Spacing.xs),
-              // Menu items
-              ListTile(
-                leading: Icon(
-                  Platform.isIOS ? CupertinoIcons.plus : Icons.add_rounded,
-                  color: context.conduitTheme.iconPrimary,
-                ),
-                title: Text(
-                  'New Chat',
-                  style: AppTypography.bodyLargeStyle.copyWith(
-                    color: context.conduitTheme.textPrimary,
-                  ),
-                ),
-                subtitle: Text(
-                  'Start a new conversation',
-                  style: AppTypography.bodySmallStyle.copyWith(
-                    color: context.conduitTheme.textSecondary,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _handleNewChat();
-                },
-              ),
-              ListTile(
-                leading: Icon(
-                  Platform.isIOS
-                      ? CupertinoIcons.doc
-                      : Icons.description_outlined,
-                  color: context.conduitTheme.iconPrimary,
-                ),
-                title: Text(
-                  'Files',
-                  style: AppTypography.bodyLargeStyle.copyWith(
-                    color: context.conduitTheme.textPrimary,
-                  ),
-                ),
-                subtitle: Text(
-                  'Manage your files and documents',
-                  style: AppTypography.bodySmallStyle.copyWith(
-                    color: context.conduitTheme.textSecondary,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _navigateToFiles();
-                },
-              ),
-
-              ListTile(
-                leading: Icon(
-                  Platform.isIOS ? CupertinoIcons.person : Icons.person_outline,
-                  color: context.conduitTheme.iconPrimary,
-                ),
-                title: Text(
-                  'Profile',
-                  style: AppTypography.bodyLargeStyle.copyWith(
-                    color: context.conduitTheme.textPrimary,
-                  ),
-                ),
-                subtitle: Text(
-                  'View and manage your profile',
-                  style: AppTypography.bodySmallStyle.copyWith(
-                    color: context.conduitTheme.textSecondary,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _navigateToProfile();
-                },
-              ),
-              const SizedBox(height: Spacing.sm),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _navigateToFiles() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => const FilesPage()));
-  }
-
-  void _navigateToProfile() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => const ProfilePage()));
-  }
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
@@ -1126,10 +998,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         // Open left drawer instead of bottom sheet
                         Scaffold.of(ctx).openDrawer();
                       },
-                      onLongPress: () {
-                        HapticFeedback.mediumImpact();
-                        _showQuickAccessMenu();
-                      },
                       child: Padding(
                         padding: const EdgeInsets.all(4.0),
                         child: Icon(
@@ -1635,19 +1503,8 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
               padding: const EdgeInsets.all(Spacing.bottomSheetPadding),
               child: Column(
                 children: [
-                  // Handle bar
-                  Container(
-                    margin: const EdgeInsets.only(
-                      top: Spacing.sm,
-                      bottom: Spacing.md,
-                    ),
-                    width: Spacing.xxl,
-                    height: Spacing.xs,
-                    decoration: BoxDecoration(
-                      color: context.conduitTheme.dividerColor,
-                      borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-                    ),
-                  ),
+                  // Handle bar (standardized)
+                  const SheetHandle(),
 
                   // Search field
                   Padding(

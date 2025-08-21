@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../../shared/widgets/sheet_handle.dart';
 
 class OnboardingSheet extends StatefulWidget {
   const OnboardingSheet({super.key});
@@ -43,10 +44,10 @@ class _OnboardingSheetState extends State<OnboardingSheet> {
     _OnboardingPage(
       title: 'Quick actions',
       subtitle:
-          'Long‑press the top‑left menu to open shortcuts like New Chat, Files, and Profile.',
+          'Use the top‑left menu to open the chats list and navigation.',
       icon: CupertinoIcons.line_horizontal_3,
       bullets: [
-        'Tap to open chats list; long‑press for Quick Actions',
+        'Tap the menu to open the chats list and navigation',
         'Jump instantly to New Chat, Files, or Profile',
       ],
     ),
@@ -81,16 +82,8 @@ class _OnboardingSheetState extends State<OnboardingSheet> {
           padding: const EdgeInsets.all(Spacing.lg),
           child: Column(
             children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: Spacing.md),
-                decoration: BoxDecoration(
-                  color: context.conduitTheme.dividerColor,
-                  borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-                ),
-              ),
+              // Handle bar (standardized)
+              const SheetHandle(),
 
               Expanded(
                 child: PageView.builder(

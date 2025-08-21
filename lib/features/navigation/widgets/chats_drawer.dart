@@ -7,12 +7,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
-import '../../../core/auth/auth_state_manager.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import '../../chat/providers/chat_providers.dart' as chat;
-import '../../files/views/files_page.dart';
+// import '../../files/views/files_page.dart';
 import '../../profile/views/profile_page.dart';
 import '../../../shared/utils/ui_utils.dart';
+import '../../../core/auth/auth_state_manager.dart';
 
 class ChatsDrawer extends ConsumerStatefulWidget {
   const ChatsDrawer({super.key});
@@ -27,6 +27,9 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
   Timer? _debounce;
   String _query = '';
   bool _isLoadingConversation = false;
+  String? _dragHoverFolderId;
+  bool _isDragging = false;
+  bool _draggingHasFolder = false;
 
   // UI state providers for sections
   static final _showArchivedProvider = StateProvider<bool>((ref) => false);
@@ -49,8 +52,15 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     });
   }
 
+  // Payload for drag-and-drop of conversations
+  // Kept local to this widget
+  // ignore: unused_element
+  static _DragConversationData _dragData(String id, String title) =>
+      _DragConversationData(id: id, title: title);
+
   @override
   Widget build(BuildContext context) {
+    // Bottom section now only shows navigation actions
     final theme = context.conduitTheme;
 
     return SafeArea(
@@ -80,34 +90,32 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     final theme = context.conduitTheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(Spacing.md, Spacing.md, Spacing.md, 0),
-      child: Row(
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Icon(
-            Platform.isIOS
-                ? CupertinoIcons.chat_bubble_2
-                : Icons.chat_bubble_outline_rounded,
-            color: theme.iconPrimary,
+          // Centered title (no leading icon)
+          Text(
+            'Chats',
+            style: AppTypography.headlineSmallStyle.copyWith(
+              color: theme.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(width: Spacing.sm),
-          Expanded(
-            child: Text(
-              'Chats',
-              style: AppTypography.headlineSmallStyle.copyWith(
-                color: theme.textPrimary,
-                fontWeight: FontWeight.w600,
+          // Right-aligned new chat action
+          Positioned(
+            right: 0,
+            child: IconButton(
+              icon: Icon(
+                Platform.isIOS ? CupertinoIcons.plus : Icons.add_rounded,
+                color: theme.iconPrimary,
               ),
+              onPressed: () {
+                chat.startNewChat(ref);
+                if (mounted) Navigator.of(context).maybePop();
+              },
+              tooltip: 'New Chat',
             ),
-          ),
-          IconButton(
-            icon: Icon(
-              Platform.isIOS ? CupertinoIcons.plus : Icons.add_rounded,
-              color: theme.iconPrimary,
-            ),
-            onPressed: () {
-              chat.startNewChat(ref);
-              if (mounted) Navigator.of(context).maybePop();
-            },
-            tooltip: 'New Chat',
           ),
         ],
       ),
@@ -234,8 +242,14 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                 const SizedBox(height: Spacing.md),
               ],
 
-              if (foldered.isNotEmpty) ...[
-                ...ref.watch(foldersProvider).when(
+              // Folders section (shown even if empty)
+              _buildFoldersSectionHeader(),
+              const SizedBox(height: Spacing.xs),
+              if (_isDragging && _draggingHasFolder) ...[
+                _buildUnfileDropTarget(),
+                const SizedBox(height: Spacing.sm),
+              ],
+              ...ref.watch(foldersProvider).when(
                       data: (folders) {
                         final grouped = <String, List<dynamic>>{};
                         for (final c in foldered) {
@@ -243,18 +257,16 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                           grouped.putIfAbsent(id, () => []).add(c);
                         }
 
-                        // Only show folders that have items
-                        final sections = folders
-                            .where((f) => grouped.containsKey(f.id))
-                            .map((folder) {
+                        // Show all folders (including empty)
+                        final sections = folders.map((folder) {
                           final expandedMap = ref.watch(_expandedFoldersProvider);
                           final isExpanded = expandedMap[folder.id] ?? false;
-                          final convs = grouped[folder.id]!;
+                          final convs = grouped[folder.id] ?? const <dynamic>[];
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               _buildFolderHeader(folder.id, folder.name, convs.length),
-                              if (isExpanded) ...[
+                              if (isExpanded && convs.isNotEmpty) ...[
                                 const SizedBox(height: Spacing.xs),
                                 ...convs.map((c) => _buildTileFor(c, inFolder: true)),
                                 const SizedBox(height: Spacing.sm),
@@ -262,13 +274,12 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                             ],
                           );
                         }).toList();
-                        return sections;
+                        return sections.isEmpty ? [const SizedBox.shrink()] : sections;
                       },
                       loading: () => [const SizedBox.shrink()],
                       error: (e, st) => [const SizedBox.shrink()],
                     ),
-                const SizedBox(height: Spacing.md),
-              ],
+              const SizedBox(height: Spacing.md),
 
               if (regular.isNotEmpty) ...[
                 _buildSectionHeader('Recent', regular.length),
@@ -348,26 +359,30 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
               ...pinned.map((conv) => _buildTileFor(conv)),
               const SizedBox(height: Spacing.md),
             ],
-            if (foldered.isNotEmpty) ...[
-              ...ref.watch(foldersProvider).when(
-                    data: (folders) {
-                      final grouped = <String, List<dynamic>>{};
-                      for (final c in foldered) {
-                        final id = c.folderId!;
-                        grouped.putIfAbsent(id, () => []).add(c);
-                      }
+            // Folders section (shown even if empty)
+            _buildFoldersSectionHeader(),
+            const SizedBox(height: Spacing.xs),
+            if (_isDragging && _draggingHasFolder) ...[
+              _buildUnfileDropTarget(),
+              const SizedBox(height: Spacing.sm),
+            ],
+            ...ref.watch(foldersProvider).when(
+                  data: (folders) {
+                    final grouped = <String, List<dynamic>>{};
+                    for (final c in foldered) {
+                      final id = c.folderId!;
+                      grouped.putIfAbsent(id, () => []).add(c);
+                    }
 
-                      final sections = folders
-                          .where((f) => grouped.containsKey(f.id))
-                          .map((folder) {
+                      final sections = folders.map((folder) {
                         final expandedMap = ref.watch(_expandedFoldersProvider);
                         final isExpanded = expandedMap[folder.id] ?? false;
-                        final convs = grouped[folder.id]!;
+                        final convs = grouped[folder.id] ?? const <dynamic>[];
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _buildFolderHeader(folder.id, folder.name, convs.length),
-                            if (isExpanded) ...[
+                            if (isExpanded && convs.isNotEmpty) ...[
                               const SizedBox(height: Spacing.xs),
                               ...convs.map((c) => _buildTileFor(c, inFolder: true)),
                               const SizedBox(height: Spacing.sm),
@@ -375,13 +390,12 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                           ],
                         );
                       }).toList();
-                      return sections;
+                      return sections.isEmpty ? [const SizedBox.shrink()] : sections;
                     },
                     loading: () => [const SizedBox.shrink()],
                     error: (e, st) => [const SizedBox.shrink()],
                   ),
-              const SizedBox(height: Spacing.md),
-            ],
+            const SizedBox(height: Spacing.md),
             if (regular.isNotEmpty) ...[
               _buildSectionHeader('Recent', regular.length),
               const SizedBox(height: Spacing.xs),
@@ -440,24 +454,225 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     );
   }
 
+  /// Header for the Folders section with a create button on the right
+  Widget _buildFoldersSectionHeader() {
+    final theme = context.conduitTheme;
+    return Row(
+      children: [
+        Text(
+          'Folders',
+          style: AppTypography.bodySmallStyle.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.textSecondary,
+            letterSpacing: 0.2,
+          ),
+        ),
+        const Spacer(),
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          tooltip: 'New Folder',
+          icon: Icon(
+            Platform.isIOS ? CupertinoIcons.folder_badge_plus : Icons.create_new_folder_outlined,
+            color: theme.iconPrimary,
+          ),
+          onPressed: _promptCreateFolder,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _promptCreateFolder() async {
+    final theme = context.conduitTheme;
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: theme.surfaceBackground,
+        title: Text('New Folder', style: TextStyle(color: theme.textPrimary)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: TextStyle(color: theme.inputText),
+          decoration: InputDecoration(
+            hintText: 'Folder name',
+            hintStyle: TextStyle(color: theme.inputPlaceholder),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: theme.inputBorder)),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: theme.buttonPrimary)),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, controller.text.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+
+    if (name == null) return;
+    if (name.isEmpty) return;
+    try {
+      final api = ref.read(apiServiceProvider);
+      if (api == null) throw Exception('No API service');
+      await api.createFolder(name: name);
+      HapticFeedback.lightImpact();
+      ref.invalidate(foldersProvider);
+      if (!mounted) return;
+      UiUtils.showMessage(context, 'Folder created');
+    } catch (e) {
+      if (!mounted) return;
+      UiUtils.showMessage(context, 'Failed to create folder', isError: true);
+    }
+  }
+
   Widget _buildFolderHeader(String folderId, String name, int count) {
     final theme = context.conduitTheme;
     final expandedMap = ref.watch(_expandedFoldersProvider);
     final isExpanded = expandedMap[folderId] ?? false;
-    return Material(
-      color: theme.surfaceBackground.withValues(alpha: 0.05),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        side: BorderSide(color: theme.dividerColor, width: BorderWidth.regular),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        onTap: () {
-          final current = {...ref.read(_expandedFoldersProvider)};
-          current[folderId] = !isExpanded;
-          ref.read(_expandedFoldersProvider.notifier).state = current;
-        },
-        child: Padding(
+    final isHover = _dragHoverFolderId == folderId;
+    return DragTarget<_DragConversationData>(
+      onWillAcceptWithDetails: (details) {
+        setState(() => _dragHoverFolderId = folderId);
+        return true;
+      },
+      onLeave: (_) => setState(() => _dragHoverFolderId = null),
+      onAcceptWithDetails: (details) async {
+        setState(() {
+          _dragHoverFolderId = null;
+          _isDragging = false;
+        });
+        try {
+          final api = ref.read(apiServiceProvider);
+          if (api == null) throw Exception('No API service');
+          await api.moveConversationToFolder(details.data.id, folderId);
+          HapticFeedback.selectionClick();
+          ref.invalidate(conversationsProvider);
+          ref.invalidate(foldersProvider);
+          if (mounted) {
+            UiUtils.showMessage(context, 'Moved "${details.data.title}" to "$name"');
+          }
+        } catch (_) {
+          if (mounted) {
+            UiUtils.showMessage(context, 'Failed to move chat', isError: true);
+          }
+        }
+      },
+      builder: (context, candidateData, rejectedData) {
+        return Material(
+          color: isHover
+              ? theme.buttonPrimary.withValues(alpha: 0.08)
+              : theme.surfaceBackground.withValues(alpha: 0.05),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppBorderRadius.md),
+            side: BorderSide(
+              color: isHover
+                  ? theme.buttonPrimary.withValues(alpha: 0.6)
+                  : theme.dividerColor,
+              width: BorderWidth.regular,
+            ),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppBorderRadius.md),
+            onTap: () {
+              final current = {...ref.read(_expandedFoldersProvider)};
+              current[folderId] = !isExpanded;
+              ref.read(_expandedFoldersProvider.notifier).state = current;
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.md,
+                vertical: Spacing.sm,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isExpanded
+                        ? (Platform.isIOS ? CupertinoIcons.folder_open : Icons.folder_open)
+                        : (Platform.isIOS ? CupertinoIcons.folder : Icons.folder),
+                    color: theme.iconPrimary,
+                  ),
+                  const SizedBox(width: Spacing.sm),
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: AppTypography.bodyLargeStyle.copyWith(
+                        color: theme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '$count',
+                    style: AppTypography.bodySmallStyle.copyWith(
+                      color: theme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: Spacing.xs),
+                  Icon(
+                    isExpanded
+                        ? (Platform.isIOS ? CupertinoIcons.chevron_up : Icons.expand_less)
+                        : (Platform.isIOS ? CupertinoIcons.chevron_down : Icons.expand_more),
+                    color: theme.iconSecondary,
+                  )
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildUnfileDropTarget() {
+    final theme = context.conduitTheme;
+    final isHover = _dragHoverFolderId == '__UNFILE__';
+    return DragTarget<_DragConversationData>(
+      onWillAcceptWithDetails: (details) {
+        setState(() => _dragHoverFolderId = '__UNFILE__');
+        return true;
+      },
+      onLeave: (_) => setState(() => _dragHoverFolderId = null),
+      onAcceptWithDetails: (details) async {
+        setState(() {
+          _dragHoverFolderId = null;
+          _isDragging = false;
+        });
+        try {
+          final api = ref.read(apiServiceProvider);
+          if (api == null) throw Exception('No API service');
+          await api.moveConversationToFolder(details.data.id, null);
+          HapticFeedback.selectionClick();
+          ref.invalidate(conversationsProvider);
+          ref.invalidate(foldersProvider);
+          if (mounted) {
+            UiUtils.showMessage(context, 'Removed "${details.data.title}" from folder');
+          }
+        } catch (_) {
+          if (mounted) {
+            UiUtils.showMessage(context, 'Failed to move chat', isError: true);
+          }
+        }
+      },
+      builder: (context, candidate, rejected) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          decoration: BoxDecoration(
+            color: isHover
+                ? theme.buttonPrimary.withValues(alpha: 0.08)
+                : theme.surfaceBackground.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(AppBorderRadius.md),
+            border: Border.all(
+              color: isHover
+                  ? theme.buttonPrimary.withValues(alpha: 0.6)
+                  : theme.dividerColor,
+              width: BorderWidth.regular,
+            ),
+          ),
           padding: const EdgeInsets.symmetric(
             horizontal: Spacing.md,
             vertical: Spacing.sm,
@@ -465,58 +680,102 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           child: Row(
             children: [
               Icon(
-                isExpanded
-                    ? (Platform.isIOS ? CupertinoIcons.folder_open : Icons.folder_open)
-                    : (Platform.isIOS ? CupertinoIcons.folder : Icons.folder),
+                Platform.isIOS
+                    ? CupertinoIcons.folder_badge_minus
+                    : Icons.folder_off_outlined,
                 color: theme.iconPrimary,
               ),
               const SizedBox(width: Spacing.sm),
               Expanded(
                 child: Text(
-                  name,
-                  style: AppTypography.bodyLargeStyle.copyWith(
+                  'Drop here to remove from folder',
+                  style: AppTypography.bodyMediumStyle.copyWith(
                     color: theme.textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              Text(
-                '$count',
-                style: AppTypography.bodySmallStyle.copyWith(
-                  color: theme.textSecondary,
-                ),
-              ),
-              const SizedBox(width: Spacing.xs),
-              Icon(
-                isExpanded
-                    ? (Platform.isIOS ? CupertinoIcons.chevron_up : Icons.expand_less)
-                    : (Platform.isIOS ? CupertinoIcons.chevron_down : Icons.expand_more),
-                color: theme.iconSecondary,
-              )
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
   Widget _buildTileFor(dynamic conv, {bool inFolder = false}) {
     final isActive = ref.watch(activeConversationProvider)?.id == conv.id;
+    final title = conv.title?.isEmpty == true ? 'Chat' : (conv.title ?? 'Chat');
+    final tile = _ConversationTile(
+      title: title,
+      pinned: conv.pinned == true,
+      selected: isActive,
+      onTap: _isLoadingConversation ? null : () => _selectConversation(context, conv.id),
+      // Remove long-press context menu to avoid conflict with drag gesture
+      onLongPress: null,
+      onMorePressed: () {
+        HapticFeedback.selectionClick();
+        _showConversationContextMenu(context, conv);
+      },
+    );
+
     return Padding(
       padding: EdgeInsets.only(bottom: Spacing.xs, left: inFolder ? Spacing.md : 0),
-      child: _ConversationTile(
-        title: conv.title?.isEmpty == true ? 'Chat' : (conv.title ?? 'Chat'),
-        pinned: conv.pinned == true,
-        selected: isActive,
-        onTap: _isLoadingConversation ? null : () => _selectConversation(context, conv.id),
-        onLongPress: () {
-          HapticFeedback.selectionClick();
-          _showConversationContextMenu(context, conv);
+      child: LongPressDraggable<_DragConversationData>(
+        data: _DragConversationData(id: conv.id, title: title),
+        dragAnchorStrategy: pointerDragAnchorStrategy,
+        feedback: Material(
+          color: Colors.transparent,
+          elevation: 6,
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          child: Opacity(
+            opacity: 0.9,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.md,
+                vertical: Spacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                border: Border.all(
+                  color: Theme.of(context).dividerColor,
+                  width: BorderWidth.regular,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Platform.isIOS
+                        ? CupertinoIcons.chat_bubble_2
+                        : Icons.chat_bubble_outline,
+                    size: IconSize.md,
+                  ),
+                  const SizedBox(width: Spacing.xs),
+                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+          ),
+        ),
+        childWhenDragging: Opacity(
+          opacity: 0.5,
+          child: IgnorePointer(child: tile),
+        ),
+        onDragStarted: () {
+          HapticFeedback.lightImpact();
+          final hasFolder = (conv.folderId != null && (conv.folderId as String).isNotEmpty);
+          setState(() {
+            _isDragging = true;
+            _draggingHasFolder = hasFolder;
+          });
         },
-        onMorePressed: () {
-          HapticFeedback.selectionClick();
-          _showConversationContextMenu(context, conv);
-        },
+        onDragEnd: (_) => setState(() {
+          _dragHoverFolderId = null;
+          _isDragging = false;
+          _draggingHasFolder = false;
+        }),
+        child: tile,
       ),
     );
   }
@@ -632,6 +891,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (user != null) ...[
+              const SizedBox(height: Spacing.sm),
               Container(
                 padding: const EdgeInsets.all(Spacing.sm),
                 decoration: BoxDecoration(
@@ -693,37 +953,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                   ],
                 ),
               ),
-              const SizedBox(height: Spacing.sm),
             ],
-            Row(
-              children: [
-                Expanded(
-                  child: _BottomAction(
-                    icon: Platform.isIOS ? CupertinoIcons.doc : Icons.description_outlined,
-                    label: 'Files',
-                    onTap: () {
-                      Navigator.of(context).maybePop();
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const FilesPage()),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: Spacing.sm),
-                Expanded(
-                  child: _BottomAction(
-                    icon: Platform.isIOS ? CupertinoIcons.person : Icons.person_outline,
-                    label: 'Profile',
-                    onTap: () {
-                      Navigator.of(context).maybePop();
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ProfilePage()),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -918,6 +1148,12 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
   }
 }
 
+class _DragConversationData {
+  final String id;
+  final String title;
+  const _DragConversationData({required this.id, required this.title});
+}
+
 class _ConversationTile extends StatelessWidget {
   final String title;
   final bool pinned;
@@ -960,14 +1196,6 @@ class _ConversationTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                pinned
-                    ? (Platform.isIOS ? CupertinoIcons.pin_fill : Icons.push_pin)
-                    : (Platform.isIOS ? CupertinoIcons.chat_bubble : Icons.chat_bubble_outline_rounded),
-                color: selected ? theme.buttonPrimary : theme.iconSecondary,
-                size: IconSize.md,
-              ),
-              const SizedBox(width: Spacing.sm),
               Expanded(
                 child: Text(
                   title,
@@ -1001,46 +1229,4 @@ class _ConversationTile extends StatelessWidget {
   }
 }
 
-class _BottomAction extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _BottomAction({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.conduitTheme;
-    return Material(
-      color: theme.surfaceBackground.withValues(alpha: 0.04),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        side: BorderSide(color: theme.dividerColor, width: BorderWidth.regular),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: theme.iconPrimary, size: IconSize.lg),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: AppTypography.bodySmallStyle.copyWith(
-                  color: theme.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+// Bottom quick actions widget removed as design now shows only profile card

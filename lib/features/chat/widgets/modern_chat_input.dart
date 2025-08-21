@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import '../../../shared/theme/theme_extensions.dart';
+import '../../../shared/widgets/sheet_handle.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -615,17 +616,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.conduitTheme.textPrimary.withValues(
-                  alpha: Alpha.medium,
-                ),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            // Handle bar (standardized)
+            const SheetHandle(),
             const SizedBox(height: Spacing.lg),
 
             // Options grid

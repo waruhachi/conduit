@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/sheet_handle.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -207,16 +208,8 @@ class CopyOptionsSheet extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: Spacing.sm),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.conduitTheme.dividerColor,
-                borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-              ),
-            ),
+            // Handle bar (standardized)
+            const SheetHandle(),
 
             const SizedBox(height: Spacing.lg - Spacing.xs),
 
@@ -340,16 +333,8 @@ class ExportOptionsSheet extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: Spacing.sm),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.conduitTheme.dividerColor,
-                borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-              ),
-            ),
+            // Handle bar (standardized)
+            const SheetHandle(),
 
             const SizedBox(height: Spacing.lg - Spacing.xs),
 
@@ -465,16 +450,8 @@ class MoreOptionsSheet extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: Spacing.sm),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppTheme.neutral50.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-              ),
-            ),
+            // Handle bar (standardized)
+            const SheetHandle(),
 
             const SizedBox(height: Spacing.lg - Spacing.xs),
 

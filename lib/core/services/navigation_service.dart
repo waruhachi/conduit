@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 // ThemedDialogs handles theming; no direct use of extensions here
 import '../../features/auth/views/connect_signin_page.dart';
 import '../../features/chat/views/chat_page.dart';
-import '../../features/files/views/files_page.dart';
+import '../../features/files/views/workspace_page.dart';
 import '../../features/profile/views/profile_page.dart';
 import '../../shared/widgets/themed_dialogs.dart';
 
@@ -130,8 +130,8 @@ class NavigationService {
         page = const ConnectAndSignInPage();
         break;
 
-      case Routes.files:
-        page = const FilesPage();
+      case Routes.workspace:
+        page = const WorkspacePage();
         break;
 
       // chats list route removed (replaced by drawer)
@@ -154,5 +154,5 @@ class Routes {
   static const String login = '/login';
   static const String profile = '/profile';
   static const String serverConnection = '/server-connection';
-  static const String files = '/files';
+  static const String workspace = '/workspace';
 }

@@ -10,6 +10,7 @@ import '../../../core/widgets/error_boundary.dart';
 import '../../../shared/widgets/improved_loading_states.dart';
 
 import '../../../shared/utils/ui_utils.dart';
+import '../../../shared/widgets/sheet_handle.dart';
 import '../../../shared/widgets/conduit_components.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../auth/providers/unified_auth_providers.dart';
@@ -49,17 +50,12 @@ class ProfilePage extends ConsumerWidget {
             ),
             toolbarHeight: kToolbarHeight,
             titleSpacing: 0.0,
-            title: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'You',
-                  style: context.conduitTheme.headingSmall?.copyWith(
-                    color: context.conduitTheme.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+            title: Text(
+              'You',
+              style: AppTypography.headlineSmallStyle.copyWith(
+                color: context.conduitTheme.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             centerTitle: true,
           ),
@@ -114,7 +110,7 @@ class ProfilePage extends ConsumerWidget {
             ),
             title: Text(
               'You',
-              style: context.conduitTheme.headingSmall?.copyWith(
+              style: AppTypography.headlineSmallStyle.copyWith(
                 color: context.conduitTheme.textPrimary,
                 fontWeight: FontWeight.w600,
               ),
@@ -144,7 +140,7 @@ class ProfilePage extends ConsumerWidget {
             ),
             title: Text(
               'You',
-              style: context.conduitTheme.headingSmall?.copyWith(
+              style: AppTypography.headlineSmallStyle.copyWith(
                 color: context.conduitTheme.textPrimary,
                 fontWeight: FontWeight.w600,
               ),
@@ -195,56 +191,14 @@ class ProfilePage extends ConsumerWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: Spacing.xs),
+                  const SizedBox(height: Spacing.sm),
                   Text(
                     user?.email ?? 'No email',
                     style: context.conduitTheme.bodyMedium?.copyWith(
                       color: context.conduitTheme.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: Spacing.sm),
-                  // Enhanced status badge with better styling
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.sm,
-                      vertical: Spacing.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: context.conduitTheme.success.withValues(
-                        alpha: Alpha.badgeBackground,
-                      ),
-                      borderRadius: BorderRadius.circular(
-                        AppBorderRadius.badge,
-                      ),
-                      border: Border.all(
-                        color: context.conduitTheme.success.withValues(
-                          alpha: Alpha.avatarBorder,
-                        ),
-                        width: BorderWidth.thin,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: context.conduitTheme.success,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: Spacing.xs),
-                        Text(
-                          'Active',
-                          style: context.conduitTheme.label?.copyWith(
-                            color: context.conduitTheme.success,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  // Status badge removed per design update
                 ],
               ),
             ),
@@ -789,55 +743,11 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
               padding: const EdgeInsets.all(Spacing.bottomSheetPadding),
               child: Column(
                 children: [
-                  // Handle bar
-                  Container(
-                    margin: const EdgeInsets.only(
-                      top: Spacing.sm,
-                      bottom: Spacing.md,
-                    ),
-                    width: Spacing.xxl,
-                    height: Spacing.xs,
-                    decoration: BoxDecoration(
-                      color: context.conduitTheme.textPrimary.withValues(alpha: Alpha.medium),
-                      borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-                    ),
-                  ),
+                  // Handle bar (standardized)
+                  const SheetHandle(),
 
-                  // Header
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: Spacing.md),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Platform.isIOS ? CupertinoIcons.cube : Icons.psychology,
-                          color: context.conduitTheme.iconPrimary,
-                        ),
-                        const SizedBox(width: Spacing.sm),
-                        Expanded(
-                          child: Text(
-                            'Default Model',
-                            style: context.conduitTheme.headingMedium?.copyWith(
-                              color: context.conduitTheme.textPrimary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            HapticFeedback.lightImpact();
-                            Navigator.pop(context, _selectedModelId);
-                          },
-                          child: Text(
-                            'Save',
-                            style: context.conduitTheme.bodyMedium?.copyWith(
-                              color: context.conduitTheme.buttonPrimary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  // Header removed (no icon/title or save button)
+                  const SizedBox(height: Spacing.md),
 
                   // Search field
                   Padding(
@@ -963,10 +873,11 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                                   isSelected: isSelected,
                                   isAutoSelect: isAutoSelect,
                                   onTap: () {
-                                    HapticFeedback.selectionClick();
-                                    setState(() {
-                                      _selectedModelId = isAutoSelect ? 'auto-select' : model.id;
-                                    });
+                                    HapticFeedback.lightImpact();
+                                    final selectedId =
+                                        isAutoSelect ? 'auto-select' : model.id;
+                                    // Return selection immediately; caller handles persisting
+                                    Navigator.pop(context, selectedId);
                                   },
                                 );
                               },

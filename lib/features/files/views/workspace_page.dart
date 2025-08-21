@@ -8,16 +8,17 @@ import '../../../core/services/navigation_service.dart';
 import '../../../shared/widgets/improved_loading_states.dart';
 
 import '../../../shared/utils/ui_utils.dart';
+import '../../../shared/widgets/sheet_handle.dart';
 
 /// Files page for managing documents and uploads
-class FilesPage extends ConsumerStatefulWidget {
-  const FilesPage({super.key});
+class WorkspacePage extends ConsumerStatefulWidget {
+  const WorkspacePage({super.key});
 
   @override
-  ConsumerState<FilesPage> createState() => _FilesPageState();
+  ConsumerState<WorkspacePage> createState() => _WorkspacePageState();
 }
 
-class _FilesPageState extends ConsumerState<FilesPage>
+class _WorkspacePageState extends ConsumerState<WorkspacePage>
     with TickerProviderStateMixin {
   int _selectedTab = 0;
   late AnimationController _tabAnimationController;
@@ -109,17 +110,12 @@ class _FilesPageState extends ConsumerState<FilesPage>
         onPressed: () => NavigationService.goBack(),
         tooltip: 'Back',
       ),
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Files',
-            style: context.conduitTheme.headingSmall?.copyWith(
-              color: context.conduitTheme.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+      title: Text(
+        'Workspace',
+        style: AppTypography.headlineSmallStyle.copyWith(
+          color: context.conduitTheme.textPrimary,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       centerTitle: true,
       actions: [
@@ -290,16 +286,8 @@ class _FilesPageState extends ConsumerState<FilesPage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Enhanced handle bar
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.conduitTheme.dividerColor,
-                borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-              ),
-            ),
+            // Handle bar (standardized)
+            const SheetHandle(),
 
             // Header with enhanced typography
             Padding(

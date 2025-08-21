@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/chat/views/chat_page.dart';
-import '../../features/files/views/files_page.dart';
+import '../../features/files/views/workspace_page.dart';
 import '../../features/profile/views/profile_page.dart';
 
 /// Service for handling deep links and navigation routing
@@ -16,11 +16,11 @@ class DeepLinkService {
     );
   }
 
-  /// In single-screen mode, files/profile deep links route via navigator
-  static void navigateToFiles(BuildContext context) {
+  /// In single-screen mode, workspace/profile deep links route via navigator
+  static void navigateToWorkspace(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const FilesPage()),
+      MaterialPageRoute(builder: (context) => const WorkspacePage()),
     );
   }
 
@@ -37,9 +37,12 @@ class DeepLinkService {
       case '/chat':
       case '/main/chat':
         return '/chat';
-      case '/files':
-      case '/main/files':
-        return '/files';
+      // Support both new and legacy paths for workspace
+      case '/workspace':
+      case '/main/workspace':
+      case '/files': // legacy
+      case '/main/files': // legacy
+        return '/workspace';
       case '/profile':
       case '/main/profile':
         return '/profile';
@@ -52,8 +55,8 @@ class DeepLinkService {
   static Widget handleDeepLink(String route) {
     final path = parsePath(route);
     switch (path) {
-      case '/files':
-        return const FilesPage();
+      case '/workspace':
+        return const WorkspacePage();
       case '/profile':
         return const ProfilePage();
       case '/chat':
