@@ -378,7 +378,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                       ref
                                           .watch(selectedToolIdsProvider)
                                           .isNotEmpty ||
-                                      ref.watch(webSearchEnabledProvider),
+                                      ref.watch(webSearchEnabledProvider) ||
+                                      ref.watch(imageGenerationEnabledProvider),
                                 ),
                                 const Spacer(),
                                 // Microphone button: call provided callback for premium voice UI
