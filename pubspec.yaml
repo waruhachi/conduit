@@ -53,6 +53,7 @@ dependencies:
   json_annotation: ^4.9.0
   google_fonts: ^6.2.1
   wakelock_plus: ^1.2.10
+  share_plus: ^11.1.0
   
   # Clipboard functionality is available through flutter/services (part of Flutter SDK)
 

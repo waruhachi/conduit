@@ -1,8 +1,13 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:dio/dio.dart' as dio;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../auth/providers/unified_auth_providers.dart';
@@ -115,7 +120,7 @@ class _EnhancedImageAttachmentState
       }
       return;
     }
-    
+
     // Check if this is a relative URL that needs base URL prepending
     if (widget.attachmentId.startsWith('/')) {
       // This is a relative URL, prepend the base URL
@@ -185,11 +190,11 @@ class _EnhancedImageAttachmentState
 
       // Get the image content
       final fileContent = await api.getFileContent(widget.attachmentId);
-      
+
       // Cache globally
       _globalImageCache[widget.attachmentId] = fileContent;
       _globalLoadingStates[widget.attachmentId] = false;
-      
+
       // Limit cache size
       if (_globalImageCache.length > 50) {
         final firstKey = _globalImageCache.keys.first;
@@ -197,7 +202,7 @@ class _EnhancedImageAttachmentState
         _globalLoadingStates.remove(firstKey);
         _globalErrorStates.remove(firstKey);
       }
-      
+
       if (mounted) {
         setState(() {
           _cachedImageData = fileContent;
@@ -234,7 +239,7 @@ class _EnhancedImageAttachmentState
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
-    
+
     // Use a single container with AnimatedSwitcher for smooth transitions
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
@@ -276,24 +281,22 @@ class _EnhancedImageAttachmentState
 
     // Apply fade animation only when first showing content
     if (!widget.disableAnimation && _hasShownContent) {
-      return FadeTransition(
-        opacity: _fadeAnimation,
-        child: imageWidget,
-      );
+      return FadeTransition(opacity: _fadeAnimation, child: imageWidget);
     }
-    
+
     return imageWidget;
   }
 
   Widget _buildLoadingState() {
-    final constraints = widget.constraints ??
+    final constraints =
+        widget.constraints ??
         const BoxConstraints(
           maxWidth: 300,
           maxHeight: 300,
           minHeight: 150,
           minWidth: 200,
         );
-    
+
     return Container(
       key: const ValueKey('loading'),
       constraints: constraints,
@@ -311,24 +314,26 @@ class _EnhancedImageAttachmentState
         children: [
           // Shimmer effect placeholder
           Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppBorderRadius.md),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  context.conduitTheme.shimmerBase,
-                  context.conduitTheme.shimmerHighlight,
-                  context.conduitTheme.shimmerBase,
-                ],
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      context.conduitTheme.shimmerBase,
+                      context.conduitTheme.shimmerHighlight,
+                      context.conduitTheme.shimmerBase,
+                    ],
+                  ),
+                ),
+              )
+              .animate(onPlay: (controller) => controller.repeat())
+              .shimmer(
+                duration: const Duration(milliseconds: 1500),
+                color: context.conduitTheme.shimmerHighlight.withValues(
+                  alpha: 0.3,
+                ),
               ),
-            ),
-          )
-          .animate(onPlay: (controller) => controller.repeat())
-          .shimmer(
-            duration: const Duration(milliseconds: 1500),
-            color: context.conduitTheme.shimmerHighlight.withValues(alpha: 0.3),
-          ),
           // Progress indicator overlay
           CircularProgressIndicator(
             color: context.conduitTheme.buttonPrimary,
@@ -342,7 +347,8 @@ class _EnhancedImageAttachmentState
   Widget _buildErrorState() {
     return Container(
       key: const ValueKey('error'),
-      constraints: widget.constraints ??
+      constraints:
+          widget.constraints ??
           const BoxConstraints(
             maxWidth: 300,
             maxHeight: 150,
@@ -382,9 +388,7 @@ class _EnhancedImageAttachmentState
           ),
         ],
       ),
-    )
-    .animate()
-    .fadeIn(duration: const Duration(milliseconds: 200));
+    ).animate().fadeIn(duration: const Duration(milliseconds: 200));
   }
 
   Widget _buildNetworkImage() {
@@ -392,20 +396,21 @@ class _EnhancedImageAttachmentState
     final api = ref.read(apiServiceProvider);
     final authToken = ref.read(authTokenProvider3);
     final headers = <String, String>{};
-    
+
     // Add auth token from unified auth provider
     if (authToken != null && authToken.isNotEmpty) {
       headers['Authorization'] = 'Bearer $authToken';
-    } else if (api?.serverConfig.apiKey != null && api!.serverConfig.apiKey!.isNotEmpty) {
+    } else if (api?.serverConfig.apiKey != null &&
+        api!.serverConfig.apiKey!.isNotEmpty) {
       // Fallback to API key from server config
       headers['Authorization'] = 'Bearer ${api.serverConfig.apiKey}';
     }
-    
+
     // Add any custom headers from server config
     if (api != null && api.serverConfig.customHeaders.isNotEmpty) {
       headers.addAll(api.serverConfig.customHeaders);
     }
-    
+
     final imageWidget = CachedNetworkImage(
       key: ValueKey('image_${widget.attachmentId}'),
       imageUrl: _cachedImageData!,
@@ -465,11 +470,9 @@ class _EnhancedImageAttachmentState
 
   Widget _wrapImage(Widget imageWidget) {
     final wrappedImage = Container(
-      constraints: widget.constraints ??
-          const BoxConstraints(
-            maxWidth: 400,
-            maxHeight: 400,
-          ),
+      constraints:
+          widget.constraints ??
+          const BoxConstraints(maxWidth: 400, maxHeight: 400),
       margin: widget.isMarkdownFormat
           ? const EdgeInsets.symmetric(vertical: Spacing.sm)
           : EdgeInsets.zero,
@@ -491,17 +494,24 @@ class _EnhancedImageAttachmentState
           child: InkWell(
             onTap: widget.onTap ?? () => _showFullScreenImage(context),
             child: Hero(
-              tag: 'image_${widget.attachmentId}_${DateTime.now().millisecondsSinceEpoch}',
-              flightShuttleBuilder: (flightContext, animation, flightDirection,
-                  fromHeroContext, toHeroContext) {
-                final hero = flightDirection == HeroFlightDirection.push
-                    ? fromHeroContext.widget as Hero
-                    : toHeroContext.widget as Hero;
-                return FadeTransition(
-                  opacity: animation,
-                  child: hero.child,
-                );
-              },
+              tag:
+                  'image_${widget.attachmentId}_${DateTime.now().millisecondsSinceEpoch}',
+              flightShuttleBuilder:
+                  (
+                    flightContext,
+                    animation,
+                    flightDirection,
+                    fromHeroContext,
+                    toHeroContext,
+                  ) {
+                    final hero = flightDirection == HeroFlightDirection.push
+                        ? fromHeroContext.widget as Hero
+                        : toHeroContext.widget as Hero;
+                    return FadeTransition(
+                      opacity: animation,
+                      child: hero.child,
+                    );
+                  },
               child: imageWidget,
             ),
           ),
@@ -544,20 +554,21 @@ class FullScreenImageViewer extends ConsumerWidget {
       final api = ref.read(apiServiceProvider);
       final authToken = ref.read(authTokenProvider3);
       final headers = <String, String>{};
-      
+
       // Add auth token from unified auth provider
       if (authToken != null && authToken.isNotEmpty) {
         headers['Authorization'] = 'Bearer $authToken';
-      } else if (api?.serverConfig.apiKey != null && api!.serverConfig.apiKey!.isNotEmpty) {
+      } else if (api?.serverConfig.apiKey != null &&
+          api!.serverConfig.apiKey!.isNotEmpty) {
         // Fallback to API key from server config
         headers['Authorization'] = 'Bearer ${api.serverConfig.apiKey}';
       }
-      
+
       // Add any custom headers from server config
       if (api != null && api.serverConfig.customHeaders.isNotEmpty) {
         headers.addAll(api.serverConfig.customHeaders);
       }
-      
+
       imageWidget = CachedNetworkImage(
         imageUrl: imageData,
         fit: BoxFit.contain,
@@ -585,10 +596,7 @@ class FullScreenImageViewer extends ConsumerWidget {
           actualBase64 = imageData;
         }
         final imageBytes = base64.decode(actualBase64);
-        imageWidget = Image.memory(
-          imageBytes,
-          fit: BoxFit.contain,
-        );
+        imageWidget = Image.memory(imageBytes, fit: BoxFit.contain);
       } catch (e) {
         imageWidget = Center(
           child: Icon(
@@ -617,17 +625,109 @@ class FullScreenImageViewer extends ConsumerWidget {
           Positioned(
             top: MediaQuery.of(context).padding.top + 16,
             right: 16,
-            child: IconButton(
-              icon: const Icon(
-                Icons.close,
-                color: Colors.white,
-                size: 28,
-              ),
-              onPressed: () => Navigator.of(context).pop(),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Platform.isIOS ? Icons.ios_share : Icons.share_outlined,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                  onPressed: () => _shareImage(context, ref),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _shareImage(BuildContext context, WidgetRef ref) async {
+    try {
+      Uint8List bytes;
+      String? fileExtension;
+
+      if (imageData.startsWith('http')) {
+        final api = ref.read(apiServiceProvider);
+        final authToken = ref.read(authTokenProvider3);
+        final headers = <String, String>{};
+
+        if (authToken != null && authToken.isNotEmpty) {
+          headers['Authorization'] = 'Bearer $authToken';
+        } else if (api?.serverConfig.apiKey != null &&
+            api!.serverConfig.apiKey!.isNotEmpty) {
+          headers['Authorization'] = 'Bearer ${api.serverConfig.apiKey}';
+        }
+        if (api != null && api.serverConfig.customHeaders.isNotEmpty) {
+          headers.addAll(api.serverConfig.customHeaders);
+        }
+
+        final client = api?.dio ?? dio.Dio();
+        final response = await client.get<List<int>>(
+          imageData,
+          options: dio.Options(
+            responseType: dio.ResponseType.bytes,
+            headers: headers.isNotEmpty ? headers : null,
+          ),
+        );
+        final data = response.data;
+        if (data == null || data.isEmpty) {
+          throw Exception('Empty image data');
+        }
+        bytes = Uint8List.fromList(data);
+
+        final contentType = response.headers.map['content-type']?.first;
+        if (contentType != null && contentType.startsWith('image/')) {
+          fileExtension = contentType.split('/').last;
+          if (fileExtension == 'jpeg') fileExtension = 'jpg';
+        } else {
+          final uri = Uri.tryParse(imageData);
+          final lastSegment = uri?.pathSegments.isNotEmpty == true
+              ? uri!.pathSegments.last
+              : '';
+          final dotIndex = lastSegment.lastIndexOf('.');
+          if (dotIndex != -1 && dotIndex < lastSegment.length - 1) {
+            final ext = lastSegment.substring(dotIndex + 1).toLowerCase();
+            if (ext.length <= 5) {
+              fileExtension = ext;
+            }
+          }
+        }
+      } else {
+        String actualBase64 = imageData;
+        if (imageData.startsWith('data:')) {
+          final commaIndex = imageData.indexOf(',');
+          final meta = imageData.substring(5, commaIndex); // image/png;base64
+          final slashIdx = meta.indexOf('/');
+          final semicolonIdx = meta.indexOf(';');
+          if (slashIdx != -1 && semicolonIdx != -1 && slashIdx < semicolonIdx) {
+            final subtype = meta.substring(slashIdx + 1, semicolonIdx);
+            fileExtension = subtype == 'jpeg' ? 'jpg' : subtype;
+          }
+          actualBase64 = imageData.substring(commaIndex + 1);
+        }
+        bytes = base64.decode(actualBase64);
+      }
+
+      fileExtension ??= 'png';
+      final tempDir = await getTemporaryDirectory();
+      final filePath =
+          '${tempDir.path}/conduit_shared_${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
+      final file = File(filePath);
+      await file.writeAsBytes(bytes);
+
+      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to share image')));
+    }
   }
 }
