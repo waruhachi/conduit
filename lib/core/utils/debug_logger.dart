@@ -7,7 +7,7 @@ class DebugLogger {
   /// Log debug information
   static void log(String message) {
     if (_enabled) {
-      debugPrint('🔍 $message');
+      debugPrint('DEBUG: $message');
     }
   }
 
@@ -15,9 +15,9 @@ class DebugLogger {
   static void error(String message, [Object? error]) {
     if (_enabled) {
       if (error != null) {
-        debugPrint('❌ $message: $error');
+        debugPrint('ERROR: $message: $error');
       } else {
-        debugPrint('❌ $message');
+        debugPrint('ERROR: $message');
       }
     }
   }
@@ -25,49 +25,49 @@ class DebugLogger {
   /// Log warnings
   static void warning(String message) {
     if (_enabled) {
-      debugPrint('⚠️ $message');
+      debugPrint('WARN: $message');
     }
   }
 
   /// Log success/info messages
   static void info(String message) {
     if (_enabled) {
-      debugPrint('ℹ️ $message');
+      debugPrint('INFO: $message');
     }
   }
 
   /// Log navigation events
   static void navigation(String message) {
     if (_enabled) {
-      debugPrint('🧭 $message');
+      debugPrint('NAV: $message');
     }
   }
 
   /// Log authentication events
   static void auth(String message) {
     if (_enabled) {
-      debugPrint('🔐 $message');
+      debugPrint('AUTH: $message');
     }
   }
 
   /// Log streaming events
   static void stream(String message) {
     if (_enabled) {
-      debugPrint('📡 $message');
+      debugPrint('STREAM: $message');
     }
   }
 
   /// Log validation events
   static void validation(String message) {
     if (_enabled) {
-      debugPrint('✅ $message');
+      debugPrint('VALIDATION: $message');
     }
   }
 
   /// Log storage events
   static void storage(String message) {
     if (_enabled) {
-      debugPrint('💾 $message');
+      debugPrint('STORAGE: $message');
     }
   }
 }

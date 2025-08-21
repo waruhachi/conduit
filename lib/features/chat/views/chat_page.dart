@@ -195,7 +195,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         );
 
         ref.read(activeConversationProvider.notifier).state = welcomeConv;
-        debugPrint('Auto-loaded demo conversation: ${welcomeConv.title}');
+        debugPrint('Auto-loaded demo conversation');
         return;
       }
 
@@ -240,35 +240,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   void _handleMessageSend(String text, dynamic selectedModel) async {
-    debugPrint('DEBUG: Starting message send process');
-    debugPrint('DEBUG: Message text: $text');
-    debugPrint('DEBUG: Selected model: ${selectedModel?.name ?? 'null'}');
-
     if (selectedModel == null) {
-      debugPrint('DEBUG: No model selected');
       return;
     }
 
     final isOnline = ref.read(isOnlineProvider);
     final isReviewerMode = ref.read(reviewerModeProvider);
-    debugPrint(
-      'DEBUG: Online status: $isOnline, Reviewer mode: $isReviewerMode',
-    );
+
     if (!isOnline && !isReviewerMode) {
-      debugPrint('DEBUG: Offline - cannot send message');
       return;
     }
 
     try {
       // Get attached files and use uploadedFileIds when sendMessage is updated to accept file IDs
       final attachedFiles = ref.read(attachedFilesProvider);
-      debugPrint('DEBUG: Attached files count: ${attachedFiles.length}');
-
-      for (final file in attachedFiles) {
-        debugPrint(
-          'DEBUG: File - Name: ${file.fileName}, Status: ${file.status}, FileId: ${file.fileId}',
-        );
-      }
 
       final uploadedFileIds = attachedFiles
           .where(
@@ -279,11 +264,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           .map((file) => file.fileId!)
           .toList();
 
-      debugPrint('DEBUG: Uploaded file IDs: $uploadedFileIds');
-
       // Get selected tools
       final toolIds = ref.read(selectedToolIdsProvider);
-      debugPrint('DEBUG: Selected tool IDs: $toolIds');
 
       // Send message with file attachments and tools using existing provider logic
       await sendMessage(
@@ -293,11 +275,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         toolIds.isNotEmpty ? toolIds : null,
       );
 
-      debugPrint('DEBUG: Message sent successfully');
-
       // Clear attachments after successful send
       ref.read(attachedFilesProvider.notifier).clearAll();
-      debugPrint('DEBUG: Attachments cleared');
 
       // Scroll to bottom after sending message (only if user was near bottom)
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -311,7 +290,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         }
       });
     } catch (e) {
-      debugPrint('DEBUG: Message send error: $e');
+      // Message send failed - error already handled by sendMessage
     }
   }
 

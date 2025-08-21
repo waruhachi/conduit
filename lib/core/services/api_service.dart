@@ -91,38 +91,6 @@ class ApiService {
       _dio.interceptors.add(
         InterceptorsWrapper(
           onRequest: (options, handler) {
-            if (options.path == '/api/chat/completions') {
-              debugPrint('===== SSE REQUEST DEBUG =====');
-              debugPrint('Path: ${options.path}');
-              debugPrint('Method: ${options.method}');
-              debugPrint('Headers: ${options.headers}');
-              debugPrint('Content-Type: ${options.contentType}');
-
-              // Log the raw data being sent
-              if (options.data != null) {
-                if (options.data is Map) {
-                  final dataMap = options.data as Map<String, dynamic>;
-                  DebugLogger.log('Data type: Map');
-                  DebugLogger.log('Data keys: ${dataMap.keys.toList()}');
-                  DebugLogger.log(
-                    'Has background_tasks: ${dataMap.containsKey('background_tasks')}',
-                  );
-                  DebugLogger.log(
-                    'Has session_id: ${dataMap.containsKey('session_id')}',
-                  );
-                  DebugLogger.log('Has id: ${dataMap.containsKey('id')}');
-                  DebugLogger.log(
-                    'Data structure logged (full data suppressed)',
-                  );
-                } else {
-                  DebugLogger.log('Data type: ${options.data.runtimeType}');
-                  DebugLogger.log(
-                    'Data structure logged (full data suppressed)',
-                  );
-                }
-              }
-              debugPrint('===== END SSE REQUEST DEBUG =====');
-            }
             handler.next(options);
           },
         ),
@@ -134,9 +102,7 @@ class ApiService {
 
     // Initialize validation interceptor asynchronously
     validationInterceptor.initialize().catchError((error) {
-      debugPrint(
-        'ApiService: Failed to initialize validation interceptor: $error',
-      );
+      // Handle validation initialization errors silently
     });
   }
 
@@ -193,13 +159,11 @@ class ApiService {
           result['modelsAvailable'] = models != null && models.isNotEmpty;
           result['modelCount'] = models?.length ?? 0;
         } catch (e) {
-          debugPrint('DEBUG: Error checking models: $e');
           result['modelsAvailable'] = false;
         }
       }
     } catch (e) {
       result['error'] = e.toString();
-      debugPrint('DEBUG: Server status check failed: $e');
     }
 
     return result;
@@ -208,27 +172,18 @@ class ApiService {
   // Authentication
   Future<Map<String, dynamic>> login(String username, String password) async {
     try {
-      debugPrint(
-        'DEBUG: Attempting login to ${serverConfig.url}/api/v1/auths/signin',
-      );
       final response = await _dio.post(
         '/api/v1/auths/signin',
         data: {'email': username, 'password': password},
       );
-      debugPrint('DEBUG: Login successful, status: ${response.statusCode}');
+
       return response.data;
     } catch (e) {
       if (e is DioException) {
-        debugPrint('DEBUG: Login DioException: ${e.type}');
-        debugPrint('DEBUG: Response status: ${e.response?.statusCode}');
-        debugPrint('DEBUG: Response headers: ${e.response?.headers}');
-        debugPrint('DEBUG: Request URL: ${e.requestOptions.uri}');
-
         // Handle specific redirect cases
         if (e.response?.statusCode == 307 || e.response?.statusCode == 308) {
           final location = e.response?.headers.value('location');
           if (location != null) {
-            debugPrint('DEBUG: Server redirecting to: $location');
             throw Exception(
               'Server redirect detected. Please check your server URL configuration. Redirect to: $location',
             );
@@ -274,7 +229,6 @@ class ApiService {
   // Get default model configuration from OpenWebUI user settings
   Future<String?> getDefaultModel() async {
     try {
-      debugPrint('DEBUG: Fetching default model from user settings');
       final response = await _dio.get('/api/v1/users/user/settings');
 
       DebugLogger.log('User settings retrieved successfully');
@@ -324,19 +278,14 @@ class ApiService {
 
   // Conversations - Updated to use correct OpenWebUI API
   Future<List<Conversation>> getConversations({int? limit, int? skip}) async {
-    debugPrint('DEBUG: Fetching conversations from OpenWebUI API');
-    debugPrint('DEBUG: Making request to ${serverConfig.url}/api/v1/chats/');
-    debugPrint('DEBUG: Auth token present: ${authToken != null}');
-
     List<dynamic> allRegularChats = [];
 
     if (limit == null) {
       // Fetch all conversations using pagination
-      debugPrint('DEBUG: Fetching ALL conversations using pagination');
+
       int currentPage = 0;
 
       while (true) {
-        debugPrint('DEBUG: Fetching page $currentPage');
         final response = await _dio.get(
           '/api/v1/chats/',
           queryParameters: {'page': currentPage},
@@ -349,12 +298,8 @@ class ApiService {
         }
 
         final pageChats = response.data as List;
-        debugPrint(
-          'DEBUG: Page $currentPage returned ${pageChats.length} conversations',
-        );
 
         if (pageChats.isEmpty) {
-          debugPrint('DEBUG: No more conversations, stopping pagination');
           break;
         }
 
