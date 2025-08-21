@@ -725,9 +725,8 @@ class FullScreenImageViewer extends ConsumerWidget {
 
       await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Failed to share image')));
+      // Swallowing UI feedback per requirements; keep a log for debugging
+      debugPrint('Failed to share image: $e');
     }
   }
 }

@@ -9,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io' show Platform, File;
 import 'dart:async';
-import 'package:path/path.dart' as path;
 import '../../../core/providers/app_providers.dart';
 import '../providers/chat_providers.dart';
 import '../../../core/utils/debug_logger.dart';
@@ -247,11 +246,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     if (selectedModel == null) {
       debugPrint('DEBUG: No model selected');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a model first')),
-        );
-      }
       return;
     }
 
@@ -262,16 +256,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     );
     if (!isOnline && !isReviewerMode) {
       debugPrint('DEBUG: Offline - cannot send message');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'You\'re offline. Message will be sent when connection is restored.',
-            ),
-            backgroundColor: context.conduitTheme.warning,
-          ),
-        );
-      }
       return;
     }
 
@@ -328,22 +312,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       });
     } catch (e) {
       debugPrint('DEBUG: Message send error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Message failed to send. Check your connection and try again.',
-            ),
-            backgroundColor: context.conduitTheme.error,
-            action: SnackBarAction(
-              label: 'Retry',
-              textColor: Colors.white,
-              onPressed: () => _handleMessageSend(text, selectedModel),
-            ),
-            duration: const Duration(seconds: 6),
-          ),
-        );
-      }
     }
   }
 
@@ -353,12 +321,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     if (!isAvailable) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Voice input unavailable. Check permissions.'),
-          backgroundColor: context.conduitTheme.warning,
-        ),
-      );
       return;
     }
 
@@ -386,20 +348,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final fileUploadCapableModels = ref.read(fileUploadCapableModelsProvider);
     if (fileUploadCapableModels.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Selected model does not support file upload'),
-          backgroundColor: context.conduitTheme.error,
-        ),
-      );
       return;
     }
 
     final fileService = ref.read(fileAttachmentServiceProvider);
     if (fileService == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('File service unavailable')));
       return;
     }
 
@@ -411,12 +364,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       final currentFiles = ref.read(attachedFilesProvider);
       if (!validateFileCount(currentFiles.length, files.length, 10)) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Maximum 10 files allowed'),
-            backgroundColor: context.conduitTheme.error,
-          ),
-        );
         return;
       }
 
@@ -425,14 +372,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         final fileSize = await file.length();
         if (!validateFileSize(fileSize, 20)) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'File ${path.basename(file.path)} exceeds 20MB limit',
-              ),
-              backgroundColor: context.conduitTheme.error,
-            ),
-          );
           return;
         }
       }
@@ -451,23 +390,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           },
           onError: (error) {
             if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Upload failed: $error'),
-                backgroundColor: context.conduitTheme.error,
-              ),
-            );
+            debugPrint('Upload failed: $error');
           },
         );
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('File selection failed: $e'),
-          backgroundColor: context.conduitTheme.error,
-        ),
-      );
+      debugPrint('File selection failed: $e');
     }
   }
 
@@ -480,21 +409,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final visionCapableModels = ref.read(visionCapableModelsProvider);
     if (visionCapableModels.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Selected model does not support image inputs'),
-          backgroundColor: context.conduitTheme.error,
-        ),
-      );
       return;
     }
 
     final fileService = ref.read(fileAttachmentServiceProvider);
     if (fileService == null) {
       debugPrint('DEBUG: File service is null - cannot proceed');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('File service unavailable')));
       return;
     }
 
@@ -515,12 +435,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       // Validate file size (default 20MB limit like OpenWebUI)
       if (!validateFileSize(imageSize, 20)) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Image size exceeds 20MB limit'),
-            backgroundColor: context.conduitTheme.error,
-          ),
-        );
         return;
       }
 
@@ -528,12 +442,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       final currentFiles = ref.read(attachedFilesProvider);
       if (!validateFileCount(currentFiles.length, 1, 10)) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Maximum 10 files allowed'),
-            backgroundColor: context.conduitTheme.error,
-          ),
-        );
         return;
       }
 
@@ -556,23 +464,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         onError: (error) {
           debugPrint('DEBUG: Image upload error: $error');
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Image upload failed: $error'),
-              backgroundColor: context.conduitTheme.error,
-            ),
-          );
         },
       );
     } catch (e) {
       debugPrint('DEBUG: Image attachment error: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Image attachment failed: $e'),
-          backgroundColor: context.conduitTheme.error,
-        ),
-      );
     }
   }
 
@@ -586,14 +482,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         _showScrollToBottom = false;
       });
     }
-
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('New chat started'),
-        duration: Duration(seconds: 2),
-      ),
-    );
   }
 
   void _showChatsListOverlay() {
@@ -1029,20 +917,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   void _copyMessage(String content) {
     Clipboard.setData(ClipboardData(text: content));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Copied to clipboard'),
-        duration: Duration(seconds: 2),
-      ),
-    );
   }
 
   void _regenerateMessage(dynamic message) async {
     final selectedModel = ref.read(selectedModelProvider);
     if (selectedModel == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a model first')),
-      );
       return;
     }
 
@@ -1051,9 +930,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final messageIndex = messages.indexOf(message);
 
     if (messageIndex <= 0 || messages[messageIndex - 1].role != 'user') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot regenerate this message')),
-      );
       return;
     }
 
@@ -1068,40 +944,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         userMessage.content,
         userMessage.attachmentIds,
       );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Regenerating...'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to regenerate message. Try again or check your connection.',
-            ),
-            backgroundColor: context.conduitTheme.error,
-            action: SnackBarAction(
-              label: 'Retry',
-              textColor: Colors.white,
-              onPressed: () => _regenerateMessage(message),
-            ),
-            duration: const Duration(seconds: 6),
-          ),
-        );
-      }
+      debugPrint('Regenerate failed: $e');
     }
   }
 
   void _editMessage(dynamic message) async {
     if (message.role != 'user') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Only user messages can be edited')),
-      );
       return;
     }
 
@@ -1170,25 +1019,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           if (selectedModel != null) {
             await sendMessage(ref, result, null);
 
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Message updated'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            }
+            if (mounted) {}
           }
         }
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to edit message: $e'),
-              backgroundColor: context.conduitTheme.error,
-            ),
-          );
-        }
+        if (mounted) {}
       }
     }
 
@@ -1197,16 +1032,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   void _likeMessage(dynamic message) {
     // TODO: Implement message liking
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Message liked!')));
   }
 
   void _dislikeMessage(dynamic message) {
     // TODO: Implement message disliking
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Message disliked!')));
   }
 
   Widget _buildEmptyState(ThemeData theme) {
@@ -1755,14 +1584,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         //   ref.read(chatMessagesProvider.notifier).removeMessage(selectedMessage.id);
         // }
         _clearSelection();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Messages removed'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
+        if (mounted) {}
       }
     });
   }
@@ -2249,28 +2071,14 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
             _isListening = false;
           });
           _elapsedTimer?.cancel();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Voice input error: $error'),
-                backgroundColor: context.conduitTheme.error,
-              ),
-            );
-          }
+          if (mounted) {}
         },
       );
     } catch (e) {
       setState(() {
         _isListening = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to start voice input: $e'),
-            backgroundColor: context.conduitTheme.error,
-          ),
-        );
-      }
+      if (mounted) {}
     }
   }
 
@@ -2304,12 +2112,6 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
       setState(() => _isListening = false);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Transcription failed: $e'),
-          backgroundColor: context.conduitTheme.error,
-        ),
-      );
       setState(() => _isListening = false);
     } finally {
       if (mounted) setState(() => _isTranscribing = false);

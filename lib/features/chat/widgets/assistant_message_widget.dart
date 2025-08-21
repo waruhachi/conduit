@@ -313,9 +313,11 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                 ),
               ),
 
-              // Action buttons below the message content (always visible)
-              const SizedBox(height: Spacing.sm),
-              _buildActionButtons(),
+              // Action buttons below the message content (only after streaming completes)
+              if (!widget.isStreaming) ...[
+                const SizedBox(height: Spacing.sm),
+                _buildActionButtons(),
+              ],
             ],
           ),
         )
@@ -387,15 +389,23 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
               child: EnhancedImageAttachment(
                 attachmentId: widget.message.attachmentIds![0],
                 isMarkdownFormat: true,
-                constraints: const BoxConstraints(maxWidth: 500, maxHeight: 400),
-                disableAnimation: widget.isStreaming, // Disable animation during streaming
+                constraints: const BoxConstraints(
+                  maxWidth: 500,
+                  maxHeight: 400,
+                ),
+                disableAnimation:
+                    widget.isStreaming, // Disable animation during streaming
               ),
             )
           : Wrap(
-              key: ValueKey('multi_images_${widget.message.attachmentIds!.join('_')}'),
+              key: ValueKey(
+                'multi_images_${widget.message.attachmentIds!.join('_')}',
+              ),
               spacing: Spacing.sm,
               runSpacing: Spacing.sm,
-              children: widget.message.attachmentIds!.map<Widget>((attachmentId) {
+              children: widget.message.attachmentIds!.map<Widget>((
+                attachmentId,
+              ) {
                 return EnhancedImageAttachment(
                   key: ValueKey('attachment_$attachmentId'),
                   attachmentId: attachmentId,
@@ -404,7 +414,8 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                     maxWidth: imageCount == 2 ? 245 : 160,
                     maxHeight: imageCount == 2 ? 245 : 160,
                   ),
-                  disableAnimation: widget.isStreaming, // Disable animation during streaming
+                  disableAnimation:
+                      widget.isStreaming, // Disable animation during streaming
                 );
               }).toList(),
             ),
@@ -415,7 +426,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     if (widget.message.files == null || widget.message.files!.isEmpty) {
       return const SizedBox.shrink();
     }
-    
+
     // Filter for image files
     final imageFiles = widget.message.files!
         .where((file) => file['type'] == 'image')
@@ -439,24 +450,31 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                 builder: (context) {
                   final imageUrl = imageFiles[0]['url'] as String?;
                   if (imageUrl == null) return const SizedBox.shrink();
-                  
+
                   return EnhancedImageAttachment(
-                    attachmentId: imageUrl, // Pass URL directly as it handles URLs
+                    attachmentId:
+                        imageUrl, // Pass URL directly as it handles URLs
                     isMarkdownFormat: true,
-                    constraints: const BoxConstraints(maxWidth: 500, maxHeight: 400),
-                    disableAnimation: widget.isStreaming, // Disable animation during streaming
+                    constraints: const BoxConstraints(
+                      maxWidth: 500,
+                      maxHeight: 400,
+                    ),
+                    disableAnimation: widget
+                        .isStreaming, // Disable animation during streaming
                   );
                 },
               ),
             )
           : Wrap(
-              key: ValueKey('gen_multi_${imageFiles.map((f) => f['url']).join('_')}'),
+              key: ValueKey(
+                'gen_multi_${imageFiles.map((f) => f['url']).join('_')}',
+              ),
               spacing: Spacing.sm,
               runSpacing: Spacing.sm,
               children: imageFiles.map<Widget>((file) {
                 final imageUrl = file['url'] as String?;
                 if (imageUrl == null) return const SizedBox.shrink();
-                
+
                 return EnhancedImageAttachment(
                   key: ValueKey('gen_attachment_$imageUrl'),
                   attachmentId: imageUrl, // Pass URL directly
@@ -465,7 +483,8 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                     maxWidth: imageCount == 2 ? 245 : 160,
                     maxHeight: imageCount == 2 ? 245 : 160,
                   ),
-                  disableAnimation: widget.isStreaming, // Disable animation during streaming
+                  disableAnimation:
+                      widget.isStreaming, // Disable animation during streaming
                 );
               }).toList(),
             ),

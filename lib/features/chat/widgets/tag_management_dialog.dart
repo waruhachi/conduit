@@ -213,20 +213,9 @@ class _TagManagementDialogState extends ConsumerState<TagManagementDialog> {
       ref.invalidate(conversationsProvider);
       _tagController.clear();
 
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Tag "$tag" added')));
-      }
+      if (mounted) {}
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error adding tag: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
+      if (mounted) {}
     } finally {
       setState(() => _isAdding = false);
     }
@@ -240,20 +229,9 @@ class _TagManagementDialogState extends ConsumerState<TagManagementDialog> {
       await api.removeTagFromConversation(widget.conversation.id, tag);
       ref.invalidate(conversationsProvider);
 
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Tag "$tag" removed')));
-      }
+      if (mounted) {}
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error removing tag: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
+      if (mounted) {}
     }
   }
 }

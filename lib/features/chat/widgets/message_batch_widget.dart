@@ -307,36 +307,13 @@ class CopyOptionsSheet extends ConsumerWidget {
         if (content != null) {
           await Clipboard.setData(ClipboardData(text: content));
 
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  '${messages.length} messages copied to clipboard',
-                ),
-                backgroundColor: AppTheme.success,
-              ),
-            );
-          }
+          if (context.mounted) {}
         }
       } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to copy messages: ${result.error}'),
-              backgroundColor: AppTheme.error,
-            ),
-          );
-        }
+        if (context.mounted) {}
       }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error copying messages: $e'),
-            backgroundColor: AppTheme.error,
-          ),
-        );
-      }
+      if (context.mounted) {}
     }
   }
 }
@@ -652,21 +629,10 @@ class MoreOptionsSheet extends ConsumerWidget {
                               controller.clear();
                               setState(() {}); // Refresh the dialog
 
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Tag "$tag" added')),
-                                );
-                              }
+                              if (context.mounted) {}
                             }
                           } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Failed to add tag: $e'),
-                                  backgroundColor: AppTheme.error,
-                                ),
-                              );
-                            }
+                            if (context.mounted) {}
                           }
                         }
                       },
@@ -730,28 +696,10 @@ class MoreOptionsSheet extends ConsumerWidget {
                                     );
                                     setState(() {}); // Refresh the dialog
 
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Tag "$tag" removed'),
-                                        ),
-                                      );
-                                    }
+                                    if (context.mounted) {}
                                   }
                                 } catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Failed to remove tag: $e',
-                                        ),
-                                        backgroundColor:
-                                            context.conduitTheme.error,
-                                      ),
-                                    );
-                                  }
+                                  if (context.mounted) {}
                                 }
                               },
                             ),
@@ -818,23 +766,12 @@ class MoreOptionsSheet extends ConsumerWidget {
           ref.invalidate(archivedConversationsProvider);
 
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Conversation archived')),
-            );
-
             // Navigate back or clear current conversation
             Navigator.of(context).popUntil((route) => route.isFirst);
           }
         }
       } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to archive conversation: $e'),
-              backgroundColor: AppTheme.error,
-            ),
-          );
-        }
+        if (context.mounted) {}
       }
     }
   }
@@ -848,7 +785,7 @@ class MoreOptionsSheet extends ConsumerWidget {
       confirmText: 'Delete',
       isDestructive: true,
     );
-    
+
     if (confirmed == true && context.mounted) {
       _deleteMessages(context, ref);
     }
@@ -880,23 +817,12 @@ class MoreOptionsSheet extends ConsumerWidget {
           ref.read(chatMessagesProvider.notifier).clearMessages();
 
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Conversation deleted')),
-            );
-
             // Navigate back to conversation list
             Navigator.of(context).popUntil((route) => route.isFirst);
           }
         }
       } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to delete conversation: $e'),
-              backgroundColor: AppTheme.error,
-            ),
-          );
-        }
+        if (context.mounted) {}
       }
     }
   }

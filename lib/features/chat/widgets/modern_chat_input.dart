@@ -280,6 +280,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                   autofocus: false,
                                   maxLines: _isExpanded ? null : 1,
                                   keyboardType: TextInputType.multiline,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
                                   textInputAction: TextInputAction.newline,
                                   showCursor: true,
                                   cursorColor: context.conduitTheme.inputText,

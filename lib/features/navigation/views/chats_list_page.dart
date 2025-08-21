@@ -1295,12 +1295,7 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
     String name,
     BuildContext dialogContext,
   ) async {
-    // Store theme values and messenger before async operation
-    final theme = context.conduitTheme;
-    final textInverseColor = theme.textInverse;
-    final successColor = theme.success;
-    final errorColor = theme.error;
-    final messenger = ScaffoldMessenger.of(context);
+    // Begin async operation
 
     try {
       final api = ref.read(apiServiceProvider);
@@ -1312,33 +1307,9 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
       if (mounted && dialogContext.mounted) {
         Navigator.pop(dialogContext);
       }
-      if (context.mounted) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              'Folder "$name" created',
-              style: AppTypography.bodyMediumStyle.copyWith(
-                color: textInverseColor,
-              ),
-            ),
-            backgroundColor: successColor,
-          ),
-        );
-      }
+      if (context.mounted) {}
     } catch (e) {
-      if (context.mounted) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to create folder: $e',
-              style: AppTypography.bodyMediumStyle.copyWith(
-                color: textInverseColor,
-              ),
-            ),
-            backgroundColor: errorColor,
-          ),
-        );
-      }
+      if (context.mounted) {}
     }
   }
 
@@ -1352,35 +1323,11 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
         // Refresh conversations list
         ref.invalidate(conversationsProvider);
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                newPinnedState ? 'Chat pinned' : 'Chat unpinned',
-                style: AppTypography.bodyMediumStyle.copyWith(
-                  color: context.conduitTheme.textInverse,
-                ),
-              ),
-              backgroundColor: context.conduitTheme.success,
-            ),
-          );
-        }
+        if (mounted) {}
       }
     } catch (e) {
       DebugLogger.error('Error toggling pin', e);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to ${conversation.pinned == true ? 'unpin' : 'pin'} chat',
-              style: AppTypography.bodyMediumStyle.copyWith(
-                color: context.conduitTheme.textInverse,
-              ),
-            ),
-            backgroundColor: context.conduitTheme.error,
-          ),
-        );
-      }
+      if (mounted) {}
     }
   }
 
@@ -1393,35 +1340,11 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
         // Refresh conversations list
         ref.invalidate(conversationsProvider);
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Chat archived',
-                style: AppTypography.bodyMediumStyle.copyWith(
-                  color: context.conduitTheme.textInverse,
-                ),
-              ),
-              backgroundColor: context.conduitTheme.success,
-            ),
-          );
-        }
+        if (mounted) {}
       }
     } catch (e) {
       DebugLogger.error('Error archiving conversation', e);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to archive chat',
-              style: AppTypography.bodyMediumStyle.copyWith(
-                color: context.conduitTheme.textInverse,
-              ),
-            ),
-            backgroundColor: context.conduitTheme.error,
-          ),
-        );
-      }
+      if (mounted) {}
     }
   }
 
@@ -1446,35 +1369,11 @@ class _ChatsListPageState extends ConsumerState<ChatsListPage>
           // Refresh conversations list
           ref.invalidate(conversationsProvider);
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Chat deleted',
-                  style: AppTypography.bodyMediumStyle.copyWith(
-                    color: context.conduitTheme.textInverse,
-                  ),
-                ),
-                backgroundColor: context.conduitTheme.success,
-              ),
-            );
-          }
+          if (mounted) {}
         }
       } catch (e) {
         DebugLogger.error('Error deleting conversation', e);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Failed to delete chat',
-                style: AppTypography.bodyMediumStyle.copyWith(
-                  color: context.conduitTheme.textInverse,
-                ),
-              ),
-              backgroundColor: context.conduitTheme.error,
-            ),
-          );
-        }
+        if (mounted) {}
       }
     }
   }
