@@ -2313,7 +2313,7 @@ Future<void> cloneConversation(WidgetRef ref, String conversationId) async {
 }
 
 // Regenerate last message
-final regenerateLastMessageProvider = Provider<void Function()>((ref) {
+final regenerateLastMessageProvider = Provider<Future<void> Function()>((ref) {
   return () async {
     final messages = ref.read(chatMessagesProvider);
     if (messages.length < 2) return;
