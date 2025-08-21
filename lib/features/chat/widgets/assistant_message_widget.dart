@@ -494,21 +494,9 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   Widget _buildTypingIndicator() {
     return Consumer(
       builder: (context, ref, child) {
-        const statusText = 'Thinking about your question...';
-
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              statusText,
-              style: TextStyle(
-                color: context.conduitTheme.textSecondary.withValues(
-                  alpha: 0.7,
-                ),
-                fontSize: AppTypography.bodyMedium,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
             const SizedBox(height: Spacing.xs),
             Row(
               children: [

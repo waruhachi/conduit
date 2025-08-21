@@ -1,28 +1,12 @@
-import 'package:flutter/foundation.dart';
-import 'debug_logger.dart';
-
 /// Utility class for parsing and extracting reasoning/thinking content from messages
 class ReasoningParser {
   /// Parses a message and extracts reasoning content
   static ReasoningContent? parseReasoningContent(String content) {
     if (content.isEmpty) return null;
 
-    if (kDebugMode) {
-      DebugLogger.log(
-        'Parsing content: ${content.substring(0, content.length > 200 ? 200 : content.length)}...',
-      );
-    }
-
     // Check if content contains reasoning
     if (!content.contains('<details type="reasoning"')) {
-      if (kDebugMode) {
-        DebugLogger.log('No reasoning content found in text');
-      }
       return null;
-    }
-
-    if (kDebugMode) {
-      DebugLogger.log('Found reasoning tags in content');
     }
 
     // Match the <details> tag with type="reasoning"
@@ -34,43 +18,13 @@ class ReasoningParser {
 
     final match = reasoningRegex.firstMatch(content);
     if (match == null) {
-      if (kDebugMode) {
-        debugPrint('DEBUG: Regex did not match - checking pattern');
-      }
-      // Try a more flexible regex to debug
-      final flexRegex = RegExp(
-        r'<details[^>]*type="reasoning"[^>]*>.*?</details>',
-        multiLine: true,
-        dotAll: true,
-      );
-      final flexMatch = flexRegex.firstMatch(content);
-      if (flexMatch != null) {
-        if (kDebugMode) {
-          DebugLogger.log('Found flexible match: ${flexMatch.group(0)}');
-        }
-      } else {
-        if (kDebugMode) {
-          DebugLogger.log('No flexible match found either');
-        }
-      }
       return null;
-    }
-
-    if (kDebugMode) {
-      DebugLogger.log('Regex matched successfully');
     }
 
     final isDone = match.group(1) == 'true';
     final duration = int.tryParse(match.group(2) ?? '0') ?? 0;
     final summary = match.group(3)?.trim() ?? '';
     final reasoning = match.group(4)?.trim() ?? '';
-
-    if (kDebugMode) {
-      DebugLogger.log(
-        'Parsed values - isDone: $isDone, duration: $duration, summary: $summary',
-      );
-      DebugLogger.log('Reasoning content length: ${reasoning.length}');
-    }
 
     // Remove the reasoning section from the main content
     final mainContent = content.replaceAll(reasoningRegex, '').trim();
