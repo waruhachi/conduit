@@ -29,6 +29,10 @@ import 'chat_page_helpers.dart';
 import '../../../shared/widgets/themed_dialogs.dart';
 import '../../onboarding/views/onboarding_sheet.dart';
 import '../../../shared/widgets/sheet_handle.dart';
+import '../../../shared/widgets/conduit_components.dart';
+import '../../../core/services/settings_service.dart';
+// Removed unused PlatformUtils import
+import '../../../core/services/platform_service.dart' as ps;
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({super.key});
@@ -1791,19 +1795,34 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
   Timer? _elapsedTimer;
   bool _isTranscribing = false;
   String _languageTag = 'en';
+  bool _holdToTalk = false;
+  bool _autoSendFinal = false;
 
   @override
   void initState() {
     super.initState();
     _voiceService = ref.read(voiceInputServiceProvider);
     try {
-      _languageTag = WidgetsBinding.instance.platformDispatcher.locale
-          .toLanguageTag()
-          .split(RegExp('[-_]'))
-          .first
-          .toLowerCase();
+      final preset = _voiceService.selectedLocaleId;
+      if (preset != null && preset.isNotEmpty) {
+        _languageTag = preset.split(RegExp('[-_]')).first.toLowerCase();
+      } else {
+        _languageTag = WidgetsBinding.instance.platformDispatcher.locale
+            .toLanguageTag()
+            .split(RegExp('[-_]'))
+            .first
+            .toLowerCase();
+      }
     } catch (_) {
       _languageTag = 'en';
+    }
+    // Load voice settings from app settings
+    final settings = ref.read(appSettingsProvider);
+    _holdToTalk = settings.voiceHoldToTalk;
+    _autoSendFinal = settings.voiceAutoSendFinal;
+    if (settings.voiceLocaleId != null && settings.voiceLocaleId!.isNotEmpty) {
+      _voiceService.setLocale(settings.voiceLocaleId);
+      _languageTag = settings.voiceLocaleId!.split(RegExp('[-_]')).first.toLowerCase();
     }
   }
 
@@ -1813,12 +1832,23 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
       _recognizedText = '';
       _elapsedSeconds = 0;
     });
+    // Haptic: indicate start listening
+    final hapticEnabled = ref.read(hapticEnabledProvider);
+    ps.PlatformService.hapticFeedbackWithSettings(
+      type: ps.HapticType.medium,
+      hapticEnabled: hapticEnabled,
+    );
 
     try {
-      // Ensure service is initialized and has permission
+      // Ensure service is initialized (local STT will request permissions itself)
       final ok = await _voiceService.initialize();
-      if (!ok || !await _voiceService.checkPermissions()) {
-        throw Exception('Microphone permission not granted');
+      if (!ok) {
+        throw Exception('Voice service unavailable');
+      }
+      // Only check mic permission when falling back to recording
+      if (!_voiceService.hasLocalStt) {
+        final mic = await _voiceService.checkPermissions();
+        if (!mic) throw Exception('Microphone permission not granted');
       }
 
       // Start elapsed timer for UX
@@ -1838,7 +1868,7 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
       });
       _textSub = stream.listen(
         (text) {
-          // If we receive a special token with recorded audio path, transcribe it via API
+          // If we receive a special token with recorded audio path, transcribe it via API (fallback)
           if (text.startsWith('[[AUDIO_FILE_PATH]]:')) {
             final filePath = text.split(':').skip(1).join(':');
             debugPrint(
@@ -1857,6 +1887,10 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
             _isListening = false;
           });
           _elapsedTimer?.cancel();
+          // Auto-send on final local result if enabled
+          if (_autoSendFinal && _recognizedText.trim().isNotEmpty) {
+            _sendText();
+          }
         },
         onError: (error) {
           debugPrint('DEBUG: VoiceInputSheet stream error: $error');
@@ -1864,7 +1898,13 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
             _isListening = false;
           });
           _elapsedTimer?.cancel();
-          if (mounted) {}
+          if (mounted) {
+            final hapticEnabled = ref.read(hapticEnabledProvider);
+            ps.PlatformService.hapticFeedbackWithSettings(
+              type: ps.HapticType.warning,
+              hapticEnabled: hapticEnabled,
+            );
+          }
         },
       );
     } catch (e) {
@@ -1903,6 +1943,9 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
       });
       // Stop listening state if we have a result
       setState(() => _isListening = false);
+      if (_autoSendFinal && _recognizedText.trim().isNotEmpty) {
+        _sendText();
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isListening = false);
@@ -1922,10 +1965,22 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
         _isListening = false;
       });
     }
+    // Haptic: subtle stop confirmation
+    final hapticEnabled = ref.read(hapticEnabledProvider);
+    ps.PlatformService.hapticFeedbackWithSettings(
+      type: ps.HapticType.selection,
+      hapticEnabled: hapticEnabled,
+    );
   }
 
   void _sendText() {
     if (_recognizedText.isNotEmpty) {
+      // Haptic: success send
+      final hapticEnabled = ref.read(hapticEnabledProvider);
+      ps.PlatformService.hapticFeedbackWithSettings(
+        type: ps.HapticType.success,
+        hapticEnabled: hapticEnabled,
+      );
       widget.onTextReceived(_recognizedText);
       Navigator.pop(context);
     }
@@ -1937,9 +1992,103 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
     return '$m:$s';
   }
 
-  void _cancel() {
-    _stopListening();
-    Navigator.pop(context);
+  void _pickLanguage() async {
+    // Only for local STT
+    if (!_voiceService.hasLocalStt) return;
+    final locales = _voiceService.locales;
+    if (locales.isEmpty) return;
+    if (!mounted) return;
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: context.conduitTheme.surfaceBackground,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppBorderRadius.bottomSheet),
+            ),
+            border: Border.all(
+              color: context.conduitTheme.dividerColor,
+              width: BorderWidth.regular,
+            ),
+            boxShadow: ConduitShadows.modal,
+          ),
+          padding: const EdgeInsets.all(Spacing.bottomSheetPadding),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SheetHandle(),
+                const SizedBox(height: Spacing.md),
+                Text('Select Language',
+                    style: TextStyle(
+                      fontSize: AppTypography.headlineSmall,
+                      color: context.conduitTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    )),
+                const SizedBox(height: Spacing.sm),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: locales.length,
+                    separatorBuilder: (_, sep) => Divider(
+                      height: 1,
+                      color: context.conduitTheme.dividerColor,
+                    ),
+                    itemBuilder: (ctx, i) {
+                      final l = locales[i];
+                      final isSelected = l.localeId == _voiceService.selectedLocaleId;
+                      return ListTile(
+                        title: Text(
+                          l.name,
+                          style: TextStyle(color: context.conduitTheme.textPrimary),
+                        ),
+                        subtitle: Text(
+                          l.localeId,
+                          style: TextStyle(color: context.conduitTheme.textSecondary),
+                        ),
+                        trailing: isSelected
+                            ? Icon(Icons.check, color: context.conduitTheme.buttonPrimary)
+                            : null,
+                        onTap: () => Navigator.pop(ctx, l.localeId),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected != null && mounted) {
+      setState(() {
+        _voiceService.setLocale(selected);
+        _languageTag = selected.split(RegExp('[-_]')).first.toLowerCase();
+      });
+      // Persist preferred locale
+      await ref.read(appSettingsProvider.notifier).setVoiceLocaleId(selected);
+      if (_isListening) {
+        // Restart listening to apply new language
+        await _voiceService.stopListening();
+        _startListening();
+      }
+    }
+  }
+
+  Widget _buildThemedSwitch({
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final theme = context.conduitTheme;
+    return ps.PlatformService.getPlatformSwitch(
+      value: value,
+      onChanged: onChanged,
+      activeColor: theme.buttonPrimary,
+    );
   }
 
   @override
@@ -1951,40 +2100,40 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final isCompact = media.size.height < 680;
     return Container(
-      height: MediaQuery.of(context).size.height * 0.6,
+      height: media.size.height * (isCompact ? 0.45 : 0.6),
       decoration: BoxDecoration(
         color: context.conduitTheme.surfaceBackground,
         borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(AppBorderRadius.lg),
+          top: Radius.circular(AppBorderRadius.bottomSheet),
         ),
         border: Border.all(color: context.conduitTheme.dividerColor, width: 1),
+        boxShadow: ConduitShadows.modal,
       ),
-      child: Column(
+      child: SafeArea(
+        top: false,
+        bottom: true,
+        child: Padding(
+          padding: const EdgeInsets.all(Spacing.bottomSheetPadding),
+          child: Column(
         children: [
           // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: Spacing.sm),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: context.conduitTheme.dividerColor,
-              borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-            ),
-          ),
+          const SheetHandle(),
 
           // Header: Title + timer + language chip
-          Padding(
-            padding: const EdgeInsets.all(Spacing.lg),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _isListening
-                      ? 'Listening\u2026'
-                      : _isTranscribing
-                      ? 'Transcribing\u2026'
-                      : 'Voice',
+              Padding(
+                padding: const EdgeInsets.only(top: Spacing.md, bottom: Spacing.md),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                  _isTranscribing
+                      ? 'Transcribing…'
+                      : _isListening
+                          ? (_voiceService.hasLocalStt ? 'Listening…' : 'Recording…')
+                          : 'Voice',
                   style: TextStyle(
                     fontSize: AppTypography.headlineMedium,
                     fontWeight: FontWeight.w600,
@@ -1994,28 +2143,43 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
                 Row(
                   children: [
                     // Language chip
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Spacing.xs,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: context.conduitTheme.surfaceBackground
-                            .withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(
-                          AppBorderRadius.badge,
+                    GestureDetector(
+                      onTap: _voiceService.hasLocalStt ? _pickLanguage : null,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Spacing.xs,
+                          vertical: 4,
                         ),
-                        border: Border.all(
-                          color: context.conduitTheme.dividerColor,
-                          width: BorderWidth.thin,
+                        decoration: BoxDecoration(
+                          color: context.conduitTheme.surfaceBackground
+                              .withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(
+                            AppBorderRadius.badge,
+                          ),
+                          border: Border.all(
+                            color: context.conduitTheme.dividerColor,
+                            width: BorderWidth.thin,
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        _languageTag.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: AppTypography.labelSmall,
-                          color: context.conduitTheme.textSecondary,
-                          fontWeight: FontWeight.w600,
+                        child: Row(
+                          children: [
+                            Text(
+                              _languageTag.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: AppTypography.labelSmall,
+                                color: context.conduitTheme.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (_voiceService.hasLocalStt) ...[
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.arrow_drop_down,
+                                size: 16,
+                                color: context.conduitTheme.iconSecondary,
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
@@ -2032,25 +2196,108 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
                         ),
                       ),
                     ),
+                    const SizedBox(width: Spacing.sm),
+                    // Close sheet
+                    ConduitIconButton(
+                      icon: Platform.isIOS ? CupertinoIcons.xmark : Icons.close,
+                      tooltip: 'Close',
+                      isCompact: true,
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
                   ],
                 ),
               ],
             ),
           ),
 
-          // Microphone animation and waveform
+          // Toggles row: Hold to talk, Auto-send
+          Padding(
+            padding: const EdgeInsets.only(bottom: Spacing.sm),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildThemedSwitch(
+                        value: _holdToTalk,
+                        onChanged: (v) async {
+                          setState(() => _holdToTalk = v);
+                          await ref.read(appSettingsProvider.notifier).setVoiceHoldToTalk(v);
+                        },
+                      ),
+                      const SizedBox(width: Spacing.xs),
+                      Text(
+                        'Hold to talk',
+                        style: TextStyle(color: context.conduitTheme.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      _buildThemedSwitch(
+                        value: _autoSendFinal,
+                        onChanged: (v) async {
+                          setState(() => _autoSendFinal = v);
+                          await ref.read(appSettingsProvider.notifier).setVoiceAutoSendFinal(v);
+                        },
+                      ),
+                      const SizedBox(width: Spacing.xs),
+                      Text(
+                        'Auto-send',
+                        style: TextStyle(color: context.conduitTheme.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Microphone + waveform
           Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Microphone icon with animation (tap to toggle)
+            child: LayoutBuilder(
+              builder: (context, viewport) {
+                final isUltra = media.size.height < 560;
+                final double micSize = isUltra ? 64 : (isCompact ? 80 : 100);
+                final double micIconSize = isUltra ? 26 : (isCompact ? 32 : 40);
+                // Extra top padding so scale animation (up to 1.2x) never clips
+                final double topPaddingForScale = ((micSize * 1.2) - micSize) / 2 + 8;
+
+                final content = Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Top spacer (baseline); additional padding handled by scroll view
+                      SizedBox(height: isUltra ? Spacing.sm : Spacing.md),
+                  // Microphone control
                   GestureDetector(
+                        onTapDown: _holdToTalk
+                            ? (_) {
+                                if (!_isListening) _startListening();
+                              }
+                            : null,
+                        onTapUp: _holdToTalk
+                            ? (_) {
+                                if (_isListening) _stopListening();
+                              }
+                            : null,
+                        onTapCancel: _holdToTalk
+                            ? () {
+                                if (_isListening) _stopListening();
+                              }
+                            : null,
                         onTap: () =>
-                            _isListening ? _stopListening() : _startListening(),
+                            _holdToTalk
+                                ? null
+                                : (_isListening ? _stopListening() : _startListening()),
                         child: Container(
-                          width: 100,
-                          height: 100,
+                          width: micSize,
+                          height: micSize,
                           decoration: BoxDecoration(
                             color: _isListening
                                 ? context.conduitTheme.error.withValues(
@@ -2076,7 +2323,7 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
                                 : (Platform.isIOS
                                       ? CupertinoIcons.mic_off
                                       : Icons.mic_off),
-                            size: 40,
+                            size: micIconSize,
                             color: _isListening
                                 ? context.conduitTheme.error
                                 : context.conduitTheme.iconSecondary,
@@ -2099,22 +2346,24 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
                         end: const Offset(1, 1),
                       ),
 
-                  const SizedBox(height: Spacing.md),
+                  SizedBox(height: isUltra ? Spacing.xs : (isCompact ? Spacing.sm : Spacing.md)),
                   // Simple animated bars waveform based on intensity proxy
                   SizedBox(
-                    height: 32,
+                    height: isUltra ? 18 : (isCompact ? 24 : 32),
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 150),
                       child: Row(
                         key: ValueKey<int>(_intensity),
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(12, (i) {
+                        children: List.generate(isUltra ? 10 : 12, (i) {
                           final normalized = ((_intensity + i) % 10) / 10.0;
-                          final barHeight = 8 + (normalized * 24);
+                          final base = isUltra ? 4 : (isCompact ? 6 : 8);
+                          final range = isUltra ? 14 : (isCompact ? 18 : 24);
+                          final barHeight = base + (normalized * range);
                           return Container(
-                            width: 4,
+                            width: isUltra ? 2.5 : (isCompact ? 3 : 4),
                             height: barHeight,
-                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            margin: EdgeInsets.symmetric(horizontal: isUltra ? 1 : (isCompact ? 1.5 : 2)),
                             decoration: BoxDecoration(
                               color: context.conduitTheme.buttonPrimary
                                   .withValues(alpha: 0.7),
@@ -2125,150 +2374,155 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: Spacing.xl),
+                  SizedBox(height: isUltra ? Spacing.sm : (isCompact ? Spacing.md : Spacing.xl)),
 
-                  // Recognized text / Transcribing state
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
-                    padding: const EdgeInsets.all(Spacing.md),
+                  // Recognized text / Transcribing state with Clear action
+                  ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.2,
-                      minHeight: 80,
+                      maxHeight: media.size.height * (isUltra ? 0.13 : (isCompact ? 0.16 : 0.2)),
+                      minHeight: isUltra ? 56 : (isCompact ? 64 : 80),
                     ),
-                    decoration: BoxDecoration(
-                      color: context.conduitTheme.inputBackground,
-                      borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                      border: Border.all(
-                        color: context.conduitTheme.inputBorder,
-                        width: 1,
+                    child: ConduitCard(
+                      isCompact: isCompact,
+                      padding: EdgeInsets.all(isCompact ? Spacing.md : Spacing.md),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Inline clear action aligned to the end
+                          Row(
+                            children: [
+                              Text(
+                                'Transcript',
+                                style: TextStyle(
+                                  fontSize: AppTypography.labelSmall,
+                                  fontWeight: FontWeight.w600,
+                                  color: context.conduitTheme.textSecondary,
+                                ),
+                              ),
+                              const Spacer(),
+                              ConduitIconButton(
+                                icon: Icons.close,
+                                isCompact: true,
+                                tooltip: 'Clear',
+                                onPressed: _recognizedText.isNotEmpty && !_isTranscribing
+                                    ? () {
+                                        setState(() => _recognizedText = '');
+                                      }
+                                    : null,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: Spacing.xs),
+                          if (_isTranscribing)
+                            Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  ConduitLoadingIndicator(
+                                    size: isUltra ? 14 : (isCompact ? 16 : 18),
+                                    isCompact: true,
+                                  ),
+                                  const SizedBox(width: Spacing.xs),
+                                  Text(
+                                    'Transcribing…',
+                                    style: TextStyle(
+                                      fontSize: isUltra
+                                          ? AppTypography.bodySmall
+                                          : (isCompact
+                                                ? AppTypography.bodyMedium
+                                                : AppTypography.bodyLarge),
+                                      color: context.conduitTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Flexible(
+                              child: SingleChildScrollView(
+                                child: Text(
+                                  _recognizedText.isEmpty
+                                      ? (_isListening
+                                            ? (_voiceService.hasLocalStt
+                                                  ? 'Speak now…'
+                                                  : 'Recording…')
+                                            : 'Tap Start to begin')
+                                      : _recognizedText,
+                                  style: TextStyle(
+                                    fontSize: isUltra
+                                        ? AppTypography.bodySmall
+                                        : (isCompact
+                                              ? AppTypography.bodyMedium
+                                              : AppTypography.bodyLarge),
+                                    color: _recognizedText.isEmpty
+                                        ? context.conduitTheme.inputPlaceholder
+                                        : context.conduitTheme.textPrimary,
+                                    height: 1.4,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                    child: _isTranscribing
-                        ? Center(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: context.conduitTheme.buttonPrimary,
-                                  ),
-                                ),
-                                const SizedBox(width: Spacing.xs),
-                                Text(
-                                  'Transcribing…',
-                                  style: TextStyle(
-                                    fontSize: AppTypography.bodyLarge,
-                                    color: context.conduitTheme.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : SingleChildScrollView(
-                            child: Text(
-                              _recognizedText.isEmpty
-                                  ? (_isListening
-                                        ? 'Speak now…'
-                                        : 'Tap Start to begin')
-                                  : _recognizedText,
-                              style: TextStyle(
-                                fontSize: AppTypography.bodyLarge,
-                                color: _recognizedText.isEmpty
-                                    ? context.conduitTheme.inputPlaceholder
-                                    : context.conduitTheme.textPrimary,
-                                height: 1.5,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
                   ),
-                ],
-              ),
+                    ],
+                  ),
+                );
+
+                // Make scrollable if content exceeds available height
+                return SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: EdgeInsets.only(top: topPaddingForScale),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: viewport.maxHeight),
+                    child: content,
+                  ),
+                );
+              },
             ),
           ),
 
           // Action buttons
-          Padding(
-            padding: const EdgeInsets.all(Spacing.lg),
-            child: Row(
-              children: [
-                // Start/Stop toggle button
-                Expanded(
-                  child: FilledButton.tonal(
-                    onPressed: _isListening ? _stopListening : _startListening,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          Builder(builder: (context) {
+            final showStartStop = !_holdToTalk;
+            final showSend = !_autoSendFinal;
+            if (!showStartStop && !showSend) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: EdgeInsets.only(top: isCompact ? Spacing.sm : Spacing.md),
+              child: Row(
+                children: [
+                  if (showStartStop) ...[
+                    Expanded(
+                      child: ConduitButton(
+                        text: _isListening ? 'Stop' : 'Start',
+                        isSecondary: true,
+                        isCompact: isCompact,
+                        onPressed: _isListening ? _stopListening : _startListening,
                       ),
                     ),
-                    child: Text(
-                      _isListening ? 'Stop' : 'Start',
-                      style: TextStyle(
-                        fontSize: AppTypography.bodyLarge,
-                        fontWeight: FontWeight.w600,
-                        color: context.conduitTheme.textPrimary,
+                  ],
+                  if (showStartStop && showSend) const SizedBox(width: Spacing.xs),
+                  if (showSend) ...[
+                    Expanded(
+                      child: ConduitButton(
+                        text: 'Send',
+                        isCompact: isCompact,
+                        onPressed: _recognizedText.isNotEmpty ? _sendText : null,
                       ),
                     ),
-                  ),
-                ),
-
-                const SizedBox(width: Spacing.xs),
-                // Cancel button
-                Expanded(
-                  child: TextButton(
-                    onPressed: _cancel,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                        side: BorderSide(
-                          color: context.conduitTheme.dividerColor,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: Text(
-                      'Cancel',
-                      style: TextStyle(
-                        color: context.conduitTheme.textPrimary,
-                        fontSize: AppTypography.bodyLarge,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: Spacing.xs),
-
-                // Send button
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _recognizedText.isNotEmpty ? _sendText : null,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: context.conduitTheme.buttonPrimary,
-                      foregroundColor: context.conduitTheme.buttonPrimaryText,
-                      padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                      ),
-                    ),
-                    child: Text(
-                      'Send',
-                      style: TextStyle(
-                        fontSize: AppTypography.bodyLarge,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+                  ],
+                ],
+              ),
+            );
+          }),
         ],
+      ),
+        ),
       ),
     );
   }

@@ -1,14 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:record/record.dart';
+import 'package:flutter/widgets.dart';
 import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:speech_to_text/speech_recognition_error.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class VoiceInputService {
   final AudioRecorder _recorder = AudioRecorder();
+  stt.SpeechToText? _speech;
   bool _isInitialized = false;
   bool _isListening = false;
+  bool _localSttAvailable = false;
+  String? _selectedLocaleId;
+  List<stt.LocaleName> _locales = const [];
   StreamController<String>? _textStreamController;
   String _currentText = '';
   // Public stream for UI waveform visualization (emits partial text length as proxy)
@@ -23,16 +31,46 @@ class VoiceInputService {
   Future<bool> initialize() async {
     if (_isInitialized) return true;
     if (!isSupportedPlatform) return false;
-    // Log platform for diagnostics
-    // ignore: avoid_print
-    print(
-      'DEBUG: VoiceInputService initialize on platform: '
-      '${Platform.isAndroid
-          ? 'Android'
-          : Platform.isIOS
-          ? 'iOS'
-          : 'Other'}',
-    );
+    // Prepare local speech recognizer
+    try {
+      _speech = stt.SpeechToText();
+      _localSttAvailable = await _speech!.initialize(
+        onStatus: (status) {
+          // When platform end-of-speech triggers, ensure we stop timer/streams
+          if (status.toLowerCase().contains('notListening') ||
+              status.toLowerCase().contains('done')) {
+            // No-op: UI manages stopping; SpeechToText emits final result
+          }
+        },
+        onError: (SpeechRecognitionError error) {
+          // If any error, we keep fallback available; no throws here.
+        },
+      );
+      if (_localSttAvailable) {
+        try {
+          _locales = await _speech!.locales();
+          final deviceTag = WidgetsBinding.instance.platformDispatcher.locale
+              .toLanguageTag();
+          final match = _locales.firstWhere(
+            (l) => l.localeId.toLowerCase() == deviceTag.toLowerCase(),
+            orElse: () {
+              final primary = deviceTag.split(RegExp('[-_]')).first.toLowerCase();
+              return _locales.firstWhere(
+                (l) => l.localeId.toLowerCase().startsWith('$primary-'),
+                orElse: () => _locales.isNotEmpty
+                    ? _locales.first
+                    : stt.LocaleName('en_US', 'English (US)'),
+              );
+            },
+          );
+          _selectedLocaleId = match.localeId;
+        } catch (_) {
+          _selectedLocaleId = null;
+        }
+      }
+    } catch (_) {
+      _localSttAvailable = false;
+    }
     _isInitialized = true;
     return true;
   }
@@ -46,10 +84,16 @@ class VoiceInputService {
   }
 
   bool get isListening => _isListening;
-  bool get isAvailable => _isInitialized;
+  bool get isAvailable => _isInitialized; // service usable (local or fallback)
+  bool get hasLocalStt => _localSttAvailable;
+  String? get selectedLocaleId => _selectedLocaleId;
+  List<stt.LocaleName> get locales => _locales;
+
+  void setLocale(String? localeId) {
+    _selectedLocaleId = localeId;
+  }
 
   Stream<String> startListening() {
-    // Ensure initialized; we allow initialize to pass even if native STT unavailable
     if (!_isInitialized) {
       throw Exception('Voice input not initialized');
     }
@@ -61,21 +105,52 @@ class VoiceInputService {
     _textStreamController = StreamController<String>.broadcast();
     _currentText = '';
     _isListening = true;
-
     _intensityController = StreamController<int>.broadcast();
 
-    // Start recording raw audio; UI or auto-timer will stop and trigger transcription via API
-    // ignore: avoid_print
-    print('DEBUG: VoiceInputService startListening');
-    _startRecordingProxyIntensity();
+    if (_localSttAvailable && _speech != null) {
+      // Local on-device STT path
+      _autoStopTimer?.cancel();
+      // SpeechToText has its own end-of-speech handling; we still cap at 60s
+      _autoStopTimer = Timer(const Duration(seconds: 60), () {
+        if (_isListening) {
+          _stopListening();
+        }
+      });
 
-    // Auto-stop after 30 seconds similar to native STT behavior
-    _autoStopTimer?.cancel();
-    _autoStopTimer = Timer(const Duration(seconds: 30), () {
-      if (_isListening) {
-        _stopListening();
-      }
-    });
+      _speech!.listen(
+        localeId: _selectedLocaleId,
+        listenFor: const Duration(seconds: 60),
+        pauseFor: const Duration(seconds: 5),
+        onResult: (SpeechRecognitionResult result) {
+          if (!_isListening) return;
+          _currentText = result.recognizedWords;
+          _textStreamController?.add(_currentText);
+          if (result.finalResult) {
+            // Will be followed by notListening status; we proactively close
+            _stopListening();
+          }
+        },
+        onSoundLevelChange: (level) {
+          // level is roughly 0..1+; map to 0..10
+          final scaled = (level * 10).clamp(0, 10).round();
+          _intensityController?.add(scaled);
+        },
+        listenOptions: stt.SpeechListenOptions(
+          partialResults: true,
+          cancelOnError: true,
+          listenMode: stt.ListenMode.confirmation,
+        ),
+      );
+    } else {
+      // Fallback: record audio and signal file path for server transcription
+      _startRecordingProxyIntensity();
+      _autoStopTimer?.cancel();
+      _autoStopTimer = Timer(const Duration(seconds: 30), () {
+        if (_isListening) {
+          _stopListening();
+        }
+      });
+    }
 
     return _textStreamController!.stream;
   }
@@ -88,10 +163,14 @@ class VoiceInputService {
     if (!_isListening) return;
 
     _isListening = false;
-    // Also stop recorder if active
-    await _stopRecording();
-    // ignore: avoid_print
-    print('DEBUG: VoiceInputService stopped listening');
+    if (_localSttAvailable && _speech != null) {
+      try {
+        await _speech!.stop();
+      } catch (_) {}
+    } else {
+      // Also stop recorder if active
+      await _stopRecording();
+    }
 
     _autoStopTimer?.cancel();
     _autoStopTimer = null;
@@ -111,6 +190,9 @@ class VoiceInputService {
   void dispose() {
     stopListening();
     _stopRecording(force: true);
+    try {
+      _speech?.cancel();
+    } catch (_) {}
   }
 
   // --- Recording and intensity proxy for server transcription path ---
@@ -138,8 +220,7 @@ class VoiceInputService {
         ),
         path: filePath,
       );
-      // ignore: avoid_print
-      print('DEBUG: VoiceInputService recording started at: $filePath');
+      // recording started at filePath
 
       // Drive intensity from amplitude stream and detect silence
       // Consider amplitude less than threshold as silence; stop after ~3s of continuous silence
@@ -167,8 +248,6 @@ class VoiceInputService {
             }
           });
     } catch (e) {
-      // ignore: avoid_print
-      print('DEBUG: VoiceInputService recording failed: $e');
       _textStreamController?.addError('Audio recording failed: $e');
       _stopListening();
     }
@@ -182,8 +261,6 @@ class VoiceInputService {
         _textStreamController?.addError('Recording failed: no file path');
         return;
       }
-      // ignore: avoid_print
-      print('DEBUG: VoiceInputService recording saved: $path');
       // Hand off recorded file path to listeners as a special token; UI layer will upload for transcription
       _textStreamController?.add('[[AUDIO_FILE_PATH]]:$path');
     } catch (e) {
@@ -203,6 +280,8 @@ final voiceInputAvailableProvider = FutureProvider<bool>((ref) async {
   if (!service.isSupportedPlatform) return false;
   final initialized = await service.initialize();
   if (!initialized) return false;
+  // If local STT exists, we consider it available; otherwise ensure mic permission for fallback
+  if (service.hasLocalStt) return true;
   final hasPermission = await service.checkPermissions();
   if (!hasPermission) return false;
   return service.isAvailable;

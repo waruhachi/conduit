@@ -12,6 +12,10 @@ class SettingsService {
   static const String _largeTextKey = 'large_text';
   static const String _darkModeKey = 'dark_mode';
   static const String _defaultModelKey = 'default_model';
+  // Voice input settings
+  static const String _voiceLocaleKey = 'voice_locale_id';
+  static const String _voiceHoldToTalkKey = 'voice_hold_to_talk';
+  static const String _voiceAutoSendKey = 'voice_auto_send_final';
 
   /// Get reduced motion preference
   static Future<bool> getReduceMotion() async {
@@ -111,6 +115,9 @@ class SettingsService {
       largeText: await getLargeText(),
       darkMode: await getDarkMode(),
       defaultModel: await getDefaultModel(),
+      voiceLocaleId: await getVoiceLocaleId(),
+      voiceHoldToTalk: await getVoiceHoldToTalk(),
+      voiceAutoSendFinal: await getVoiceAutoSendFinal(),
     );
   }
 
@@ -124,7 +131,45 @@ class SettingsService {
       setLargeText(settings.largeText),
       setDarkMode(settings.darkMode),
       setDefaultModel(settings.defaultModel),
+      setVoiceLocaleId(settings.voiceLocaleId),
+      setVoiceHoldToTalk(settings.voiceHoldToTalk),
+      setVoiceAutoSendFinal(settings.voiceAutoSendFinal),
     ]);
+  }
+
+  // Voice input specific settings
+  static Future<String?> getVoiceLocaleId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_voiceLocaleKey);
+  }
+
+  static Future<void> setVoiceLocaleId(String? localeId) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (localeId == null || localeId.isEmpty) {
+      await prefs.remove(_voiceLocaleKey);
+    } else {
+      await prefs.setString(_voiceLocaleKey, localeId);
+    }
+  }
+
+  static Future<bool> getVoiceHoldToTalk() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_voiceHoldToTalkKey) ?? false;
+  }
+
+  static Future<void> setVoiceHoldToTalk(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_voiceHoldToTalkKey, value);
+  }
+
+  static Future<bool> getVoiceAutoSendFinal() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_voiceAutoSendKey) ?? false;
+  }
+
+  static Future<void> setVoiceAutoSendFinal(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_voiceAutoSendKey, value);
   }
 
   /// Get effective animation duration considering all settings
@@ -176,6 +221,9 @@ class AppSettings {
   final bool largeText;
   final bool darkMode;
   final String? defaultModel;
+  final String? voiceLocaleId;
+  final bool voiceHoldToTalk;
+  final bool voiceAutoSendFinal;
 
   const AppSettings({
     this.reduceMotion = false,
@@ -185,6 +233,9 @@ class AppSettings {
     this.largeText = false,
     this.darkMode = true,
     this.defaultModel,
+    this.voiceLocaleId,
+    this.voiceHoldToTalk = false,
+    this.voiceAutoSendFinal = false,
   });
 
   AppSettings copyWith({
@@ -195,6 +246,9 @@ class AppSettings {
     bool? largeText,
     bool? darkMode,
     Object? defaultModel = const _DefaultValue(),
+    Object? voiceLocaleId = const _DefaultValue(),
+    bool? voiceHoldToTalk,
+    bool? voiceAutoSendFinal,
   }) {
     return AppSettings(
       reduceMotion: reduceMotion ?? this.reduceMotion,
@@ -204,6 +258,9 @@ class AppSettings {
       largeText: largeText ?? this.largeText,
       darkMode: darkMode ?? this.darkMode,
       defaultModel: defaultModel is _DefaultValue ? this.defaultModel : defaultModel as String?,
+      voiceLocaleId: voiceLocaleId is _DefaultValue ? this.voiceLocaleId : voiceLocaleId as String?,
+      voiceHoldToTalk: voiceHoldToTalk ?? this.voiceHoldToTalk,
+      voiceAutoSendFinal: voiceAutoSendFinal ?? this.voiceAutoSendFinal,
     );
   }
 
@@ -217,7 +274,10 @@ class AppSettings {
         other.highContrast == highContrast &&
         other.largeText == largeText &&
         other.darkMode == darkMode &&
-        other.defaultModel == defaultModel;
+        other.defaultModel == defaultModel &&
+        other.voiceLocaleId == voiceLocaleId &&
+        other.voiceHoldToTalk == voiceHoldToTalk &&
+        other.voiceAutoSendFinal == voiceAutoSendFinal;
   }
 
   @override
@@ -230,6 +290,9 @@ class AppSettings {
       largeText,
       darkMode,
       defaultModel,
+      voiceLocaleId,
+      voiceHoldToTalk,
+      voiceAutoSendFinal,
     );
   }
 }
@@ -283,6 +346,21 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setDefaultModel(String? modelId) async {
     state = state.copyWith(defaultModel: modelId);
     await SettingsService.setDefaultModel(modelId);
+  }
+
+  Future<void> setVoiceLocaleId(String? localeId) async {
+    state = state.copyWith(voiceLocaleId: localeId);
+    await SettingsService.setVoiceLocaleId(localeId);
+  }
+
+  Future<void> setVoiceHoldToTalk(bool value) async {
+    state = state.copyWith(voiceHoldToTalk: value);
+    await SettingsService.setVoiceHoldToTalk(value);
+  }
+
+  Future<void> setVoiceAutoSendFinal(bool value) async {
+    state = state.copyWith(voiceAutoSendFinal: value);
+    await SettingsService.setVoiceAutoSendFinal(value);
   }
 
   Future<void> resetToDefaults() async {

@@ -35,6 +35,7 @@ dependencies:
   
   # Platform Features
   record: ^6.0.0
+  speech_to_text: ^7.3.0
   image_picker: ^1.1.2
   file_picker: ^10.2.1
   path_provider: ^2.1.4
