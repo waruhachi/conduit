@@ -1773,19 +1773,12 @@ class ApiService {
       return response.data;
     } on DioException catch (e) {
       debugPrint('DEBUG: images/generations failed: ${e.response?.statusCode}');
-      // Fallback to singular path some servers use
-      final response = await _dio.post(
-        '/api/v1/image/generations',
-        data: {
-          'prompt': prompt,
-          if (model != null) 'model': model,
-          if (width != null) 'width': width,
-          if (height != null) 'height': height,
-          if (steps != null) 'steps': steps,
-          if (guidance != null) 'guidance': guidance,
-        },
+      DebugLogger.error(
+        'Image generation request to /api/v1/images/generations failed',
+        e,
       );
-      return response.data;
+      // Do not attempt singular fallback here - surface the original error
+      rethrow;
     }
   }
 
