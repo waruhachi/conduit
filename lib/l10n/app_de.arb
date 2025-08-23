@@ -141,5 +141,64 @@
   "openSettings": "Einstellungen öffnen",
   "chooseDifferentFile": "Andere Datei wählen",
   "goBack": "Zurück",
-  "technicalDetails": "Technische Details"
+  "technicalDetails": "Technische Details",
+  "save": "Speichern",
+  "chooseModel": "Modell wählen",
+  "reviewerMode": "REVIEWER MODE",
+  "selectLanguage": "Sprache auswählen",
+  "newFolder": "Neuer Ordner",
+  "folderName": "Ordnername",
+  "newChat": "Neuer Chat",
+  "more": "Mehr",
+  "clear": "Leeren",
+  "searchHint": "Suchen...",
+  "searchConversations": "Konversationen durchsuchen...",
+  "create": "Erstellen",
+  "folderCreated": "Ordner erstellt",
+  "failedToCreateFolder": "Ordner konnte nicht erstellt werden",
+  "movedChatToFolder": "\"{title}\" nach \"{folder}\" verschoben",
+  "@movedChatToFolder": {
+    "placeholders": {
+      "title": {"type": "String"},
+      "folder": {"type": "String"}
+    }
+  },
+  "failedToMoveChat": "Chat konnte nicht verschoben werden",
+  "failedToLoadChats": "Chats konnten nicht geladen werden",
+  "failedToUpdatePin": "Pin konnte nicht aktualisiert werden",
+  "failedToDeleteChat": "Chat konnte nicht gelöscht werden",
+  "manage": "Verwalten",
+  "rename": "Umbenennen",
+  "delete": "Löschen",
+  "renameChat": "Chat umbenennen",
+  "enterChatName": "Chat-Namen eingeben",
+  "failedToRenameChat": "Chat konnte nicht umbenannt werden",
+  "failedToUpdateArchive": "Archiv konnte nicht aktualisiert werden",
+  "unarchive": "Archivierung aufheben",
+  "archive": "Archivieren",
+  "pin": "Anheften",
+  "unpin": "Lösen",
+  "recent": "Zuletzt", 
+  "system": "System",
+  "english": "Englisch",
+  "deutsch": "Deutsch",
+  "francais": "Französisch",
+  "italiano": "Italienisch",
+  "deleteMessagesTitle": "Nachrichten löschen",
+  "deleteMessagesMessage": "{count} Nachrichten löschen?",
+  "@deleteMessagesMessage": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "routeNotFound": "Route nicht gefunden: {routeName}",
+  "@routeNotFound": {
+    "placeholders": {
+      "routeName": {"type": "String"}
+    }
+  },
+  "deleteChatTitle": "Chat löschen",
+  "deleteChatMessage": "Dieser Chat wird dauerhaft gelöscht.",
+  "aboutApp": "Über die App",
+  "aboutAppSubtitle": "Conduit Informationen und Links"
 }

@@ -13,6 +13,7 @@ import '../../chat/providers/chat_providers.dart' as chat;
 import '../../profile/views/profile_page.dart';
 import '../../../shared/utils/ui_utils.dart';
 import '../../../core/auth/auth_state_manager.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 class ChatsDrawer extends ConsumerStatefulWidget {
   const ChatsDrawer({super.key});
@@ -114,7 +115,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                 chat.startNewChat(ref);
                 if (mounted) Navigator.of(context).maybePop();
               },
-              tooltip: 'New Chat',
+              tooltip: AppLocalizations.of(context)!.newChat,
             ),
           ),
         ],
@@ -151,7 +152,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           fontSize: AppTypography.bodyMedium,
         ),
         decoration: InputDecoration(
-          hintText: 'Search conversations...',
+          hintText: AppLocalizations.of(context)!.searchConversations,
           hintStyle: TextStyle(
             color: theme.inputPlaceholder.withValues(alpha: 0.8),
             fontSize: AppTypography.bodyMedium,
@@ -282,7 +283,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
               const SizedBox(height: Spacing.md),
 
               if (regular.isNotEmpty) ...[
-                _buildSectionHeader('Recent', regular.length),
+                _buildSectionHeader(AppLocalizations.of(context)!.recent, regular.length),
                 const SizedBox(height: Spacing.xs),
                 ...regular.map(_buildTileFor),
               ],
@@ -299,7 +300,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           child: Padding(
             padding: const EdgeInsets.all(Spacing.md),
             child: Text(
-              'Failed to load chats',
+              AppLocalizations.of(context)!.failedToLoadChats,
               style: AppTypography.bodyMediumStyle.copyWith(
                 color: theme.textSecondary,
               ),
@@ -397,7 +398,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                   ),
             const SizedBox(height: Spacing.md),
             if (regular.isNotEmpty) ...[
-              _buildSectionHeader('Recent', regular.length),
+              _buildSectionHeader(AppLocalizations.of(context)!.recent, regular.length),
               const SizedBox(height: Spacing.xs),
               ...regular.map(_buildTileFor),
             ],
@@ -470,7 +471,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         const Spacer(),
         IconButton(
           visualDensity: VisualDensity.compact,
-          tooltip: 'New Folder',
+          tooltip: AppLocalizations.of(context)!.newFolder,
           icon: Icon(
             Platform.isIOS ? CupertinoIcons.folder_badge_plus : Icons.create_new_folder_outlined,
             color: theme.iconPrimary,
@@ -488,13 +489,13 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: theme.surfaceBackground,
-        title: Text('New Folder', style: TextStyle(color: theme.textPrimary)),
+        title: Text(AppLocalizations.of(context)!.newFolder, style: TextStyle(color: theme.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
           style: TextStyle(color: theme.inputText),
           decoration: InputDecoration(
-            hintText: 'Folder name',
+            hintText: AppLocalizations.of(context)!.folderName,
             hintStyle: TextStyle(color: theme.inputPlaceholder),
             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: theme.inputBorder)),
             focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: theme.buttonPrimary)),
@@ -504,11 +505,11 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Create'),
+            child: Text(AppLocalizations.of(context)!.create),
           ),
         ],
       ),
@@ -523,10 +524,10 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       HapticFeedback.lightImpact();
       ref.invalidate(foldersProvider);
       if (!mounted) return;
-      UiUtils.showMessage(context, 'Folder created');
+      UiUtils.showMessage(context, AppLocalizations.of(context)!.folderCreated);
     } catch (e) {
       if (!mounted) return;
-      UiUtils.showMessage(context, 'Failed to create folder', isError: true);
+      UiUtils.showMessage(context, AppLocalizations.of(context)!.failedToCreateFolder, isError: true);
     }
   }
 
@@ -554,11 +555,14 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           ref.invalidate(conversationsProvider);
           ref.invalidate(foldersProvider);
           if (mounted) {
-            UiUtils.showMessage(context, 'Moved "${details.data.title}" to "$name"');
+            UiUtils.showMessage(
+              context,
+              AppLocalizations.of(context)!.movedChatToFolder(details.data.title, name),
+            );
           }
         } catch (_) {
           if (mounted) {
-            UiUtils.showMessage(context, 'Failed to move chat', isError: true);
+            UiUtils.showMessage(context, AppLocalizations.of(context)!.failedToMoveChat, isError: true);
           }
         }
       },
@@ -654,7 +658,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           }
         } catch (_) {
           if (mounted) {
-            UiUtils.showMessage(context, 'Failed to move chat', isError: true);
+            UiUtils.showMessage(context, AppLocalizations.of(context)!.failedToMoveChat, isError: true);
           }
         }
       },
@@ -948,7 +952,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                           MaterialPageRoute(builder: (_) => const ProfilePage()),
                         );
                       },
-                      child: const Text('Manage'),
+                      child: Text(AppLocalizations.of(context)!.manage),
                     )
                   ],
                 ),
@@ -984,7 +988,12 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                       : (Platform.isIOS ? CupertinoIcons.pin_fill : Icons.push_pin_rounded),
                   color: theme.iconPrimary,
                 ),
-                title: Text(isPinned ? 'Unpin' : 'Pin', style: TextStyle(color: theme.textPrimary)),
+                title: Text(
+                  isPinned
+                      ? AppLocalizations.of(context)!.unpin
+                      : AppLocalizations.of(context)!.pin,
+                  style: TextStyle(color: theme.textPrimary),
+                ),
                 onTap: () async {
                   HapticFeedback.lightImpact();
                   Navigator.pop(sheetContext);
@@ -992,7 +1001,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                     await chat.pinConversation(ref, conv.id, !isPinned);
                   } catch (_) {
                     if (!mounted) return;
-                    UiUtils.showMessage(this.context, 'Failed to update pin', isError: true);
+                    UiUtils.showMessage(this.context, AppLocalizations.of(context)!.failedToUpdatePin, isError: true);
                   }
                 },
               ),
@@ -1003,7 +1012,12 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                       : (Platform.isIOS ? CupertinoIcons.archivebox : Icons.archive_rounded),
                   color: theme.iconPrimary,
                 ),
-                title: Text(isArchived ? 'Unarchive' : 'Archive', style: TextStyle(color: theme.textPrimary)),
+                title: Text(
+                  isArchived
+                      ? AppLocalizations.of(context)!.unarchive
+                      : AppLocalizations.of(context)!.archive,
+                  style: TextStyle(color: theme.textPrimary),
+                ),
                 onTap: () async {
                   HapticFeedback.lightImpact();
                   Navigator.pop(sheetContext);
@@ -1011,7 +1025,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                     await chat.archiveConversation(ref, conv.id, !isArchived);
                   } catch (_) {
                     if (!mounted) return;
-                    UiUtils.showMessage(this.context, 'Failed to update archive', isError: true);
+                    UiUtils.showMessage(this.context, AppLocalizations.of(context)!.failedToUpdateArchive, isError: true);
                   }
                 },
               ),
@@ -1020,7 +1034,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                   Platform.isIOS ? CupertinoIcons.pencil : Icons.edit_rounded,
                   color: theme.iconPrimary,
                 ),
-                title: Text('Rename', style: TextStyle(color: theme.textPrimary)),
+                title: Text(AppLocalizations.of(context)!.rename, style: TextStyle(color: theme.textPrimary)),
                 onTap: () async {
                   HapticFeedback.selectionClick();
                   Navigator.pop(sheetContext);
@@ -1033,7 +1047,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                   Platform.isIOS ? CupertinoIcons.delete : Icons.delete_rounded,
                   color: theme.error,
                 ),
-                title: Text('Delete', style: TextStyle(color: theme.error)),
+                title: Text(AppLocalizations.of(context)!.delete, style: TextStyle(color: theme.error)),
                 onTap: () async {
                   HapticFeedback.mediumImpact();
                   Navigator.pop(sheetContext);
@@ -1060,13 +1074,13 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: theme.surfaceBackground,
-          title: Text('Rename Chat', style: TextStyle(color: theme.textPrimary)),
+          title: Text(AppLocalizations.of(context)!.renameChat, style: TextStyle(color: theme.textPrimary)),
           content: TextField(
             controller: controller,
             autofocus: true,
             style: TextStyle(color: theme.inputText),
             decoration: InputDecoration(
-              hintText: 'Enter chat name',
+              hintText: AppLocalizations.of(context)!.enterChatName,
               hintStyle: TextStyle(color: theme.inputPlaceholder),
               enabledBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: theme.inputBorder),
@@ -1081,14 +1095,14 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context)!.cancel),
             ),
             TextButton(
               onPressed: () {
                 HapticFeedback.lightImpact();
                 Navigator.pop(dialogContext, controller.text.trim());
               },
-              child: const Text('Save'),
+              child: Text(AppLocalizations.of(context)!.save),
             ),
           ],
         );
@@ -1112,7 +1126,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       }
     } catch (_) {
       if (!mounted) return;
-      UiUtils.showMessage(this.context, 'Failed to rename chat', isError: true);
+      UiUtils.showMessage(this.context, AppLocalizations.of(context)!.failedToRenameChat, isError: true);
     }
   }
 
@@ -1122,9 +1136,9 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
   ) async {
     final confirmed = await UiUtils.showConfirmationDialog(
       context,
-      title: 'Delete Chat',
-      message: 'This chat will be permanently deleted.',
-      confirmText: 'Delete',
+      title: AppLocalizations.of(context)!.deleteChatTitle,
+      message: AppLocalizations.of(context)!.deleteChatMessage,
+      confirmText: AppLocalizations.of(context)!.delete,
       isDestructive: true,
     );
     if (!confirmed) return;
@@ -1143,7 +1157,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       ref.invalidate(conversationsProvider);
     } catch (_) {
       if (!mounted) return;
-      UiUtils.showMessage(this.context, 'Failed to delete chat', isError: true);
+      UiUtils.showMessage(this.context, AppLocalizations.of(context)!.failedToDeleteChat, isError: true);
     }
   }
 }
@@ -1219,7 +1233,7 @@ class _ConversationTile extends StatelessWidget {
                     size: IconSize.md,
                   ),
                   onPressed: onMorePressed,
-                  tooltip: 'More',
+                  tooltip: AppLocalizations.of(context)!.more,
                 ),
             ],
           ),

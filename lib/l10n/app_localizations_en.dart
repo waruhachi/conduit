@@ -441,4 +441,139 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get technicalDetails => 'Technical Details';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get chooseModel => 'Choose Model';
+
+  @override
+  String get reviewerMode => 'REVIEWER MODE';
+
+  @override
+  String get selectLanguage => 'Select Language';
+
+  @override
+  String get newFolder => 'New Folder';
+
+  @override
+  String get folderName => 'Folder name';
+
+  @override
+  String get newChat => 'New Chat';
+
+  @override
+  String get more => 'More';
+
+  @override
+  String get clear => 'Clear';
+
+  @override
+  String get searchHint => 'Search...';
+
+  @override
+  String get searchConversations => 'Search conversations...';
+
+  @override
+  String get create => 'Create';
+
+  @override
+  String get folderCreated => 'Folder created';
+
+  @override
+  String get failedToCreateFolder => 'Failed to create folder';
+
+  @override
+  String movedChatToFolder(String title, String folder) {
+    return 'Moved \"$title\" to \"$folder\"';
+  }
+
+  @override
+  String get failedToMoveChat => 'Failed to move chat';
+
+  @override
+  String get failedToLoadChats => 'Failed to load chats';
+
+  @override
+  String get failedToUpdatePin => 'Failed to update pin';
+
+  @override
+  String get failedToDeleteChat => 'Failed to delete chat';
+
+  @override
+  String get manage => 'Manage';
+
+  @override
+  String get rename => 'Rename';
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get renameChat => 'Rename Chat';
+
+  @override
+  String get enterChatName => 'Enter chat name';
+
+  @override
+  String get failedToRenameChat => 'Failed to rename chat';
+
+  @override
+  String get failedToUpdateArchive => 'Failed to update archive';
+
+  @override
+  String get unarchive => 'Unarchive';
+
+  @override
+  String get archive => 'Archive';
+
+  @override
+  String get pin => 'Pin';
+
+  @override
+  String get unpin => 'Unpin';
+
+  @override
+  String get recent => 'Recent';
+
+  @override
+  String get system => 'System';
+
+  @override
+  String get english => 'English';
+
+  @override
+  String get deutsch => 'Deutsch';
+
+  @override
+  String get francais => 'Français';
+
+  @override
+  String get italiano => 'Italiano';
+
+  @override
+  String get deleteMessagesTitle => 'Delete Messages';
+
+  @override
+  String deleteMessagesMessage(int count) {
+    return 'Delete $count messages?';
+  }
+
+  @override
+  String routeNotFound(String routeName) {
+    return 'Route not found: $routeName';
+  }
+
+  @override
+  String get deleteChatTitle => 'Delete Chat';
+
+  @override
+  String get deleteChatMessage => 'This chat will be permanently deleted.';
+
+  @override
+  String get aboutApp => 'About App';
+
+  @override
+  String get aboutAppSubtitle => 'Conduit information and links';
 }

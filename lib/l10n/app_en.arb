@@ -165,5 +165,64 @@
   "openSettings": "Open Settings",
   "chooseDifferentFile": "Choose Different File",
   "goBack": "Go Back",
-  "technicalDetails": "Technical Details"
+  "technicalDetails": "Technical Details",
+  "save": "Save",
+  "chooseModel": "Choose Model",
+  "reviewerMode": "REVIEWER MODE",
+  "selectLanguage": "Select Language",
+  "newFolder": "New Folder",
+  "folderName": "Folder name",
+  "newChat": "New Chat",
+  "more": "More",
+  "clear": "Clear",
+  "searchHint": "Search...",
+  "searchConversations": "Search conversations...",
+  "create": "Create",
+  "folderCreated": "Folder created",
+  "failedToCreateFolder": "Failed to create folder",
+  "movedChatToFolder": "Moved \"{title}\" to \"{folder}\"",
+  "@movedChatToFolder": {
+    "placeholders": {
+      "title": {"type": "String"},
+      "folder": {"type": "String"}
+    }
+  },
+  "failedToMoveChat": "Failed to move chat",
+  "failedToLoadChats": "Failed to load chats",
+  "failedToUpdatePin": "Failed to update pin",
+  "failedToDeleteChat": "Failed to delete chat",
+  "manage": "Manage",
+  "rename": "Rename",
+  "delete": "Delete",
+  "renameChat": "Rename Chat",
+  "enterChatName": "Enter chat name",
+  "failedToRenameChat": "Failed to rename chat",
+  "failedToUpdateArchive": "Failed to update archive",
+  "unarchive": "Unarchive",
+  "archive": "Archive",
+  "pin": "Pin",
+  "unpin": "Unpin",
+  "recent": "Recent",
+  "system": "System",
+  "english": "English",
+  "deutsch": "Deutsch",
+  "francais": "Français",
+  "italiano": "Italiano",
+  "deleteMessagesTitle": "Delete Messages",
+  "deleteMessagesMessage": "Delete {count} messages?",
+  "@deleteMessagesMessage": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "routeNotFound": "Route not found: {routeName}",
+  "@routeNotFound": {
+    "placeholders": {
+      "routeName": {"type": "String"}
+    }
+  },
+  "deleteChatTitle": "Delete Chat",
+  "deleteChatMessage": "This chat will be permanently deleted.",
+  "aboutApp": "About App",
+  "aboutAppSubtitle": "Conduit information and links"
 }

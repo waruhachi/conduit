@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:io' show Platform;
 import '../theme/theme_extensions.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 /// Platform-specific utilities for enhanced user experience
 class PlatformUtils {
@@ -210,7 +211,7 @@ class IOSEnhancements {
             .toList(),
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(AppLocalizations.of(context)!.cancel),
         ),
       ),
     );

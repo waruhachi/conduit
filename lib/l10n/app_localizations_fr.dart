@@ -441,4 +441,139 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get technicalDetails => 'Détails techniques';
+
+  @override
+  String get save => 'Enregistrer';
+
+  @override
+  String get chooseModel => 'Choisir le modèle';
+
+  @override
+  String get reviewerMode => 'REVIEWER MODE';
+
+  @override
+  String get selectLanguage => 'Sélectionner la langue';
+
+  @override
+  String get newFolder => 'Nouveau dossier';
+
+  @override
+  String get folderName => 'Nom du dossier';
+
+  @override
+  String get newChat => 'Nouveau chat';
+
+  @override
+  String get more => 'Plus';
+
+  @override
+  String get clear => 'Effacer';
+
+  @override
+  String get searchHint => 'Rechercher...';
+
+  @override
+  String get searchConversations => 'Rechercher des conversations...';
+
+  @override
+  String get create => 'Créer';
+
+  @override
+  String get folderCreated => 'Dossier créé';
+
+  @override
+  String get failedToCreateFolder => 'Échec de la création du dossier';
+
+  @override
+  String movedChatToFolder(String title, String folder) {
+    return '\"$title\" déplacé vers \"$folder\"';
+  }
+
+  @override
+  String get failedToMoveChat => 'Échec du déplacement du chat';
+
+  @override
+  String get failedToLoadChats => 'Échec du chargement des chats';
+
+  @override
+  String get failedToUpdatePin => 'Échec de la mise à jour de l\'épingle';
+
+  @override
+  String get failedToDeleteChat => 'Échec de la suppression du chat';
+
+  @override
+  String get manage => 'Gérer';
+
+  @override
+  String get rename => 'Renommer';
+
+  @override
+  String get delete => 'Supprimer';
+
+  @override
+  String get renameChat => 'Renommer le chat';
+
+  @override
+  String get enterChatName => 'Saisir le nom du chat';
+
+  @override
+  String get failedToRenameChat => 'Échec du renommage du chat';
+
+  @override
+  String get failedToUpdateArchive => 'Échec de la mise à jour de l\'archive';
+
+  @override
+  String get unarchive => 'Désarchiver';
+
+  @override
+  String get archive => 'Archiver';
+
+  @override
+  String get pin => 'Épingler';
+
+  @override
+  String get unpin => 'Détacher';
+
+  @override
+  String get recent => 'Récent';
+
+  @override
+  String get system => 'Système';
+
+  @override
+  String get english => 'Anglais';
+
+  @override
+  String get deutsch => 'Allemand';
+
+  @override
+  String get francais => 'Français';
+
+  @override
+  String get italiano => 'Italien';
+
+  @override
+  String get deleteMessagesTitle => 'Supprimer les messages';
+
+  @override
+  String deleteMessagesMessage(int count) {
+    return 'Supprimer $count messages ?';
+  }
+
+  @override
+  String routeNotFound(String routeName) {
+    return 'Route introuvable : $routeName';
+  }
+
+  @override
+  String get deleteChatTitle => 'Supprimer le chat';
+
+  @override
+  String get deleteChatMessage => 'Ce chat sera supprimé définitivement.';
+
+  @override
+  String get aboutApp => 'À propos de l\'application';
+
+  @override
+  String get aboutAppSubtitle => 'Informations et liens Conduit';
 }

@@ -226,6 +226,7 @@ class EnhancedErrorService {
 
   /// Build error widget for displaying in UI
   Widget buildErrorWidget(
+    BuildContext context,
     dynamic error, {
     VoidCallback? onRetry,
     bool showTechnicalDetails = false,
@@ -282,7 +283,7 @@ class EnhancedErrorService {
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+              label: Text(AppLocalizations.of(context)!.retry),
             ),
           ],
         ],

@@ -932,6 +932,264 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Technical Details'**
   String get technicalDetails;
+
+  /// No description provided for @save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get save;
+
+  /// No description provided for @chooseModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Model'**
+  String get chooseModel;
+
+  /// No description provided for @reviewerMode.
+  ///
+  /// In en, this message translates to:
+  /// **'REVIEWER MODE'**
+  String get reviewerMode;
+
+  /// No description provided for @selectLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Language'**
+  String get selectLanguage;
+
+  /// No description provided for @newFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'New Folder'**
+  String get newFolder;
+
+  /// No description provided for @folderName.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder name'**
+  String get folderName;
+
+  /// No description provided for @newChat.
+  ///
+  /// In en, this message translates to:
+  /// **'New Chat'**
+  String get newChat;
+
+  /// No description provided for @more.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get more;
+
+  /// No description provided for @clear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get clear;
+
+  /// No description provided for @searchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search...'**
+  String get searchHint;
+
+  /// No description provided for @searchConversations.
+  ///
+  /// In en, this message translates to:
+  /// **'Search conversations...'**
+  String get searchConversations;
+
+  /// No description provided for @create.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get create;
+
+  /// No description provided for @folderCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder created'**
+  String get folderCreated;
+
+  /// No description provided for @failedToCreateFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to create folder'**
+  String get failedToCreateFolder;
+
+  /// No description provided for @movedChatToFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved \"{title}\" to \"{folder}\"'**
+  String movedChatToFolder(String title, String folder);
+
+  /// No description provided for @failedToMoveChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to move chat'**
+  String get failedToMoveChat;
+
+  /// No description provided for @failedToLoadChats.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load chats'**
+  String get failedToLoadChats;
+
+  /// No description provided for @failedToUpdatePin.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to update pin'**
+  String get failedToUpdatePin;
+
+  /// No description provided for @failedToDeleteChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to delete chat'**
+  String get failedToDeleteChat;
+
+  /// No description provided for @manage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage'**
+  String get manage;
+
+  /// No description provided for @rename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get rename;
+
+  /// No description provided for @delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get delete;
+
+  /// No description provided for @renameChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename Chat'**
+  String get renameChat;
+
+  /// No description provided for @enterChatName.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter chat name'**
+  String get enterChatName;
+
+  /// No description provided for @failedToRenameChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to rename chat'**
+  String get failedToRenameChat;
+
+  /// No description provided for @failedToUpdateArchive.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to update archive'**
+  String get failedToUpdateArchive;
+
+  /// No description provided for @unarchive.
+  ///
+  /// In en, this message translates to:
+  /// **'Unarchive'**
+  String get unarchive;
+
+  /// No description provided for @archive.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive'**
+  String get archive;
+
+  /// No description provided for @pin.
+  ///
+  /// In en, this message translates to:
+  /// **'Pin'**
+  String get pin;
+
+  /// No description provided for @unpin.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpin'**
+  String get unpin;
+
+  /// No description provided for @recent.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get recent;
+
+  /// No description provided for @system.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get system;
+
+  /// No description provided for @english.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get english;
+
+  /// No description provided for @deutsch.
+  ///
+  /// In en, this message translates to:
+  /// **'Deutsch'**
+  String get deutsch;
+
+  /// No description provided for @francais.
+  ///
+  /// In en, this message translates to:
+  /// **'Français'**
+  String get francais;
+
+  /// No description provided for @italiano.
+  ///
+  /// In en, this message translates to:
+  /// **'Italiano'**
+  String get italiano;
+
+  /// No description provided for @deleteMessagesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Messages'**
+  String get deleteMessagesTitle;
+
+  /// No description provided for @deleteMessagesMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {count} messages?'**
+  String deleteMessagesMessage(int count);
+
+  /// No description provided for @routeNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Route not found: {routeName}'**
+  String routeNotFound(String routeName);
+
+  /// No description provided for @deleteChatTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Chat'**
+  String get deleteChatTitle;
+
+  /// No description provided for @deleteChatMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This chat will be permanently deleted.'**
+  String get deleteChatMessage;
+
+  /// No description provided for @aboutApp.
+  ///
+  /// In en, this message translates to:
+  /// **'About App'**
+  String get aboutApp;
+
+  /// No description provided for @aboutAppSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Conduit information and links'**
+  String get aboutAppSubtitle;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

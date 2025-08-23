@@ -441,4 +441,139 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get technicalDetails => 'Technische Details';
+
+  @override
+  String get save => 'Speichern';
+
+  @override
+  String get chooseModel => 'Modell wählen';
+
+  @override
+  String get reviewerMode => 'REVIEWER MODE';
+
+  @override
+  String get selectLanguage => 'Sprache auswählen';
+
+  @override
+  String get newFolder => 'Neuer Ordner';
+
+  @override
+  String get folderName => 'Ordnername';
+
+  @override
+  String get newChat => 'Neuer Chat';
+
+  @override
+  String get more => 'Mehr';
+
+  @override
+  String get clear => 'Leeren';
+
+  @override
+  String get searchHint => 'Suchen...';
+
+  @override
+  String get searchConversations => 'Konversationen durchsuchen...';
+
+  @override
+  String get create => 'Erstellen';
+
+  @override
+  String get folderCreated => 'Ordner erstellt';
+
+  @override
+  String get failedToCreateFolder => 'Ordner konnte nicht erstellt werden';
+
+  @override
+  String movedChatToFolder(String title, String folder) {
+    return '\"$title\" nach \"$folder\" verschoben';
+  }
+
+  @override
+  String get failedToMoveChat => 'Chat konnte nicht verschoben werden';
+
+  @override
+  String get failedToLoadChats => 'Chats konnten nicht geladen werden';
+
+  @override
+  String get failedToUpdatePin => 'Pin konnte nicht aktualisiert werden';
+
+  @override
+  String get failedToDeleteChat => 'Chat konnte nicht gelöscht werden';
+
+  @override
+  String get manage => 'Verwalten';
+
+  @override
+  String get rename => 'Umbenennen';
+
+  @override
+  String get delete => 'Löschen';
+
+  @override
+  String get renameChat => 'Chat umbenennen';
+
+  @override
+  String get enterChatName => 'Chat-Namen eingeben';
+
+  @override
+  String get failedToRenameChat => 'Chat konnte nicht umbenannt werden';
+
+  @override
+  String get failedToUpdateArchive => 'Archiv konnte nicht aktualisiert werden';
+
+  @override
+  String get unarchive => 'Archivierung aufheben';
+
+  @override
+  String get archive => 'Archivieren';
+
+  @override
+  String get pin => 'Anheften';
+
+  @override
+  String get unpin => 'Lösen';
+
+  @override
+  String get recent => 'Zuletzt';
+
+  @override
+  String get system => 'System';
+
+  @override
+  String get english => 'Englisch';
+
+  @override
+  String get deutsch => 'Deutsch';
+
+  @override
+  String get francais => 'Französisch';
+
+  @override
+  String get italiano => 'Italienisch';
+
+  @override
+  String get deleteMessagesTitle => 'Nachrichten löschen';
+
+  @override
+  String deleteMessagesMessage(int count) {
+    return '$count Nachrichten löschen?';
+  }
+
+  @override
+  String routeNotFound(String routeName) {
+    return 'Route nicht gefunden: $routeName';
+  }
+
+  @override
+  String get deleteChatTitle => 'Chat löschen';
+
+  @override
+  String get deleteChatMessage => 'Dieser Chat wird dauerhaft gelöscht.';
+
+  @override
+  String get aboutApp => 'Über die App';
+
+  @override
+  String get aboutAppSubtitle => 'Conduit Informationen und Links';
 }

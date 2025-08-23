@@ -441,4 +441,139 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get technicalDetails => 'Dettagli tecnici';
+
+  @override
+  String get save => 'Salva';
+
+  @override
+  String get chooseModel => 'Scegli modello';
+
+  @override
+  String get reviewerMode => 'REVIEWER MODE';
+
+  @override
+  String get selectLanguage => 'Seleziona lingua';
+
+  @override
+  String get newFolder => 'Nuova cartella';
+
+  @override
+  String get folderName => 'Nome cartella';
+
+  @override
+  String get newChat => 'Nuova chat';
+
+  @override
+  String get more => 'Altro';
+
+  @override
+  String get clear => 'Pulisci';
+
+  @override
+  String get searchHint => 'Cerca...';
+
+  @override
+  String get searchConversations => 'Cerca conversazioni...';
+
+  @override
+  String get create => 'Crea';
+
+  @override
+  String get folderCreated => 'Cartella creata';
+
+  @override
+  String get failedToCreateFolder => 'Impossibile creare la cartella';
+
+  @override
+  String movedChatToFolder(String title, String folder) {
+    return '\"$title\" spostata in \"$folder\"';
+  }
+
+  @override
+  String get failedToMoveChat => 'Impossibile spostare la chat';
+
+  @override
+  String get failedToLoadChats => 'Impossibile caricare le chat';
+
+  @override
+  String get failedToUpdatePin => 'Impossibile aggiornare il pin';
+
+  @override
+  String get failedToDeleteChat => 'Impossibile eliminare la chat';
+
+  @override
+  String get manage => 'Gestisci';
+
+  @override
+  String get rename => 'Rinomina';
+
+  @override
+  String get delete => 'Elimina';
+
+  @override
+  String get renameChat => 'Rinomina chat';
+
+  @override
+  String get enterChatName => 'Inserisci nome chat';
+
+  @override
+  String get failedToRenameChat => 'Impossibile rinominare la chat';
+
+  @override
+  String get failedToUpdateArchive => 'Impossibile aggiornare l\'archivio';
+
+  @override
+  String get unarchive => 'Ripristina';
+
+  @override
+  String get archive => 'Archivia';
+
+  @override
+  String get pin => 'Fissa';
+
+  @override
+  String get unpin => 'Sblocca';
+
+  @override
+  String get recent => 'Recenti';
+
+  @override
+  String get system => 'Sistema';
+
+  @override
+  String get english => 'Inglese';
+
+  @override
+  String get deutsch => 'Tedesco';
+
+  @override
+  String get francais => 'Francese';
+
+  @override
+  String get italiano => 'Italiano';
+
+  @override
+  String get deleteMessagesTitle => 'Elimina messaggi';
+
+  @override
+  String deleteMessagesMessage(int count) {
+    return 'Eliminare $count messaggi?';
+  }
+
+  @override
+  String routeNotFound(String routeName) {
+    return 'Percorso non trovato: $routeName';
+  }
+
+  @override
+  String get deleteChatTitle => 'Elimina chat';
+
+  @override
+  String get deleteChatMessage => 'Questa chat verrà eliminata definitivamente.';
+
+  @override
+  String get aboutApp => 'Informazioni sull\'app';
+
+  @override
+  String get aboutAppSubtitle => 'Informazioni e link di Conduit';
 }

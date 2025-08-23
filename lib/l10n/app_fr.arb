@@ -141,5 +141,64 @@
   "openSettings": "Ouvrir les réglages",
   "chooseDifferentFile": "Choisir un autre fichier",
   "goBack": "Retour",
-  "technicalDetails": "Détails techniques"
+  "technicalDetails": "Détails techniques",
+  "save": "Enregistrer",
+  "chooseModel": "Choisir le modèle",
+  "reviewerMode": "REVIEWER MODE",
+  "selectLanguage": "Sélectionner la langue",
+  "newFolder": "Nouveau dossier",
+  "folderName": "Nom du dossier",
+  "newChat": "Nouveau chat",
+  "more": "Plus",
+  "clear": "Effacer",
+  "searchHint": "Rechercher...",
+  "searchConversations": "Rechercher des conversations...",
+  "create": "Créer",
+  "folderCreated": "Dossier créé",
+  "failedToCreateFolder": "Échec de la création du dossier",
+  "movedChatToFolder": "\"{title}\" déplacé vers \"{folder}\"",
+  "@movedChatToFolder": {
+    "placeholders": {
+      "title": {"type": "String"},
+      "folder": {"type": "String"}
+    }
+  },
+  "failedToMoveChat": "Échec du déplacement du chat",
+  "failedToLoadChats": "Échec du chargement des chats",
+  "failedToUpdatePin": "Échec de la mise à jour de l'épingle",
+  "failedToDeleteChat": "Échec de la suppression du chat",
+  "manage": "Gérer",
+  "rename": "Renommer",
+  "delete": "Supprimer",
+  "renameChat": "Renommer le chat",
+  "enterChatName": "Saisir le nom du chat",
+  "failedToRenameChat": "Échec du renommage du chat",
+  "failedToUpdateArchive": "Échec de la mise à jour de l'archive",
+  "unarchive": "Désarchiver",
+  "archive": "Archiver",
+  "pin": "Épingler",
+  "unpin": "Détacher",
+  "recent": "Récent",
+  "system": "Système",
+  "english": "Anglais",
+  "deutsch": "Allemand",
+  "francais": "Français",
+  "italiano": "Italien",
+  "deleteMessagesTitle": "Supprimer les messages",
+  "deleteMessagesMessage": "Supprimer {count} messages ?",
+  "@deleteMessagesMessage": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "routeNotFound": "Route introuvable : {routeName}",
+  "@routeNotFound": {
+    "placeholders": {
+      "routeName": {"type": "String"}
+    }
+  },
+  "deleteChatTitle": "Supprimer le chat",
+  "deleteChatMessage": "Ce chat sera supprimé définitivement.",
+  "aboutApp": "À propos de l'application",
+  "aboutAppSubtitle": "Informations et liens Conduit"
 }

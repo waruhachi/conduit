@@ -5,6 +5,7 @@ import '../../features/chat/views/chat_page.dart';
 import '../../features/files/views/workspace_page.dart';
 import '../../features/profile/views/profile_page.dart';
 import '../../shared/widgets/themed_dialogs.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 /// Service for handling navigation throughout the app
 class NavigationService {
@@ -139,8 +140,15 @@ class NavigationService {
       // Removed navigation drawer route
 
       default:
-        page = Scaffold(
-          body: Center(child: Text('Route not found: ${settings.name}')),
+        page = Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: Text(
+                AppLocalizations.of(context)!
+                    .routeNotFound(settings.name ?? ''),
+              ),
+            ),
+          ),
         );
     }
 

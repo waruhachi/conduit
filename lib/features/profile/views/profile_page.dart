@@ -537,27 +537,27 @@ class ProfilePage extends ConsumerWidget {
             children: [
               const SizedBox(height: Spacing.sm),
               ListTile(
-                title: const Text('System'),
+                title: Text(AppLocalizations.of(context)!.system),
                 trailing: current == 'system' ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.pop(context, 'system'),
               ),
               ListTile(
-                title: const Text('English'),
+                title: Text(AppLocalizations.of(context)!.english),
                 trailing: current == 'en' ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.pop(context, 'en'),
               ),
               ListTile(
-                title: const Text('Deutsch'),
+                title: Text(AppLocalizations.of(context)!.deutsch),
                 trailing: current == 'de' ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.pop(context, 'de'),
               ),
               ListTile(
-                title: const Text('Français'),
+                title: Text(AppLocalizations.of(context)!.francais),
                 trailing: current == 'fr' ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.pop(context, 'fr'),
               ),
               ListTile(
-                title: const Text('Italiano'),
+                title: Text(AppLocalizations.of(context)!.italiano),
                 trailing: current == 'it' ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.pop(context, 'it'),
               ),
@@ -640,8 +640,8 @@ class ProfilePage extends ConsumerWidget {
         ios: CupertinoIcons.info,
         android: Icons.info_outline,
       ),
-      title: 'About App',
-      subtitle: 'Conduit information and links',
+      title: AppLocalizations.of(context)!.aboutApp,
+      subtitle: AppLocalizations.of(context)!.aboutAppSubtitle,
       onTap: () => _showAboutDialog(context),
     );
   }

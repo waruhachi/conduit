@@ -141,5 +141,64 @@
   "openSettings": "Apri impostazioni",
   "chooseDifferentFile": "Scegli un altro file",
   "goBack": "Indietro",
-  "technicalDetails": "Dettagli tecnici"
+  "technicalDetails": "Dettagli tecnici",
+  "save": "Salva",
+  "chooseModel": "Scegli modello",
+  "reviewerMode": "REVIEWER MODE",
+  "selectLanguage": "Seleziona lingua",
+  "newFolder": "Nuova cartella",
+  "folderName": "Nome cartella",
+  "newChat": "Nuova chat",
+  "more": "Altro",
+  "clear": "Pulisci",
+  "searchHint": "Cerca...",
+  "searchConversations": "Cerca conversazioni...",
+  "create": "Crea",
+  "folderCreated": "Cartella creata",
+  "failedToCreateFolder": "Impossibile creare la cartella",
+  "movedChatToFolder": "\"{title}\" spostata in \"{folder}\"",
+  "@movedChatToFolder": {
+    "placeholders": {
+      "title": {"type": "String"},
+      "folder": {"type": "String"}
+    }
+  },
+  "failedToMoveChat": "Impossibile spostare la chat",
+  "failedToLoadChats": "Impossibile caricare le chat",
+  "failedToUpdatePin": "Impossibile aggiornare il pin",
+  "failedToDeleteChat": "Impossibile eliminare la chat",
+  "manage": "Gestisci",
+  "rename": "Rinomina",
+  "delete": "Elimina",
+  "renameChat": "Rinomina chat",
+  "enterChatName": "Inserisci nome chat",
+  "failedToRenameChat": "Impossibile rinominare la chat",
+  "failedToUpdateArchive": "Impossibile aggiornare l'archivio",
+  "unarchive": "Ripristina",
+  "archive": "Archivia",
+  "pin": "Fissa",
+  "unpin": "Sblocca",
+  "recent": "Recenti",
+  "system": "Sistema",
+  "english": "Inglese",
+  "deutsch": "Tedesco",
+  "francais": "Francese",
+  "italiano": "Italiano",
+  "deleteMessagesTitle": "Elimina messaggi",
+  "deleteMessagesMessage": "Eliminare {count} messaggi?",
+  "@deleteMessagesMessage": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "routeNotFound": "Percorso non trovato: {routeName}",
+  "@routeNotFound": {
+    "placeholders": {
+      "routeName": {"type": "String"}
+    }
+  },
+  "deleteChatTitle": "Elimina chat",
+  "deleteChatMessage": "Questa chat verrà eliminata definitivamente.",
+  "aboutApp": "Informazioni sull'app",
+  "aboutAppSubtitle": "Informazioni e link di Conduit"
 }
