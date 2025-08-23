@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'skeleton_loader.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 import 'improved_loading_states.dart';
 
 /// Optimized list widget with virtualization and performance enhancements
@@ -127,8 +128,8 @@ class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
     if (widget.items.isEmpty) {
       return widget.emptyWidget ??
           ImprovedEmptyState(
-            title: 'No items',
-            subtitle: widget.emptyMessage ?? 'No items to display',
+            title: AppLocalizations.of(context)!.noItems,
+            subtitle: widget.emptyMessage ?? AppLocalizations.of(context)!.noItemsToDisplay,
             icon: Icons.inbox_outlined,
           );
     }
@@ -208,7 +209,10 @@ class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
       alignment: Alignment.center,
       child: _isLoadingMore
           ? const CircularProgressIndicator()
-          : TextButton(onPressed: _loadMore, child: const Text('Load More')),
+          : TextButton(
+              onPressed: _loadMore,
+              child: Text(AppLocalizations.of(context)!.loadMore),
+            ),
     );
   }
 
@@ -267,11 +271,14 @@ class OptimizedSliverList<T> extends ConsumerWidget {
       return SliverToBoxAdapter(
         child:
             emptyWidget ??
-            ImprovedEmptyState(
-              title: 'No items',
-              subtitle: emptyMessage ?? 'No items to display',
-              icon: Icons.inbox_outlined,
-            ),
+            Builder(builder: (context) {
+              final l10n = AppLocalizations.of(context)!;
+              return ImprovedEmptyState(
+                title: l10n.noItems,
+                subtitle: emptyMessage ?? l10n.noItemsToDisplay,
+                icon: Icons.inbox_outlined,
+              );
+            }),
       );
     }
 

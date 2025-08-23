@@ -15,6 +15,7 @@ import '../../../shared/theme/theme_extensions.dart';
 import '../../../shared/widgets/conduit_components.dart';
 import '../../../core/auth/auth_state_manager.dart';
 import '../../../core/utils/debug_logger.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 class AuthenticationPage extends ConsumerStatefulWidget {
   final ServerConfig serverConfig;
@@ -61,6 +62,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
   }
 
   Future<void> _signIn() async {
+    final l10n = AppLocalizations.of(context)!;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -87,7 +89,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
 
       if (!success) {
         final authState = ref.read(authStateManagerProvider);
-        throw Exception(authState.error ?? 'Login failed');
+        throw Exception(authState.error ?? l10n.loginFailed);
       }
 
       // Success - navigation will be handled by auth state change
@@ -106,15 +108,15 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
 
   String _formatLoginError(String error) {
     if (error.contains('401') || error.contains('Unauthorized')) {
-      return 'Invalid username or password. Please try again.';
+      return AppLocalizations.of(context)!.invalidCredentials;
     } else if (error.contains('redirect')) {
-      return 'The server is redirecting requests. Check your server\'s HTTPS configuration.';
+      return AppLocalizations.of(context)!.serverRedirectingHttps;
     } else if (error.contains('SocketException')) {
-      return 'Unable to connect to server. Please check your connection.';
+      return AppLocalizations.of(context)!.unableToConnectServer;
     } else if (error.contains('timeout')) {
-      return 'The request timed out. Please try again.';
+      return AppLocalizations.of(context)!.requestTimedOut;
     }
-    return 'We couldn\'t sign you in. Check your credentials and server settings.';
+    return AppLocalizations.of(context)!.genericSignInFailed;
   }
 
   @override
@@ -201,7 +203,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
         ConduitIconButton(
           icon: Platform.isIOS ? CupertinoIcons.back : Icons.arrow_back,
           onPressed: () => Navigator.pop(context),
-          tooltip: 'Back to server setup',
+          tooltip: AppLocalizations.of(context)!.backToServerSetup,
         ),
         const Spacer(),
         // Progress indicator (step 2 of 2)
@@ -263,7 +265,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Connected to Server',
+                  AppLocalizations.of(context)!.connectedToServer,
                   style: context.conduitTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: context.conduitTheme.success,
@@ -302,7 +304,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
         ),
         const SizedBox(height: Spacing.lg),
         Text(
-          'Sign In',
+          AppLocalizations.of(context)!.signIn,
           textAlign: TextAlign.center,
           style: context.conduitTheme.headingLarge?.copyWith(
             fontWeight: FontWeight.w700,
@@ -314,7 +316,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
         ),
         const SizedBox(height: Spacing.sm),
         Text(
-          'Enter your credentials to access your AI conversations',
+          AppLocalizations.of(context)!.enterCredentials,
           textAlign: TextAlign.center,
           style: context.conduitTheme.bodyLarge?.copyWith(
             color: context.conduitTheme.textSecondary,
@@ -370,7 +372,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
               icon: Platform.isIOS
                   ? CupertinoIcons.person_circle
                   : Icons.account_circle_outlined,
-              label: 'Credentials',
+              label: AppLocalizations.of(context)!.credentials,
               isSelected: !_useApiKey,
               onTap: () => setState(() => _useApiKey = false),
             ),
@@ -380,7 +382,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
               icon: Platform.isIOS
                   ? CupertinoIcons.lock_shield
                   : Icons.vpn_key_outlined,
-              label: 'API Key',
+              label: AppLocalizations.of(context)!.apiKey,
               isSelected: _useApiKey,
               onTap: () => setState(() => _useApiKey = true),
             ),
@@ -469,7 +471,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
       key: const ValueKey('api_key_form'),
       children: [
         AccessibleFormField(
-          label: 'API Key',
+          label: AppLocalizations.of(context)!.apiKey,
           hint: 'sk-...',
           controller: _apiKeyController,
           validator: InputValidationService.combine([
@@ -477,7 +479,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
             (value) => InputValidationService.validateMinLength(
               value,
               10,
-              fieldName: 'API Key',
+              fieldName: AppLocalizations.of(context)!.apiKey,
             ),
           ]),
           obscureText: _obscurePassword,
@@ -513,7 +515,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
       key: const ValueKey('credentials_form'),
       children: [
         AccessibleFormField(
-          label: 'Username or Email',
+          label: AppLocalizations.of(context)!.usernameOrEmail,
           hint: 'Enter your username or email',
           controller: _usernameController,
           validator: InputValidationService.combine([
@@ -531,7 +533,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
         ),
         const SizedBox(height: Spacing.lg),
         AccessibleFormField(
-          label: 'Password',
+          label: AppLocalizations.of(context)!.password,
           hint: 'Enter your password',
           controller: _passwordController,
           validator: InputValidationService.combine([
@@ -576,8 +578,8 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
             text: _isSigningIn
                 ? 'Signing in...'
                 : _useApiKey
-                ? 'Sign in with API Key'
-                : 'Sign In',
+                ? AppLocalizations.of(context)!.signInWithApiKey
+                : AppLocalizations.of(context)!.signIn,
             icon: _isSigningIn
                 ? null
                 : (Platform.isIOS

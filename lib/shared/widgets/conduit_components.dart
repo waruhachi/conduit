@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/theme_extensions.dart';
 import '../services/brand_service.dart';
 import '../../core/services/enhanced_accessibility_service.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 import '../../core/services/platform_service.dart';
 import '../../core/services/settings_service.dart';
 
@@ -53,7 +54,8 @@ class ConduitButton extends ConsumerWidget {
     // Build semantic label
     String semanticLabel = text;
     if (isLoading) {
-      semanticLabel = 'Loading: $text';
+      final l10n = AppLocalizations.of(context);
+      semanticLabel = '${l10n?.loadingContent ?? 'Loading'}: $text';
     } else if (isDestructive) {
       semanticLabel = 'Warning: $text';
     }
@@ -99,7 +101,7 @@ class ConduitButton extends ConsumerWidget {
           ),
           child: isLoading
               ? Semantics(
-                  label: 'Loading',
+                  label: AppLocalizations.of(context)?.loadingContent ?? 'Loading',
                   excludeSemantics: true,
                   child: SizedBox(
                     width: IconSize.small,
@@ -204,7 +206,7 @@ class ConduitInput extends StatelessWidget {
           SizedBox(height: Spacing.sm),
         ],
         Semantics(
-          label: semanticLabel ?? label ?? 'Input field',
+          label: semanticLabel ?? label ?? (AppLocalizations.of(context)?.inputField ?? 'Input field'),
           textField: true,
           child: TextField(
             controller: controller,
@@ -772,7 +774,7 @@ class AccessibleFormField extends StatelessWidget {
           SizedBox(height: isCompact ? Spacing.xs : Spacing.sm),
         ],
         Semantics(
-          label: semanticLabel ?? label ?? 'Input field',
+          label: semanticLabel ?? label ?? (AppLocalizations.of(context)?.inputField ?? 'Input field'),
           textField: true,
           child: TextFormField(
             controller: controller,

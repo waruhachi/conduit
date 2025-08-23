@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/theme/theme_extensions.dart';
 import '../error/enhanced_error_service.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 /// Error boundary widget that catches and handles errors in child widgets
 class ErrorBoundary extends ConsumerStatefulWidget {
@@ -122,7 +123,7 @@ class _ErrorBoundaryState extends ConsumerState<ErrorBoundary> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Something went wrong',
+                  AppLocalizations.of(context)!.errorMessage,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: context.conduitTheme.textPrimary,
                   ),
@@ -140,7 +141,7 @@ class _ErrorBoundaryState extends ConsumerState<ErrorBoundary> {
                   FilledButton.icon(
                     onPressed: _retry,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Try Again'),
+                    label: Text(AppLocalizations.of(context)!.retry),
                   ),
                 ],
               ],
@@ -239,7 +240,7 @@ class AsyncErrorBoundary extends ConsumerWidget {
                         (context as Element).markNeedsBuild();
                       },
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Retry'),
+                      label: Text(AppLocalizations.of(context)!.retry),
                     ),
                   ],
                 ],

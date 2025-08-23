@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io' show Platform;
 import '../../core/services/connectivity_service.dart';
 import '../theme/theme_extensions.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 class OfflineIndicator extends ConsumerWidget {
   final Widget child;
@@ -70,7 +71,7 @@ class _OfflineBanner extends StatelessWidget {
                       const SizedBox(width: Spacing.xs),
                       Expanded(
                         child: Text(
-                          'You\'re offline. Some features may be limited.',
+                          AppLocalizations.of(context)!.offlineBanner,
                           style: TextStyle(
                             color: context.conduitTheme.textInverse,
                             fontSize: AppTypography.labelLarge,
@@ -101,7 +102,7 @@ class InlineOfflineIndicator extends ConsumerWidget {
 
   const InlineOfflineIndicator({
     super.key,
-    this.message = 'This feature requires an internet connection',
+    this.message = '',
     this.icon,
     this.backgroundColor,
   });
@@ -138,7 +139,9 @@ class InlineOfflineIndicator extends ConsumerWidget {
           const SizedBox(width: Spacing.xs),
           Expanded(
             child: Text(
-              message,
+              message.isNotEmpty
+                  ? message
+                  : AppLocalizations.of(context)!.featureRequiresInternet,
               style: TextStyle(
                 color: context.conduitTheme.warning,
                 fontSize: AppTypography.labelLarge,
@@ -174,7 +177,7 @@ class OfflineAwareButton extends ConsumerWidget {
 
     return Tooltip(
       message: !enabled
-          ? (offlineTooltip ?? 'This action requires an internet connection')
+          ? (offlineTooltip ?? AppLocalizations.of(context)!.featureRequiresInternet)
           : '',
       child: FilledButton(onPressed: enabled ? onPressed : null, child: child),
     );
@@ -217,7 +220,7 @@ class ChatOfflineOverlay extends ConsumerWidget {
           ),
           const SizedBox(width: Spacing.sm),
           Text(
-            'Messages will be sent when you\'re back online',
+            AppLocalizations.of(context)!.messagesWillSendWhenOnline,
             style: TextStyle(
               color: context.conduitTheme.warning,
               fontSize: AppTypography.bodySmall,

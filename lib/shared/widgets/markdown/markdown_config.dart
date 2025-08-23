@@ -6,6 +6,7 @@ import 'package:flutter_highlight/themes/atom-one-light.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:conduit/shared/theme/theme_extensions.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 class ConduitMarkdownConfig {
   static MarkdownConfig getConfig({
@@ -56,7 +57,7 @@ class ConduitMarkdownConfig {
           builder: (url, attributes) {
             // Check if it's a base64 data URL
             if (url.startsWith('data:')) {
-              return _buildBase64Image(url, theme);
+              return _buildBase64Image(url, context, theme);
             }
             // Network image
             return CachedNetworkImage(
@@ -94,7 +95,7 @@ class ConduitMarkdownConfig {
                     ),
                     const SizedBox(height: Spacing.xs),
                     Text(
-                      'Failed to load image',
+                      AppLocalizations.of(context)!.failedToLoadImage(''),
                       style: TextStyle(color: theme.error, fontSize: 12),
                     ),
                   ],
@@ -151,7 +152,7 @@ class ConduitMarkdownConfig {
     );
   }
 
-  static Widget _buildBase64Image(String dataUrl, ConduitThemeExtension theme) {
+  static Widget _buildBase64Image(String dataUrl, BuildContext context, ConduitThemeExtension theme) {
     try {
       // Extract base64 part from data URL
       final commaIndex = dataUrl.indexOf(',');
@@ -187,7 +188,7 @@ class ConduitMarkdownConfig {
                     Icon(Icons.error_outline, color: theme.error, size: 32),
                     const SizedBox(height: Spacing.xs),
                     Text(
-                      'Invalid image data',
+                      AppLocalizations.of(context)!.invalidImageFormat,
                       style: TextStyle(color: theme.error, fontSize: 12),
                     ),
                   ],
@@ -206,7 +207,7 @@ class ConduitMarkdownConfig {
         ),
         child: Center(
           child: Text(
-            'Invalid image format',
+            AppLocalizations.of(context)!.invalidImageFormat,
             style: TextStyle(color: theme.error, fontSize: 12),
           ),
         ),

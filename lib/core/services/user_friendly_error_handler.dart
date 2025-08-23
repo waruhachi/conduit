@@ -182,12 +182,12 @@ class UserFriendlyErrorHandler {
   List<ErrorRecoveryAction> _getServerRecoveryActions() {
     return [
       ErrorRecoveryAction(
-        label: 'Try Again',
+        label: 'Retry',
         action: ErrorActionType.retry,
         description: 'Retry your request',
       ),
       ErrorRecoveryAction(
-        label: 'Wait & Retry',
+        label: 'Retry',
         action: ErrorActionType.retryLater,
         description: 'Wait a moment then try again',
       ),
@@ -223,7 +223,7 @@ class UserFriendlyErrorHandler {
         description: 'Sign in to your account',
       ),
       ErrorRecoveryAction(
-        label: 'Try Again',
+        label: 'Retry',
         action: ErrorActionType.retry,
         description: 'Retry the request',
       ),
@@ -280,7 +280,7 @@ class UserFriendlyErrorHandler {
         description: 'Select another file',
       ),
       ErrorRecoveryAction(
-        label: 'Try Again',
+        label: 'Retry',
         action: ErrorActionType.retry,
         description: 'Retry the operation',
       ),
@@ -314,7 +314,7 @@ class UserFriendlyErrorHandler {
         description: 'Open app settings to grant permissions',
       ),
       ErrorRecoveryAction(
-        label: 'Try Again',
+        label: 'Retry',
         action: ErrorActionType.retry,
         description: 'Retry after granting permission',
       ),
@@ -324,7 +324,7 @@ class UserFriendlyErrorHandler {
   List<ErrorRecoveryAction> _getGenericRecoveryActions() {
     return [
       ErrorRecoveryAction(
-        label: 'Try Again',
+        label: 'Retry',
         action: ErrorActionType.retry,
         description: 'Retry the operation',
       ),

@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   
   # State Management
   flutter_riverpod: ^2.6.1
@@ -45,6 +47,7 @@ dependencies:
   crypto: ^3.0.3
   package_info_plus: ^8.0.2
   url_launcher: ^6.3.0
+  intl: ^0.20.2
 
   # Icons & Theming
   cupertino_icons: ^1.0.8
@@ -69,6 +72,22 @@ dependency_overrides:
 
 flutter:
   uses-material-design: true
+  generate: true
+  # Localization configuration
+  # The default synthetic package is used for generated localizations:
+  # import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+  # ARB files live in lib/l10n
+  # You can customize output via the `l10n:` section if needed.
+  #
+  # l10n:
+  #   arb-dir: lib/l10n
+  #   template-arb-file: app_en.arb
+  #   output-localization-file: app_localizations.dart
+  #   preferred-supported-locales:
+  #     - en
+  #     - de
+  #     - fr
+  #     - it
   
   assets:
     - assets/icons/

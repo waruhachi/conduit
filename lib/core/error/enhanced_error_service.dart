@@ -6,6 +6,7 @@ import 'api_error_handler.dart';
 import 'api_error_interceptor.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/theme/theme_extensions.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 /// Enhanced error service with comprehensive error handling capabilities
 /// Provides unified error management across the application
@@ -136,8 +137,8 @@ class EnhancedErrorService {
       action: isRetryableError && onRetry != null
           ? SnackBarAction(
               label: retryDelay != null && retryDelay.inSeconds > 5
-                  ? 'Retry (${retryDelay.inSeconds}s)'
-                  : 'Retry',
+                  ? "${AppLocalizations.of(context)!.retry} (${retryDelay.inSeconds}s)"
+                  : AppLocalizations.of(context)!.retry,
               textColor: AppTheme.neutral50,
               onPressed: onRetry,
             )
@@ -208,14 +209,14 @@ class EnhancedErrorService {
                   Navigator.of(context).pop();
                   onRetry();
                 },
-                child: const Text('Retry'),
+                child: Text(AppLocalizations.of(context)!.retry),
               ),
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
                 onDismiss?.call();
               },
-              child: const Text('OK'),
+              child: Text(AppLocalizations.of(context)!.ok),
             ),
           ],
         );
@@ -281,7 +282,7 @@ class EnhancedErrorService {
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
+              label: const Text('Retry'),
             ),
           ],
         ],

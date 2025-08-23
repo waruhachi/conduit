@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'skeleton_loader.dart';
 import '../theme/theme_extensions.dart';
 import 'conduit_components.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 /// Improved loading state widget with accessibility and better hierarchy
 class ImprovedLoadingState extends StatefulWidget {
@@ -81,7 +82,7 @@ class _ImprovedLoadingStateState extends State<ImprovedLoadingState>
       opacity: _fadeAnimation,
       child: Center(
         child: Semantics(
-          label: widget.message ?? 'Loading content',
+          label: widget.message ?? AppLocalizations.of(context)!.loadingContent,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -414,7 +415,7 @@ class LoadingCard extends StatelessWidget {
       return ConduitCard(
         isCompact: isCompact,
         child: ImprovedLoadingState(
-          message: 'Loading...',
+          message: AppLocalizations.of(context)!.loadingContent,
           isCompact: isCompact,
         ),
       );
@@ -620,7 +621,7 @@ class ErrorStateWidget extends StatelessWidget {
             Icon(Icons.error_outline, size: 64, color: theme.colorScheme.error),
             const SizedBox(height: 16),
             Text(
-              'Oops! Something went wrong',
+              AppLocalizations.of(context)!.errorMessage,
               style: theme.textTheme.headlineSmall,
               textAlign: TextAlign.center,
             ),
@@ -655,7 +656,7 @@ class ErrorStateWidget extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Try Again'),
+                label: Text(AppLocalizations.of(context)!.retry),
               ),
             ],
           ],

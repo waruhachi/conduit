@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 import '../../../core/models/server_config.dart';
 import '../../../core/providers/app_providers.dart';
@@ -116,7 +117,7 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
 
   String _validateAndFormatUrl(String input) {
     if (input.isEmpty) {
-      throw Exception('Server URL cannot be empty');
+      throw Exception(AppLocalizations.of(context)!.serverUrlEmpty);
     }
 
     // Clean up the input
@@ -135,29 +136,29 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
     // Parse and validate the URI
     final uri = Uri.tryParse(url);
     if (uri == null) {
-      throw Exception('Invalid URL format. Please check your input.');
+      throw Exception(AppLocalizations.of(context)!.invalidUrlFormat);
     }
 
     // Validate scheme
     if (uri.scheme != 'http' && uri.scheme != 'https') {
-      throw Exception('Only HTTP and HTTPS protocols are supported.');
+      throw Exception(AppLocalizations.of(context)!.onlyHttpHttps);
     }
 
     // Validate host
     if (uri.host.isEmpty) {
-      throw Exception('Server address is required (e.g., 192.168.1.10 or example.com).');
+      throw Exception(AppLocalizations.of(context)!.serverAddressRequired);
     }
 
     // Validate port if specified
     if (uri.hasPort) {
       if (uri.port < 1 || uri.port > 65535) {
-        throw Exception('Port must be between 1 and 65535.');
+        throw Exception(AppLocalizations.of(context)!.portRange);
       }
     }
 
     // Validate IP address format if it looks like an IP
     if (_isIPAddress(uri.host) && !_isValidIPAddress(uri.host)) {
-      throw Exception('Invalid IP address format. Use format like 192.168.1.10.');
+      throw Exception(AppLocalizations.of(context)!.invalidIpFormat);
     }
 
     return url;
@@ -192,15 +193,15 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
     
     // Handle specific error types
     if (error.contains('SocketException')) {
-      return 'We couldn\'t reach the server. Check your connection and that the server is running.';
+      return AppLocalizations.of(context)!.weCouldntReachServer;
     } else if (error.contains('timeout')) {
-      return 'Connection timed out. The server might be busy or blocked by a firewall.';
+      return AppLocalizations.of(context)!.connectionTimedOut;
     } else if (error.contains('Server URL cannot be empty')) {
-      return 'Please enter a server address.';
+      return AppLocalizations.of(context)!.serverUrlEmpty;
     } else if (error.contains('Invalid URL format')) {
-      return 'Invalid server address format. Examples:\n• 192.168.1.10:3000\n• example.com\n• https://myserver.com';
+      return AppLocalizations.of(context)!.invalidUrlFormat;
     } else if (error.contains('Only HTTP and HTTPS')) {
-      return 'Use http:// or https:// only.';
+      return AppLocalizations.of(context)!.useHttpOrHttpsOnly;
     } else if (error.contains('Server address is required')) {
       return cleanError;
     } else if (error.contains('Port must be between')) {
@@ -208,10 +209,10 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
     } else if (error.contains('Invalid IP address format')) {
       return cleanError;
     } else if (error.contains('This does not appear to be an Open-WebUI server')) {
-      return 'This server doesn\'t appear to be running Open-WebUI. Please check the address.';
+      return AppLocalizations.of(context)!.serverNotOpenWebUI;
     }
     
-    return 'Couldn\'t connect. Double-check the address and try again.';
+    return AppLocalizations.of(context)!.couldNotConnectGeneric;
   }
 
   @override
@@ -379,7 +380,7 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
     return Column(
       children: [
         Text(
-          'Connect to Server',
+          AppLocalizations.of(context)!.connectToServer,
           textAlign: TextAlign.center,
           style: context.conduitTheme.headingLarge?.copyWith(
             fontWeight: FontWeight.w700,
@@ -391,7 +392,7 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
         ),
         const SizedBox(height: Spacing.sm),
         Text(
-          'Enter your Open-WebUI server address to get started',
+          AppLocalizations.of(context)!.enterServerAddress,
           textAlign: TextAlign.center,
           style: context.conduitTheme.bodyLarge?.copyWith(
             color: context.conduitTheme.textSecondary,
@@ -611,7 +612,7 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
             Expanded(
               flex: 2,
               child: AccessibleFormField(
-                label: 'Header Name',
+                label: AppLocalizations.of(context)!.headerName,
                 hint: 'X-Custom-Header',
                 controller: _headerKeyController,
                 validator: (value) => _validateHeaderKey(value ?? ''),
@@ -624,8 +625,8 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
             Expanded(
               flex: 3,
               child: AccessibleFormField(
-                label: 'Header Value',
-                hint: 'api-key-123 or Bearer token',
+                label: AppLocalizations.of(context)!.headerValue,
+                hint: AppLocalizations.of(context)!.headerValueHint,
                 controller: _headerValueController,
                 validator: (value) => _validateHeaderValue(value ?? ''),
                 semanticLabel: 'Enter header value',
@@ -638,8 +639,8 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
               icon: Platform.isIOS ? CupertinoIcons.plus : Icons.add,
               onPressed: _customHeaders.length >= 10 ? null : _addCustomHeader,
               tooltip: _customHeaders.length >= 10 
-                  ? 'Maximum headers reached' 
-                  : 'Add header',
+                  ? AppLocalizations.of(context)!.maximumHeadersReached 
+                  : AppLocalizations.of(context)!.addHeader,
               backgroundColor: _customHeaders.length >= 10 
                   ? context.conduitTheme.surfaceContainer 
                   : context.conduitTheme.buttonPrimary,
@@ -694,7 +695,7 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
               ConduitIconButton(
                 icon: Platform.isIOS ? CupertinoIcons.xmark : Icons.close,
                 onPressed: () => _removeCustomHeader(entry.key),
-                tooltip: 'Remove header',
+                tooltip: AppLocalizations.of(context)!.removeHeader,
                 backgroundColor: context.conduitTheme.error.withValues(alpha: 0.1),
                 iconColor: context.conduitTheme.error,
                 isCompact: true,
@@ -710,7 +711,9 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
     return Padding(
       padding: const EdgeInsets.only(top: Spacing.lg),
       child: ConduitButton(
-        text: _isConnecting ? 'Connecting...' : 'Connect to Server',
+        text: _isConnecting 
+            ? AppLocalizations.of(context)!.connecting 
+            : AppLocalizations.of(context)!.connectToServerButton,
         icon: _isConnecting 
             ? null 
             : (Platform.isIOS ? CupertinoIcons.arrow_right : Icons.arrow_forward),

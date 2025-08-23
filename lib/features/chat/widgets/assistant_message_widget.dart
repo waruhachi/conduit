@@ -8,6 +8,7 @@ import '../../../shared/theme/theme_extensions.dart';
 import '../../../shared/widgets/markdown/streaming_markdown_widget.dart';
 import '../../../core/utils/reasoning_parser.dart';
 import 'enhanced_image_attachment.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 class AssistantMessageWidget extends ConsumerStatefulWidget {
   final dynamic message;
@@ -559,7 +560,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
             icon: Platform.isIOS
                 ? CupertinoIcons.arrow_clockwise
                 : Icons.refresh,
-            label: 'Retry',
+            label: AppLocalizations.of(context)!.retry,
             onTap: widget.onRegenerate,
           ),
         ] else ...[

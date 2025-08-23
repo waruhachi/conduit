@@ -13,6 +13,7 @@ import '../../tools/widgets/unified_tools_modal.dart';
 import '../../tools/providers/tools_providers.dart';
 
 import '../../../shared/utils/platform_utils.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 class ModernChatInput extends ConsumerStatefulWidget {
   final Function(String) onSendMessage;
@@ -264,7 +265,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                 onTap: widget.enabled
                                     ? _showAttachmentOptions
                                     : null,
-                                tooltip: 'Add attachment',
+                                tooltip: AppLocalizations.of(context)!.addAttachment,
                               ),
                               const SizedBox(width: Spacing.sm),
                             ],
@@ -272,8 +273,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                             Expanded(
                               child: Semantics(
                                 textField: true,
-                                label: 'Message input',
-                                hint: 'Type your message',
+                                label: AppLocalizations.of(context)!.messageInputLabel,
+                                hint: AppLocalizations.of(context)!.messageInputHint,
                                 child: TextField(
                                   controller: _controller,
                                   focusNode: _focusNode,
@@ -291,7 +292,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                         color: context.conduitTheme.inputText,
                                       ),
                                   decoration: InputDecoration(
-                                    hintText: 'Message...',
+                                    hintText: AppLocalizations.of(context)!.messageHintText,
                                     hintStyle: TextStyle(
                                       color:
                                           context.conduitTheme.inputPlaceholder,
@@ -363,7 +364,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                   onTap: widget.enabled
                                       ? _showAttachmentOptions
                                       : null,
-                                  tooltip: 'Add attachment',
+                                  tooltip: AppLocalizations.of(context)!.addAttachment,
                                 ),
                                 const SizedBox(width: Spacing.sm),
                                 // Tools button
@@ -374,7 +375,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                           _showUnifiedToolsModal();
                                         }
                                       : null,
-                                  tooltip: 'Tools',
+                                  tooltip: AppLocalizations.of(context)!.tools,
                                   isActive:
                                       ref
                                           .watch(selectedToolIdsProvider)
@@ -391,7 +392,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                   onTap: widget.enabled
                                       ? widget.onVoiceInput
                                       : null,
-                                  tooltip: 'Voice input',
+                                  tooltip: AppLocalizations.of(context)!.voiceInput,
                                   isActive: _isRecording,
                                 ),
                                 const SizedBox(width: Spacing.sm),
@@ -431,7 +432,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     // Generating -> STOP variant
     if (isGenerating) {
       return Tooltip(
-        message: 'Stop generating',
+        message: AppLocalizations.of(context)!.stopGenerating,
         child: Material(
           color: Colors.transparent,
           shape: RoundedRectangleBorder(
@@ -482,7 +483,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
     // Default SEND variant
     return Tooltip(
-      message: enabled ? 'Send message' : 'Send',
+      message: enabled ? AppLocalizations.of(context)!.sendMessage : AppLocalizations.of(context)!.send,
       child: Opacity(
           opacity: enabled ? Alpha.primary : Alpha.disabled,
         child: IgnorePointer(
@@ -626,7 +627,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                 Expanded(
                   child: _buildAttachmentOption(
                   icon: Platform.isIOS ? CupertinoIcons.doc : Icons.attach_file,
-                  label: 'File',
+                  label: AppLocalizations.of(context)!.file,
                   onTap: () {
                     HapticFeedback.lightImpact();
                     Navigator.pop(context); // Close modal
@@ -637,7 +638,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                 Expanded(
                   child: _buildAttachmentOption(
                   icon: Platform.isIOS ? CupertinoIcons.photo : Icons.image,
-                  label: 'Photo',
+                  label: AppLocalizations.of(context)!.photo,
                   onTap: () {
                     HapticFeedback.lightImpact();
                     Navigator.pop(context); // Close modal
@@ -650,7 +651,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                   icon: Platform.isIOS
                       ? CupertinoIcons.camera
                       : Icons.camera_alt,
-                  label: 'Camera',
+                  label: AppLocalizations.of(context)!.camera,
                   onTap: () {
                     HapticFeedback.lightImpact();
                     Navigator.pop(context); // Close modal

@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../shared/widgets/sheet_handle.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 class OnboardingSheet extends StatefulWidget {
   const OnboardingSheet({super.key});
@@ -14,44 +15,39 @@ class OnboardingSheet extends StatefulWidget {
 class _OnboardingSheetState extends State<OnboardingSheet> {
   final PageController _controller = PageController();
   int _index = 0;
+  late List<_OnboardingPage> _pages;
 
-  final List<_OnboardingPage> _pages = const [
-    _OnboardingPage(
-      title: 'Start a conversation',
-      subtitle:
-          'Choose a model, then type below to begin. Tap New Chat anytime.',
-      icon: CupertinoIcons.chat_bubble_2,
-      bullets: [
-        'Tap the model name in the top bar to switch models',
-        'Use New Chat to reset context',
-      ],
-    ),
-    _OnboardingPage(
-      title: 'Attach context',
-      subtitle: 'Ground responses by adding files or images.',
-      icon: CupertinoIcons.doc_on_doc,
-      bullets: ['Files: PDFs, docs, datasets', 'Images: photos or screenshots'],
-    ),
-    _OnboardingPage(
-      title: 'Speak naturally',
-      subtitle: 'Tap the mic to dictate with live waveform feedback.',
-      icon: CupertinoIcons.mic_fill,
-      bullets: [
-        'Stop anytime; partial text is preserved',
-        'Great for quick notes or long prompts',
-      ],
-    ),
-    _OnboardingPage(
-      title: 'Quick actions',
-      subtitle:
-          'Use the top‑left menu to open the chats list and navigation.',
-      icon: CupertinoIcons.line_horizontal_3,
-      bullets: [
-        'Tap the menu to open the chats list and navigation',
-        'Jump instantly to New Chat, Files, or Profile',
-      ],
-    ),
-  ];
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final l10n = AppLocalizations.of(context)!;
+    _pages = [
+      _OnboardingPage(
+        title: l10n.onboardStartTitle,
+        subtitle: l10n.onboardStartSubtitle,
+        icon: CupertinoIcons.chat_bubble_2,
+        bullets: [l10n.onboardStartBullet1, l10n.onboardStartBullet2],
+      ),
+      _OnboardingPage(
+        title: l10n.onboardAttachTitle,
+        subtitle: l10n.onboardAttachSubtitle,
+        icon: CupertinoIcons.doc_on_doc,
+        bullets: [l10n.onboardAttachBullet1, l10n.onboardAttachBullet2],
+      ),
+      _OnboardingPage(
+        title: l10n.onboardSpeakTitle,
+        subtitle: l10n.onboardSpeakSubtitle,
+        icon: CupertinoIcons.mic_fill,
+        bullets: [l10n.onboardSpeakBullet1, l10n.onboardSpeakBullet2],
+      ),
+      _OnboardingPage(
+        title: l10n.onboardQuickTitle,
+        subtitle: l10n.onboardQuickSubtitle,
+        icon: CupertinoIcons.line_horizontal_3,
+        bullets: [l10n.onboardQuickBullet1, l10n.onboardQuickBullet2],
+      ),
+    ];
+  }
 
   void _next() {
     if (_index < _pages.length - 1) {
@@ -133,7 +129,7 @@ class _OnboardingSheetState extends State<OnboardingSheet> {
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     child: Text(
-                      'Skip',
+                      AppLocalizations.of(context)!.skip,
                       style: TextStyle(
                         color: context.conduitTheme.textSecondary,
                       ),
@@ -155,7 +151,11 @@ class _OnboardingSheetState extends State<OnboardingSheet> {
                         ),
                       ),
                     ),
-                    child: Text(_index == _pages.length - 1 ? 'Done' : 'Next'),
+                    child: Text(
+                      _index == _pages.length - 1
+                          ? AppLocalizations.of(context)!.done
+                          : AppLocalizations.of(context)!.next,
+                    ),
                   ),
                 ],
               ),

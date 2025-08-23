@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 import '../../../core/widgets/error_boundary.dart';
 import '../../../shared/widgets/improved_loading_states.dart';
 
@@ -46,12 +47,12 @@ class ProfilePage extends ConsumerWidget {
                 color: context.conduitTheme.textPrimary,
               ),
               onPressed: () => Navigator.of(context).maybePop(),
-              tooltip: 'Back',
+              tooltip: AppLocalizations.of(context)!.back,
             ),
             toolbarHeight: kToolbarHeight,
             titleSpacing: 0.0,
             title: Text(
-              'You',
+              AppLocalizations.of(context)!.you,
               style: AppTypography.headlineSmallStyle.copyWith(
                 color: context.conduitTheme.textPrimary,
                 fontWeight: FontWeight.w600,
@@ -106,10 +107,10 @@ class ProfilePage extends ConsumerWidget {
                 color: context.conduitTheme.textPrimary,
               ),
               onPressed: () => Navigator.of(context).maybePop(),
-              tooltip: 'Back',
+              tooltip: AppLocalizations.of(context)!.back,
             ),
             title: Text(
-              'You',
+              AppLocalizations.of(context)!.you,
               style: AppTypography.headlineSmallStyle.copyWith(
                 color: context.conduitTheme.textPrimary,
                 fontWeight: FontWeight.w600,
@@ -117,8 +118,8 @@ class ProfilePage extends ConsumerWidget {
             ),
             centerTitle: true,
           ),
-          body: const Center(
-            child: ImprovedLoadingState(message: 'Loading profile...'),
+          body: Center(
+            child: ImprovedLoadingState(message: AppLocalizations.of(context)!.loadingProfile),
           ),
         ),
         error: (error, stack) => Scaffold(
@@ -136,10 +137,10 @@ class ProfilePage extends ConsumerWidget {
                 color: context.conduitTheme.textPrimary,
               ),
               onPressed: () => Navigator.of(context).maybePop(),
-              tooltip: 'Back',
+              tooltip: AppLocalizations.of(context)!.back,
             ),
             title: Text(
-              'You',
+              AppLocalizations.of(context)!.you,
               style: AppTypography.headlineSmallStyle.copyWith(
                 color: context.conduitTheme.textPrimary,
                 fontWeight: FontWeight.w600,
@@ -149,8 +150,8 @@ class ProfilePage extends ConsumerWidget {
           ),
           body: Center(
             child: ImprovedEmptyState(
-              title: 'Unable to load profile',
-              subtitle: 'Please check your connection and try again',
+              title: AppLocalizations.of(context)!.unableToLoadProfile,
+              subtitle: AppLocalizations.of(context)!.pleaseCheckConnection,
               icon: UiUtils.platformIcon(
                 ios: CupertinoIcons.exclamationmark_triangle,
                 android: Icons.error_outline,
@@ -213,7 +214,7 @@ class ProfilePage extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Account',
+          AppLocalizations.of(context)!.account,
           style: context.conduitTheme.headingSmall?.copyWith(
             color: context.conduitTheme.textPrimary,
           ),
@@ -227,6 +228,8 @@ class ProfilePage extends ConsumerWidget {
               Divider(color: context.conduitTheme.dividerColor, height: 1),
               _buildThemeToggleTile(context, ref),
               Divider(color: context.conduitTheme.dividerColor, height: 1),
+              _buildLanguageTile(context, ref),
+              Divider(color: context.conduitTheme.dividerColor, height: 1),
               _buildAboutTile(context),
               Divider(color: context.conduitTheme.dividerColor, height: 1),
               _buildAccountOption(
@@ -234,8 +237,8 @@ class ProfilePage extends ConsumerWidget {
                   ios: CupertinoIcons.square_arrow_left,
                   android: Icons.logout,
                 ),
-                title: 'Sign Out',
-                subtitle: 'End your session',
+                title: AppLocalizations.of(context)!.signOut,
+                subtitle: AppLocalizations.of(context)!.endYourSession,
                 onTap: () => _signOut(context, ref),
                 isDestructive: true,
               ),
@@ -342,14 +345,14 @@ class ProfilePage extends ConsumerWidget {
             ),
           ),
           title: Text(
-            'Default Model',
+            AppLocalizations.of(context)!.defaultModel,
             style: context.conduitTheme.bodyLarge?.copyWith(
               color: context.conduitTheme.textPrimary,
               fontWeight: FontWeight.w500,
             ),
           ),
           subtitle: Text(
-            settings.defaultModel != null ? currentModel.name : 'Auto-select',
+            settings.defaultModel != null ? currentModel.name : AppLocalizations.of(context)!.autoSelect,
             style: context.conduitTheme.bodySmall?.copyWith(
               color: context.conduitTheme.textSecondary,
             ),
@@ -388,14 +391,14 @@ class ProfilePage extends ConsumerWidget {
           ),
         ),
         title: Text(
-          'Default Model',
+          AppLocalizations.of(context)!.defaultModel,
           style: context.conduitTheme.bodyLarge?.copyWith(
             color: context.conduitTheme.textPrimary,
             fontWeight: FontWeight.w500,
           ),
         ),
         subtitle: Text(
-          'Loading models...',
+          AppLocalizations.of(context)!.loadingModels,
           style: context.conduitTheme.bodySmall?.copyWith(
             color: context.conduitTheme.textSecondary,
           ),
@@ -424,16 +427,142 @@ class ProfilePage extends ConsumerWidget {
           ),
         ),
         title: Text(
-          'Default Model',
+          AppLocalizations.of(context)!.defaultModel,
           style: context.conduitTheme.bodyLarge?.copyWith(
             color: context.conduitTheme.textPrimary,
             fontWeight: FontWeight.w500,
           ),
         ),
         subtitle: Text(
-          'Failed to load models',
+          AppLocalizations.of(context)!.failedToLoadModels,
           style: context.conduitTheme.bodySmall?.copyWith(
             color: context.conduitTheme.error,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLanguageTile(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(localeProvider);
+    final currentCode = locale?.languageCode ?? 'system';
+    final label = () {
+      switch (currentCode) {
+        case 'en':
+          return 'English';
+        case 'de':
+          return 'Deutsch';
+        case 'fr':
+          return 'Français';
+        case 'it':
+          return 'Italiano';
+        default:
+          return 'System';
+      }
+    }();
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: Spacing.listItemPadding,
+        vertical: Spacing.sm,
+      ),
+      leading: Container(
+        padding: const EdgeInsets.all(Spacing.sm),
+        decoration: BoxDecoration(
+          color: context.conduitTheme.buttonPrimary.withValues(
+            alpha: Alpha.highlight,
+          ),
+          borderRadius: BorderRadius.circular(AppBorderRadius.small),
+        ),
+        child: Icon(
+          UiUtils.platformIcon(
+            ios: CupertinoIcons.globe,
+            android: Icons.language,
+          ),
+          color: context.conduitTheme.buttonPrimary,
+          size: IconSize.medium,
+        ),
+      ),
+      title: Text(
+        AppLocalizations.of(context)!.menuItem,
+        style: context.conduitTheme.bodyLarge?.copyWith(
+          color: context.conduitTheme.textPrimary,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      subtitle: Text(
+        label,
+        style: context.conduitTheme.bodySmall?.copyWith(
+          color: context.conduitTheme.textSecondary,
+        ),
+      ),
+      trailing: Icon(
+        UiUtils.platformIcon(
+          ios: CupertinoIcons.chevron_right,
+          android: Icons.chevron_right,
+        ),
+        color: context.conduitTheme.iconSecondary,
+        size: IconSize.small,
+      ),
+      onTap: () async {
+        final selected = await _showLanguageSelector(context, currentCode);
+        if (selected != null) {
+          if (selected == 'system') {
+            await ref.read(localeProvider.notifier).setLocale(null);
+          } else {
+            await ref.read(localeProvider.notifier).setLocale(Locale(selected));
+          }
+        }
+      },
+    );
+  }
+
+  Future<String?> _showLanguageSelector(BuildContext context, String current) {
+    return showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: context.conduitTheme.surfaceBackground,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppBorderRadius.modal),
+          ),
+          boxShadow: ConduitShadows.modal,
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: Spacing.sm),
+              ListTile(
+                title: const Text('System'),
+                trailing: current == 'system' ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.pop(context, 'system'),
+              ),
+              ListTile(
+                title: const Text('English'),
+                trailing: current == 'en' ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.pop(context, 'en'),
+              ),
+              ListTile(
+                title: const Text('Deutsch'),
+                trailing: current == 'de' ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.pop(context, 'de'),
+              ),
+              ListTile(
+                title: const Text('Français'),
+                trailing: current == 'fr' ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.pop(context, 'fr'),
+              ),
+              ListTile(
+                title: const Text('Italiano'),
+                trailing: current == 'it' ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.pop(context, 'it'),
+              ),
+              const SizedBox(height: Spacing.sm),
+            ],
           ),
         ),
       ),
@@ -579,7 +708,7 @@ class ProfilePage extends ConsumerWidget {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Close'),
+                child: Text(AppLocalizations.of(ctx)!.closeButtonSemantic),
               ),
             ],
           );
@@ -614,9 +743,9 @@ class ProfilePage extends ConsumerWidget {
   void _signOut(BuildContext context, WidgetRef ref) async {
     final confirm = await UiUtils.showConfirmationDialog(
       context,
-      title: 'Sign out?',
-      message: 'You\'ll need to sign in again to continue',
-      confirmText: 'Sign out',
+      title: AppLocalizations.of(context)!.signOut,
+      message: AppLocalizations.of(context)!.endYourSession,
+      confirmText: AppLocalizations.of(context)!.signOut,
       isDestructive: true,
     );
 
@@ -756,7 +885,7 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                       controller: _searchController,
                       style: TextStyle(color: context.conduitTheme.textPrimary),
                       decoration: InputDecoration(
-                        hintText: 'Search models...',
+                        hintText: AppLocalizations.of(context)!.searchModels,
                         hintStyle: TextStyle(
                           color: context.conduitTheme.inputPlaceholder,
                         ),
@@ -799,7 +928,7 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                     child: Row(
                       children: [
                         Text(
-                          'Available Models',
+                          AppLocalizations.of(context)!.availableModels,
                           style: AppTypography.bodySmallStyle.copyWith(
                             fontWeight: FontWeight.w600,
                             color: context.conduitTheme.textSecondary,
@@ -848,7 +977,7 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                                   ),
                                   const SizedBox(height: Spacing.md),
                                   Text(
-                                    'No results',
+                                    AppLocalizations.of(context)!.noResults,
                                     style: TextStyle(
                                       color: context.conduitTheme.textSecondary,
                                       fontSize: AppTypography.bodyLarge,
@@ -958,7 +1087,7 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isAutoSelect ? 'Auto-select' : model.name,
+                      isAutoSelect ? AppLocalizations.of(context)!.autoSelect : model.name,
                       style: TextStyle(
                         color: context.conduitTheme.textPrimary,
                         fontWeight: FontWeight.w600,

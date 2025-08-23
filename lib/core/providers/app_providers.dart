@@ -79,6 +79,36 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
   }
 }
 
+// Locale provider
+final localeProvider = StateNotifierProvider<LocaleNotifier, Locale?>(
+  (ref) {
+    final storage = ref.watch(optimizedStorageServiceProvider);
+    return LocaleNotifier(storage);
+  },
+);
+
+class LocaleNotifier extends StateNotifier<Locale?> {
+  final OptimizedStorageService _storage;
+
+  LocaleNotifier(this._storage) : super(null) {
+    _loadLocale();
+  }
+
+  void _loadLocale() {
+    final code = _storage.getLocaleCode();
+    if (code != null && code.isNotEmpty) {
+      state = Locale(code);
+    } else {
+      state = null; // system
+    }
+  }
+
+  Future<void> setLocale(Locale? locale) async {
+    state = locale;
+    await _storage.setLocaleCode(locale?.languageCode);
+  }
+}
+
 // Server connection providers - optimized with caching
 final serverConfigsProvider = FutureProvider<List<ServerConfig>>((ref) async {
   final storage = ref.watch(optimizedStorageServiceProvider);

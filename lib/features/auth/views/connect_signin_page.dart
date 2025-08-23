@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/error_boundary.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import '../../../shared/widgets/conduit_components.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 import 'server_connection_page.dart';
 
 /// Entry point for the connection and sign-in flow
@@ -26,9 +27,9 @@ class ConnectAndSignInPage extends ConsumerWidget {
     return ErrorBoundary(
       child: Scaffold(
         backgroundColor: context.conduitTheme.surfaceBackground,
-        body: const Center(
+        body: Center(
           child: ConduitLoadingIndicator(
-            message: 'Loading...',
+            message: AppLocalizations.of(context)!.loadingContent,
           ),
         ),
       ),

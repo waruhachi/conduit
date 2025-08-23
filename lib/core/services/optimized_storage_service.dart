@@ -23,6 +23,7 @@ class OptimizedStorageService {
   static const String _activeServerIdKey = 'active_server_id';
   static const String _rememberCredentialsKey = 'remember_credentials';
   static const String _themeModeKey = 'theme_mode';
+  static const String _localeCodeKey = 'locale_code_v1';
   static const String _localConversationsKey = 'local_conversations';
   static const String _onboardingSeenKey = 'onboarding_seen_v1';
   static const String _reviewerModeKey = 'reviewer_mode_v1';
@@ -224,6 +225,20 @@ class OptimizedStorageService {
 
   Future<void> setThemeMode(String mode) async {
     await _prefs.setString(_themeModeKey, mode);
+  }
+
+  /// Locale Management
+  String? getLocaleCode() {
+    // Returns a locale code like 'en', 'de', 'fr', 'it'. Null means system.
+    return _prefs.getString(_localeCodeKey);
+  }
+
+  Future<void> setLocaleCode(String? code) async {
+    if (code == null || code.isEmpty) {
+      await _prefs.remove(_localeCodeKey);
+    } else {
+      await _prefs.setString(_localeCodeKey, code);
+    }
   }
 
   /// Onboarding

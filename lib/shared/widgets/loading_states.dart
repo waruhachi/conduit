@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io' show Platform;
 import '../services/brand_service.dart';
 import '../theme/app_theme.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 /// Standard loading indicators following Conduit design patterns
 class ConduitLoading {
@@ -332,8 +333,8 @@ class LoadingStateWrapper<T> extends StatelessWidget {
     return asyncValue.when(
       data: builder,
       loading: () => showLoadingOverlay
-          ? ConduitLoading.overlay(message: 'Loading...')
-          : loadingWidget ?? ConduitLoading.primary(message: 'Loading...'),
+          ? ConduitLoading.overlay(message: AppLocalizations.of(context)!.loadingContent)
+          : loadingWidget ?? ConduitLoading.primary(message: AppLocalizations.of(context)!.loadingContent),
       error: (error, stackTrace) {
         if (errorBuilder != null) {
           return errorBuilder!(error, stackTrace);
@@ -352,7 +353,7 @@ class LoadingStateWrapper<T> extends StatelessWidget {
               ),
               const SizedBox(height: Spacing.md),
               Text(
-                'Something went wrong',
+                AppLocalizations.of(context)!.errorMessage,
                 style: TextStyle(
                   color: context.conduitTheme.textSecondary,
                   fontSize: AppTypography.headlineSmall,

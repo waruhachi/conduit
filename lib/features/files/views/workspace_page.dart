@@ -9,6 +9,7 @@ import '../../../shared/widgets/improved_loading_states.dart';
 
 import '../../../shared/utils/ui_utils.dart';
 import '../../../shared/widgets/sheet_handle.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 /// Files page for managing documents and uploads
 class WorkspacePage extends ConsumerStatefulWidget {
@@ -108,10 +109,10 @@ class _WorkspacePageState extends ConsumerState<WorkspacePage>
           size: IconSize.button,
         ),
         onPressed: () => NavigationService.goBack(),
-        tooltip: 'Back',
+        tooltip: AppLocalizations.of(context)!.back,
       ),
       title: Text(
-        'Workspace',
+        AppLocalizations.of(context)!.workspace,
         style: AppTypography.headlineSmallStyle.copyWith(
           color: context.conduitTheme.textPrimary,
           fontWeight: FontWeight.w600,
@@ -162,7 +163,7 @@ class _WorkspacePageState extends ConsumerState<WorkspacePage>
           Expanded(
             child: _buildTabButton(
               index: 0,
-              label: 'Recent Files',
+              label: AppLocalizations.of(context)!.recentFiles,
               isSelected: _selectedTab == 0,
             ),
           ),
@@ -170,7 +171,7 @@ class _WorkspacePageState extends ConsumerState<WorkspacePage>
           Expanded(
             child: _buildTabButton(
               index: 1,
-              label: 'Knowledge Base',
+              label: AppLocalizations.of(context)!.knowledgeBase,
               isSelected: _selectedTab == 1,
             ),
           ),
@@ -229,11 +230,10 @@ class _WorkspacePageState extends ConsumerState<WorkspacePage>
           ios: CupertinoIcons.doc,
           android: Icons.description_outlined,
         ),
-        title: 'No files yet',
-        subtitle:
-            'Upload documents to reference in your conversations with Conduit',
+        title: AppLocalizations.of(context)!.noFilesYet,
+        subtitle: AppLocalizations.of(context)!.uploadDocsPrompt,
         onAction: _showUploadOptions,
-        actionLabel: 'Upload your first file',
+        actionLabel: AppLocalizations.of(context)!.uploadFirstFile,
         showAnimation: true,
       ),
     ).animate().fadeIn(
@@ -251,8 +251,8 @@ class _WorkspacePageState extends ConsumerState<WorkspacePage>
           ios: CupertinoIcons.book,
           android: Icons.library_books,
         ),
-        title: 'Knowledge base is empty',
-        subtitle: 'Create collections of related documents for easy reference',
+        title: AppLocalizations.of(context)!.knowledgeBaseEmpty,
+        subtitle: AppLocalizations.of(context)!.createCollectionsPrompt,
         onAction: _showKnowledgeBaseOptions,
         actionLabel: 'Create knowledge base',
         showAnimation: true,
@@ -293,7 +293,7 @@ class _WorkspacePageState extends ConsumerState<WorkspacePage>
             Padding(
               padding: const EdgeInsets.all(Spacing.modalPadding),
               child: Text(
-                'Upload File',
+                AppLocalizations.of(context)!.uploadFileTitle,
                 style: context.conduitTheme.headingSmall?.copyWith(
                   color: context.conduitTheme.textPrimary,
                   fontWeight: FontWeight.w600,
@@ -307,8 +307,8 @@ class _WorkspacePageState extends ConsumerState<WorkspacePage>
                 ios: CupertinoIcons.camera,
                 android: Icons.camera_alt,
               ),
-              title: 'Take Photo',
-              subtitle: 'Capture a document or image',
+              title: AppLocalizations.of(context)!.takePhoto,
+              subtitle: AppLocalizations.of(context)!.captureDocumentOrImage,
               onTap: () => _handleUploadOption('camera'),
             ),
             _buildUploadOption(
@@ -316,8 +316,8 @@ class _WorkspacePageState extends ConsumerState<WorkspacePage>
                 ios: CupertinoIcons.photo,
                 android: Icons.photo_library,
               ),
-              title: 'Photo Library',
-              subtitle: 'Choose from your photos',
+              title: AppLocalizations.of(context)!.chooseFromGallery,
+              subtitle: AppLocalizations.of(context)!.chooseFromGallery,
               onTap: () => _handleUploadOption('gallery'),
             ),
             _buildUploadOption(
@@ -325,8 +325,8 @@ class _WorkspacePageState extends ConsumerState<WorkspacePage>
                 ios: CupertinoIcons.doc,
                 android: Icons.description,
               ),
-              title: 'Document',
-              subtitle: 'PDF, Word, or text file',
+              title: AppLocalizations.of(context)!.document,
+              subtitle: AppLocalizations.of(context)!.documentHint,
               onTap: () => _handleUploadOption('document'),
             ),
 
@@ -430,10 +430,16 @@ class _WorkspacePageState extends ConsumerState<WorkspacePage>
 
   void _handleUploadOption(String type) {
     NavigationService.goBack();
-    UiUtils.showMessage(context, 'File upload for $type is coming soon!');
+    UiUtils.showMessage(
+      context,
+      AppLocalizations.of(context)!.fileUploadComingSoon(type),
+    );
   }
 
   void _showKnowledgeBaseOptions() {
-    UiUtils.showMessage(context, 'Knowledge base creation is coming soon!');
+    UiUtils.showMessage(
+      context,
+      AppLocalizations.of(context)!.kbCreationComingSoon,
+    );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:io' show Platform;
 import '../theme/theme_extensions.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 
 /// Utility functions for common UI patterns and helpers
 /// Following Conduit design principles
@@ -104,7 +105,7 @@ class UiUtils {
         behavior: SnackBarBehavior.floating,
         action: onRetry != null
             ? SnackBarAction(
-                label: 'Try again',
+                label: AppLocalizations.of(context)!.retry,
                 textColor: context.conduitTheme.textInverse,
                 onPressed: onRetry,
               )
@@ -138,7 +139,11 @@ class UiUtils {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: Text(cancelText),
+                child: Text(
+                  cancelText.isNotEmpty
+                      ? cancelText
+                      : AppLocalizations.of(context)!.cancel,
+                ),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
@@ -147,7 +152,11 @@ class UiUtils {
                         foregroundColor: context.conduitTheme.error,
                       )
                     : null,
-                child: Text(confirmText),
+                child: Text(
+                  confirmText.isNotEmpty
+                      ? confirmText
+                      : AppLocalizations.of(context)!.confirm,
+                ),
               ),
             ],
           ),

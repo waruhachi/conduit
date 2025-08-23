@@ -9,6 +9,7 @@ import 'package:dio/dio.dart' as dio;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../shared/theme/theme_extensions.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../auth/providers/unified_auth_providers.dart';
 
@@ -74,6 +75,7 @@ class _EnhancedImageAttachmentState
   }
 
   Future<void> _loadImage() async {
+    final l10n = AppLocalizations.of(context)!;
     // Check global cache first
     if (_globalImageCache.containsKey(widget.attachmentId)) {
       if (mounted) {
@@ -142,7 +144,7 @@ class _EnhancedImageAttachmentState
         return;
       } else {
         // If API service is not available, show error
-        final error = 'Unable to load image: API service not available';
+        final error = l10n.unableToLoadImage;
         _globalErrorStates[widget.attachmentId] = error;
         _globalLoadingStates[widget.attachmentId] = false;
         if (mounted) {
@@ -157,7 +159,7 @@ class _EnhancedImageAttachmentState
 
     final api = ref.read(apiServiceProvider);
     if (api == null) {
-      final error = 'API service not available';
+      final error = l10n.apiUnavailable;
       _globalErrorStates[widget.attachmentId] = error;
       _globalLoadingStates[widget.attachmentId] = false;
       if (mounted) {
@@ -176,7 +178,7 @@ class _EnhancedImageAttachmentState
       final ext = fileName.toLowerCase().split('.').last;
 
       if (!['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].contains(ext)) {
-        final error = 'Not an image file: $fileName';
+        final error = l10n.notAnImageFile(fileName);
         _globalErrorStates[widget.attachmentId] = error;
         _globalLoadingStates[widget.attachmentId] = false;
         if (mounted) {
@@ -214,7 +216,7 @@ class _EnhancedImageAttachmentState
         }
       }
     } catch (e) {
-      final error = 'Failed to load image: ${e.toString()}';
+      final error = l10n.failedToLoadImage(e.toString());
       _globalErrorStates[widget.attachmentId] = error;
       _globalLoadingStates[widget.attachmentId] = false;
       if (mounted) {
@@ -443,7 +445,7 @@ class _EnhancedImageAttachmentState
         if (commaIndex != -1) {
           actualBase64 = _cachedImageData!.substring(commaIndex + 1);
         } else {
-          throw Exception('Invalid data URL format');
+          throw Exception(AppLocalizations.of(context)!.invalidDataUrl);
         }
       } else {
         actualBase64 = _cachedImageData!;
@@ -456,14 +458,14 @@ class _EnhancedImageAttachmentState
         fit: BoxFit.cover,
         gaplessPlayback: true, // Prevents flashing during rebuilds
         errorBuilder: (context, error, stackTrace) {
-          _errorMessage = 'Failed to decode image';
+          _errorMessage = AppLocalizations.of(context)!.failedToDecodeImage;
           return _buildErrorState();
         },
       );
 
       return _wrapImage(imageWidget);
     } catch (e) {
-      _errorMessage = 'Invalid image format';
+      _errorMessage = AppLocalizations.of(context)!.invalidImageFormat;
       return _buildErrorState();
     }
   }
@@ -650,6 +652,7 @@ class FullScreenImageViewer extends ConsumerWidget {
   }
 
   Future<void> _shareImage(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context)!;
     try {
       Uint8List bytes;
       String? fileExtension;
@@ -679,7 +682,7 @@ class FullScreenImageViewer extends ConsumerWidget {
         );
         final data = response.data;
         if (data == null || data.isEmpty) {
-          throw Exception('Empty image data');
+          throw Exception(l10n.emptyImageData);
         }
         bytes = Uint8List.fromList(data);
 
