@@ -71,55 +71,36 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildHeader(context),
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: Spacing.md,
                 vertical: Spacing.sm,
               ),
-              child: _buildSearchField(context),
+              child: Row(
+                children: [
+                  Expanded(child: _buildSearchField(context)),
+                  const SizedBox(width: Spacing.sm),
+                  IconButton(
+                    icon: Icon(
+                      Platform.isIOS
+                          ? CupertinoIcons.bubble_left
+                          : Icons.add_comment,
+                      color: theme.iconPrimary,
+                    ),
+                    onPressed: () {
+                      chat.startNewChat(ref);
+                      if (mounted) Navigator.of(context).maybePop();
+                    },
+                    tooltip: AppLocalizations.of(context)!.newChat,
+                  ),
+                ],
+              ),
             ),
             Expanded(child: _buildConversationList(context)),
             const Divider(height: 1),
             _buildBottomSection(context),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    final theme = context.conduitTheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(Spacing.md, Spacing.md, Spacing.md, 0),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Centered title (no leading icon)
-          Text(
-            AppLocalizations.of(context)!.chats,
-            style: AppTypography.headlineSmallStyle.copyWith(
-              color: theme.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          // Right-aligned new chat action
-          Positioned(
-            right: 0,
-            child: IconButton(
-              icon: Icon(
-                Platform.isIOS ? CupertinoIcons.plus : Icons.add_rounded,
-                color: theme.iconPrimary,
-              ),
-              onPressed: () {
-                chat.startNewChat(ref);
-                if (mounted) Navigator.of(context).maybePop();
-              },
-              tooltip: AppLocalizations.of(context)!.newChat,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1038,12 +1019,6 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                             style: AppTypography.bodyLargeStyle.copyWith(
                               color: theme.textPrimary,
                               fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            'You',
-                            style: AppTypography.bodySmallStyle.copyWith(
-                              color: theme.textSecondary,
                             ),
                           ),
                         ],

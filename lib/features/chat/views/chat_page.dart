@@ -1217,7 +1217,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   icon: Icon(
                     Platform.isIOS
                         ? CupertinoIcons.bubble_left
-                        : Icons.chat_bubble_outline,
+                        : Icons.add_comment,
                     color: context.conduitTheme.textPrimary,
                     size: IconSize.appBar,
                   ),
