@@ -65,42 +65,40 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     // Bottom section now only shows navigation actions
     final theme = context.conduitTheme;
 
-    return SafeArea(
-      child: Container(
-        color: theme.surfaceBackground,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.md,
-                vertical: Spacing.sm,
-              ),
-              child: Row(
-                children: [
-                  Expanded(child: _buildSearchField(context)),
-                  const SizedBox(width: Spacing.sm),
-                  IconButton(
-                    icon: Icon(
-                      Platform.isIOS
-                          ? CupertinoIcons.bubble_left
-                          : Icons.add_comment,
-                      color: theme.iconPrimary,
-                    ),
-                    onPressed: () {
-                      chat.startNewChat(ref);
-                      if (mounted) Navigator.of(context).maybePop();
-                    },
-                    tooltip: AppLocalizations.of(context)!.newChat,
-                  ),
-                ],
-              ),
+    return Container(
+      color: theme.surfaceBackground,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.md,
+              vertical: Spacing.sm,
             ),
-            Expanded(child: _buildConversationList(context)),
-            const Divider(height: 1),
-            _buildBottomSection(context),
-          ],
-        ),
+            child: Row(
+              children: [
+                Expanded(child: _buildSearchField(context)),
+                const SizedBox(width: Spacing.sm),
+                IconButton(
+                  icon: Icon(
+                    Platform.isIOS
+                        ? CupertinoIcons.bubble_left
+                        : Icons.add_comment,
+                    color: theme.iconPrimary,
+                  ),
+                  onPressed: () {
+                    chat.startNewChat(ref);
+                    if (mounted) Navigator.of(context).maybePop();
+                  },
+                  tooltip: AppLocalizations.of(context)!.newChat,
+                ),
+              ],
+            ),
+          ),
+          Expanded(child: _buildConversationList(context)),
+          const Divider(height: 1),
+          _buildBottomSection(context),
+        ],
       ),
     );
   }
@@ -1118,91 +1116,81 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
   Widget _buildBottomSection(BuildContext context) {
     final theme = context.conduitTheme;
     final user = ref.watch(authUserProvider);
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          Spacing.sm,
-          0,
-          Spacing.sm,
-          Spacing.sm,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (user != null) ...[
-              const SizedBox(height: Spacing.sm),
-              Container(
-                padding: const EdgeInsets.all(Spacing.sm),
-                decoration: BoxDecoration(
-                  color: theme.surfaceBackground.withValues(alpha: 0.04),
-                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                  border: Border.all(
-                    color: theme.dividerColor,
-                    width: BorderWidth.regular,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: IconSize.avatar,
-                      height: IconSize.avatar,
-                      decoration: BoxDecoration(
-                        color: theme.buttonPrimary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(
-                          AppBorderRadius.avatar,
-                        ),
-                        border: Border.all(
-                          color: theme.buttonPrimary.withValues(alpha: 0.35),
-                          width: BorderWidth.thin,
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        (user.name ?? user.username ?? 'U')
-                            .toString()
-                            .substring(0, 1)
-                            .toUpperCase(),
-                        style: AppTypography.bodyLargeStyle.copyWith(
-                          color: theme.buttonPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: Spacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            (user.name ?? user.username ?? 'User').toString(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.bodyLargeStyle.copyWith(
-                              color: theme.textPrimary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).maybePop();
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const ProfilePage(),
-                          ),
-                        );
-                      },
-                      child: Text(AppLocalizations.of(context)!.manage),
-                    ),
-                  ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Spacing.sm, 0, Spacing.sm, Spacing.sm),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (user != null) ...[
+            const SizedBox(height: Spacing.sm),
+            Container(
+              padding: const EdgeInsets.all(Spacing.sm),
+              decoration: BoxDecoration(
+                color: theme.surfaceBackground.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                border: Border.all(
+                  color: theme.dividerColor,
+                  width: BorderWidth.regular,
                 ),
               ),
-            ],
+              child: Row(
+                children: [
+                  Container(
+                    width: IconSize.avatar,
+                    height: IconSize.avatar,
+                    decoration: BoxDecoration(
+                      color: theme.buttonPrimary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(
+                        AppBorderRadius.avatar,
+                      ),
+                      border: Border.all(
+                        color: theme.buttonPrimary.withValues(alpha: 0.35),
+                        width: BorderWidth.thin,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      (user.name ?? user.username ?? 'U')
+                          .toString()
+                          .substring(0, 1)
+                          .toUpperCase(),
+                      style: AppTypography.bodyLargeStyle.copyWith(
+                        color: theme.buttonPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: Spacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          (user.name ?? user.username ?? 'User').toString(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodyLargeStyle.copyWith(
+                            color: theme.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).maybePop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ProfilePage()),
+                      );
+                    },
+                    child: Text(AppLocalizations.of(context)!.manage),
+                  ),
+                ],
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

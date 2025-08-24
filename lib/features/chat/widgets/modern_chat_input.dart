@@ -217,9 +217,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
           // Main input area with unified 2-row design
           Container(
             clipBehavior: Clip.antiAlias,
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).padding.bottom,
-            ),
             decoration: BoxDecoration(
               color: context.conduitTheme.inputBackground,
               borderRadius: const BorderRadius.vertical(
@@ -243,135 +240,30 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               boxShadow: ConduitShadows.input,
             ),
             width: double.infinity,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                // cap the input area to 40% of screen height to avoid bottom overflow
-                maxHeight: MediaQuery.of(context).size.height * 0.4,
-              ),
-              child: AnimatedSize(
-                duration:
-                    AnimationDuration.fast, // Faster for better responsiveness
-                curve: Curves.fastOutSlowIn, // More efficient curve
-                alignment: Alignment.topCenter,
-                child: SingleChildScrollView(
-                  physics: const ClampingScrollPhysics(),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Collapsed/Expanded top row: text input with left/right buttons in collapsed
-                      Padding(
-                        padding: const EdgeInsets.all(Spacing.inputPadding),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            if (!_isExpanded) ...[
-                              _buildRoundButton(
-                                icon: Icons.add,
-                                onTap: widget.enabled
-                                    ? _showAttachmentOptions
-                                    : null,
-                                tooltip: AppLocalizations.of(
-                                  context,
-                                )!.addAttachment,
-                              ),
-                              const SizedBox(width: Spacing.sm),
-                            ],
-                            // Text input expands to fill
-                            Expanded(
-                              child: Semantics(
-                                textField: true,
-                                label: AppLocalizations.of(
-                                  context,
-                                )!.messageInputLabel,
-                                hint: AppLocalizations.of(
-                                  context,
-                                )!.messageInputHint,
-                                child: TextField(
-                                  controller: _controller,
-                                  focusNode: _focusNode,
-                                  enabled: widget.enabled,
-                                  autofocus: false,
-                                  maxLines: _isExpanded ? null : 1,
-                                  keyboardType: TextInputType.multiline,
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
-                                  textInputAction: TextInputAction.newline,
-                                  showCursor: true,
-                                  cursorColor: context.conduitTheme.inputText,
-                                  style: AppTypography.chatMessageStyle
-                                      .copyWith(
-                                        color: context.conduitTheme.inputText,
-                                      ),
-                                  decoration: InputDecoration(
-                                    hintText: AppLocalizations.of(
-                                      context,
-                                    )!.messageHintText,
-                                    hintStyle: TextStyle(
-                                      color:
-                                          context.conduitTheme.inputPlaceholder,
-                                      fontSize: AppTypography.bodyLarge,
-                                      fontWeight: _isRecording
-                                          ? FontWeight.w500
-                                          : FontWeight.w400,
-                                      fontStyle: _isRecording
-                                          ? FontStyle.italic
-                                          : FontStyle.normal,
-                                    ),
-                                    // Ensure the text field background matches its parent container
-                                    // and does not use the global InputDecorationTheme fill
-                                    filled: false,
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    errorBorder: InputBorder.none,
-                                    disabledBorder: InputBorder.none,
-                                    contentPadding: EdgeInsets.zero,
-                                    isDense: true,
-                                    alignLabelWithHint: true,
-                                  ),
-                                  // Removed onChanged setState to reduce rebuilds
-                                  onSubmitted: (_) => _sendMessage(),
-                                  onTap: () {
-                                    if (!widget.enabled) return;
-                                    if (!_isExpanded) {
-                                      _setExpanded(true);
-                                      WidgetsBinding.instance
-                                          .addPostFrameCallback((_) {
-                                            if (!mounted) return;
-                                            _ensureFocusedIfEnabled();
-                                          });
-                                    } else {
-                                      _ensureFocusedIfEnabled();
-                                    }
-                                  },
-                                ),
-                              ),
-                            ),
-                            if (!_isExpanded) ...[
-                              const SizedBox(width: Spacing.sm),
-                              // Primary action button (Send/Stop) when collapsed
-                              _buildPrimaryButton(
-                                _hasText,
-                                isGenerating,
-                                stopGeneration,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-
-                      // Expanded bottom row with additional options
-                      if (_isExpanded) ...[
-                        Container(
-                          padding: const EdgeInsets.only(
-                            left: Spacing.inputPadding,
-                            right: Spacing.inputPadding,
-                            bottom: Spacing.inputPadding,
-                          ),
-                          child: FadeTransition(
-                            opacity: _expandController,
-                            child: Row(
-                              children: [
+            child: SafeArea(
+              top: false,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  // cap the input area to 40% of screen height to avoid bottom overflow
+                  maxHeight: MediaQuery.of(context).size.height * 0.4,
+                ),
+                child: AnimatedSize(
+                  duration: AnimationDuration
+                      .fast, // Faster for better responsiveness
+                  curve: Curves.fastOutSlowIn, // More efficient curve
+                  alignment: Alignment.topCenter,
+                  child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Collapsed/Expanded top row: text input with left/right buttons in collapsed
+                        Padding(
+                          padding: const EdgeInsets.all(Spacing.inputPadding),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (!_isExpanded) ...[
                                 _buildRoundButton(
                                   icon: Icons.add,
                                   onTap: widget.enabled
@@ -382,103 +274,214 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                   )!.addAttachment,
                                 ),
                                 const SizedBox(width: Spacing.sm),
-                                // Quick pills: no scroll, clip text within fixed max width
-                                Expanded(
-                                  child: Row(
-                                    children: [
-                                      Flexible(
-                                        fit: FlexFit.loose,
-                                        child: _buildPillButton(
-                                          icon: Platform.isIOS
-                                              ? CupertinoIcons.search
-                                              : Icons.search,
-                                          label: AppLocalizations.of(
-                                            context,
-                                          )!.web,
-                                          isActive: webSearchEnabled,
-                                          onTap: widget.enabled
-                                              ? () {
-                                                  ref
-                                                          .read(
-                                                            webSearchEnabledProvider
-                                                                .notifier,
-                                                          )
-                                                          .state =
-                                                      !webSearchEnabled;
-                                                }
-                                              : null,
+                              ],
+                              // Text input expands to fill
+                              Expanded(
+                                child: Semantics(
+                                  textField: true,
+                                  label: AppLocalizations.of(
+                                    context,
+                                  )!.messageInputLabel,
+                                  hint: AppLocalizations.of(
+                                    context,
+                                  )!.messageInputHint,
+                                  child: TextField(
+                                    controller: _controller,
+                                    focusNode: _focusNode,
+                                    enabled: widget.enabled,
+                                    autofocus: false,
+                                    maxLines: _isExpanded ? null : 1,
+                                    keyboardType: TextInputType.multiline,
+                                    textCapitalization:
+                                        TextCapitalization.sentences,
+                                    textInputAction: TextInputAction.newline,
+                                    showCursor: true,
+                                    cursorColor: context.conduitTheme.inputText,
+                                    style: AppTypography.chatMessageStyle
+                                        .copyWith(
+                                          color: context.conduitTheme.inputText,
                                         ),
+                                    decoration: InputDecoration(
+                                      hintText: AppLocalizations.of(
+                                        context,
+                                      )!.messageHintText,
+                                      hintStyle: TextStyle(
+                                        color: context
+                                            .conduitTheme
+                                            .inputPlaceholder,
+                                        fontSize: AppTypography.bodyLarge,
+                                        fontWeight: _isRecording
+                                            ? FontWeight.w500
+                                            : FontWeight.w400,
+                                        fontStyle: _isRecording
+                                            ? FontStyle.italic
+                                            : FontStyle.normal,
                                       ),
-                                      if (imageGenAvailable) ...[
-                                        const SizedBox(width: Spacing.sm),
-                                        Flexible(
-                                          fit: FlexFit.loose,
-                                          child: _buildPillButton(
-                                            icon: Platform.isIOS
-                                                ? CupertinoIcons.photo
-                                                : Icons.image,
-                                            label: AppLocalizations.of(
-                                              context,
-                                            )!.imageGen,
-                                            isActive: imageGenEnabled,
-                                            onTap: widget.enabled
-                                                ? () {
-                                                    ref
-                                                            .read(
-                                                              imageGenerationEnabledProvider
-                                                                  .notifier,
-                                                            )
-                                                            .state =
-                                                        !imageGenEnabled;
-                                                  }
-                                                : null,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
+                                      // Ensure the text field background matches its parent container
+                                      // and does not use the global InputDecorationTheme fill
+                                      filled: false,
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      errorBorder: InputBorder.none,
+                                      disabledBorder: InputBorder.none,
+                                      contentPadding: EdgeInsets.zero,
+                                      isDense: true,
+                                      alignLabelWithHint: true,
+                                    ),
+                                    // Removed onChanged setState to reduce rebuilds
+                                    onSubmitted: (_) => _sendMessage(),
+                                    onTap: () {
+                                      if (!widget.enabled) return;
+                                      if (!_isExpanded) {
+                                        _setExpanded(true);
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              if (!mounted) return;
+                                              _ensureFocusedIfEnabled();
+                                            });
+                                      } else {
+                                        _ensureFocusedIfEnabled();
+                                      }
+                                    },
                                   ),
                                 ),
+                              ),
+                              if (!_isExpanded) ...[
                                 const SizedBox(width: Spacing.sm),
-                                _buildRoundButton(
-                                  icon: Icons.more_horiz,
-                                  onTap: widget.enabled
-                                      ? _showUnifiedToolsModal
-                                      : null,
-                                  tooltip: AppLocalizations.of(context)!.tools,
-                                  isActive:
-                                      ref
-                                          .watch(selectedToolIdsProvider)
-                                          .isNotEmpty ||
-                                      webSearchEnabled ||
-                                      imageGenEnabled,
-                                ),
-                                const SizedBox(width: Spacing.sm),
-                                // Microphone button: call provided callback for premium voice UI
-                                _buildRoundButton(
-                                  icon: Platform.isIOS
-                                      ? CupertinoIcons.mic_fill
-                                      : Icons.mic,
-                                  onTap: widget.enabled
-                                      ? widget.onVoiceInput
-                                      : null,
-                                  tooltip: AppLocalizations.of(
-                                    context,
-                                  )!.voiceInput,
-                                  isActive: _isRecording,
-                                ),
-                                const SizedBox(width: Spacing.sm),
-                                // Primary action button (Send/Stop) when expanded
+                                // Primary action button (Send/Stop) when collapsed
                                 _buildPrimaryButton(
                                   _hasText,
                                   isGenerating,
                                   stopGeneration,
                                 ),
                               ],
-                            ),
+                            ],
                           ),
                         ),
+
+                        // Expanded bottom row with additional options
+                        if (_isExpanded) ...[
+                          Container(
+                            padding: const EdgeInsets.only(
+                              left: Spacing.inputPadding,
+                              right: Spacing.inputPadding,
+                              bottom: Spacing.inputPadding,
+                            ),
+                            child: FadeTransition(
+                              opacity: _expandController,
+                              child: Row(
+                                children: [
+                                  _buildRoundButton(
+                                    icon: Icons.add,
+                                    onTap: widget.enabled
+                                        ? _showAttachmentOptions
+                                        : null,
+                                    tooltip: AppLocalizations.of(
+                                      context,
+                                    )!.addAttachment,
+                                  ),
+                                  const SizedBox(width: Spacing.sm),
+                                  // Quick pills: no scroll, clip text within fixed max width
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Flexible(
+                                          fit: FlexFit.loose,
+                                          child: _buildPillButton(
+                                            icon: Platform.isIOS
+                                                ? CupertinoIcons.search
+                                                : Icons.search,
+                                            label: AppLocalizations.of(
+                                              context,
+                                            )!.web,
+                                            isActive: webSearchEnabled,
+                                            onTap: widget.enabled
+                                                ? () {
+                                                    ref
+                                                            .read(
+                                                              webSearchEnabledProvider
+                                                                  .notifier,
+                                                            )
+                                                            .state =
+                                                        !webSearchEnabled;
+                                                  }
+                                                : null,
+                                          ),
+                                        ),
+                                        if (imageGenAvailable) ...[
+                                          const SizedBox(width: Spacing.sm),
+                                          Flexible(
+                                            fit: FlexFit.loose,
+                                            child: _buildPillButton(
+                                              icon: Platform.isIOS
+                                                  ? CupertinoIcons.photo
+                                                  : Icons.image,
+                                              label: AppLocalizations.of(
+                                                context,
+                                              )!.imageGen,
+                                              isActive: imageGenEnabled,
+                                              onTap: widget.enabled
+                                                  ? () {
+                                                      ref
+                                                              .read(
+                                                                imageGenerationEnabledProvider
+                                                                    .notifier,
+                                                              )
+                                                              .state =
+                                                          !imageGenEnabled;
+                                                    }
+                                                  : null,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: Spacing.sm),
+                                  _buildRoundButton(
+                                    icon: Icons.more_horiz,
+                                    onTap: widget.enabled
+                                        ? _showUnifiedToolsModal
+                                        : null,
+                                    tooltip: AppLocalizations.of(
+                                      context,
+                                    )!.tools,
+                                    isActive:
+                                        ref
+                                            .watch(selectedToolIdsProvider)
+                                            .isNotEmpty ||
+                                        webSearchEnabled ||
+                                        imageGenEnabled,
+                                  ),
+                                  const SizedBox(width: Spacing.sm),
+                                  // Microphone button: call provided callback for premium voice UI
+                                  _buildRoundButton(
+                                    icon: Platform.isIOS
+                                        ? CupertinoIcons.mic_fill
+                                        : Icons.mic,
+                                    onTap: widget.enabled
+                                        ? widget.onVoiceInput
+                                        : null,
+                                    tooltip: AppLocalizations.of(
+                                      context,
+                                    )!.voiceInput,
+                                    isActive: _isRecording,
+                                  ),
+                                  const SizedBox(width: Spacing.sm),
+                                  // Primary action button (Send/Stop) when expanded
+                                  _buildPrimaryButton(
+                                    _hasText,
+                                    isGenerating,
+                                    stopGeneration,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
