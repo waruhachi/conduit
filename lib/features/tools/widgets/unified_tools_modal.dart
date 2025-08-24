@@ -9,6 +9,7 @@ import '../../chat/providers/chat_providers.dart';
 import '../../../core/providers/app_providers.dart';
 import '../providers/tools_providers.dart';
 import '../../../shared/widgets/sheet_handle.dart';
+import '../../chat/views/chat_page_helpers.dart';
 
 class UnifiedToolsModal extends ConsumerStatefulWidget {
   const UnifiedToolsModal({super.key});
@@ -33,7 +34,10 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(AppBorderRadius.bottomSheet),
         ),
-        border: Border.all(color: theme.dividerColor, width: BorderWidth.regular),
+        border: Border.all(
+          color: theme.dividerColor,
+          width: BorderWidth.regular,
+        ),
         boxShadow: ConduitShadows.modal,
       ),
       child: SafeArea(
@@ -48,23 +52,48 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Handle bar (standardized)
                 const SheetHandle(),
                 const SizedBox(height: Spacing.md),
 
-                // Removed header for minimal, focused layout
+                // Full tiles for Web and Image features
+                Column(
+                  children: [
+                    _buildFeatureTile(
+                      title: 'Web Search',
+                      description:
+                          'Let the assistant search the internet while answering.',
+                      icon: Platform.isIOS
+                          ? CupertinoIcons.search
+                          : Icons.search,
+                      isActive: webSearchEnabled,
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        ref.read(webSearchEnabledProvider.notifier).state =
+                            !webSearchEnabled;
+                      },
+                    ),
+                    if (imageGenAvailable)
+                      _buildFeatureTile(
+                        title: 'Image Generation',
+                        description:
+                            'Generate images from your prompt and attach them.',
+                        icon: Platform.isIOS
+                            ? CupertinoIcons.photo
+                            : Icons.image,
+                        isActive: imageGenEnabled,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          ref
+                                  .read(imageGenerationEnabledProvider.notifier)
+                                  .state =
+                              !imageGenEnabled;
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: Spacing.lg),
 
-                // Web Search Toggle
-                _buildWebSearchToggle(webSearchEnabled),
-                const SizedBox(height: Spacing.md),
-
-                // Image Generation Toggle (conditionally shown)
-                if (imageGenAvailable) ...[
-                  _buildImageGenerationToggle(imageGenEnabled),
-                  const SizedBox(height: Spacing.md),
-                ],
-
-                // Tools Section
+                // All tools as selectable tiles (model selector style)
                 toolsAsync.when(
                   data: (tools) {
                     if (tools.isEmpty) {
@@ -79,20 +108,29 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
                     }
 
                     return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSectionHeader('Available Tools', tools.length),
-                        const SizedBox(height: Spacing.sm),
-                        ...tools.map(
-                          (tool) => Padding(
-                            padding: const EdgeInsets.only(bottom: Spacing.sm),
-                            child: _buildToolCard(
-                              tool,
-                              selectedToolIds.contains(tool.id),
-                            ),
-                          ),
-                        ),
-                      ],
+                      children: tools.map((tool) {
+                        final isSelected = selectedToolIds.contains(tool.id);
+                        return _buildToolTile(
+                          tool,
+                          isSelected,
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            final currentIds = ref.read(
+                              selectedToolIdsProvider,
+                            );
+                            if (isSelected) {
+                              ref
+                                  .read(selectedToolIdsProvider.notifier)
+                                  .state = currentIds
+                                  .where((id) => id != tool.id)
+                                  .toList();
+                            } else {
+                              ref.read(selectedToolIdsProvider.notifier).state =
+                                  [...currentIds, tool.id];
+                            }
+                          },
+                        );
+                      }).toList(),
                     );
                   },
                   loading: () => _buildNeutralCard(
@@ -137,294 +175,9 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
     );
   }
 
-  Widget _buildSectionHeader(String title, int count) {
-    final theme = context.conduitTheme;
-    return Row(
-      children: [
-        Text(
-          title,
-          style: AppTypography.bodySmallStyle.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.textSecondary,
-            letterSpacing: 0.2,
-          ),
-        ),
-        const SizedBox(width: Spacing.xs),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: theme.surfaceBackground.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(AppBorderRadius.xs),
-            border: Border.all(color: theme.dividerColor, width: BorderWidth.thin),
-          ),
-          child: Text(
-            '$count',
-            style: AppTypography.bodySmallStyle.copyWith(
-              color: theme.textSecondary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  // Legacy header removed in simplified design
 
-  Widget _buildWebSearchToggle(bool webSearchEnabled) {
-    return Material(
-      color: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        side: BorderSide(
-          color: webSearchEnabled
-              ? context.conduitTheme.buttonPrimary
-              : context.conduitTheme.cardBorder,
-          width: BorderWidth.regular,
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        onTap: () {
-          HapticFeedback.lightImpact();
-          ref.read(webSearchEnabledProvider.notifier).state = !webSearchEnabled;
-        },
-        child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(Spacing.md),
-          decoration: BoxDecoration(
-            color: webSearchEnabled
-                ? context.conduitTheme.buttonPrimary
-                : context.conduitTheme.cardBackground,
-            borderRadius: BorderRadius.circular(AppBorderRadius.md),
-          ),
-        child: Row(
-          children: [
-            Icon(
-              webSearchEnabled
-                  ? (Platform.isIOS ? CupertinoIcons.globe : Icons.public)
-                  : (Platform.isIOS ? CupertinoIcons.search : Icons.search),
-              size: IconSize.medium,
-              color: webSearchEnabled
-                  ? context.conduitTheme.buttonPrimaryText
-                  : context.conduitTheme.textPrimary.withValues(
-                      alpha: Alpha.strong,
-                    ),
-            ),
-            const SizedBox(width: Spacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Web Search',
-                    style: AppTypography.labelStyle.copyWith(
-                      color: webSearchEnabled
-                          ? context.conduitTheme.buttonPrimaryText
-                          : context.conduitTheme.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    webSearchEnabled
-                        ? 'I can search the internet for information'
-                        : 'Enable to search the web for answers',
-                    style: AppTypography.captionStyle.copyWith(
-                      color: webSearchEnabled
-                          ? context.conduitTheme.buttonPrimaryText.withValues(
-                              alpha: Alpha.strong,
-                            )
-                          : context.conduitTheme.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              webSearchEnabled ? Icons.toggle_on : Icons.toggle_off,
-              size: IconSize.large,
-              color: webSearchEnabled
-                  ? context.conduitTheme.buttonPrimaryText
-                  : context.conduitTheme.textSecondary,
-            ),
-          ],
-        ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildImageGenerationToggle(bool imageGenEnabled) {
-    return Material(
-      color: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        side: BorderSide(
-          color: imageGenEnabled
-              ? context.conduitTheme.buttonPrimary
-              : context.conduitTheme.cardBorder,
-          width: BorderWidth.regular,
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        onTap: () {
-          HapticFeedback.lightImpact();
-          ref.read(imageGenerationEnabledProvider.notifier).state =
-              !imageGenEnabled;
-        },
-        child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(Spacing.md),
-          decoration: BoxDecoration(
-            color: imageGenEnabled
-                ? context.conduitTheme.buttonPrimary
-                : context.conduitTheme.cardBackground,
-            borderRadius: BorderRadius.circular(AppBorderRadius.md),
-          ),
-        child: Row(
-          children: [
-            Icon(
-              Platform.isIOS ? CupertinoIcons.photo : Icons.image,
-              size: IconSize.medium,
-              color: imageGenEnabled
-                  ? context.conduitTheme.buttonPrimaryText
-                  : context.conduitTheme.textPrimary.withValues(
-                      alpha: Alpha.strong,
-                    ),
-            ),
-            const SizedBox(width: Spacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Image Generation',
-                    style: AppTypography.labelStyle.copyWith(
-                      color: imageGenEnabled
-                          ? context.conduitTheme.buttonPrimaryText
-                          : context.conduitTheme.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    imageGenEnabled
-                        ? 'I can generate images from your prompt'
-                        : 'Enable to generate images with your request',
-                    style: AppTypography.captionStyle.copyWith(
-                      color: imageGenEnabled
-                          ? context.conduitTheme.buttonPrimaryText.withValues(
-                              alpha: Alpha.strong,
-                            )
-                          : context.conduitTheme.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              imageGenEnabled ? Icons.toggle_on : Icons.toggle_off,
-              size: IconSize.large,
-              color: imageGenEnabled
-                  ? context.conduitTheme.buttonPrimaryText
-                  : context.conduitTheme.textSecondary,
-            ),
-          ],
-        ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToolCard(Tool tool, bool isSelected) {
-    return Material(
-      color: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        side: BorderSide(
-          color: isSelected
-              ? context.conduitTheme.buttonPrimary
-              : context.conduitTheme.cardBorder,
-          width: BorderWidth.regular,
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        onTap: () {
-          HapticFeedback.lightImpact();
-          final currentIds = ref.read(selectedToolIdsProvider);
-          if (isSelected) {
-            ref.read(selectedToolIdsProvider.notifier).state = currentIds
-                .where((id) => id != tool.id)
-                .toList();
-          } else {
-            ref.read(selectedToolIdsProvider.notifier).state = [
-              ...currentIds,
-              tool.id,
-            ];
-          }
-        },
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(Spacing.md),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? context.conduitTheme.buttonPrimary
-                : context.conduitTheme.cardBackground,
-            borderRadius: BorderRadius.circular(AppBorderRadius.md),
-          ),
-          child: Row(
-          children: [
-            Icon(
-              _getToolIcon(tool),
-              size: IconSize.medium,
-              color: isSelected
-                  ? context.conduitTheme.buttonPrimaryText
-                  : context.conduitTheme.textPrimary.withValues(
-                      alpha: Alpha.strong,
-                    ),
-            ),
-            const SizedBox(width: Spacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    tool.name,
-                    style: AppTypography.labelStyle.copyWith(
-                      color: isSelected
-                          ? context.conduitTheme.buttonPrimaryText
-                          : context.conduitTheme.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (tool.meta?['description'] != null &&
-                      tool.meta!['description'].toString().isNotEmpty)
-                    Text(
-                      tool.meta!['description'].toString(),
-                      style: AppTypography.captionStyle.copyWith(
-                        color: isSelected
-                            ? context.conduitTheme.buttonPrimaryText.withValues(
-                                alpha: Alpha.strong,
-                              )
-                            : context.conduitTheme.textSecondary,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-            ),
-            Icon(
-              isSelected ? Icons.toggle_on : Icons.toggle_off,
-              size: IconSize.large,
-              color: isSelected
-                  ? context.conduitTheme.buttonPrimaryText
-                  : context.conduitTheme.textSecondary,
-            ),
-          ],
-          ),
-        ),
-      ),
-    );
-  }
+  // Removed legacy builders (kept earlier for reference)
 
   IconData _getToolIcon(Tool tool) {
     final toolName = tool.name.toLowerCase();
@@ -449,4 +202,251 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
       return Icons.build;
     }
   }
+
+  Widget _buildFeatureTile({
+    required String title,
+    required String description,
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return PressableScale(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppBorderRadius.md),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: Spacing.md),
+        decoration: BoxDecoration(
+          gradient: isActive
+              ? LinearGradient(
+                  colors: [
+                    context.conduitTheme.buttonPrimary.withValues(alpha: 0.2),
+                    context.conduitTheme.buttonPrimary.withValues(alpha: 0.1),
+                  ],
+                )
+              : null,
+          color: isActive
+              ? null
+              : context.conduitTheme.surfaceBackground.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          border: Border.all(
+            color: isActive
+                ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.5)
+                : context.conduitTheme.dividerColor,
+            width: BorderWidth.regular,
+          ),
+          boxShadow: isActive ? ConduitShadows.card : null,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: Spacing.sm,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: context.conduitTheme.buttonPrimary.withValues(
+                    alpha: 0.15,
+                  ),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                ),
+                child: Icon(
+                  icon,
+                  color: context.conduitTheme.buttonPrimary,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: Spacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: context.conduitTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: AppTypography.bodyMedium,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        color: context.conduitTheme.textSecondary,
+                        fontSize: AppTypography.labelSmall,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: Spacing.md),
+              AnimatedOpacity(
+                opacity: isActive ? 1 : 0.6,
+                duration: AnimationDuration.fast,
+                child: Container(
+                  padding: const EdgeInsets.all(Spacing.xxs),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? context.conduitTheme.buttonPrimary
+                        : context.conduitTheme.surfaceBackground,
+                    borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                    border: Border.all(
+                      color: isActive
+                          ? context.conduitTheme.buttonPrimary.withValues(
+                              alpha: 0.6,
+                            )
+                          : context.conduitTheme.dividerColor,
+                    ),
+                  ),
+                  child: Icon(
+                    isActive
+                        ? (Platform.isIOS
+                              ? CupertinoIcons.check_mark
+                              : Icons.check)
+                        : (Platform.isIOS ? CupertinoIcons.add : Icons.add),
+                    color: isActive
+                        ? context.conduitTheme.textInverse
+                        : context.conduitTheme.iconSecondary,
+                    size: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolTile(
+    Tool tool,
+    bool isSelected, {
+    required VoidCallback onTap,
+  }) {
+    return PressableScale(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppBorderRadius.md),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: Spacing.md),
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? LinearGradient(
+                  colors: [
+                    context.conduitTheme.buttonPrimary.withValues(alpha: 0.2),
+                    context.conduitTheme.buttonPrimary.withValues(alpha: 0.1),
+                  ],
+                )
+              : null,
+          color: isSelected
+              ? null
+              : context.conduitTheme.surfaceBackground.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          border: Border.all(
+            color: isSelected
+                ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.5)
+                : context.conduitTheme.dividerColor,
+            width: BorderWidth.regular,
+          ),
+          boxShadow: isSelected ? ConduitShadows.card : null,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: Spacing.sm,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: context.conduitTheme.buttonPrimary.withValues(
+                    alpha: 0.15,
+                  ),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                ),
+                child: Icon(
+                  _getToolIcon(tool),
+                  color: context.conduitTheme.buttonPrimary,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: Spacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tool.name,
+                      style: TextStyle(
+                        color: context.conduitTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: AppTypography.bodyMedium,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (tool.meta?['description'] != null &&
+                        (tool.meta!['description'] as String).isNotEmpty) ...[
+                      const SizedBox(height: Spacing.xs),
+                      Text(
+                        tool.meta!['description'],
+                        style: TextStyle(
+                          color: context.conduitTheme.textSecondary,
+                          fontSize: AppTypography.labelSmall,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: Spacing.md),
+              AnimatedOpacity(
+                opacity: isSelected ? 1 : 0.6,
+                duration: AnimationDuration.fast,
+                child: Container(
+                  padding: const EdgeInsets.all(Spacing.xxs),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? context.conduitTheme.buttonPrimary
+                        : context.conduitTheme.surfaceBackground,
+                    borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                    border: Border.all(
+                      color: isSelected
+                          ? context.conduitTheme.buttonPrimary.withValues(
+                              alpha: 0.6,
+                            )
+                          : context.conduitTheme.dividerColor,
+                    ),
+                  ),
+                  child: Icon(
+                    isSelected
+                        ? (Platform.isIOS
+                              ? CupertinoIcons.check_mark
+                              : Icons.check)
+                        : (Platform.isIOS ? CupertinoIcons.add : Icons.add),
+                    color: isSelected
+                        ? context.conduitTheme.textInverse
+                        : context.conduitTheme.iconSecondary,
+                    size: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Removed small pill builder; using full tiles for consistency
 }

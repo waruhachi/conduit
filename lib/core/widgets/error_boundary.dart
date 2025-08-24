@@ -110,46 +110,49 @@ class _ErrorBoundaryState extends ConsumerState<ErrorBoundary> {
         textDirection: TextDirection.ltr,
         child: Scaffold(
           backgroundColor: context.conduitTheme.surfaceBackground,
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 64,
-                  color: context.conduitTheme.error,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  AppLocalizations.of(context)!.errorMessage,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: context.conduitTheme.textPrimary,
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: context.conduitTheme.error,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  enhancedErrorService.getUserMessage(_error!),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: context.conduitTheme.textSecondary,
+                  const SizedBox(height: 16),
+                  Text(
+                    AppLocalizations.of(context)?.errorMessage ??
+                        'An unexpected error occurred',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: context.conduitTheme.textPrimary,
+                    ),
                   ),
-                ),
-                if (widget.allowRetry) ...[
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: _retry,
-                    icon: const Icon(Icons.refresh),
-                    label: Text(AppLocalizations.of(context)!.retry),
+                  const SizedBox(height: 8),
+                  Text(
+                    enhancedErrorService.getUserMessage(_error!),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: context.conduitTheme.textSecondary,
+                    ),
                   ),
+                  if (widget.allowRetry) ...[
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      onPressed: _retry,
+                      icon: const Icon(Icons.refresh),
+                      label: Text(
+                        AppLocalizations.of(context)?.retry ?? 'Retry',
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
     }
 
     // Wrap child in error handler

@@ -11,6 +11,7 @@ import 'dart:async';
 import '../providers/chat_providers.dart';
 import '../../tools/widgets/unified_tools_modal.dart';
 import '../../tools/providers/tools_providers.dart';
+import '../../../core/providers/app_providers.dart';
 
 import '../../../shared/utils/platform_utils.dart';
 import 'package:conduit/l10n/app_localizations.dart';
@@ -197,6 +198,10 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         messages.last.isStreaming;
     final stopGeneration = ref.read(stopGenerationProvider);
 
+    final webSearchEnabled = ref.watch(webSearchEnabledProvider);
+    final imageGenEnabled = ref.watch(imageGenerationEnabledProvider);
+    final imageGenAvailable = ref.watch(imageGenerationAvailableProvider);
+
     return Container(
       // Transparent wrapper so rounded corners are visible against page background
       color: Colors.transparent,
@@ -265,7 +270,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                 onTap: widget.enabled
                                     ? _showAttachmentOptions
                                     : null,
-                                tooltip: AppLocalizations.of(context)!.addAttachment,
+                                tooltip: AppLocalizations.of(
+                                  context,
+                                )!.addAttachment,
                               ),
                               const SizedBox(width: Spacing.sm),
                             ],
@@ -273,8 +280,12 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                             Expanded(
                               child: Semantics(
                                 textField: true,
-                                label: AppLocalizations.of(context)!.messageInputLabel,
-                                hint: AppLocalizations.of(context)!.messageInputHint,
+                                label: AppLocalizations.of(
+                                  context,
+                                )!.messageInputLabel,
+                                hint: AppLocalizations.of(
+                                  context,
+                                )!.messageInputHint,
                                 child: TextField(
                                   controller: _controller,
                                   focusNode: _focusNode,
@@ -292,7 +303,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                         color: context.conduitTheme.inputText,
                                       ),
                                   decoration: InputDecoration(
-                                    hintText: AppLocalizations.of(context)!.messageHintText,
+                                    hintText: AppLocalizations.of(
+                                      context,
+                                    )!.messageHintText,
                                     hintStyle: TextStyle(
                                       color:
                                           context.conduitTheme.inputPlaceholder,
@@ -364,26 +377,76 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                   onTap: widget.enabled
                                       ? _showAttachmentOptions
                                       : null,
-                                  tooltip: AppLocalizations.of(context)!.addAttachment,
+                                  tooltip: AppLocalizations.of(
+                                    context,
+                                  )!.addAttachment,
                                 ),
                                 const SizedBox(width: Spacing.sm),
-                                // Tools button
+                                // Quick pills: wrap in horizontal scroller to prevent overflow
+                                Expanded(
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    physics: const BouncingScrollPhysics(),
+                                    child: Row(
+                                      children: [
+                                        _buildPillButton(
+                                          icon: Platform.isIOS
+                                              ? CupertinoIcons.search
+                                              : Icons.search,
+                                          label: 'Web',
+                                          isActive: webSearchEnabled,
+                                          onTap: widget.enabled
+                                              ? () {
+                                                  ref
+                                                          .read(
+                                                            webSearchEnabledProvider
+                                                                .notifier,
+                                                          )
+                                                          .state =
+                                                      !webSearchEnabled;
+                                                }
+                                              : null,
+                                        ),
+                                        if (imageGenAvailable) ...[
+                                          const SizedBox(width: Spacing.sm),
+                                          _buildPillButton(
+                                            icon: Platform.isIOS
+                                                ? CupertinoIcons.photo
+                                                : Icons.image,
+                                            label: 'Image Gen',
+                                            isActive: imageGenEnabled,
+                                            onTap: widget.enabled
+                                                ? () {
+                                                    ref
+                                                            .read(
+                                                              imageGenerationEnabledProvider
+                                                                  .notifier,
+                                                            )
+                                                            .state =
+                                                        !imageGenEnabled;
+                                                  }
+                                                : null,
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: Spacing.sm),
                                 _buildRoundButton(
-                                  icon: Icons.build,
+                                  icon: Icons.more_horiz,
                                   onTap: widget.enabled
-                                      ? () {
-                                          _showUnifiedToolsModal();
-                                        }
+                                      ? _showUnifiedToolsModal
                                       : null,
                                   tooltip: AppLocalizations.of(context)!.tools,
                                   isActive:
                                       ref
                                           .watch(selectedToolIdsProvider)
                                           .isNotEmpty ||
-                                      ref.watch(webSearchEnabledProvider) ||
-                                      ref.watch(imageGenerationEnabledProvider),
+                                      webSearchEnabled ||
+                                      imageGenEnabled,
                                 ),
-                                const Spacer(),
+                                const SizedBox(width: Spacing.sm),
                                 // Microphone button: call provided callback for premium voice UI
                                 _buildRoundButton(
                                   icon: Platform.isIOS
@@ -392,7 +455,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                   onTap: widget.enabled
                                       ? widget.onVoiceInput
                                       : null,
-                                  tooltip: AppLocalizations.of(context)!.voiceInput,
+                                  tooltip: AppLocalizations.of(
+                                    context,
+                                  )!.voiceInput,
                                   isActive: _isRecording,
                                 ),
                                 const SizedBox(width: Spacing.sm),
@@ -437,7 +502,10 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
           color: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radius),
-            side: BorderSide(color: context.conduitTheme.error, width: BorderWidth.regular),
+            side: BorderSide(
+              color: context.conduitTheme.error,
+              width: BorderWidth.regular,
+            ),
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(radius),
@@ -483,9 +551,11 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
     // Default SEND variant
     return Tooltip(
-      message: enabled ? AppLocalizations.of(context)!.sendMessage : AppLocalizations.of(context)!.send,
+      message: enabled
+          ? AppLocalizations.of(context)!.sendMessage
+          : AppLocalizations.of(context)!.send,
       child: Opacity(
-          opacity: enabled ? Alpha.primary : Alpha.disabled,
+        opacity: enabled ? Alpha.primary : Alpha.disabled,
         child: IgnorePointer(
           ignoring: !enabled,
           child: Material(
@@ -495,7 +565,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               side: BorderSide(
                 color: enabled
                     ? context.conduitTheme.cardBorder
-                    : context.conduitTheme.cardBorder.withValues(alpha: Alpha.medium),
+                    : context.conduitTheme.cardBorder.withValues(
+                        alpha: Alpha.medium,
+                      ),
                 width: BorderWidth.regular,
               ),
             ),
@@ -520,7 +592,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                   size: IconSize.medium,
                   color: enabled
                       ? context.conduitTheme.textPrimary
-                      : context.conduitTheme.textPrimary.withValues(alpha: Alpha.disabled),
+                      : context.conduitTheme.textPrimary.withValues(
+                          alpha: Alpha.disabled,
+                        ),
                 ),
               ),
             ),
@@ -549,8 +623,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                     alpha: Alpha.buttonHover + Alpha.subtle,
                   )
                 : showBackground
-                    ? context.conduitTheme.cardBorder
-                    : Colors.transparent,
+                ? context.conduitTheme.cardBorder
+                : Colors.transparent,
             width: BorderWidth.regular,
           ),
         ),
@@ -563,37 +637,90 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                   onTap();
                 },
           child: Container(
-          width: TouchTarget.comfortable,
-          height: TouchTarget.comfortable,
-          decoration: BoxDecoration(
-            color: isActive
-                ? context.conduitTheme.textPrimary.withValues(
-                    alpha: Alpha.buttonHover,
-                  )
-                : showBackground
-                ? context.conduitTheme.cardBackground
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppBorderRadius.xl),
-            boxShadow: (isActive || showBackground)
-                ? ConduitShadows.button
-                : null,
-          ),
-          child: Icon(
-            icon,
-            size: IconSize.medium,
-            color: widget.enabled
-                ? (isActive
-                      ? context.conduitTheme.textPrimary
-                      : context.conduitTheme.textPrimary.withValues(
-                          alpha: Alpha.strong,
-                        ))
-                : context.conduitTheme.textPrimary.withValues(
-                    alpha: Alpha.disabled,
-                  ),
+            width: TouchTarget.comfortable,
+            height: TouchTarget.comfortable,
+            decoration: BoxDecoration(
+              color: isActive
+                  ? context.conduitTheme.textPrimary.withValues(
+                      alpha: Alpha.buttonHover,
+                    )
+                  : showBackground
+                  ? context.conduitTheme.cardBackground
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppBorderRadius.xl),
+              boxShadow: (isActive || showBackground)
+                  ? ConduitShadows.button
+                  : null,
+            ),
+            child: Icon(
+              icon,
+              size: IconSize.medium,
+              color: widget.enabled
+                  ? (isActive
+                        ? context.conduitTheme.textPrimary
+                        : context.conduitTheme.textPrimary.withValues(
+                            alpha: Alpha.strong,
+                          ))
+                  : context.conduitTheme.textPrimary.withValues(
+                      alpha: Alpha.disabled,
+                    ),
+            ),
           ),
         ),
       ),
-    ));
+    );
+  }
+
+  Widget _buildPillButton({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    VoidCallback? onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppBorderRadius.xl),
+        side: BorderSide(
+          color: isActive
+              ? context.conduitTheme.buttonPrimary
+              : context.conduitTheme.cardBorder,
+          width: BorderWidth.regular,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppBorderRadius.xl),
+        onTap: onTap == null
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                onTap();
+              },
+        child: Container(
+          height: TouchTarget.comfortable, // exact height match
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+          decoration: BoxDecoration(
+            color: isActive
+                ? context.conduitTheme.buttonPrimary
+                : context.conduitTheme.cardBackground,
+            borderRadius: BorderRadius.circular(AppBorderRadius.xl),
+            // Reduce perceived height variance: only show shadow when active
+            boxShadow: isActive ? ConduitShadows.button : null,
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: AppTypography.labelStyle.copyWith(
+                color: isActive
+                    ? context.conduitTheme.buttonPrimaryText
+                    : context.conduitTheme.textPrimary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _showAttachmentOptions() {
@@ -626,38 +753,43 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               children: [
                 Expanded(
                   child: _buildAttachmentOption(
-                  icon: Platform.isIOS ? CupertinoIcons.doc : Icons.attach_file,
-                  label: AppLocalizations.of(context)!.file,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.pop(context); // Close modal
-                    widget.onFileAttachment?.call();
-                  },
-                )),
+                    icon: Platform.isIOS
+                        ? CupertinoIcons.doc
+                        : Icons.attach_file,
+                    label: AppLocalizations.of(context)!.file,
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.pop(context); // Close modal
+                      widget.onFileAttachment?.call();
+                    },
+                  ),
+                ),
                 const SizedBox(width: Spacing.md),
                 Expanded(
                   child: _buildAttachmentOption(
-                  icon: Platform.isIOS ? CupertinoIcons.photo : Icons.image,
-                  label: AppLocalizations.of(context)!.photo,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.pop(context); // Close modal
-                    widget.onImageAttachment?.call();
-                  },
-                )),
+                    icon: Platform.isIOS ? CupertinoIcons.photo : Icons.image,
+                    label: AppLocalizations.of(context)!.photo,
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.pop(context); // Close modal
+                      widget.onImageAttachment?.call();
+                    },
+                  ),
+                ),
                 const SizedBox(width: Spacing.md),
                 Expanded(
                   child: _buildAttachmentOption(
-                  icon: Platform.isIOS
-                      ? CupertinoIcons.camera
-                      : Icons.camera_alt,
-                  label: AppLocalizations.of(context)!.camera,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.pop(context); // Close modal
-                    widget.onCameraCapture?.call();
-                  },
-                )),
+                    icon: Platform.isIOS
+                        ? CupertinoIcons.camera
+                        : Icons.camera_alt,
+                    label: AppLocalizations.of(context)!.camera,
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.pop(context); // Close modal
+                      widget.onCameraCapture?.call();
+                    },
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: Spacing.lg),
