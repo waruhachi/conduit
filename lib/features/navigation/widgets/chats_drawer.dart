@@ -633,6 +633,10 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
               current[folderId] = !isExpanded;
               ref.read(_expandedFoldersProvider.notifier).state = current;
             },
+            onLongPress: () {
+              HapticFeedback.selectionClick();
+              _showFolderContextMenu(context, folderId, name);
+            },
             child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: Spacing.md,
@@ -684,6 +688,164 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         );
       },
     );
+  }
+
+  void _showFolderContextMenu(
+    BuildContext context,
+    String folderId,
+    String folderName,
+  ) {
+    final theme = context.conduitTheme;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.surfaceBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppBorderRadius.lg),
+        ),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(
+                  Platform.isIOS ? CupertinoIcons.pencil : Icons.edit_rounded,
+                  color: theme.iconPrimary,
+                ),
+                title: Text(
+                  AppLocalizations.of(context)!.rename,
+                  style: TextStyle(color: theme.textPrimary),
+                ),
+                onTap: () async {
+                  HapticFeedback.selectionClick();
+                  Navigator.pop(sheetContext);
+                  await _renameFolder(context, folderId, folderName);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: Icon(
+                  Platform.isIOS ? CupertinoIcons.delete : Icons.delete_rounded,
+                  color: theme.error,
+                ),
+                title: Text(
+                  AppLocalizations.of(context)!.delete,
+                  style: TextStyle(color: theme.error),
+                ),
+                onTap: () async {
+                  HapticFeedback.mediumImpact();
+                  Navigator.pop(sheetContext);
+                  await _confirmAndDeleteFolder(context, folderId, folderName);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _renameFolder(
+    BuildContext context,
+    String folderId,
+    String currentName,
+  ) async {
+    final theme = context.conduitTheme;
+    final controller = TextEditingController(text: currentName);
+
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: theme.surfaceBackground,
+          title: Text(
+            AppLocalizations.of(context)!.rename,
+            style: TextStyle(color: theme.textPrimary),
+          ),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            style: TextStyle(color: theme.inputText),
+            decoration: InputDecoration(
+              hintText: AppLocalizations.of(context)!.folderName,
+              hintStyle: TextStyle(color: theme.inputPlaceholder),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: theme.inputBorder),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: theme.buttonPrimary),
+              ),
+            ),
+            textInputAction: TextInputAction.done,
+            onSubmitted: (value) => Navigator.pop(dialogContext, value.trim()),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(AppLocalizations.of(context)!.cancel),
+            ),
+            TextButton(
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                Navigator.pop(dialogContext, controller.text.trim());
+              },
+              child: Text(AppLocalizations.of(context)!.save),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (newName == null) return;
+    if (newName.isEmpty || newName == currentName) return;
+
+    try {
+      final api = ref.read(apiServiceProvider);
+      if (api == null) throw Exception('No API service');
+      await api.updateFolder(folderId, name: newName);
+      HapticFeedback.selectionClick();
+      ref.invalidate(foldersProvider);
+    } catch (_) {
+      if (!mounted) return;
+      UiUtils.showMessage(
+        this.context,
+        'Failed to rename folder',
+        isError: true,
+      );
+    }
+  }
+
+  Future<void> _confirmAndDeleteFolder(
+    BuildContext context,
+    String folderId,
+    String folderName,
+  ) async {
+    final confirmed = await UiUtils.showConfirmationDialog(
+      context,
+      title: 'Delete Folder',
+      message: 'This folder and its assignment references will be removed.',
+      confirmText: AppLocalizations.of(context)!.delete,
+      isDestructive: true,
+    );
+    if (!confirmed) return;
+
+    try {
+      final api = ref.read(apiServiceProvider);
+      if (api == null) throw Exception('No API service');
+      await api.deleteFolder(folderId);
+      HapticFeedback.mediumImpact();
+      ref.invalidate(foldersProvider);
+      ref.invalidate(conversationsProvider);
+    } catch (_) {
+      if (!mounted) return;
+      UiUtils.showMessage(
+        this.context,
+        'Failed to delete folder',
+        isError: true,
+      );
+    }
   }
 
   Widget _buildUnfileDropTarget() {

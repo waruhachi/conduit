@@ -883,13 +883,12 @@ class ApiService {
     String? title,
     String? systemPrompt,
   }) async {
-    await _dio.put(
-      '/api/v1/chats/$id',
-      data: {
-        if (title != null) 'title': title,
-        if (systemPrompt != null) 'system': systemPrompt,
-      },
-    );
+    // OpenWebUI expects POST to /api/v1/chats/{id} with ChatForm { chat: {...} }
+    final chatPayload = <String, dynamic>{
+      if (title != null) 'title': title,
+      if (systemPrompt != null) 'system': systemPrompt,
+    };
+    await _dio.post('/api/v1/chats/$id', data: {'chat': chatPayload});
   }
 
   Future<void> deleteConversation(String id) async {
@@ -999,13 +998,19 @@ class ApiService {
 
   Future<void> updateFolder(String id, {String? name, String? parentId}) async {
     debugPrint('DEBUG: Updating folder: $id');
-    await _dio.put(
-      '/api/v1/folders/$id',
-      data: {
-        if (name != null) 'name': name,
-        if (parentId != null) 'parent_id': parentId,
-      },
-    );
+    // OpenWebUI folder update endpoints:
+    // - POST /api/v1/folders/{id}/update          -> rename (FolderForm)
+    // - POST /api/v1/folders/{id}/update/parent   -> move parent (FolderParentIdForm)
+    if (name != null) {
+      await _dio.post('/api/v1/folders/$id/update', data: {'name': name});
+    }
+
+    if (parentId != null) {
+      await _dio.post(
+        '/api/v1/folders/$id/update/parent',
+        data: {'parent_id': parentId},
+      );
+    }
   }
 
   Future<void> deleteFolder(String id) async {
