@@ -657,8 +657,10 @@ Future<void> _sendMessageInternal(
     }
   }
 
-  // Check feature toggles for API
-  final webSearchEnabled = ref.read(webSearchEnabledProvider);
+  // Check feature toggles for API (gated by server availability)
+  final webSearchEnabled =
+      ref.read(webSearchEnabledProvider) &&
+      ref.read(webSearchAvailableProvider);
   final imageGenerationEnabled = ref.read(imageGenerationEnabledProvider);
 
   // Prepare tools list - pass tool IDs directly

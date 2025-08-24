@@ -80,12 +80,10 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
 }
 
 // Locale provider
-final localeProvider = StateNotifierProvider<LocaleNotifier, Locale?>(
-  (ref) {
-    final storage = ref.watch(optimizedStorageServiceProvider);
-    return LocaleNotifier(storage);
-  },
-);
+final localeProvider = StateNotifierProvider<LocaleNotifier, Locale?>((ref) {
+  final storage = ref.watch(optimizedStorageServiceProvider);
+  return LocaleNotifier(storage);
+});
 
 class LocaleNotifier extends StateNotifier<Locale?> {
   final OptimizedStorageService _storage;
@@ -948,6 +946,22 @@ final imageGenerationAvailableProvider = Provider<bool>((ref) {
       final features = data['features'];
       if (features is Map<String, dynamic>) {
         final value = features['image_generation'];
+        if (value is bool) return value;
+        if (value is String) return value.toLowerCase() == 'true';
+      }
+      return false;
+    },
+    orElse: () => false,
+  );
+});
+
+final webSearchAvailableProvider = Provider<bool>((ref) {
+  final perms = ref.watch(userPermissionsProvider);
+  return perms.maybeWhen(
+    data: (data) {
+      final features = data['features'];
+      if (features is Map<String, dynamic>) {
+        final value = features['web_search'];
         if (value is bool) return value;
         if (value is String) return value.toLowerCase() == 'true';
       }

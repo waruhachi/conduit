@@ -382,14 +382,13 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                   )!.addAttachment,
                                 ),
                                 const SizedBox(width: Spacing.sm),
-                                // Quick pills: wrap in horizontal scroller to prevent overflow
+                                // Quick pills: no scroll, clip text within fixed max width
                                 Expanded(
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    physics: const BouncingScrollPhysics(),
-                                    child: Row(
-                                      children: [
-                                        _buildPillButton(
+                                  child: Row(
+                                    children: [
+                                      Flexible(
+                                        fit: FlexFit.loose,
+                                        child: _buildPillButton(
                                           icon: Platform.isIOS
                                               ? CupertinoIcons.search
                                               : Icons.search,
@@ -409,9 +408,12 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                                 }
                                               : null,
                                         ),
-                                        if (imageGenAvailable) ...[
-                                          const SizedBox(width: Spacing.sm),
-                                          _buildPillButton(
+                                      ),
+                                      if (imageGenAvailable) ...[
+                                        const SizedBox(width: Spacing.sm),
+                                        Flexible(
+                                          fit: FlexFit.loose,
+                                          child: _buildPillButton(
                                             icon: Platform.isIOS
                                                 ? CupertinoIcons.photo
                                                 : Icons.image,
@@ -431,9 +433,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                                   }
                                                 : null,
                                           ),
-                                        ],
+                                        ),
                                       ],
-                                    ),
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(width: Spacing.sm),
@@ -705,20 +707,25 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
           decoration: BoxDecoration(
-            color: isActive
-                ? context.conduitTheme.buttonPrimary
-                : context.conduitTheme.cardBackground,
+            // Align with unified tools modal: keep subtle card background even when active
+            color: context.conduitTheme.cardBackground,
             borderRadius: BorderRadius.circular(AppBorderRadius.xl),
-            // Reduce perceived height variance: only show shadow when active
-            boxShadow: isActive ? ConduitShadows.button : null,
+            // No elevation to match modal chips
+            boxShadow: null,
           ),
           child: Center(
-            child: Text(
-              label,
-              style: AppTypography.labelStyle.copyWith(
-                color: isActive
-                    ? context.conduitTheme.buttonPrimaryText
-                    : context.conduitTheme.textPrimary,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 140),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                style: AppTypography.labelStyle.copyWith(
+                  color: isActive
+                      ? context.conduitTheme.buttonPrimary
+                      : context.conduitTheme.textPrimary,
+                ),
               ),
             ),
           ),

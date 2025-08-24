@@ -65,7 +65,12 @@ class _EnhancedImageAttachmentState
       parent: _animationController,
       curve: Curves.easeInOut,
     );
-    _loadImage();
+    // Defer loading until after first frame to avoid accessing inherited widgets
+    // (e.g., Localizations) during initState
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadImage();
+    });
   }
 
   @override

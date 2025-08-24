@@ -25,6 +25,7 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
     final webSearchEnabled = ref.watch(webSearchEnabledProvider);
     final imageGenEnabled = ref.watch(imageGenerationEnabledProvider);
     final imageGenAvailable = ref.watch(imageGenerationAvailableProvider);
+    final webSearchAvailable = ref.watch(webSearchAvailableProvider);
     final selectedToolIds = ref.watch(selectedToolIdsProvider);
     final toolsAsync = ref.watch(toolsListProvider);
 
@@ -59,21 +60,22 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
                 // Full tiles for Web and Image features
                 Column(
                   children: [
-                    _buildFeatureTile(
-                      title: AppLocalizations.of(context)!.webSearch,
-                      description: AppLocalizations.of(
-                        context,
-                      )!.webSearchDescription,
-                      icon: Platform.isIOS
-                          ? CupertinoIcons.search
-                          : Icons.search,
-                      isActive: webSearchEnabled,
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        ref.read(webSearchEnabledProvider.notifier).state =
-                            !webSearchEnabled;
-                      },
-                    ),
+                    if (webSearchAvailable)
+                      _buildFeatureTile(
+                        title: AppLocalizations.of(context)!.webSearch,
+                        description: AppLocalizations.of(
+                          context,
+                        )!.webSearchDescription,
+                        icon: Platform.isIOS
+                            ? CupertinoIcons.search
+                            : Icons.search,
+                        isActive: webSearchEnabled,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          ref.read(webSearchEnabledProvider.notifier).state =
+                              !webSearchEnabled;
+                        },
+                      ),
                     if (imageGenAvailable)
                       _buildFeatureTile(
                         title: AppLocalizations.of(context)!.imageGeneration,
