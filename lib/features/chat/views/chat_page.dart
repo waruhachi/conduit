@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 import '../../../core/widgets/error_boundary.dart';
 import '../../../shared/widgets/optimized_list.dart';
 import '../../../shared/theme/theme_extensions.dart';
@@ -805,7 +806,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           style: TextStyle(color: context.conduitTheme.textPrimary),
           maxLines: null,
           decoration: InputDecoration(
-            hintText: 'Enter your message',
+            hintText: AppLocalizations.of(context)!.messageHintText,
             hintStyle: TextStyle(color: context.conduitTheme.inputPlaceholder),
             border: OutlineInputBorder(
               borderSide: BorderSide(color: context.conduitTheme.inputBorder),
@@ -831,7 +832,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             style: TextButton.styleFrom(
               foregroundColor: context.conduitTheme.buttonPrimary,
             ),
-            child: const Text('Save'),
+            child: Text(AppLocalizations.of(context)!.save),
           ),
         ],
       ),
@@ -911,7 +912,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             const SizedBox(height: Spacing.xl),
 
             Text(
-              'Start a conversation',
+              AppLocalizations.of(context)!.onboardStartTitle,
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: context.conduitTheme.textPrimary,
@@ -921,7 +922,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             const SizedBox(height: Spacing.sm),
 
             Text(
-              'Type below to begin',
+              AppLocalizations.of(context)!.typeBelowToBegin,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: context.conduitTheme.textSecondary,
                 fontWeight: FontWeight.w400,
@@ -1221,7 +1222,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     size: IconSize.appBar,
                   ),
                   onPressed: _handleNewChat,
-                  tooltip: 'New Chat',
+                  tooltip: AppLocalizations.of(context)!.newChat,
                 ),
               ] else ...[
                 IconButton(
@@ -1530,7 +1531,7 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
                       controller: _searchController,
                       style: TextStyle(color: context.conduitTheme.textPrimary),
                       decoration: InputDecoration(
-                        hintText: 'Search...',
+                        hintText: AppLocalizations.of(context)!.searchModels,
                         hintStyle: TextStyle(
                           color: context.conduitTheme.inputPlaceholder,
                         ),
@@ -2235,7 +2236,9 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
                           icon: Platform.isIOS
                               ? CupertinoIcons.xmark
                               : Icons.close,
-                          tooltip: 'Close',
+                          tooltip: AppLocalizations.of(
+                            context,
+                          )!.closeButtonSemantic,
                           isCompact: true,
                           onPressed: () => Navigator.of(context).pop(),
                         ),
@@ -2475,7 +2478,9 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
                                       ConduitIconButton(
                                         icon: Icons.close,
                                         isCompact: true,
-                                        tooltip: 'Clear',
+                                        tooltip: AppLocalizations.of(
+                                          context,
+                                        )!.clear,
                                         onPressed:
                                             _recognizedText.isNotEmpty &&
                                                 !_isTranscribing

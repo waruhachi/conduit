@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,9 +60,10 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
                 Column(
                   children: [
                     _buildFeatureTile(
-                      title: 'Web Search',
-                      description:
-                          'Let the assistant search the internet while answering.',
+                      title: AppLocalizations.of(context)!.webSearch,
+                      description: AppLocalizations.of(
+                        context,
+                      )!.webSearchDescription,
                       icon: Platform.isIOS
                           ? CupertinoIcons.search
                           : Icons.search,
@@ -74,9 +76,10 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
                     ),
                     if (imageGenAvailable)
                       _buildFeatureTile(
-                        title: 'Image Generation',
-                        description:
-                            'Generate images from your prompt and attach them.',
+                        title: AppLocalizations.of(context)!.imageGeneration,
+                        description: AppLocalizations.of(
+                          context,
+                        )!.imageGenerationDescription,
                         icon: Platform.isIOS
                             ? CupertinoIcons.photo
                             : Icons.image,

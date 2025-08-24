@@ -3,6 +3,7 @@ import 'dart:io' show File, Platform;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
@@ -353,12 +354,12 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
                   children: [
                     Text(
                       _isTranscribing
-                          ? 'Transcribing…'
+                          ? AppLocalizations.of(context)!.transcribing
                           : _isListening
                           ? (_voiceService.hasLocalStt
-                                ? 'Listening…'
-                                : 'Recording…')
-                          : 'Voice',
+                                ? AppLocalizations.of(context)!.listening
+                                : AppLocalizations.of(context)!.recording)
+                          : AppLocalizations.of(context)!.voiceInput,
                       style: TextStyle(
                         fontSize: AppTypography.headlineMedium,
                         fontWeight: FontWeight.w600,
@@ -426,7 +427,9 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
                           icon: Platform.isIOS
                               ? CupertinoIcons.xmark
                               : Icons.close,
-                          tooltip: 'Close',
+                          tooltip: AppLocalizations.of(
+                            context,
+                          )!.closeButtonSemantic,
                           isCompact: true,
                           onPressed: () => Navigator.of(context).pop(),
                         ),
@@ -456,11 +459,16 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
                     activeColor: context.conduitTheme.buttonPrimary,
                   ),
                   const SizedBox(width: Spacing.xs),
-                  Text(
-                    'Hold to talk',
-                    style: TextStyle(color: context.conduitTheme.textSecondary),
+                  Flexible(
+                    child: Text(
+                      AppLocalizations.of(context)!.holdToTalk,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: context.conduitTheme.textSecondary,
+                      ),
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: Spacing.sm),
                   ps.PlatformService.getPlatformSwitch(
                     value: _autoSendFinal,
                     onChanged: (v) async {
@@ -472,9 +480,14 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
                     activeColor: context.conduitTheme.buttonPrimary,
                   ),
                   const SizedBox(width: Spacing.xs),
-                  Text(
-                    'Auto-send',
-                    style: TextStyle(color: context.conduitTheme.textSecondary),
+                  Flexible(
+                    child: Text(
+                      AppLocalizations.of(context)!.autoSend,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: context.conduitTheme.textSecondary,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -521,8 +534,10 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
                             child: Semantics(
                               button: true,
                               label: _isListening
-                                  ? 'Stop listening'
-                                  : 'Start listening',
+                                  ? AppLocalizations.of(context)!.stopListening
+                                  : AppLocalizations.of(
+                                      context,
+                                    )!.startListening,
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: [
@@ -617,7 +632,9 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
                                   Row(
                                     children: [
                                       Text(
-                                        'Transcript',
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.transcript,
                                         style: TextStyle(
                                           fontSize: AppTypography.labelSmall,
                                           fontWeight: FontWeight.w600,
@@ -630,7 +647,9 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
                                       ConduitIconButton(
                                         icon: Icons.close,
                                         isCompact: true,
-                                        tooltip: 'Clear',
+                                        tooltip: AppLocalizations.of(
+                                          context,
+                                        )!.clear,
                                         onPressed:
                                             _recognizedText.isNotEmpty &&
                                                 !_isTranscribing
@@ -656,18 +675,13 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
                                           ),
                                           const SizedBox(width: Spacing.xs),
                                           Text(
-                                            'Transcribing…',
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.transcribing,
                                             style: TextStyle(
                                               fontSize: isUltra
-                                                  ? AppTypography.bodySmall
-                                                  : (isCompact
-                                                        ? AppTypography
-                                                              .bodyMedium
-                                                        : AppTypography
-                                                              .bodyLarge),
-                                              color: context
-                                                  .conduitTheme
-                                                  .textSecondary,
+                                                  ? 12
+                                                  : (isCompact ? 12 : 13),
                                             ),
                                           ),
                                         ],
@@ -680,9 +694,15 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
                                           _recognizedText.isEmpty
                                               ? (_isListening
                                                     ? (_voiceService.hasLocalStt
-                                                          ? 'Speak now…'
-                                                          : 'Recording…')
-                                                    : 'Tap Start to begin')
+                                                          ? AppLocalizations.of(
+                                                              context,
+                                                            )!.speakNow
+                                                          : AppLocalizations.of(
+                                                              context,
+                                                            )!.recording)
+                                                    : AppLocalizations.of(
+                                                        context,
+                                                      )!.typeBelowToBegin)
                                               : _recognizedText,
                                           style: TextStyle(
                                             fontSize: isUltra
@@ -731,7 +751,9 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
                 children: [
                   Expanded(
                     child: ConduitButton(
-                      text: _isListening ? 'Stop' : 'Start',
+                      text: _isListening
+                          ? AppLocalizations.of(context)!.stop
+                          : AppLocalizations.of(context)!.start,
                       isSecondary: true,
                       isCompact: isCompact,
                       onPressed: _isListening
@@ -742,7 +764,7 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
                   const SizedBox(width: Spacing.xs),
                   Expanded(
                     child: ConduitButton(
-                      text: 'Send',
+                      text: AppLocalizations.of(context)!.send,
                       isCompact: isCompact,
                       onPressed: _recognizedText.isNotEmpty ? _sendText : null,
                     ),

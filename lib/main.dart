@@ -15,7 +15,6 @@ import 'core/auth/auth_state_manager.dart';
 import 'core/utils/debug_logger.dart';
 
 import 'features/onboarding/views/onboarding_sheet.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import 'features/chat/views/chat_page.dart';
 import 'features/navigation/views/splash_launcher_page.dart';
@@ -101,25 +100,19 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
           debugShowCheckedModeBanner: false,
           navigatorKey: NavigationService.navigatorKey,
           locale: locale,
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: const [
-            Locale('en'),
-            Locale('de'),
-            Locale('fr'),
-            Locale('it'),
-          ],
-          localeResolutionCallback: (deviceLocale, supported) {
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          localeListResolutionCallback: (deviceLocales, supported) {
             if (locale != null) return locale; // User override wins
-            if (deviceLocale == null) return const Locale('en');
-            for (final loc in supported) {
-              if (loc.languageCode == deviceLocale.languageCode) return loc;
+            if (deviceLocales == null || deviceLocales.isEmpty) {
+              return supported.first;
             }
-            return const Locale('en');
+            for (final device in deviceLocales) {
+              for (final loc in supported) {
+                if (loc.languageCode == device.languageCode) return loc;
+              }
+            }
+            return supported.first;
           },
           builder: (context, child) {
             // Keep a subtle fade for navigation transitions only
@@ -184,7 +177,8 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
 
             if (authNavState == AuthNavigationState.error) {
               return _buildErrorState(
-                ref.watch(authErrorProvider3) ?? AppLocalizations.of(context)!.errorMessage,
+                ref.watch(authErrorProvider3) ??
+                    AppLocalizations.of(context)!.errorMessage,
               );
             }
 
@@ -199,7 +193,9 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
           loading: () => _buildInitialLoadingSkeleton(context),
           error: (error, stackTrace) {
             DebugLogger.error('Server provider error', error);
-            return _buildErrorState(AppLocalizations.of(context)!.unableToConnectServer);
+            return _buildErrorState(
+              AppLocalizations.of(context)!.unableToConnectServer,
+            );
           },
         );
       },

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:conduit/l10n/app_localizations.dart';
 import '../../shared/theme/theme_extensions.dart';
 
 /// User-friendly error messages and recovery actions
@@ -438,7 +439,7 @@ class ErrorCard extends StatelessWidget {
             if (showDetails && technicalDetails != null) ...[
               const SizedBox(height: Spacing.md),
               ExpansionTile(
-                title: const Text('Technical Details'),
+                title: Text(AppLocalizations.of(context)!.technicalDetails),
                 children: [
                   Container(
                     width: double.infinity,
@@ -517,7 +518,7 @@ class ErrorDialog extends StatelessWidget {
         children: [
           Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error),
           const SizedBox(width: Spacing.sm + Spacing.xs),
-          const Text('Error'),
+          Text(AppLocalizations.of(context)!.errorMessage),
         ],
       ),
       content: Column(
@@ -528,7 +529,7 @@ class ErrorDialog extends StatelessWidget {
           if (showDetails && technicalDetails != null) ...[
             const SizedBox(height: Spacing.md),
             ExpansionTile(
-              title: const Text('Technical Details'),
+              title: Text(AppLocalizations.of(context)!.technicalDetails),
               children: [
                 SelectableText(
                   technicalDetails!,
@@ -545,7 +546,7 @@ class ErrorDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(AppLocalizations.of(context)!.cancel),
         ),
         if (actions.isNotEmpty)
           ElevatedButton(

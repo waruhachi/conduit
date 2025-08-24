@@ -393,7 +393,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                           icon: Platform.isIOS
                                               ? CupertinoIcons.search
                                               : Icons.search,
-                                          label: 'Web',
+                                          label: AppLocalizations.of(
+                                            context,
+                                          )!.web,
                                           isActive: webSearchEnabled,
                                           onTap: widget.enabled
                                               ? () {
@@ -413,7 +415,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                             icon: Platform.isIOS
                                                 ? CupertinoIcons.photo
                                                 : Icons.image,
-                                            label: 'Image Gen',
+                                            label: AppLocalizations.of(
+                                              context,
+                                            )!.imageGen,
                                             isActive: imageGenEnabled,
                                             onTap: widget.enabled
                                                 ? () {

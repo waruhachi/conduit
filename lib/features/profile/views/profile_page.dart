@@ -119,7 +119,9 @@ class ProfilePage extends ConsumerWidget {
             centerTitle: true,
           ),
           body: Center(
-            child: ImprovedLoadingState(message: AppLocalizations.of(context)!.loadingProfile),
+            child: ImprovedLoadingState(
+              message: AppLocalizations.of(context)!.loadingProfile,
+            ),
           ),
         ),
         error: (error, stack) => Scaffold(
@@ -311,17 +313,16 @@ class ProfilePage extends ConsumerWidget {
   Widget _buildDefaultModelTile(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(appSettingsProvider);
     final modelsAsync = ref.watch(modelsProvider);
-    
+
     return modelsAsync.when(
       data: (models) {
         final currentModel = models.firstWhere(
           (m) => m.id == settings.defaultModel,
-          orElse: () => models.isNotEmpty ? models.first : const Model(
-            id: 'none',
-            name: 'No models available',
-          ),
+          orElse: () => models.isNotEmpty
+              ? models.first
+              : const Model(id: 'none', name: 'No models available'),
         );
-        
+
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(
             horizontal: Spacing.listItemPadding,
@@ -352,7 +353,9 @@ class ProfilePage extends ConsumerWidget {
             ),
           ),
           subtitle: Text(
-            settings.defaultModel != null ? currentModel.name : AppLocalizations.of(context)!.autoSelect,
+            settings.defaultModel != null
+                ? currentModel.name
+                : AppLocalizations.of(context)!.autoSelect,
             style: context.conduitTheme.bodySmall?.copyWith(
               color: context.conduitTheme.textSecondary,
             ),
@@ -484,7 +487,7 @@ class ProfilePage extends ConsumerWidget {
         ),
       ),
       title: Text(
-        AppLocalizations.of(context)!.menuItem,
+        AppLocalizations.of(context)!.appLanguage,
         style: context.conduitTheme.bodyLarge?.copyWith(
           color: context.conduitTheme.textPrimary,
           fontWeight: FontWeight.w500,
@@ -600,7 +603,7 @@ class ProfilePage extends ConsumerWidget {
         ),
       ),
       title: Text(
-        'Dark Mode',
+        AppLocalizations.of(context)!.darkMode,
         style: context.conduitTheme.bodyLarge?.copyWith(
           color: context.conduitTheme.textPrimary,
           fontWeight: FontWeight.w500,
@@ -720,7 +723,11 @@ class ProfilePage extends ConsumerWidget {
     }
   }
 
-  Future<void> _showModelSelector(BuildContext context, WidgetRef ref, List<Model> models) async {
+  Future<void> _showModelSelector(
+    BuildContext context,
+    WidgetRef ref,
+    List<Model> models,
+  ) async {
     final result = await showModalBottomSheet<String?>(
       context: context,
       isScrollControlled: true,
@@ -730,13 +737,15 @@ class ProfilePage extends ConsumerWidget {
         currentDefaultModelId: ref.read(appSettingsProvider).defaultModel,
       ),
     );
-    
+
     // result is non-null only when Save button is pressed
     // null means the sheet was dismissed without saving
     if (result != null) {
       // Handle special case: 'auto-select' should be stored as null
       final modelIdToSave = result == 'auto-select' ? null : result;
-      await ref.read(appSettingsProvider.notifier).setDefaultModel(modelIdToSave);
+      await ref
+          .read(appSettingsProvider.notifier)
+          .setDefaultModel(modelIdToSave);
     }
   }
 
@@ -765,10 +774,12 @@ class _DefaultModelBottomSheet extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_DefaultModelBottomSheet> createState() => _DefaultModelBottomSheetState();
+  ConsumerState<_DefaultModelBottomSheet> createState() =>
+      _DefaultModelBottomSheetState();
 }
 
-class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomSheet> {
+class _DefaultModelBottomSheetState
+    extends ConsumerState<_DefaultModelBottomSheet> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   List<Model> _filteredModels = [];
@@ -833,7 +844,7 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
           const Model(id: 'auto-select', name: 'Auto-select'),
           ...widget.models,
         ];
-        
+
         if (_searchQuery.isNotEmpty) {
           _filteredModels = allModels.where((model) {
             return model.name.toLowerCase().contains(_searchQuery) ||
@@ -896,18 +907,24 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                         filled: true,
                         fillColor: context.conduitTheme.inputBackground,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                          borderRadius: BorderRadius.circular(
+                            AppBorderRadius.md,
+                          ),
                           borderSide: BorderSide.none,
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                          borderRadius: BorderRadius.circular(
+                            AppBorderRadius.md,
+                          ),
                           borderSide: BorderSide(
                             color: context.conduitTheme.inputBorder,
                             width: 1,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                          borderRadius: BorderRadius.circular(
+                            AppBorderRadius.md,
+                          ),
                           borderSide: BorderSide(
                             color: context.conduitTheme.buttonPrimary,
                             width: 1,
@@ -937,10 +954,16 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                         ),
                         const SizedBox(width: Spacing.xs),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
-                            color: context.conduitTheme.surfaceBackground.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(AppBorderRadius.xs),
+                            color: context.conduitTheme.surfaceBackground
+                                .withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(
+                              AppBorderRadius.xs,
+                            ),
                             border: Border.all(
                               color: context.conduitTheme.dividerColor,
                               width: BorderWidth.thin,
@@ -993,8 +1016,9 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                               itemBuilder: (context, index) {
                                 final model = _filteredModels[index];
                                 final isAutoSelect = model.id == 'auto-select';
-                                final isSelected = isAutoSelect 
-                                    ? _selectedModelId == null || _selectedModelId == 'auto-select'
+                                final isSelected = isAutoSelect
+                                    ? _selectedModelId == null ||
+                                          _selectedModelId == 'auto-select'
                                     : _selectedModelId == model.id;
 
                                 return _buildModelListTile(
@@ -1003,8 +1027,9 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                                   isAutoSelect: isAutoSelect,
                                   onTap: () {
                                     HapticFeedback.lightImpact();
-                                    final selectedId =
-                                        isAutoSelect ? 'auto-select' : model.id;
+                                    final selectedId = isAutoSelect
+                                        ? 'auto-select'
+                                        : model.id;
                                     // Return selection immediately; caller handles persisting
                                     Navigator.pop(context, selectedId);
                                   },
@@ -1070,13 +1095,19 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: context.conduitTheme.buttonPrimary.withValues(alpha: 0.15),
+                  color: context.conduitTheme.buttonPrimary.withValues(
+                    alpha: 0.15,
+                  ),
                   borderRadius: BorderRadius.circular(AppBorderRadius.md),
                 ),
                 child: Icon(
-                  isAutoSelect 
-                      ? (Platform.isIOS ? CupertinoIcons.wand_stars : Icons.auto_awesome)
-                      : (Platform.isIOS ? CupertinoIcons.cube : Icons.psychology),
+                  isAutoSelect
+                      ? (Platform.isIOS
+                            ? CupertinoIcons.wand_stars
+                            : Icons.auto_awesome)
+                      : (Platform.isIOS
+                            ? CupertinoIcons.cube
+                            : Icons.psychology),
                   color: context.conduitTheme.buttonPrimary,
                   size: 16,
                 ),
@@ -1087,7 +1118,9 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isAutoSelect ? AppLocalizations.of(context)!.autoSelect : model.name,
+                      isAutoSelect
+                          ? AppLocalizations.of(context)!.autoSelect
+                          : model.name,
                       style: TextStyle(
                         color: context.conduitTheme.textPrimary,
                         fontWeight: FontWeight.w600,
@@ -1143,13 +1176,17 @@ class _DefaultModelBottomSheetState extends ConsumerState<_DefaultModelBottomShe
                     borderRadius: BorderRadius.circular(AppBorderRadius.md),
                     border: Border.all(
                       color: isSelected
-                          ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.6)
+                          ? context.conduitTheme.buttonPrimary.withValues(
+                              alpha: 0.6,
+                            )
                           : context.conduitTheme.dividerColor,
                     ),
                   ),
                   child: Icon(
                     isSelected
-                        ? (Platform.isIOS ? CupertinoIcons.check_mark : Icons.check)
+                        ? (Platform.isIOS
+                              ? CupertinoIcons.check_mark
+                              : Icons.check)
                         : (Platform.isIOS ? CupertinoIcons.add : Icons.add),
                     color: isSelected
                         ? context.conduitTheme.textInverse

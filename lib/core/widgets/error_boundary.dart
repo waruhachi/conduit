@@ -243,7 +243,9 @@ class AsyncErrorBoundary extends ConsumerWidget {
                         (context as Element).markNeedsBuild();
                       },
                       icon: const Icon(Icons.refresh),
-                      label: Text(AppLocalizations.of(context)!.retry),
+                      label: Text(
+                        AppLocalizations.of(context)?.retry ?? 'Retry',
+                      ),
                     ),
                   ],
                 ],
