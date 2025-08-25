@@ -1144,42 +1144,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Transform.translate(
-                          offset: const Offset(-6, 0),
-                          child: Center(
+                          offset: const Offset(0, 0),
+                          child: SizedBox(
+                            height: 28,
                             child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Opacity(
-                                  opacity: 0.0,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: Spacing.xs,
-                                      vertical: Spacing.xxs,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: context
-                                          .conduitTheme
-                                          .surfaceBackground
-                                          .withValues(alpha: 0.3),
-                                      borderRadius: BorderRadius.circular(
-                                        AppBorderRadius.badge,
-                                      ),
-                                      border: Border.all(
-                                        color:
-                                            context.conduitTheme.dividerColor,
-                                        width: BorderWidth.thin,
-                                      ),
-                                    ),
-                                    child: Icon(
-                                      Platform.isIOS
-                                          ? CupertinoIcons.chevron_down
-                                          : Icons.keyboard_arrow_down,
-                                      size: IconSize.small,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: Spacing.xs),
                                 Flexible(
                                   child: Text(
                                     'Choose Model',

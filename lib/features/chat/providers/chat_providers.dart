@@ -531,6 +531,34 @@ Future<void> _sendMessageInternal(
 
   // We'll add the assistant message placeholder after we get the message ID from the API (or immediately in reviewer mode)
 
+  // Immediately trigger title generation after user message is sent (first turn only)
+  try {
+    final currentConversation = ref.read(activeConversationProvider);
+    if (currentConversation != null &&
+        currentConversation.title == 'New Chat') {
+      final currentMessages = ref.read(chatMessagesProvider);
+      if (currentMessages.length == 1 && currentMessages.first.role == 'user') {
+        final List<Map<String, dynamic>> formatted = [
+          {
+            'id': currentMessages.first.id,
+            'role': currentMessages.first.role,
+            'content': currentMessages.first.content,
+            'timestamp':
+                currentMessages.first.timestamp.millisecondsSinceEpoch ~/ 1000,
+          },
+        ];
+        _triggerTitleGeneration(
+          ref,
+          currentConversation.id,
+          formatted,
+          selectedModel.id,
+        );
+      }
+    }
+  } catch (e) {
+    // Silent fail for early title generation
+  }
+
   // Reviewer mode: simulate a response locally and return
   if (reviewerMode) {
     // Add assistant message placeholder
@@ -1229,7 +1257,7 @@ Future<void> _sendMessageInternal(
                 // Continue even if this fails - it's non-critical
               }
 
-              // Fetch the latest conversation state without waiting for title generation
+              // Fetch the latest conversation state
 
               try {
                 // Quick fetch to get the current state - no waiting for title generation
@@ -1242,19 +1270,6 @@ Future<void> _sendMessageInternal(
                     messages.length <= 2 &&
                     updatedConv.title != 'New Chat' &&
                     updatedConv.title.isNotEmpty;
-
-                // If title is still "New Chat" and this is the first exchange, trigger title generation
-                if (messages.length <= 2 && updatedConv.title == 'New Chat') {
-                  debugPrint(
-                    'DEBUG: Triggering title generation for conversation ${activeConversation.id}',
-                  );
-                  _triggerTitleGeneration(
-                    ref,
-                    activeConversation.id,
-                    formattedMessages,
-                    selectedModel.id,
-                  );
-                }
 
                 // Always combine current local messages with updated server content
                 final currentMessages = ref.read(chatMessagesProvider);
@@ -1378,11 +1393,7 @@ Future<void> _sendMessageInternal(
                 }
 
                 // Streaming already marked as complete when stream ended
-
-                // Start background title check for first message exchanges
-                if (messages.length <= 2 && updatedConv.title == 'New Chat') {
-                  _checkForTitleInBackground(ref, activeConversation.id);
-                }
+                // Removed post-assistant title trigger/background check; handled right after user message
               } catch (e) {
                 // Streaming already marked as complete when stream ended
               }
@@ -1399,119 +1410,7 @@ Future<void> _sendMessageInternal(
         await Future.delayed(const Duration(milliseconds: 100));
         await _saveConversationToServer(ref);
 
-        // If image generation is enabled, trigger image generation with the user's prompt
-        if (imageGenerationEnabled) {
-          try {
-            final imageResponse = await api.generateImage(prompt: message);
-
-            // Extract image URLs or base64 data URIs from response
-            List<Map<String, dynamic>> extractGeneratedFiles(dynamic resp) {
-              final results = <Map<String, dynamic>>[];
-
-              // If it's already a list (e.g., list of URLs or file maps)
-              if (resp is List) {
-                for (final item in resp) {
-                  if (item is String && item.isNotEmpty) {
-                    results.add({'type': 'image', 'url': item});
-                  } else if (item is Map) {
-                    final url = item['url'];
-                    final b64 = item['b64_json'] ?? item['b64'];
-                    if (url is String && url.isNotEmpty) {
-                      results.add({'type': 'image', 'url': url});
-                    } else if (b64 is String && b64.isNotEmpty) {
-                      results.add({
-                        'type': 'image',
-                        'url': 'data:image/png;base64,$b64',
-                      });
-                    }
-                  }
-                }
-                return results;
-              }
-
-              if (resp is! Map) {
-                return results;
-              }
-
-              // Common patterns: { data: [ { url }, { b64_json } ] }
-              final data = resp['data'];
-              if (data is List) {
-                for (final item in data) {
-                  if (item is Map) {
-                    final url = item['url'];
-                    final b64 = item['b64_json'] ?? item['b64'];
-                    if (url is String && url.isNotEmpty) {
-                      results.add({'type': 'image', 'url': url});
-                    } else if (b64 is String && b64.isNotEmpty) {
-                      // Default to PNG for base64 images
-                      results.add({
-                        'type': 'image',
-                        'url': 'data:image/png;base64,$b64',
-                      });
-                    }
-                  } else if (item is String && item.isNotEmpty) {
-                    // Some servers may return a list of URLs
-                    results.add({'type': 'image', 'url': item});
-                  }
-                }
-              }
-
-              // Alternative patterns
-              final images = resp['images'];
-              if (images is List) {
-                for (final item in images) {
-                  if (item is String && item.isNotEmpty) {
-                    results.add({'type': 'image', 'url': item});
-                  } else if (item is Map) {
-                    final url = item['url'];
-                    final b64 = item['b64_json'] ?? item['b64'];
-                    if (url is String && url.isNotEmpty) {
-                      results.add({'type': 'image', 'url': url});
-                    } else if (b64 is String && b64.isNotEmpty) {
-                      results.add({
-                        'type': 'image',
-                        'url': 'data:image/png;base64,$b64',
-                      });
-                    }
-                  }
-                }
-              }
-
-              // Single fields
-              final singleUrl = resp['url'];
-              if (singleUrl is String && singleUrl.isNotEmpty) {
-                results.add({'type': 'image', 'url': singleUrl});
-              }
-              final singleB64 = resp['b64_json'] ?? resp['b64'];
-              if (singleB64 is String && singleB64.isNotEmpty) {
-                results.add({
-                  'type': 'image',
-                  'url': 'data:image/png;base64,$singleB64',
-                });
-              }
-
-              return results;
-            }
-
-            final generatedFiles = extractGeneratedFiles(imageResponse);
-            if (generatedFiles.isNotEmpty) {
-              // Attach images to the last assistant message
-              ref
-                  .read(chatMessagesProvider.notifier)
-                  .updateLastMessageWithFunction((ChatMessage m) {
-                    final currentFiles = m.files ?? <Map<String, dynamic>>[];
-                    return m.copyWith(
-                      files: [...currentFiles, ...generatedFiles],
-                    );
-                  });
-
-              // Save updated conversation with images
-              await _saveConversationToServer(ref);
-            }
-          } catch (e) {
-            // Handle image generation errors silently
-          }
-        }
+        // Removed post-assistant image generation; images are handled immediately after user message
       },
       onError: (error) {
         // Mark streaming as complete on error
