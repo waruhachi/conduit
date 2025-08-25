@@ -26,6 +26,7 @@ class ChatsDrawer extends ConsumerStatefulWidget {
 class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode(debugLabel: 'drawer_search');
+  final ScrollController _listController = ScrollController();
   Timer? _debounce;
   String _query = '';
   bool _isLoadingConversation = false;
@@ -44,6 +45,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     _debounce?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _listController.dispose();
     super.dispose();
   }
 
@@ -86,18 +88,23 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                         ? CupertinoIcons.bubble_left
                         : Icons.add_comment,
                     color: theme.iconPrimary,
+                    size: IconSize.listItem,
                   ),
                   onPressed: () {
                     chat.startNewChat(ref);
                     if (mounted) Navigator.of(context).maybePop();
                   },
                   tooltip: AppLocalizations.of(context)!.newChat,
+                  constraints: const BoxConstraints(
+                    minWidth: TouchTarget.listItem,
+                    minHeight: TouchTarget.listItem,
+                  ),
                 ),
               ],
             ),
           ),
           Expanded(child: _buildConversationList(context)),
-          const Divider(height: 1),
+          Divider(height: 1, color: theme.dividerColor),
           _buildBottomSection(context),
         ],
       ),
@@ -106,64 +113,58 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
 
   Widget _buildSearchField(BuildContext context) {
     final theme = context.conduitTheme;
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.inputBackground.withValues(alpha: 0.6),
-            theme.inputBackground.withValues(alpha: 0.3),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-        border: Border.all(
-          color: _searchFocusNode.hasFocus
-              ? theme.buttonPrimary.withValues(alpha: 0.8)
-              : theme.inputBorder.withValues(alpha: 0.3),
-          width: BorderWidth.thin,
-        ),
+    return TextField(
+      controller: _searchController,
+      focusNode: _searchFocusNode,
+      onChanged: (_) => _onSearchChanged(),
+      style: TextStyle(
+        color: theme.inputText,
+        fontSize: AppTypography.bodyMedium,
       ),
-      child: TextField(
-        controller: _searchController,
-        focusNode: _searchFocusNode,
-        onChanged: (_) => _onSearchChanged(),
-        style: TextStyle(
-          color: theme.inputText,
+      decoration: InputDecoration(
+        hintText: AppLocalizations.of(context)!.searchConversations,
+        hintStyle: TextStyle(
+          color: theme.inputPlaceholder,
           fontSize: AppTypography.bodyMedium,
         ),
-        decoration: InputDecoration(
-          hintText: AppLocalizations.of(context)!.searchConversations,
-          hintStyle: TextStyle(
-            color: theme.inputPlaceholder.withValues(alpha: 0.8),
-            fontSize: AppTypography.bodyMedium,
-          ),
-          prefixIcon: Icon(
-            Platform.isIOS ? CupertinoIcons.search : Icons.search,
-            color: theme.iconSecondary,
-            size: IconSize.md,
-          ),
-          suffixIcon: _query.isNotEmpty
-              ? IconButton(
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => _query = '');
-                    _searchFocusNode.unfocus();
-                  },
-                  icon: Icon(
-                    Platform.isIOS
-                        ? CupertinoIcons.clear_circled_solid
-                        : Icons.clear,
-                    color: theme.iconSecondary,
-                    size: IconSize.md,
-                  ),
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
+        prefixIcon: Icon(
+          Platform.isIOS ? CupertinoIcons.search : Icons.search,
+          color: theme.iconSecondary,
+          size: IconSize.input,
+        ),
+        suffixIcon: _query.isNotEmpty
+            ? IconButton(
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() => _query = '');
+                  _searchFocusNode.unfocus();
+                },
+                icon: Icon(
+                  Platform.isIOS
+                      ? CupertinoIcons.clear_circled_solid
+                      : Icons.clear,
+                  color: theme.iconSecondary,
+                  size: IconSize.input,
+                ),
+              )
+            : null,
+        filled: true,
+        fillColor: theme.inputBackground,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          borderSide: BorderSide(color: theme.inputBorder, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          borderSide: BorderSide(color: theme.buttonPrimary, width: 1),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: Spacing.md,
+          vertical: Spacing.md,
         ),
       ),
     );
@@ -213,87 +214,93 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
               .toList();
           final archived = list.where((c) => c.archived == true).toList();
 
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(
-              Spacing.md,
-              Spacing.sm,
-              Spacing.md,
-              Spacing.md,
-            ),
-            children: [
-              if (pinned.isNotEmpty) ...[
-                _buildSectionHeader(
-                  AppLocalizations.of(context)!.pinned,
-                  pinned.length,
-                ),
-                const SizedBox(height: Spacing.xs),
-                ...pinned.map((conv) => _buildTileFor(conv)),
-                const SizedBox(height: Spacing.md),
-              ],
-
-              // Folders section (shown even if empty)
-              _buildFoldersSectionHeader(),
-              const SizedBox(height: Spacing.xs),
-              if (_isDragging && _draggingHasFolder) ...[
-                _buildUnfileDropTarget(),
-                const SizedBox(height: Spacing.sm),
-              ],
-              ...ref
-                  .watch(foldersProvider)
-                  .when(
-                    data: (folders) {
-                      final grouped = <String, List<dynamic>>{};
-                      for (final c in foldered) {
-                        final id = c.folderId!;
-                        grouped.putIfAbsent(id, () => []).add(c);
-                      }
-
-                      // Show all folders (including empty)
-                      final sections = folders.map((folder) {
-                        final expandedMap = ref.watch(_expandedFoldersProvider);
-                        final isExpanded = expandedMap[folder.id] ?? false;
-                        final convs = grouped[folder.id] ?? const <dynamic>[];
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildFolderHeader(
-                              folder.id,
-                              folder.name,
-                              convs.length,
-                            ),
-                            if (isExpanded && convs.isNotEmpty) ...[
-                              const SizedBox(height: Spacing.xs),
-                              ...convs.map(
-                                (c) => _buildTileFor(c, inFolder: true),
-                              ),
-                              const SizedBox(height: Spacing.sm),
-                            ],
-                          ],
-                        );
-                      }).toList();
-                      return sections.isEmpty
-                          ? [const SizedBox.shrink()]
-                          : sections;
-                    },
-                    loading: () => [const SizedBox.shrink()],
-                    error: (e, st) => [const SizedBox.shrink()],
+          return Scrollbar(
+            controller: _listController,
+            child: ListView(
+              controller: _listController,
+              padding: const EdgeInsets.fromLTRB(
+                Spacing.md,
+                Spacing.sm,
+                Spacing.md,
+                Spacing.md,
+              ),
+              children: [
+                if (pinned.isNotEmpty) ...[
+                  _buildSectionHeader(
+                    AppLocalizations.of(context)!.pinned,
+                    pinned.length,
                   ),
-              const SizedBox(height: Spacing.md),
+                  const SizedBox(height: Spacing.xs),
+                  ...pinned.map((conv) => _buildTileFor(conv)),
+                  const SizedBox(height: Spacing.md),
+                ],
 
-              if (regular.isNotEmpty) ...[
-                _buildSectionHeader(
-                  AppLocalizations.of(context)!.recent,
-                  regular.length,
-                ),
+                // Folders section (shown even if empty)
+                _buildFoldersSectionHeader(),
                 const SizedBox(height: Spacing.xs),
-                ...regular.map(_buildTileFor),
-              ],
+                if (_isDragging && _draggingHasFolder) ...[
+                  _buildUnfileDropTarget(),
+                  const SizedBox(height: Spacing.sm),
+                ],
+                ...ref
+                    .watch(foldersProvider)
+                    .when(
+                      data: (folders) {
+                        final grouped = <String, List<dynamic>>{};
+                        for (final c in foldered) {
+                          final id = c.folderId!;
+                          grouped.putIfAbsent(id, () => []).add(c);
+                        }
 
-              if (archived.isNotEmpty) ...[
+                        // Show all folders (including empty)
+                        final sections = folders.map((folder) {
+                          final expandedMap = ref.watch(
+                            _expandedFoldersProvider,
+                          );
+                          final isExpanded = expandedMap[folder.id] ?? false;
+                          final convs = grouped[folder.id] ?? const <dynamic>[];
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildFolderHeader(
+                                folder.id,
+                                folder.name,
+                                convs.length,
+                              ),
+                              if (isExpanded && convs.isNotEmpty) ...[
+                                const SizedBox(height: Spacing.xs),
+                                ...convs.map(
+                                  (c) => _buildTileFor(c, inFolder: true),
+                                ),
+                                const SizedBox(height: Spacing.sm),
+                              ],
+                            ],
+                          );
+                        }).toList();
+                        return sections.isEmpty
+                            ? [const SizedBox.shrink()]
+                            : sections;
+                      },
+                      loading: () => [const SizedBox.shrink()],
+                      error: (e, st) => [const SizedBox.shrink()],
+                    ),
                 const SizedBox(height: Spacing.md),
-                _buildArchivedSection(archived),
+
+                if (regular.isNotEmpty) ...[
+                  _buildSectionHeader(
+                    AppLocalizations.of(context)!.recent,
+                    regular.length,
+                  ),
+                  const SizedBox(height: Spacing.xs),
+                  ...regular.map(_buildTileFor),
+                ],
+
+                if (archived.isNotEmpty) ...[
+                  const SizedBox(height: Spacing.md),
+                  _buildArchivedSection(archived),
+                ],
               ],
-            ],
+            ),
           );
         },
         loading: () =>
@@ -350,85 +357,89 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
             .toList();
         final archived = list.where((c) => c.archived == true).toList();
 
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(
-            Spacing.md,
-            Spacing.sm,
-            Spacing.md,
-            Spacing.md,
-          ),
-          children: [
-            _buildSectionHeader('Results', list.length),
-            const SizedBox(height: Spacing.xs),
-            if (pinned.isNotEmpty) ...[
-              _buildSectionHeader(
-                AppLocalizations.of(context)!.pinned,
-                pinned.length,
-              ),
+        return Scrollbar(
+          controller: _listController,
+          child: ListView(
+            controller: _listController,
+            padding: const EdgeInsets.fromLTRB(
+              Spacing.md,
+              Spacing.sm,
+              Spacing.md,
+              Spacing.md,
+            ),
+            children: [
+              _buildSectionHeader('Results', list.length),
               const SizedBox(height: Spacing.xs),
-              ...pinned.map((conv) => _buildTileFor(conv)),
-              const SizedBox(height: Spacing.md),
-            ],
-            // Folders section (shown even if empty)
-            _buildFoldersSectionHeader(),
-            const SizedBox(height: Spacing.xs),
-            if (_isDragging && _draggingHasFolder) ...[
-              _buildUnfileDropTarget(),
-              const SizedBox(height: Spacing.sm),
-            ],
-            ...ref
-                .watch(foldersProvider)
-                .when(
-                  data: (folders) {
-                    final grouped = <String, List<dynamic>>{};
-                    for (final c in foldered) {
-                      final id = c.folderId!;
-                      grouped.putIfAbsent(id, () => []).add(c);
-                    }
-
-                    final sections = folders.map((folder) {
-                      final expandedMap = ref.watch(_expandedFoldersProvider);
-                      final isExpanded = expandedMap[folder.id] ?? false;
-                      final convs = grouped[folder.id] ?? const <dynamic>[];
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildFolderHeader(
-                            folder.id,
-                            folder.name,
-                            convs.length,
-                          ),
-                          if (isExpanded && convs.isNotEmpty) ...[
-                            const SizedBox(height: Spacing.xs),
-                            ...convs.map(
-                              (c) => _buildTileFor(c, inFolder: true),
-                            ),
-                            const SizedBox(height: Spacing.sm),
-                          ],
-                        ],
-                      );
-                    }).toList();
-                    return sections.isEmpty
-                        ? [const SizedBox.shrink()]
-                        : sections;
-                  },
-                  loading: () => [const SizedBox.shrink()],
-                  error: (e, st) => [const SizedBox.shrink()],
+              if (pinned.isNotEmpty) ...[
+                _buildSectionHeader(
+                  AppLocalizations.of(context)!.pinned,
+                  pinned.length,
                 ),
-            const SizedBox(height: Spacing.md),
-            if (regular.isNotEmpty) ...[
-              _buildSectionHeader(
-                AppLocalizations.of(context)!.recent,
-                regular.length,
-              ),
+                const SizedBox(height: Spacing.xs),
+                ...pinned.map((conv) => _buildTileFor(conv)),
+                const SizedBox(height: Spacing.md),
+              ],
+              // Folders section (shown even if empty)
+              _buildFoldersSectionHeader(),
               const SizedBox(height: Spacing.xs),
-              ...regular.map(_buildTileFor),
-            ],
-            if (archived.isNotEmpty) ...[
+              if (_isDragging && _draggingHasFolder) ...[
+                _buildUnfileDropTarget(),
+                const SizedBox(height: Spacing.sm),
+              ],
+              ...ref
+                  .watch(foldersProvider)
+                  .when(
+                    data: (folders) {
+                      final grouped = <String, List<dynamic>>{};
+                      for (final c in foldered) {
+                        final id = c.folderId!;
+                        grouped.putIfAbsent(id, () => []).add(c);
+                      }
+
+                      final sections = folders.map((folder) {
+                        final expandedMap = ref.watch(_expandedFoldersProvider);
+                        final isExpanded = expandedMap[folder.id] ?? false;
+                        final convs = grouped[folder.id] ?? const <dynamic>[];
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildFolderHeader(
+                              folder.id,
+                              folder.name,
+                              convs.length,
+                            ),
+                            if (isExpanded && convs.isNotEmpty) ...[
+                              const SizedBox(height: Spacing.xs),
+                              ...convs.map(
+                                (c) => _buildTileFor(c, inFolder: true),
+                              ),
+                              const SizedBox(height: Spacing.sm),
+                            ],
+                          ],
+                        );
+                      }).toList();
+                      return sections.isEmpty
+                          ? [const SizedBox.shrink()]
+                          : sections;
+                    },
+                    loading: () => [const SizedBox.shrink()],
+                    error: (e, st) => [const SizedBox.shrink()],
+                  ),
               const SizedBox(height: Spacing.md),
-              _buildArchivedSection(archived),
+              if (regular.isNotEmpty) ...[
+                _buildSectionHeader(
+                  AppLocalizations.of(context)!.recent,
+                  regular.length,
+                ),
+                const SizedBox(height: Spacing.xs),
+                ...regular.map(_buildTileFor),
+              ],
+              if (archived.isNotEmpty) ...[
+                const SizedBox(height: Spacing.md),
+                _buildArchivedSection(archived),
+              ],
             ],
-          ],
+          ),
         );
       },
       loading: () =>
@@ -453,17 +464,13 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       children: [
         Text(
           title,
-          style: AppTypography.bodySmallStyle.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.textSecondary,
-            letterSpacing: 0.2,
-          ),
+          style: AppTypography.labelStyle.copyWith(color: theme.textSecondary),
         ),
         const SizedBox(width: Spacing.xs),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: theme.surfaceBackground.withValues(alpha: 0.6),
+            color: theme.surfaceContainer.withValues(alpha: 0.6),
             borderRadius: BorderRadius.circular(AppBorderRadius.xs),
             border: Border.all(
               color: theme.dividerColor,
@@ -472,9 +479,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           ),
           child: Text(
             '$count',
-            style: AppTypography.bodySmallStyle.copyWith(
-              color: theme.textSecondary,
-            ),
+            style: AppTypography.tiny.copyWith(color: theme.textSecondary),
           ),
         ),
       ],
@@ -488,11 +493,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       children: [
         Text(
           AppLocalizations.of(context)!.folders,
-          style: AppTypography.bodySmallStyle.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.textSecondary,
-            letterSpacing: 0.2,
-          ),
+          style: AppTypography.labelStyle.copyWith(color: theme.textSecondary),
         ),
         const Spacer(),
         IconButton(
@@ -615,7 +616,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         return Material(
           color: isHover
               ? theme.buttonPrimary.withValues(alpha: 0.08)
-              : theme.surfaceBackground.withValues(alpha: 0.05),
+              : theme.surfaceContainer.withValues(alpha: 0.05),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppBorderRadius.md),
             side: BorderSide(
@@ -652,6 +653,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                               ? CupertinoIcons.folder
                               : Icons.folder),
                     color: theme.iconPrimary,
+                    size: IconSize.listItem,
                   ),
                   const SizedBox(width: Spacing.sm),
                   Expanded(
@@ -679,6 +681,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                               ? CupertinoIcons.chevron_down
                               : Icons.expand_more),
                     color: theme.iconSecondary,
+                    size: IconSize.listItem,
                   ),
                 ],
               ),
@@ -890,7 +893,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           decoration: BoxDecoration(
             color: isHover
                 ? theme.buttonPrimary.withValues(alpha: 0.08)
-                : theme.surfaceBackground.withValues(alpha: 0.03),
+                : theme.surfaceContainer.withValues(alpha: 0.03),
             borderRadius: BorderRadius.circular(AppBorderRadius.md),
             border: Border.all(
               color: isHover
@@ -931,6 +934,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
   Widget _buildTileFor(dynamic conv, {bool inFolder = false}) {
     final isActive = ref.watch(activeConversationProvider)?.id == conv.id;
     final title = conv.title?.isEmpty == true ? 'Chat' : (conv.title ?? 'Chat');
+    final theme = context.conduitTheme;
     final tile = _ConversationTile(
       title: title,
       pinned: conv.pinned == true,
@@ -938,14 +942,12 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       onTap: _isLoadingConversation
           ? null
           : () => _selectConversation(context, conv.id),
-      // Remove long-press context menu to avoid conflict with drag gesture
       onLongPress: null,
       onMorePressed: () {
         HapticFeedback.selectionClick();
         _showConversationContextMenu(context, conv);
       },
     );
-
     return Padding(
       padding: EdgeInsets.only(
         bottom: Spacing.xs,
@@ -966,12 +968,13 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                 vertical: Spacing.sm,
               ),
               decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
+                color: theme.cardBackground,
                 borderRadius: BorderRadius.circular(AppBorderRadius.md),
                 border: Border.all(
-                  color: Theme.of(context).dividerColor,
+                  color: theme.dividerColor,
                   width: BorderWidth.regular,
                 ),
+                boxShadow: ConduitShadows.card,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -980,7 +983,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                     Platform.isIOS
                         ? CupertinoIcons.chat_bubble_2
                         : Icons.chat_bubble_outline,
-                    size: IconSize.md,
+                    size: IconSize.listItem,
                   ),
                   const SizedBox(width: Spacing.xs),
                   Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -1019,7 +1022,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Material(
-          color: theme.surfaceBackground.withValues(alpha: 0.05),
+          color: theme.surfaceContainer.withValues(alpha: 0.05),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppBorderRadius.md),
             side: BorderSide(
@@ -1042,6 +1045,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                         ? CupertinoIcons.archivebox
                         : Icons.archive_rounded,
                     color: theme.iconPrimary,
+                    size: IconSize.listItem,
                   ),
                   const SizedBox(width: Spacing.sm),
                   Expanded(
@@ -1069,6 +1073,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                               ? CupertinoIcons.chevron_down
                               : Icons.expand_more),
                     color: theme.iconSecondary,
+                    size: IconSize.listItem,
                   ),
                 ],
               ),
@@ -1179,12 +1184,13 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
             Container(
               padding: const EdgeInsets.all(Spacing.sm),
               decoration: BoxDecoration(
-                color: theme.surfaceBackground.withValues(alpha: 0.04),
+                color: theme.surfaceContainer.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(AppBorderRadius.md),
                 border: Border.all(
                   color: theme.dividerColor,
                   width: BorderWidth.regular,
                 ),
+                boxShadow: ConduitShadows.card,
               ),
               child: Row(
                 children: [
@@ -1506,9 +1512,7 @@ class _ConversationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.conduitTheme;
     return Material(
-      color: selected
-          ? theme.buttonPrimary.withValues(alpha: 0.08)
-          : theme.surfaceBackground.withValues(alpha: 0.03),
+      color: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppBorderRadius.md),
         side: BorderSide(
@@ -1534,7 +1538,7 @@ class _ConversationTile extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.bodyLargeStyle.copyWith(
+                  style: AppTypography.standard.copyWith(
                     color: theme.textPrimary,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                   ),
@@ -1546,15 +1550,15 @@ class _ConversationTile extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
+                    minWidth: TouchTarget.listItem,
+                    minHeight: TouchTarget.listItem,
                   ),
                   icon: Icon(
                     Platform.isIOS
                         ? CupertinoIcons.ellipsis
                         : Icons.more_vert_rounded,
                     color: theme.iconSecondary,
-                    size: IconSize.md,
+                    size: IconSize.listItem,
                   ),
                   onPressed: onMorePressed,
                   tooltip: AppLocalizations.of(context)!.more,

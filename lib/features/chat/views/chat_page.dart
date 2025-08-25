@@ -1025,47 +1025,87 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                _formatModelDisplayName(selectedModel.name),
-                                style: AppTypography.headlineSmallStyle
-                                    .copyWith(
-                                      color: context.conduitTheme.textPrimary,
-                                      fontWeight: FontWeight.w400,
+                        Transform.translate(
+                          offset: const Offset(-6, 0),
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Opacity(
+                                  opacity: 0.0,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: Spacing.xs,
+                                      vertical: Spacing.xxs,
                                     ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: Spacing.xs),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: Spacing.xs,
-                                vertical: Spacing.xxs,
-                              ),
-                              decoration: BoxDecoration(
-                                color: context.conduitTheme.surfaceBackground
-                                    .withValues(alpha: 0.3),
-                                borderRadius: BorderRadius.circular(
-                                  AppBorderRadius.badge,
+                                    decoration: BoxDecoration(
+                                      color: context
+                                          .conduitTheme
+                                          .surfaceBackground
+                                          .withValues(alpha: 0.3),
+                                      borderRadius: BorderRadius.circular(
+                                        AppBorderRadius.badge,
+                                      ),
+                                      border: Border.all(
+                                        color:
+                                            context.conduitTheme.dividerColor,
+                                        width: BorderWidth.thin,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Platform.isIOS
+                                          ? CupertinoIcons.chevron_down
+                                          : Icons.keyboard_arrow_down,
+                                      size: IconSize.small,
+                                    ),
+                                  ),
                                 ),
-                                border: Border.all(
-                                  color: context.conduitTheme.dividerColor,
-                                  width: BorderWidth.thin,
+                                const SizedBox(width: Spacing.xs),
+                                Flexible(
+                                  child: Text(
+                                    _formatModelDisplayName(selectedModel.name),
+                                    style: AppTypography.headlineSmallStyle
+                                        .copyWith(
+                                          color:
+                                              context.conduitTheme.textPrimary,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ),
-                              ),
-                              child: Icon(
-                                Platform.isIOS
-                                    ? CupertinoIcons.chevron_down
-                                    : Icons.keyboard_arrow_down,
-                                color: context.conduitTheme.iconSecondary,
-                                size: IconSize.small,
-                              ),
+                                const SizedBox(width: Spacing.xs),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: Spacing.xs,
+                                    vertical: Spacing.xxs,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: context
+                                        .conduitTheme
+                                        .surfaceBackground
+                                        .withValues(alpha: 0.3),
+                                    borderRadius: BorderRadius.circular(
+                                      AppBorderRadius.badge,
+                                    ),
+                                    border: Border.all(
+                                      color: context.conduitTheme.dividerColor,
+                                      width: BorderWidth.thin,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Platform.isIOS
+                                        ? CupertinoIcons.chevron_down
+                                        : Icons.keyboard_arrow_down,
+                                    color: context.conduitTheme.iconSecondary,
+                                    size: IconSize.small,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                         if (ref.watch(reviewerModeProvider))
                           Padding(
@@ -1111,49 +1151,87 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                'Choose Model',
-                                style: AppTypography.headlineSmallStyle
-                                    .copyWith(
-                                      color: context.conduitTheme.textPrimary,
-                                      fontWeight: FontWeight.w400,
+                        Transform.translate(
+                          offset: const Offset(-6, 0),
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Opacity(
+                                  opacity: 0.0,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: Spacing.xs,
+                                      vertical: Spacing.xxs,
                                     ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                            const SizedBox(width: Spacing.xs),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: Spacing.xs,
-                                vertical: Spacing.xxs,
-                              ),
-                              decoration: BoxDecoration(
-                                color: context.conduitTheme.surfaceBackground
-                                    .withValues(alpha: 0.3),
-                                borderRadius: BorderRadius.circular(
-                                  AppBorderRadius.badge,
+                                    decoration: BoxDecoration(
+                                      color: context
+                                          .conduitTheme
+                                          .surfaceBackground
+                                          .withValues(alpha: 0.3),
+                                      borderRadius: BorderRadius.circular(
+                                        AppBorderRadius.badge,
+                                      ),
+                                      border: Border.all(
+                                        color:
+                                            context.conduitTheme.dividerColor,
+                                        width: BorderWidth.thin,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Platform.isIOS
+                                          ? CupertinoIcons.chevron_down
+                                          : Icons.keyboard_arrow_down,
+                                      size: IconSize.small,
+                                    ),
+                                  ),
                                 ),
-                                border: Border.all(
-                                  color: context.conduitTheme.dividerColor,
-                                  width: BorderWidth.thin,
+                                const SizedBox(width: Spacing.xs),
+                                Flexible(
+                                  child: Text(
+                                    'Choose Model',
+                                    style: AppTypography.headlineSmallStyle
+                                        .copyWith(
+                                          color:
+                                              context.conduitTheme.textPrimary,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ),
-                              ),
-                              child: Icon(
-                                Platform.isIOS
-                                    ? CupertinoIcons.chevron_down
-                                    : Icons.keyboard_arrow_down,
-                                color: context.conduitTheme.iconSecondary,
-                                size: IconSize.small,
-                              ),
+                                const SizedBox(width: Spacing.xs),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: Spacing.xs,
+                                    vertical: Spacing.xxs,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: context
+                                        .conduitTheme
+                                        .surfaceBackground
+                                        .withValues(alpha: 0.3),
+                                    borderRadius: BorderRadius.circular(
+                                      AppBorderRadius.badge,
+                                    ),
+                                    border: Border.all(
+                                      color: context.conduitTheme.dividerColor,
+                                      width: BorderWidth.thin,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Platform.isIOS
+                                        ? CupertinoIcons.chevron_down
+                                        : Icons.keyboard_arrow_down,
+                                    color: context.conduitTheme.iconSecondary,
+                                    size: IconSize.small,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                         if (ref.watch(reviewerModeProvider))
                           Padding(
