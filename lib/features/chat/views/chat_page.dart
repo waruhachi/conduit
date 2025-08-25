@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'dart:io' show Platform, File;
+import 'dart:io' show Platform;
 import 'dart:async';
 import '../../../core/providers/app_providers.dart';
 import '../providers/chat_providers.dart';
@@ -1927,7 +1927,7 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
   StreamSubscription<String>? _textSub;
   int _elapsedSeconds = 0;
   Timer? _elapsedTimer;
-  bool _isTranscribing = false;
+  // Removed server transcription; keep only on-device listening state
   String _languageTag = 'en';
   bool _holdToTalk = false;
   bool _autoSendFinal = false;
@@ -2005,18 +2005,9 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
       });
       _textSub = stream.listen(
         (text) {
-          // If we receive a special token with recorded audio path, transcribe it via API (fallback)
-          if (text.startsWith('[[AUDIO_FILE_PATH]]:')) {
-            final filePath = text.split(':').skip(1).join(':');
-            debugPrint(
-              'DEBUG: VoiceInputSheet received audio file path: $filePath',
-            );
-            _transcribeRecordedFile(filePath);
-          } else {
-            setState(() {
-              _recognizedText = text;
-            });
-          }
+          setState(() {
+            _recognizedText = text;
+          });
         },
         onDone: () {
           debugPrint('DEBUG: VoiceInputSheet stream done');
@@ -2052,44 +2043,7 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
     }
   }
 
-  Future<void> _transcribeRecordedFile(String filePath) async {
-    try {
-      setState(() => _isTranscribing = true);
-      final api = ref.read(apiServiceProvider);
-      if (api == null) throw Exception('API service unavailable');
-      final file = File(filePath);
-      final bytes = await file.readAsBytes();
-      // Try to use device locale; fall back to en-US
-      String? language;
-      try {
-        language = WidgetsBinding.instance.platformDispatcher.locale
-            .toLanguageTag();
-      } catch (_) {
-        language = 'en-US';
-      }
-      final text = await api.transcribeAudio(
-        bytes.toList(),
-        language: language,
-      );
-      debugPrint(
-        'DEBUG: Transcription received: ${text.isEmpty ? '[empty]' : text}',
-      );
-      if (!mounted) return;
-      setState(() {
-        _recognizedText = text;
-      });
-      // Stop listening state if we have a result
-      setState(() => _isListening = false);
-      if (_autoSendFinal && _recognizedText.trim().isNotEmpty) {
-        _sendText();
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isListening = false);
-    } finally {
-      if (mounted) setState(() => _isTranscribing = false);
-    }
-  }
+  // Server transcription removed; only on-device STT is supported
 
   Future<void> _stopListening() async {
     _intensitySub?.cancel();
@@ -2279,9 +2233,7 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      _isTranscribing
-                          ? 'Transcribing…'
-                          : _isListening
+                      _isListening
                           ? (_voiceService.hasLocalStt
                                 ? 'Listening…'
                                 : 'Recording…')
@@ -2601,9 +2553,7 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
                                         tooltip: AppLocalizations.of(
                                           context,
                                         )!.clear,
-                                        onPressed:
-                                            _recognizedText.isNotEmpty &&
-                                                !_isTranscribing
+                                        onPressed: _recognizedText.isNotEmpty
                                             ? () {
                                                 setState(
                                                   () => _recognizedText = '',
@@ -2614,68 +2564,35 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
                                     ],
                                   ),
                                   const SizedBox(height: Spacing.xs),
-                                  if (_isTranscribing)
-                                    Center(
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          ConduitLoadingIndicator(
-                                            size: isUltra
-                                                ? 14
-                                                : (isCompact ? 16 : 18),
-                                            isCompact: true,
-                                          ),
-                                          const SizedBox(width: Spacing.xs),
-                                          Text(
-                                            'Transcribing…',
-                                            style: TextStyle(
-                                              fontSize: isUltra
-                                                  ? AppTypography.bodySmall
-                                                  : (isCompact
-                                                        ? AppTypography
-                                                              .bodyMedium
-                                                        : AppTypography
-                                                              .bodyLarge),
-                                              color: context
-                                                  .conduitTheme
-                                                  .textSecondary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  else
-                                    Flexible(
-                                      child: SingleChildScrollView(
-                                        child: Text(
-                                          _recognizedText.isEmpty
-                                              ? (_isListening
-                                                    ? (_voiceService.hasLocalStt
-                                                          ? 'Speak now…'
-                                                          : 'Recording…')
-                                                    : 'Tap Start to begin')
-                                              : _recognizedText,
-                                          style: TextStyle(
-                                            fontSize: isUltra
-                                                ? AppTypography.bodySmall
-                                                : (isCompact
-                                                      ? AppTypography.bodyMedium
-                                                      : AppTypography
-                                                            .bodyLarge),
-                                            color: _recognizedText.isEmpty
-                                                ? context
-                                                      .conduitTheme
-                                                      .inputPlaceholder
-                                                : context
-                                                      .conduitTheme
-                                                      .textPrimary,
-                                            height: 1.4,
-                                          ),
-                                          textAlign: TextAlign.center,
+                                  Flexible(
+                                    child: SingleChildScrollView(
+                                      child: Text(
+                                        _recognizedText.isEmpty
+                                            ? (_isListening
+                                                  ? (_voiceService.hasLocalStt
+                                                        ? 'Speak now…'
+                                                        : 'Recording…')
+                                                  : 'Tap Start to begin')
+                                            : _recognizedText,
+                                        style: TextStyle(
+                                          fontSize: isUltra
+                                              ? AppTypography.bodySmall
+                                              : (isCompact
+                                                    ? AppTypography.bodyMedium
+                                                    : AppTypography.bodyLarge),
+                                          color: _recognizedText.isEmpty
+                                              ? context
+                                                    .conduitTheme
+                                                    .inputPlaceholder
+                                              : context
+                                                    .conduitTheme
+                                                    .textPrimary,
+                                          height: 1.4,
                                         ),
+                                        textAlign: TextAlign.center,
                                       ),
                                     ),
+                                  ),
                                 ],
                               ),
                             ),

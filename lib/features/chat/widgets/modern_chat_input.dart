@@ -6,7 +6,7 @@ import '../../../shared/widgets/sheet_handle.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'dart:io' show Platform, File;
+import 'dart:io' show Platform;
 import 'dart:async';
 import '../providers/chat_providers.dart';
 import '../../tools/widgets/unified_tools_modal.dart';
@@ -991,20 +991,15 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       _textSub?.cancel();
       _textSub = stream.listen(
         (text) async {
-          if (text.startsWith('[[AUDIO_FILE_PATH]]:')) {
-            final path = text.split(':').skip(1).join(':');
-            await _transcribeRecordedFile(path);
-          } else {
-            final updated =
-                (_baseTextAtStart.isEmpty
-                    ? ''
-                    : (_baseTextAtStart.trimRight() + ' ')) +
-                text;
-            _controller.value = TextEditingValue(
-              text: updated,
-              selection: TextSelection.collapsed(offset: updated.length),
-            );
-          }
+          final updated =
+              (_baseTextAtStart.isEmpty
+                  ? ''
+                  : (_baseTextAtStart.trimRight() + ' ')) +
+              text;
+          _controller.value = TextEditingValue(
+            text: updated,
+            selection: TextSelection.collapsed(offset: updated.length),
+          );
         },
         onDone: () {
           if (!mounted) return;
@@ -1039,39 +1034,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     HapticFeedback.selectionClick();
   }
 
-  Future<void> _transcribeRecordedFile(String filePath) async {
-    try {
-      final api = ref.read(apiServiceProvider);
-      if (api == null) return;
-      final file = File(filePath);
-      final bytes = await file.readAsBytes();
-      String? language;
-      try {
-        language = WidgetsBinding.instance.platformDispatcher.locale
-            .toLanguageTag();
-      } catch (_) {
-        language = 'en-US';
-      }
-      final text = await api.transcribeAudio(
-        bytes.toList(),
-        language: language,
-      );
-      final updated =
-          (_baseTextAtStart.isEmpty
-              ? ''
-              : (_baseTextAtStart.trimRight() + ' ')) +
-          text;
-      if (!mounted) return;
-      _controller.value = TextEditingValue(
-        text: updated,
-        selection: TextSelection.collapsed(offset: updated.length),
-      );
-    } catch (_) {
-    } finally {
-      if (!mounted) return;
-      setState(() => _isRecording = false);
-    }
-  }
+  // Server transcription removed; only on-device STT updates the input text
 
   void _showVoiceUnavailable(String message) {
     if (!mounted) return;

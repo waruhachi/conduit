@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
-import 'package:http_parser/http_parser.dart';
+// import 'package:http_parser/http_parser.dart';
 // Removed legacy websocket/socket.io imports
 import 'package:uuid/uuid.dart';
 import '../models/server_config.dart';
@@ -1651,96 +1651,7 @@ class ApiService {
     return [];
   }
 
-  Future<String> transcribeAudio(
-    List<int> audioData, {
-    String? language,
-  }) async {
-    // Normalize language to primary ISO 639-1 (e.g., en-US -> en) per server accepted list
-    String? normalizedLang;
-    if (language != null && language.isNotEmpty) {
-      normalizedLang = language.split(RegExp('[-_]')).first.toLowerCase();
-    }
-
-    debugPrint(
-      'DEBUG: Transcribing audio data: bytes=${audioData.length}, language=${normalizedLang ?? 'null'}',
-    );
-
-    FormData buildForm(String? lang) {
-      final Map<String, dynamic> formMap = {
-        'file': MultipartFile.fromBytes(
-          audioData,
-          filename: 'audio.wav',
-          contentType: MediaType.parse('audio/wav'),
-        ),
-      };
-      if (lang != null && lang.isNotEmpty) {
-        formMap['language'] = lang;
-      }
-      return FormData.fromMap(formMap);
-    }
-
-    var formData = buildForm(normalizedLang);
-    try {
-      final response = await _dio.post(
-        '/api/v1/audio/transcriptions',
-        data: formData,
-        options: Options(headers: {'Accept': 'application/json'}),
-      );
-      final data = response.data;
-      debugPrint(
-        'DEBUG: Transcription response status: ${response.statusCode}',
-      );
-      DebugLogger.log('Transcription response received successfully');
-      if (data is String) return data;
-      if (data is Map<String, dynamic>) {
-        final text = data['text'] ?? data['transcription'] ?? data['result'];
-        if (text is String) return text;
-        if (data['data'] is Map && (data['data']['text'] is String)) {
-          return data['data']['text'] as String;
-        }
-      }
-      return '';
-    } catch (e) {
-      debugPrint('DEBUG: Transcription API error: $e');
-      // If server complains about invalid language code, retry without language
-      try {
-        if (e is DioException) {
-          final data = e.response?.data;
-          final msg = data is Map<String, dynamic>
-              ? data.toString()
-              : data?.toString() ?? '';
-          if (msg.contains("not a valid language code")) {
-            debugPrint('DEBUG: Retrying transcription without language');
-            final retryResponse = await _dio.post(
-              '/api/v1/audio/transcriptions',
-              data: buildForm(null),
-              options: Options(headers: {'Accept': 'application/json'}),
-            );
-            final rdata = retryResponse.data;
-            debugPrint(
-              'DEBUG: Transcription retry status: ${retryResponse.statusCode}',
-            );
-            DebugLogger.log(
-              'Transcription retry response received successfully',
-            );
-            if (rdata is String) return rdata;
-            if (rdata is Map<String, dynamic>) {
-              final text =
-                  rdata['text'] ?? rdata['transcription'] ?? rdata['result'];
-              if (text is String) return text;
-              if (rdata['data'] is Map && (rdata['data']['text'] is String)) {
-                return rdata['data']['text'] as String;
-              }
-            }
-            return '';
-          }
-        }
-      } catch (e2) {
-        debugPrint('DEBUG: Transcription retry error: $e2');
-      }
-      rethrow;
-    }
-  }
+  // Server audio transcription removed; rely on on-device STT in UI layer
 
   // Image Generation
   Future<List<Map<String, dynamic>>> getImageModels() async {
