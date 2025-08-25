@@ -177,7 +177,8 @@ class OfflineAwareButton extends ConsumerWidget {
 
     return Tooltip(
       message: !enabled
-          ? (offlineTooltip ?? AppLocalizations.of(context)!.featureRequiresInternet)
+          ? (offlineTooltip ??
+                AppLocalizations.of(context)!.featureRequiresInternet)
           : '',
       child: FilledButton(onPressed: enabled ? onPressed : null, child: child),
     );

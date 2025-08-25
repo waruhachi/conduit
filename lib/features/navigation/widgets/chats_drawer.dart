@@ -15,6 +15,7 @@ import '../../../shared/utils/ui_utils.dart';
 import '../../../core/auth/auth_state_manager.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import '../../../core/models/user.dart' as models;
+import '../../../shared/widgets/skeleton_loader.dart';
 
 class ChatsDrawer extends ConsumerStatefulWidget {
   const ChatsDrawer({super.key});
@@ -30,6 +31,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
   Timer? _debounce;
   String _query = '';
   bool _isLoadingConversation = false;
+  String? _pendingConversationId;
   String? _dragHoverFolderId;
   bool _isDragging = false;
   bool _draggingHasFolder = false;
@@ -88,7 +90,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                         ? CupertinoIcons.bubble_left
                         : Icons.add_comment,
                     color: theme.iconPrimary,
-                    size: IconSize.listItem,
+                    size: IconSize.lg,
                   ),
                   onPressed: () {
                     chat.startNewChat(ref);
@@ -96,8 +98,8 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                   },
                   tooltip: AppLocalizations.of(context)!.newChat,
                   constraints: const BoxConstraints(
-                    minWidth: TouchTarget.listItem,
-                    minHeight: TouchTarget.listItem,
+                    minWidth: TouchTarget.comfortable,
+                    minHeight: TouchTarget.comfortable,
                   ),
                 ),
               ],
@@ -272,8 +274,9 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                                 ...convs.map(
                                   (c) => _buildTileFor(c, inFolder: true),
                                 ),
-                                const SizedBox(height: Spacing.sm),
+                                const SizedBox(height: Spacing.xs),
                               ],
+                              const SizedBox(height: Spacing.xs),
                             ],
                           );
                         }).toList();
@@ -659,7 +662,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                   Expanded(
                     child: Text(
                       name,
-                      style: AppTypography.bodyLargeStyle.copyWith(
+                      style: AppTypography.standard.copyWith(
                         color: theme.textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
@@ -935,10 +938,14 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     final isActive = ref.watch(activeConversationProvider)?.id == conv.id;
     final title = conv.title?.isEmpty == true ? 'Chat' : (conv.title ?? 'Chat');
     final theme = context.conduitTheme;
+    final bool isLoadingSelected =
+        (_pendingConversationId == conv.id) &&
+        (ref.watch(chat.isLoadingConversationProvider) == true);
     final tile = _ConversationTile(
       title: title,
       pinned: conv.pinned == true,
       selected: isActive,
+      isLoading: isLoadingSelected,
       onTap: _isLoadingConversation
           ? null
           : () => _selectConversation(context, conv.id),
@@ -1095,6 +1102,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     try {
       // Mark global loading to show skeletons in chat
       ref.read(chat.isLoadingConversationProvider.notifier).state = true;
+      _pendingConversationId = id;
 
       final api = ref.read(apiServiceProvider);
       if (api != null) {
@@ -1109,10 +1117,12 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
 
       // Clear global loading before closing drawer
       ref.read(chat.isLoadingConversationProvider.notifier).state = false;
+      _pendingConversationId = null;
 
       if (mounted) navigator.maybePop();
     } catch (_) {
       ref.read(chat.isLoadingConversationProvider.notifier).state = false;
+      _pendingConversationId = null;
       if (mounted) navigator.maybePop();
     } finally {
       if (mounted) setState(() => _isLoadingConversation = false);
@@ -1225,7 +1235,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                           displayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTypography.bodyLargeStyle.copyWith(
+                          style: AppTypography.standard.copyWith(
                             color: theme.textPrimary,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1495,6 +1505,7 @@ class _ConversationTile extends StatelessWidget {
   final String title;
   final bool pinned;
   final bool selected;
+  final bool isLoading;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onMorePressed;
@@ -1503,6 +1514,7 @@ class _ConversationTile extends StatelessWidget {
     required this.title,
     required this.pinned,
     required this.selected,
+    required this.isLoading,
     required this.onTap,
     this.onLongPress,
     this.onMorePressed,
@@ -1524,7 +1536,7 @@ class _ConversationTile extends StatelessWidget {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        onTap: onTap,
+        onTap: isLoading ? null : onTap,
         onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.symmetric(
@@ -1545,7 +1557,18 @@ class _ConversationTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: Spacing.xs),
-              if (onMorePressed != null)
+              if (isLoading)
+                SizedBox(
+                  width: 72,
+                  height: TouchTarget.small,
+                  child: SkeletonLoader(
+                    width: 72,
+                    height: TouchTarget.small,
+                    borderRadius: BorderRadius.circular(AppBorderRadius.chip),
+                    isCompact: true,
+                  ),
+                )
+              else if (onMorePressed != null)
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,

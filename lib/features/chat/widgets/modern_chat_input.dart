@@ -287,8 +287,10 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                   tooltip: AppLocalizations.of(
                                     context,
                                   )!.addAttachment,
+                                  showBackground: false,
+                                  iconSize: IconSize.large,
                                 ),
-                                const SizedBox(width: Spacing.sm),
+                                const SizedBox(width: Spacing.xs),
                               ],
                               // Text input expands to fill
                               Expanded(
@@ -395,14 +397,16 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                     tooltip: AppLocalizations.of(
                                       context,
                                     )!.addAttachment,
+                                    showBackground: false,
+                                    iconSize: IconSize.large,
                                   ),
-                                  const SizedBox(width: Spacing.sm),
+                                  const SizedBox(width: Spacing.xs),
                                   // Quick pills: no scroll, clip text within fixed max width
                                   Expanded(
                                     child: Row(
                                       children: [
-                                        Flexible(
-                                          fit: FlexFit.loose,
+                                        Expanded(
+                                          flex: 2,
                                           child: _buildPillButton(
                                             icon: Platform.isIOS
                                                 ? CupertinoIcons.search
@@ -425,9 +429,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                           ),
                                         ),
                                         if (imageGenAvailable) ...[
-                                          const SizedBox(width: Spacing.sm),
-                                          Flexible(
-                                            fit: FlexFit.loose,
+                                          const SizedBox(width: Spacing.xs),
+                                          Expanded(
+                                            flex: 3,
                                             child: _buildPillButton(
                                               icon: Platform.isIOS
                                                   ? CupertinoIcons.photo
@@ -450,92 +454,108 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                             ),
                                           ),
                                         ],
+                                        const SizedBox(width: Spacing.xs),
+                                        _buildRoundButton(
+                                          icon: Icons.more_horiz,
+                                          onTap: widget.enabled
+                                              ? _showUnifiedToolsModal
+                                              : null,
+                                          tooltip: AppLocalizations.of(
+                                            context,
+                                          )!.tools,
+                                          isActive:
+                                              ref
+                                                  .watch(
+                                                    selectedToolIdsProvider,
+                                                  )
+                                                  .isNotEmpty ||
+                                              webSearchEnabled ||
+                                              imageGenEnabled,
+                                        ),
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(width: Spacing.sm),
-                                  _buildRoundButton(
-                                    icon: Icons.more_horiz,
-                                    onTap: widget.enabled
-                                        ? _showUnifiedToolsModal
-                                        : null,
-                                    tooltip: AppLocalizations.of(
-                                      context,
-                                    )!.tools,
-                                    isActive:
-                                        ref
-                                            .watch(selectedToolIdsProvider)
-                                            .isNotEmpty ||
-                                        webSearchEnabled ||
-                                        imageGenEnabled,
-                                  ),
-                                  const SizedBox(width: Spacing.sm),
-                                  // Microphone button: inline voice input toggle with animated intensity ring
-                                  Builder(
-                                    builder: (context) {
-                                      const double buttonSize =
-                                          TouchTarget.comfortable;
-                                      final double t = _isRecording
-                                          ? (_intensity.clamp(0, 10) / 10.0)
-                                          : 0.0;
-                                      final double ringMaxExtra = 16.0;
-                                      final double ringSize =
-                                          buttonSize + (ringMaxExtra * t);
-                                      final double ringOpacity =
-                                          0.15 + (0.35 * t);
+                                  const SizedBox(width: Spacing.xs),
+                                  // Mic + Send cluster pinned to the right
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // Microphone button: inline voice input toggle with animated intensity ring
+                                      Builder(
+                                        builder: (context) {
+                                          const double buttonSize =
+                                              TouchTarget.comfortable;
+                                          final double t = _isRecording
+                                              ? (_intensity.clamp(0, 10) / 10.0)
+                                              : 0.0;
+                                          final double ringMaxExtra = 16.0;
+                                          final double ringSize =
+                                              buttonSize + (ringMaxExtra * t);
+                                          final double ringOpacity =
+                                              0.15 + (0.35 * t);
 
-                                      return SizedBox(
-                                        width: buttonSize,
-                                        height: buttonSize,
-                                        child: Stack(
-                                          alignment: Alignment.center,
-                                          children: [
-                                            AnimatedContainer(
-                                              duration: const Duration(
-                                                milliseconds: 120,
-                                              ),
-                                              width: ringSize,
-                                              height: ringSize,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: context
-                                                    .conduitTheme
-                                                    .buttonPrimary
-                                                    .withValues(
-                                                      alpha: ringOpacity,
-                                                    ),
-                                              ),
+                                          return SizedBox(
+                                            width: buttonSize,
+                                            height: buttonSize,
+                                            child: Stack(
+                                              alignment: Alignment.center,
+                                              children: [
+                                                AnimatedContainer(
+                                                  duration: const Duration(
+                                                    milliseconds: 120,
+                                                  ),
+                                                  width: ringSize,
+                                                  height: ringSize,
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: context
+                                                        .conduitTheme
+                                                        .buttonPrimary
+                                                        .withValues(
+                                                          alpha: ringOpacity,
+                                                        ),
+                                                  ),
+                                                ),
+                                                Transform.scale(
+                                                  scale: _isRecording
+                                                      ? 1.0 +
+                                                            (_intensity.clamp(
+                                                                  0,
+                                                                  10,
+                                                                ) /
+                                                                200)
+                                                      : 1.0,
+                                                  child: _buildRoundButton(
+                                                    icon: Platform.isIOS
+                                                        ? CupertinoIcons
+                                                              .mic_fill
+                                                        : Icons.mic,
+                                                    onTap:
+                                                        (widget.enabled &&
+                                                            voiceAvailable)
+                                                        ? _toggleVoice
+                                                        : null,
+                                                    tooltip:
+                                                        AppLocalizations.of(
+                                                          context,
+                                                        )!.voiceInput,
+                                                    isActive: _isRecording,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            Transform.scale(
-                                              scale: _isRecording
-                                                  ? 1.0 +
-                                                        (_intensity.clamp(
-                                                              0,
-                                                              10,
-                                                            ) /
-                                                            200)
-                                                  : 1.0,
-                                              child: _buildRoundButton(
-                                                icon: Platform.isIOS
-                                                    ? CupertinoIcons.mic_fill
-                                                    : Icons.mic,
-                                                onTap:
-                                                    (widget.enabled &&
-                                                        voiceAvailable)
-                                                    ? _toggleVoice
-                                                    : null,
-                                                tooltip: AppLocalizations.of(
-                                                  context,
-                                                )!.voiceInput,
-                                                isActive: _isRecording,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(width: Spacing.xs),
+                                      // Primary action button (Send/Stop) when expanded
+                                      _buildPrimaryButton(
+                                        _hasText,
+                                        isGenerating,
+                                        stopGeneration,
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: Spacing.sm),
                                   // Debug button for testing on-device STT (enable by changing false to true)
                                   // ignore: dead_code
                                   if (false) ...[
@@ -565,13 +585,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                       tooltip: 'Test On-Device STT',
                                     ),
                                   ],
-                                  const SizedBox(width: Spacing.sm),
-                                  // Primary action button (Send/Stop) when expanded
-                                  _buildPrimaryButton(
-                                    _hasText,
-                                    isGenerating,
-                                    stopGeneration,
-                                  ),
+                                  // removed duplicate send button; now only in right cluster
                                 ],
                               ),
                             ),
@@ -716,6 +730,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     String? tooltip,
     bool isActive = false,
     bool showBackground = true,
+    double? iconSize,
   }) {
     return Tooltip(
       message: tooltip ?? '',
@@ -760,7 +775,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
             ),
             child: Icon(
               icon,
-              size: IconSize.medium,
+              size: iconSize ?? IconSize.medium,
               color: widget.enabled
                   ? (isActive
                         ? context.conduitTheme.textPrimary
@@ -814,18 +829,15 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
             boxShadow: null,
           ),
           child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 140),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                softWrap: false,
-                style: AppTypography.labelStyle.copyWith(
-                  color: isActive
-                      ? context.conduitTheme.buttonPrimary
-                      : context.conduitTheme.textPrimary,
-                ),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: AppTypography.labelStyle.copyWith(
+                color: isActive
+                    ? context.conduitTheme.buttonPrimary
+                    : context.conduitTheme.textPrimary,
               ),
             ),
           ),

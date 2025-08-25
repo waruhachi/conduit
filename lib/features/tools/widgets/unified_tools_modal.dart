@@ -96,7 +96,7 @@ class _UnifiedToolsModalState extends ConsumerState<UnifiedToolsModal> {
                       ),
                   ],
                 ),
-                const SizedBox(height: Spacing.lg),
+                // Removed extra spacing between feature tiles and tools list
 
                 // All tools as selectable tiles (model selector style)
                 toolsAsync.when(
