@@ -35,6 +35,7 @@ import '../../../shared/widgets/conduit_components.dart';
 import '../../../core/services/settings_service.dart';
 // Removed unused PlatformUtils import
 import '../../../core/services/platform_service.dart' as ps;
+import 'package:flutter/gestures.dart' show DragStartBehavior;
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({super.key});
@@ -957,9 +958,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         },
         child: Scaffold(
           backgroundColor: context.conduitTheme.surfaceBackground,
-          // Left navigation drawer with draggable edge open
+          // Left navigation drawer with draggable edge open (native, finger-following)
           drawerEnableOpenDragGesture: true,
-          drawerEdgeDragWidth: 32,
+          drawerDragStartBehavior: DragStartBehavior.down,
+          drawerEdgeDragWidth: MediaQuery.of(context).size.width * 0.5,
+          drawerScrimColor: Colors.black.withOpacity(0.32),
           drawer: Drawer(
             width: (MediaQuery.of(context).size.width * 0.88).clamp(
               280.0,
@@ -1300,6 +1303,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       duration: AnimationDuration.microInteraction,
                       curve: AnimationCurves.microInteraction,
                     ),
+              // Edge overlay removed; rely on native interactive drawer drag
             ],
           ),
         ), // Scaffold
@@ -1763,6 +1767,8 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
 
   // Intentionally left blank placeholder for nested helper; moved to top-level below
 }
+
+// Removed custom edge gesture in favor of native Drawer drag behavior.
 
 class _VoiceInputSheet extends ConsumerStatefulWidget {
   final Function(String) onTextReceived;
