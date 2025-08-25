@@ -17,7 +17,7 @@ import '../widgets/modern_chat_input.dart';
 import '../widgets/user_message_bubble.dart';
 import '../widgets/assistant_message_widget.dart' as assistant;
 import '../widgets/file_attachment_widget.dart';
-import '../widgets/voice_input_sheet.dart';
+// import '../widgets/voice_input_sheet.dart'; // deprecated: replaced by inline voice input
 import '../services/voice_input_service.dart';
 import '../services/file_attachment_service.dart';
 import '../../tools/providers/tools_providers.dart';
@@ -307,33 +307,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
   }
 
-  void _handleVoiceInput() async {
-    // TODO: Implement voice input functionality
-    final isAvailable = await ref.read(voiceInputAvailableProvider.future);
-
-    if (!isAvailable) {
-      if (!mounted) return;
-      return;
-    }
-
-    // Show voice input dialog
-    if (!mounted) return;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => VoiceInputSheet(
-        onTextReceived: (text) {
-          if (text.isNotEmpty) {
-            final selectedModel = ref.read(selectedModelProvider);
-            if (selectedModel != null) {
-              _handleMessageSend(text, selectedModel);
-            }
-          }
-        },
-      ),
-    );
-  }
+  // Inline voice input now handled directly inside ModernChatInput.
 
   void _handleFileAttachment() async {
     // Check if selected model supports file upload
@@ -1000,6 +974,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             surfaceTintColor: Colors.transparent,
             shadowColor: Colors.transparent,
             toolbarHeight: kToolbarHeight,
+            centerTitle: true,
             titleSpacing: 0.0,
             leading: _isSelectionMode
                 ? IconButton(
@@ -1286,7 +1261,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         (isOnline || ref.watch(reviewerModeProvider)),
                     onSendMessage: (text) =>
                         _handleMessageSend(text, selectedModel),
-                    onVoiceInput: _handleVoiceInput,
+                    onVoiceInput: null,
                     onFileAttachment: _handleFileAttachment,
                     onImageAttachment: _handleImageAttachment,
                     onCameraCapture: () =>

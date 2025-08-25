@@ -6,12 +6,13 @@ import '../../../shared/widgets/sheet_handle.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File;
 import 'dart:async';
 import '../providers/chat_providers.dart';
 import '../../tools/widgets/unified_tools_modal.dart';
 import '../../tools/providers/tools_providers.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../chat/services/voice_input_service.dart';
 
 import '../../../shared/utils/platform_utils.dart';
 import 'package:conduit/l10n/app_localizations.dart';
@@ -42,7 +43,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     with TickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  final bool _isRecording = false;
+  bool _isRecording = false;
   bool _isExpanded = true; // Start expanded for better UX
   // TODO: Implement voice input functionality
   // final String _voiceInputText = '';
@@ -52,10 +53,16 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   late AnimationController _pulseController;
   Timer? _blurCollapseTimer;
   bool _hasAutoFocusedOnce = false;
+  late VoiceInputService _voiceService;
+  StreamSubscription<int>? _intensitySub;
+  StreamSubscription<String>? _textSub;
+  int _intensity = 0; // 0..10 from service
+  String _baseTextAtStart = '';
 
   @override
   void initState() {
     super.initState();
+    _voiceService = ref.read(voiceInputServiceProvider);
     _expandController = AnimationController(
       duration:
           AnimationDuration.fast, // Faster animation for better responsiveness
@@ -130,6 +137,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     _pulseController.dispose();
     _blurCollapseTimer?.cancel();
     _voiceStreamSubscription?.cancel();
+    _intensitySub?.cancel();
+    _textSub?.cancel();
+    _voiceService.stopListening();
     super.dispose();
   }
 
@@ -201,6 +211,11 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     final webSearchEnabled = ref.watch(webSearchEnabledProvider);
     final imageGenEnabled = ref.watch(imageGenerationEnabledProvider);
     final imageGenAvailable = ref.watch(imageGenerationAvailableProvider);
+    final voiceAvailableAsync = ref.watch(voiceInputAvailableProvider);
+    final bool voiceAvailable = voiceAvailableAsync.maybeWhen(
+      data: (v) => v,
+      orElse: () => false,
+    );
 
     return Container(
       // Transparent wrapper so rounded corners are visible against page background
@@ -455,19 +470,101 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                         imageGenEnabled,
                                   ),
                                   const SizedBox(width: Spacing.sm),
-                                  // Microphone button: call provided callback for premium voice UI
-                                  _buildRoundButton(
-                                    icon: Platform.isIOS
-                                        ? CupertinoIcons.mic_fill
-                                        : Icons.mic,
-                                    onTap: widget.enabled
-                                        ? widget.onVoiceInput
-                                        : null,
-                                    tooltip: AppLocalizations.of(
-                                      context,
-                                    )!.voiceInput,
-                                    isActive: _isRecording,
+                                  // Microphone button: inline voice input toggle with animated intensity ring
+                                  Builder(
+                                    builder: (context) {
+                                      const double buttonSize =
+                                          TouchTarget.comfortable;
+                                      final double t = _isRecording
+                                          ? (_intensity.clamp(0, 10) / 10.0)
+                                          : 0.0;
+                                      final double ringMaxExtra = 16.0;
+                                      final double ringSize =
+                                          buttonSize + (ringMaxExtra * t);
+                                      final double ringOpacity =
+                                          0.15 + (0.35 * t);
+
+                                      return SizedBox(
+                                        width: buttonSize,
+                                        height: buttonSize,
+                                        child: Stack(
+                                          alignment: Alignment.center,
+                                          children: [
+                                            AnimatedContainer(
+                                              duration: const Duration(
+                                                milliseconds: 120,
+                                              ),
+                                              width: ringSize,
+                                              height: ringSize,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: context
+                                                    .conduitTheme
+                                                    .buttonPrimary
+                                                    .withValues(
+                                                      alpha: ringOpacity,
+                                                    ),
+                                              ),
+                                            ),
+                                            Transform.scale(
+                                              scale: _isRecording
+                                                  ? 1.0 +
+                                                        (_intensity.clamp(
+                                                              0,
+                                                              10,
+                                                            ) /
+                                                            200)
+                                                  : 1.0,
+                                              child: _buildRoundButton(
+                                                icon: Platform.isIOS
+                                                    ? CupertinoIcons.mic_fill
+                                                    : Icons.mic,
+                                                onTap:
+                                                    (widget.enabled &&
+                                                        voiceAvailable)
+                                                    ? _toggleVoice
+                                                    : null,
+                                                tooltip: AppLocalizations.of(
+                                                  context,
+                                                )!.voiceInput,
+                                                isActive: _isRecording,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
                                   ),
+                                  const SizedBox(width: Spacing.sm),
+                                  // Debug button for testing on-device STT (enable by changing false to true)
+                                  // ignore: dead_code
+                                  if (false) ...[
+                                    const SizedBox(width: Spacing.sm),
+                                    _buildRoundButton(
+                                      icon: Icons.bug_report,
+                                      onTap: widget.enabled
+                                          ? () async {
+                                              final result = await _voiceService
+                                                  .testOnDeviceStt();
+                                              if (context.mounted) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      'STT Test: $result',
+                                                    ),
+                                                    duration: const Duration(
+                                                      seconds: 5,
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+                                            }
+                                          : null,
+                                      tooltip: 'Test On-Device STT',
+                                    ),
+                                  ],
                                   const SizedBox(width: Spacing.sm),
                                   // Primary action button (Send/Stop) when expanded
                                   _buildPrimaryButton(
@@ -819,6 +916,143 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => const UnifiedToolsModal(),
+    );
+  }
+
+  // --- Inline Voice Input ---
+  Future<void> _toggleVoice() async {
+    if (_isRecording) {
+      await _stopVoice();
+    } else {
+      await _startVoice();
+    }
+  }
+
+  Future<void> _startVoice() async {
+    if (!widget.enabled) return;
+    try {
+      final ok = await _voiceService.initialize();
+      if (!ok) {
+        _showVoiceUnavailable(
+          AppLocalizations.of(context)?.errorMessage ??
+              'Voice input unavailable',
+        );
+        return;
+      }
+      if (!_voiceService.hasLocalStt) {
+        final mic = await _voiceService.checkPermissions();
+        if (!mic) {
+          _showVoiceUnavailable(
+            AppLocalizations.of(context)?.errorMessage ??
+                'Microphone permission required',
+          );
+          return;
+        }
+      }
+      setState(() {
+        _isRecording = true;
+        _baseTextAtStart = _controller.text;
+      });
+
+      final stream = _voiceService.startListening();
+      _intensitySub?.cancel();
+      _intensitySub = _voiceService.intensityStream.listen((value) {
+        if (!mounted) return;
+        setState(() => _intensity = value);
+      });
+      _textSub?.cancel();
+      _textSub = stream.listen(
+        (text) async {
+          if (text.startsWith('[[AUDIO_FILE_PATH]]:')) {
+            final path = text.split(':').skip(1).join(':');
+            await _transcribeRecordedFile(path);
+          } else {
+            final updated =
+                (_baseTextAtStart.isEmpty
+                    ? ''
+                    : (_baseTextAtStart.trimRight() + ' ')) +
+                text;
+            _controller.value = TextEditingValue(
+              text: updated,
+              selection: TextSelection.collapsed(offset: updated.length),
+            );
+          }
+        },
+        onDone: () {
+          if (!mounted) return;
+          setState(() => _isRecording = false);
+          _intensitySub?.cancel();
+          _intensitySub = null;
+        },
+        onError: (_) {
+          if (!mounted) return;
+          setState(() => _isRecording = false);
+          _intensitySub?.cancel();
+          _intensitySub = null;
+        },
+      );
+      _ensureFocusedIfEnabled();
+    } catch (_) {
+      _showVoiceUnavailable(
+        AppLocalizations.of(context)?.errorMessage ??
+            'Failed to start voice input',
+      );
+      if (!mounted) return;
+      setState(() => _isRecording = false);
+    }
+  }
+
+  Future<void> _stopVoice() async {
+    _intensitySub?.cancel();
+    _intensitySub = null;
+    await _voiceService.stopListening();
+    if (!mounted) return;
+    setState(() => _isRecording = false);
+    HapticFeedback.selectionClick();
+  }
+
+  Future<void> _transcribeRecordedFile(String filePath) async {
+    try {
+      final api = ref.read(apiServiceProvider);
+      if (api == null) return;
+      final file = File(filePath);
+      final bytes = await file.readAsBytes();
+      String? language;
+      try {
+        language = WidgetsBinding.instance.platformDispatcher.locale
+            .toLanguageTag();
+      } catch (_) {
+        language = 'en-US';
+      }
+      final text = await api.transcribeAudio(
+        bytes.toList(),
+        language: language,
+      );
+      final updated =
+          (_baseTextAtStart.isEmpty
+              ? ''
+              : (_baseTextAtStart.trimRight() + ' ')) +
+          text;
+      if (!mounted) return;
+      _controller.value = TextEditingValue(
+        text: updated,
+        selection: TextSelection.collapsed(offset: updated.length),
+      );
+    } catch (_) {
+    } finally {
+      if (!mounted) return;
+      setState(() => _isRecording = false);
+    }
+  }
+
+  void _showVoiceUnavailable(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 

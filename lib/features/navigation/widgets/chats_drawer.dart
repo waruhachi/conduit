@@ -14,6 +14,7 @@ import '../../profile/views/profile_page.dart';
 import '../../../shared/utils/ui_utils.dart';
 import '../../../core/auth/auth_state_manager.dart';
 import 'package:conduit/l10n/app_localizations.dart';
+import '../../../core/models/user.dart' as models;
 
 class ChatsDrawer extends ConsumerStatefulWidget {
   const ChatsDrawer({super.key});
@@ -1115,7 +1116,59 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
 
   Widget _buildBottomSection(BuildContext context) {
     final theme = context.conduitTheme;
-    final user = ref.watch(authUserProvider);
+    final currentUserAsync = ref.watch(currentUserProvider);
+    final userFromProfile = currentUserAsync.maybeWhen(
+      data: (u) => u,
+      orElse: () => null,
+    );
+    final dynamic authUser = ref.watch(authUserProvider);
+    final user = userFromProfile ?? authUser;
+    String _displayName(dynamic u) {
+      if (u == null) return 'User';
+      if (u is models.User) {
+        return (u.name?.isNotEmpty == true ? u.name : u.username) ?? 'User';
+      }
+      if (u is Map) {
+        final Map m = u;
+        String? _asString(dynamic v) =>
+            v is String && v.trim().isNotEmpty ? v.trim() : null;
+        String? _pick(Map source) {
+          return _asString(source['name']) ??
+              _asString(source['display_name']) ??
+              _asString(source['preferred_username']) ??
+              _asString(source['username']);
+        }
+
+        final top = _pick(m);
+        if (top != null) return top;
+        final nestedUser = m['user'];
+        if (nestedUser is Map) {
+          final nested = _pick(nestedUser);
+          if (nested != null) return nested;
+          final nestedEmail = _asString(nestedUser['email']);
+          if (nestedEmail != null && nestedEmail.contains('@')) {
+            return nestedEmail.split('@').first;
+          }
+        }
+        final email = _asString(m['email']);
+        if (email != null && email.contains('@')) {
+          return email.split('@').first;
+        }
+        return 'User';
+      }
+      // Fallback to string representation if some other type
+      final s = u.toString();
+      return s.isNotEmpty ? s : 'User';
+    }
+
+    String _initial(String name) {
+      if (name.isEmpty) return 'U';
+      final ch = name.characters.first;
+      return ch.toUpperCase();
+    }
+
+    final displayName = _displayName(user);
+    final initial = _initial(displayName);
     return Padding(
       padding: const EdgeInsets.fromLTRB(Spacing.sm, 0, Spacing.sm, Spacing.sm),
       child: Column(
@@ -1150,10 +1203,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      (user.name ?? user.username ?? 'U')
-                          .toString()
-                          .substring(0, 1)
-                          .toUpperCase(),
+                      initial,
                       style: AppTypography.bodyLargeStyle.copyWith(
                         color: theme.buttonPrimary,
                         fontWeight: FontWeight.w700,
@@ -1166,7 +1216,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          (user.name ?? user.username ?? 'User').toString(),
+                          displayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTypography.bodyLargeStyle.copyWith(
