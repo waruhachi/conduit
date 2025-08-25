@@ -65,6 +65,13 @@ android {
     }
 }
 
+dependencies {
+    // AndroidX libraries for edge-to-edge support
+    implementation("androidx.activity:activity:1.9.2")
+    implementation("androidx.core:core:1.13.1")
+    implementation("androidx.activity:activity-ktx:1.9.2")
+}
+
 flutter {
     source = "../.."
 }

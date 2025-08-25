@@ -334,19 +334,72 @@ class PlatformService {
       // Avoid deprecated setStatusBarColor, setNavigationBarColor, setNavigationBarDividerColor
       SystemChrome.setSystemUIOverlayStyle(
         SystemUiOverlayStyle(
-          // Only set icon brightness, avoid deprecated color properties
+          // Only set icon brightness for edge-to-edge compatibility
           statusBarIconBrightness: isDarkContent
               ? Brightness.dark
               : Brightness.light,
           systemNavigationBarIconBrightness: isDarkContent
               ? Brightness.dark
               : Brightness.light,
-          // Use transparent colors for edge-to-edge
+          // Use transparent colors for proper edge-to-edge display
           statusBarColor: Colors.transparent,
           systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarDividerColor: Colors.transparent,
         ),
       );
     }
+  }
+
+  /// Get proper inset handling for edge-to-edge display
+  static EdgeInsets getSystemInsets(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    return EdgeInsets.only(
+      top: mediaQuery.viewPadding.top,
+      bottom: mediaQuery.viewPadding.bottom,
+      left: mediaQuery.viewPadding.left,
+      right: mediaQuery.viewPadding.right,
+    );
+  }
+
+  /// Get safe area insets for edge-to-edge display
+  static EdgeInsets getSafeAreaInsets(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    return EdgeInsets.only(
+      top: mediaQuery.padding.top,
+      bottom: mediaQuery.padding.bottom,
+      left: mediaQuery.padding.left,
+      right: mediaQuery.padding.right,
+    );
+  }
+
+  /// Apply edge-to-edge safe area to widget
+  static Widget wrapWithEdgeToEdgeSafeArea(
+    Widget child, {
+    bool top = true,
+    bool bottom = true,
+    bool left = true,
+    bool right = true,
+  }) {
+    return SafeArea(
+      top: top,
+      bottom: bottom,
+      left: left,
+      right: right,
+      child: child,
+    );
+  }
+
+  /// Check if device supports edge-to-edge display
+  static bool supportsEdgeToEdge() {
+    if (isAndroid) {
+      // Android supports edge-to-edge from API 21+, but it's automatically
+      // enabled for apps targeting API 35+ (Android 15)
+      return true;
+    } else if (isIOS) {
+      // iOS supports edge-to-edge display
+      return true;
+    }
+    return false;
   }
 
   /// Check if device supports dynamic colors (Android 12+)

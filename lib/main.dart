@@ -115,11 +115,19 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
             return supported.first;
           },
           builder: (context, child) {
-            // Keep a subtle fade for navigation transitions only
-            final wrapped = OfflineIndicator(
-              child: child ?? const SizedBox.shrink(),
+            // Apply edge-to-edge inset handling and responsive design
+            return MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                // Ensure proper text scaling for edge-to-edge
+                textScaler: MediaQuery.of(context).textScaler.clamp(
+                  minScaleFactor: 0.8,
+                  maxScaleFactor: 1.3,
+                ),
+              ),
+              child: OfflineIndicator(
+                child: child ?? const SizedBox.shrink(),
+              ),
             );
-            return wrapped;
           },
           home: _getInitialPageWithReactiveState(),
           onGenerateRoute: NavigationService.generateRoute,
