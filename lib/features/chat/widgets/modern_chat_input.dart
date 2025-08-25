@@ -231,7 +231,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         children: [
           // Main input area with unified 2-row design
           Container(
-            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: context.conduitTheme.inputBackground,
               borderRadius: const BorderRadius.vertical(
@@ -269,137 +268,22 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                   alignment: Alignment.topCenter,
                   child: SingleChildScrollView(
                     physics: const ClampingScrollPhysics(),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Collapsed/Expanded top row: text input with left/right buttons in collapsed
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            left: Spacing.inputPadding,
-                            right: Spacing.inputPadding,
-                            top: Spacing.inputPadding,
-                            bottom: Spacing.inputPadding,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              if (!_isExpanded) ...[
-                                _buildRoundButton(
-                                  icon: Icons.add,
-                                  onTap: widget.enabled
-                                      ? _showAttachmentOptions
-                                      : null,
-                                  tooltip: AppLocalizations.of(
-                                    context,
-                                  )!.addAttachment,
-                                  showBackground: false,
-                                  iconSize: IconSize.large + 2.0,
-                                ),
-                                const SizedBox(width: Spacing.xs),
-                              ] else ...[
-                                // When expanded, the left padding was reduced to move the plus button.
-                                // Add back spacing so the text field aligns comfortably from the edge.
-                                SizedBox(
-                                  width: Spacing.inputPadding - Spacing.xs,
-                                ),
-                              ],
-                              // Text input expands to fill
-                              Expanded(
-                                child: Semantics(
-                                  textField: true,
-                                  label: AppLocalizations.of(
-                                    context,
-                                  )!.messageInputLabel,
-                                  hint: AppLocalizations.of(
-                                    context,
-                                  )!.messageInputHint,
-                                  child: TextField(
-                                    controller: _controller,
-                                    focusNode: _focusNode,
-                                    enabled: widget.enabled,
-                                    autofocus: false,
-                                    maxLines: _isExpanded ? null : 1,
-                                    keyboardType: TextInputType.multiline,
-                                    textCapitalization:
-                                        TextCapitalization.sentences,
-                                    textInputAction: TextInputAction.newline,
-                                    showCursor: true,
-                                    cursorColor: context.conduitTheme.inputText,
-                                    style: AppTypography.chatMessageStyle
-                                        .copyWith(
-                                          color: context.conduitTheme.inputText,
-                                        ),
-                                    decoration: InputDecoration(
-                                      hintText: AppLocalizations.of(
-                                        context,
-                                      )!.messageHintText,
-                                      hintStyle: TextStyle(
-                                        color: context
-                                            .conduitTheme
-                                            .inputPlaceholder,
-                                        fontSize: AppTypography.bodyLarge,
-                                        fontWeight: _isRecording
-                                            ? FontWeight.w500
-                                            : FontWeight.w400,
-                                        fontStyle: _isRecording
-                                            ? FontStyle.italic
-                                            : FontStyle.normal,
-                                      ),
-                                      // Ensure the text field background matches its parent container
-                                      // and does not use the global InputDecorationTheme fill
-                                      filled: false,
-                                      border: InputBorder.none,
-                                      enabledBorder: InputBorder.none,
-                                      focusedBorder: InputBorder.none,
-                                      errorBorder: InputBorder.none,
-                                      disabledBorder: InputBorder.none,
-                                      contentPadding: EdgeInsets.zero,
-                                      isDense: true,
-                                      alignLabelWithHint: true,
-                                    ),
-                                    // Removed onChanged setState to reduce rebuilds
-                                    onSubmitted: (_) => _sendMessage(),
-                                    onTap: () {
-                                      if (!widget.enabled) return;
-                                      if (!_isExpanded) {
-                                        _setExpanded(true);
-                                        WidgetsBinding.instance
-                                            .addPostFrameCallback((_) {
-                                              if (!mounted) return;
-                                              _ensureFocusedIfEnabled();
-                                            });
-                                      } else {
-                                        _ensureFocusedIfEnabled();
-                                      }
-                                    },
-                                  ),
-                                ),
-                              ),
-                              if (!_isExpanded) ...[
-                                const SizedBox(width: Spacing.sm),
-                                // Primary action button (Send/Stop) when collapsed
-                                _buildPrimaryButton(
-                                  _hasText,
-                                  isGenerating,
-                                  stopGeneration,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-
-                        // Expanded bottom row with additional options
-                        if (_isExpanded) ...[
-                          Container(
+                    child: RepaintBoundary(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Collapsed/Expanded top row: text input with left/right buttons in collapsed
+                          Padding(
                             padding: const EdgeInsets.only(
                               left: Spacing.inputPadding,
                               right: Spacing.inputPadding,
+                              top: Spacing.inputPadding,
                               bottom: Spacing.inputPadding,
                             ),
-                            child: FadeTransition(
-                              opacity: _expandController,
-                              child: Row(
-                                children: [
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                if (!_isExpanded) ...[
                                   _buildRoundButton(
                                     icon: Icons.add,
                                     onTap: widget.enabled
@@ -412,197 +296,318 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                     iconSize: IconSize.large + 2.0,
                                   ),
                                   const SizedBox(width: Spacing.xs),
-                                  // Quick pills: no scroll, clip text within fixed max width
-                                  Expanded(
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          flex: 2,
-                                          child: _buildPillButton(
-                                            icon: Platform.isIOS
-                                                ? CupertinoIcons.search
-                                                : Icons.search,
-                                            label: AppLocalizations.of(
-                                              context,
-                                            )!.web,
-                                            isActive: webSearchEnabled,
-                                            onTap: widget.enabled
-                                                ? () {
-                                                    ref
-                                                            .read(
-                                                              webSearchEnabledProvider
-                                                                  .notifier,
-                                                            )
-                                                            .state =
-                                                        !webSearchEnabled;
-                                                  }
-                                                : null,
+                                ] else ...[
+                                  // When expanded, the left padding was reduced to move the plus button.
+                                  // Add back spacing so the text field aligns comfortably from the edge.
+                                  SizedBox(
+                                    width: Spacing.inputPadding - Spacing.xs,
+                                  ),
+                                ],
+                                // Text input expands to fill
+                                Expanded(
+                                  child: Semantics(
+                                    textField: true,
+                                    label: AppLocalizations.of(
+                                      context,
+                                    )!.messageInputLabel,
+                                    hint: AppLocalizations.of(
+                                      context,
+                                    )!.messageInputHint,
+                                    child: TextField(
+                                      controller: _controller,
+                                      focusNode: _focusNode,
+                                      enabled: widget.enabled,
+                                      autofocus: false,
+                                      maxLines: _isExpanded ? null : 1,
+                                      keyboardType: TextInputType.multiline,
+                                      textCapitalization:
+                                          TextCapitalization.sentences,
+                                      textInputAction: TextInputAction.newline,
+                                      showCursor: true,
+                                      cursorColor:
+                                          context.conduitTheme.inputText,
+                                      style: AppTypography.chatMessageStyle
+                                          .copyWith(
+                                            color:
+                                                context.conduitTheme.inputText,
                                           ),
+                                      decoration: InputDecoration(
+                                        hintText: AppLocalizations.of(
+                                          context,
+                                        )!.messageHintText,
+                                        hintStyle: TextStyle(
+                                          color: context
+                                              .conduitTheme
+                                              .inputPlaceholder,
+                                          fontSize: AppTypography.bodyLarge,
+                                          fontWeight: _isRecording
+                                              ? FontWeight.w500
+                                              : FontWeight.w400,
+                                          fontStyle: _isRecording
+                                              ? FontStyle.italic
+                                              : FontStyle.normal,
                                         ),
-                                        if (imageGenAvailable) ...[
-                                          const SizedBox(width: Spacing.xs),
+                                        // Ensure the text field background matches its parent container
+                                        // and does not use the global InputDecorationTheme fill
+                                        filled: false,
+                                        border: InputBorder.none,
+                                        enabledBorder: InputBorder.none,
+                                        focusedBorder: InputBorder.none,
+                                        errorBorder: InputBorder.none,
+                                        disabledBorder: InputBorder.none,
+                                        contentPadding: EdgeInsets.zero,
+                                        isDense: true,
+                                        alignLabelWithHint: true,
+                                      ),
+                                      // Removed onChanged setState to reduce rebuilds
+                                      onSubmitted: (_) => _sendMessage(),
+                                      onTap: () {
+                                        if (!widget.enabled) return;
+                                        if (!_isExpanded) {
+                                          _setExpanded(true);
+                                          WidgetsBinding.instance
+                                              .addPostFrameCallback((_) {
+                                                if (!mounted) return;
+                                                _ensureFocusedIfEnabled();
+                                              });
+                                        } else {
+                                          _ensureFocusedIfEnabled();
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                ),
+                                if (!_isExpanded) ...[
+                                  const SizedBox(width: Spacing.sm),
+                                  // Primary action button (Send/Stop) when collapsed
+                                  _buildPrimaryButton(
+                                    _hasText,
+                                    isGenerating,
+                                    stopGeneration,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+
+                          // Expanded bottom row with additional options
+                          if (_isExpanded) ...[
+                            Container(
+                              padding: const EdgeInsets.only(
+                                left: Spacing.inputPadding,
+                                right: Spacing.inputPadding,
+                                bottom: Spacing.inputPadding,
+                              ),
+                              child: FadeTransition(
+                                opacity: _expandController,
+                                child: Row(
+                                  children: [
+                                    _buildRoundButton(
+                                      icon: Icons.add,
+                                      onTap: widget.enabled
+                                          ? _showAttachmentOptions
+                                          : null,
+                                      tooltip: AppLocalizations.of(
+                                        context,
+                                      )!.addAttachment,
+                                      showBackground: false,
+                                      iconSize: IconSize.large + 2.0,
+                                    ),
+                                    const SizedBox(width: Spacing.xs),
+                                    // Quick pills: no scroll, clip text within fixed max width
+                                    Expanded(
+                                      child: Row(
+                                        children: [
                                           Expanded(
-                                            flex: 3,
+                                            flex: 2,
                                             child: _buildPillButton(
                                               icon: Platform.isIOS
-                                                  ? CupertinoIcons.photo
-                                                  : Icons.image,
+                                                  ? CupertinoIcons.search
+                                                  : Icons.search,
                                               label: AppLocalizations.of(
                                                 context,
-                                              )!.imageGen,
-                                              isActive: imageGenEnabled,
+                                              )!.web,
+                                              isActive: webSearchEnabled,
                                               onTap: widget.enabled
                                                   ? () {
                                                       ref
                                                               .read(
-                                                                imageGenerationEnabledProvider
+                                                                webSearchEnabledProvider
                                                                     .notifier,
                                                               )
                                                               .state =
-                                                          !imageGenEnabled;
+                                                          !webSearchEnabled;
                                                     }
                                                   : null,
                                             ),
                                           ),
+                                          if (imageGenAvailable) ...[
+                                            const SizedBox(width: Spacing.xs),
+                                            Expanded(
+                                              flex: 3,
+                                              child: _buildPillButton(
+                                                icon: Platform.isIOS
+                                                    ? CupertinoIcons.photo
+                                                    : Icons.image,
+                                                label: AppLocalizations.of(
+                                                  context,
+                                                )!.imageGen,
+                                                isActive: imageGenEnabled,
+                                                onTap: widget.enabled
+                                                    ? () {
+                                                        ref
+                                                                .read(
+                                                                  imageGenerationEnabledProvider
+                                                                      .notifier,
+                                                                )
+                                                                .state =
+                                                            !imageGenEnabled;
+                                                      }
+                                                    : null,
+                                              ),
+                                            ),
+                                          ],
+                                          const SizedBox(width: Spacing.xs),
+                                          _buildRoundButton(
+                                            icon: Icons.more_horiz,
+                                            onTap: widget.enabled
+                                                ? _showUnifiedToolsModal
+                                                : null,
+                                            tooltip: AppLocalizations.of(
+                                              context,
+                                            )!.tools,
+                                            isActive:
+                                                ref
+                                                    .watch(
+                                                      selectedToolIdsProvider,
+                                                    )
+                                                    .isNotEmpty ||
+                                                webSearchEnabled ||
+                                                imageGenEnabled,
+                                          ),
                                         ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: Spacing.xs),
+                                    // Mic + Send cluster pinned to the right
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        // Microphone button: inline voice input toggle with animated intensity ring
+                                        Builder(
+                                          builder: (context) {
+                                            const double buttonSize =
+                                                TouchTarget.comfortable;
+                                            final double t = _isRecording
+                                                ? (_intensity.clamp(0, 10) /
+                                                      10.0)
+                                                : 0.0;
+                                            final double ringMaxExtra = 16.0;
+                                            final double ringSize =
+                                                buttonSize + (ringMaxExtra * t);
+                                            final double ringOpacity =
+                                                0.15 + (0.35 * t);
+
+                                            return SizedBox(
+                                              width: buttonSize,
+                                              height: buttonSize,
+                                              child: Stack(
+                                                alignment: Alignment.center,
+                                                children: [
+                                                  AnimatedContainer(
+                                                    duration: const Duration(
+                                                      milliseconds: 120,
+                                                    ),
+                                                    width: ringSize,
+                                                    height: ringSize,
+                                                    decoration: BoxDecoration(
+                                                      shape: BoxShape.circle,
+                                                      color: context
+                                                          .conduitTheme
+                                                          .buttonPrimary
+                                                          .withValues(
+                                                            alpha: ringOpacity,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  Transform.scale(
+                                                    scale: _isRecording
+                                                        ? 1.0 +
+                                                              (_intensity.clamp(
+                                                                    0,
+                                                                    10,
+                                                                  ) /
+                                                                  200)
+                                                        : 1.0,
+                                                    child: _buildRoundButton(
+                                                      icon: Platform.isIOS
+                                                          ? CupertinoIcons
+                                                                .mic_fill
+                                                          : Icons.mic,
+                                                      onTap:
+                                                          (widget.enabled &&
+                                                              voiceAvailable)
+                                                          ? _toggleVoice
+                                                          : null,
+                                                      tooltip:
+                                                          AppLocalizations.of(
+                                                            context,
+                                                          )!.voiceInput,
+                                                      isActive: _isRecording,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        ),
                                         const SizedBox(width: Spacing.xs),
-                                        _buildRoundButton(
-                                          icon: Icons.more_horiz,
-                                          onTap: widget.enabled
-                                              ? _showUnifiedToolsModal
-                                              : null,
-                                          tooltip: AppLocalizations.of(
-                                            context,
-                                          )!.tools,
-                                          isActive:
-                                              ref
-                                                  .watch(
-                                                    selectedToolIdsProvider,
-                                                  )
-                                                  .isNotEmpty ||
-                                              webSearchEnabled ||
-                                              imageGenEnabled,
+                                        // Primary action button (Send/Stop) when expanded
+                                        _buildPrimaryButton(
+                                          _hasText,
+                                          isGenerating,
+                                          stopGeneration,
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  const SizedBox(width: Spacing.xs),
-                                  // Mic + Send cluster pinned to the right
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // Microphone button: inline voice input toggle with animated intensity ring
-                                      Builder(
-                                        builder: (context) {
-                                          const double buttonSize =
-                                              TouchTarget.comfortable;
-                                          final double t = _isRecording
-                                              ? (_intensity.clamp(0, 10) / 10.0)
-                                              : 0.0;
-                                          final double ringMaxExtra = 16.0;
-                                          final double ringSize =
-                                              buttonSize + (ringMaxExtra * t);
-                                          final double ringOpacity =
-                                              0.15 + (0.35 * t);
-
-                                          return SizedBox(
-                                            width: buttonSize,
-                                            height: buttonSize,
-                                            child: Stack(
-                                              alignment: Alignment.center,
-                                              children: [
-                                                AnimatedContainer(
-                                                  duration: const Duration(
-                                                    milliseconds: 120,
-                                                  ),
-                                                  width: ringSize,
-                                                  height: ringSize,
-                                                  decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    color: context
-                                                        .conduitTheme
-                                                        .buttonPrimary
-                                                        .withValues(
-                                                          alpha: ringOpacity,
-                                                        ),
-                                                  ),
-                                                ),
-                                                Transform.scale(
-                                                  scale: _isRecording
-                                                      ? 1.0 +
-                                                            (_intensity.clamp(
-                                                                  0,
-                                                                  10,
-                                                                ) /
-                                                                200)
-                                                      : 1.0,
-                                                  child: _buildRoundButton(
-                                                    icon: Platform.isIOS
-                                                        ? CupertinoIcons
-                                                              .mic_fill
-                                                        : Icons.mic,
-                                                    onTap:
-                                                        (widget.enabled &&
-                                                            voiceAvailable)
-                                                        ? _toggleVoice
-                                                        : null,
-                                                    tooltip:
-                                                        AppLocalizations.of(
-                                                          context,
-                                                        )!.voiceInput,
-                                                    isActive: _isRecording,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(width: Spacing.xs),
-                                      // Primary action button (Send/Stop) when expanded
-                                      _buildPrimaryButton(
-                                        _hasText,
-                                        isGenerating,
-                                        stopGeneration,
+                                    // Debug button for testing on-device STT (enable by changing false to true)
+                                    // ignore: dead_code
+                                    if (false) ...[
+                                      const SizedBox(width: Spacing.sm),
+                                      _buildRoundButton(
+                                        icon: Icons.bug_report,
+                                        onTap: widget.enabled
+                                            ? () async {
+                                                final result =
+                                                    await _voiceService
+                                                        .testOnDeviceStt();
+                                                if (context.mounted) {
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(
+                                                        'STT Test: $result',
+                                                      ),
+                                                      duration: const Duration(
+                                                        seconds: 5,
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+                                              }
+                                            : null,
+                                        tooltip: 'Test On-Device STT',
                                       ),
                                     ],
-                                  ),
-                                  // Debug button for testing on-device STT (enable by changing false to true)
-                                  // ignore: dead_code
-                                  if (false) ...[
-                                    const SizedBox(width: Spacing.sm),
-                                    _buildRoundButton(
-                                      icon: Icons.bug_report,
-                                      onTap: widget.enabled
-                                          ? () async {
-                                              final result = await _voiceService
-                                                  .testOnDeviceStt();
-                                              if (context.mounted) {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(
-                                                      'STT Test: $result',
-                                                    ),
-                                                    duration: const Duration(
-                                                      seconds: 5,
-                                                    ),
-                                                  ),
-                                                );
-                                              }
-                                            }
-                                          : null,
-                                      tooltip: 'Test On-Device STT',
-                                    ),
+                                    // removed duplicate send button; now only in right cluster
                                   ],
-                                  // removed duplicate send button; now only in right cluster
-                                ],
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),

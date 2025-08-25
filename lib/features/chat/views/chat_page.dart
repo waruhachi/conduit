@@ -9,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io' show Platform, File;
 import 'dart:async';
-import 'dart:ui' show ImageFilter;
 import '../../../core/providers/app_providers.dart';
 import '../providers/chat_providers.dart';
 import '../../../core/utils/debug_logger.dart';
@@ -941,6 +940,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     // Watch reviewer mode and auto-select model if needed
     final isReviewerMode = ref.watch(reviewerModeProvider);
 
+    // Keyboard visibility
+    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+
     // Auto-select model when in reviewer mode with no selection
     if (isReviewerMode && selectedModel == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1340,7 +1342,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         behavior: HitTestBehavior.opaque,
                         onTap: () =>
                             FocusManager.instance.primaryFocus?.unfocus(),
-                        child: _buildMessagesList(theme),
+                        child: RepaintBoundary(
+                          child: _buildMessagesList(theme),
+                        ),
                       ),
                     ),
                   ),
@@ -1352,17 +1356,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   const ChatOfflineOverlay(),
 
                   // Modern Input (root matches input background including safe area)
-                  ModernChatInput(
-                    enabled:
-                        selectedModel != null &&
-                        (isOnline || ref.watch(reviewerModeProvider)),
-                    onSendMessage: (text) =>
-                        _handleMessageSend(text, selectedModel),
-                    onVoiceInput: null,
-                    onFileAttachment: _handleFileAttachment,
-                    onImageAttachment: _handleImageAttachment,
-                    onCameraCapture: () =>
-                        _handleImageAttachment(fromCamera: true),
+                  RepaintBoundary(
+                    child: ModernChatInput(
+                      enabled:
+                          selectedModel != null &&
+                          (isOnline || ref.watch(reviewerModeProvider)),
+                      onSendMessage: (text) =>
+                          _handleMessageSend(text, selectedModel),
+                      onVoiceInput: null,
+                      onFileAttachment: _handleFileAttachment,
+                      onImageAttachment: _handleImageAttachment,
+                      onCameraCapture: () =>
+                          _handleImageAttachment(fromCamera: true),
+                    ),
                   ),
                 ],
               ),
@@ -1390,44 +1396,42 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   },
                   child:
                       (_showScrollToBottom &&
+                          !keyboardVisible &&
                           ref.watch(chatMessagesProvider).isNotEmpty)
                       ? ClipRRect(
                           key: const ValueKey('scroll_to_bottom_visible'),
                           borderRadius: BorderRadius.circular(
                             AppBorderRadius.floatingButton,
                           ),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: context
-                                    .conduitTheme
-                                    .surfaceContainerHighest
-                                    .withValues(alpha: 0.75),
-                                border: Border.all(
-                                  color: context.conduitTheme.cardBorder
-                                      .withValues(alpha: 0.3),
-                                  width: BorderWidth.regular,
-                                ),
-                                borderRadius: BorderRadius.circular(
-                                  AppBorderRadius.floatingButton,
-                                ),
-                                boxShadow: ConduitShadows.button,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: context
+                                  .conduitTheme
+                                  .surfaceContainerHighest
+                                  .withValues(alpha: 0.75),
+                              border: Border.all(
+                                color: context.conduitTheme.cardBorder
+                                    .withValues(alpha: 0.3),
+                                width: BorderWidth.regular,
                               ),
-                              child: SizedBox(
-                                width: TouchTarget.button,
-                                height: TouchTarget.button,
-                                child: IconButton(
-                                  onPressed: _scrollToBottom,
-                                  splashRadius: 24,
-                                  icon: Icon(
-                                    Platform.isIOS
-                                        ? CupertinoIcons.arrow_down
-                                        : Icons.keyboard_arrow_down,
-                                    size: IconSize.lg,
-                                    color: context.conduitTheme.iconPrimary
-                                        .withValues(alpha: 0.9),
-                                  ),
+                              borderRadius: BorderRadius.circular(
+                                AppBorderRadius.floatingButton,
+                              ),
+                              boxShadow: ConduitShadows.button,
+                            ),
+                            child: SizedBox(
+                              width: TouchTarget.button,
+                              height: TouchTarget.button,
+                              child: IconButton(
+                                onPressed: _scrollToBottom,
+                                splashRadius: 24,
+                                icon: Icon(
+                                  Platform.isIOS
+                                      ? CupertinoIcons.arrow_down
+                                      : Icons.keyboard_arrow_down,
+                                  size: IconSize.lg,
+                                  color: context.conduitTheme.iconPrimary
+                                      .withValues(alpha: 0.9),
                                 ),
                               ),
                             ),
