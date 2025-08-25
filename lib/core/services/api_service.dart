@@ -809,6 +809,20 @@ class ApiService {
       final messageId = msg.id;
 
       // Build message for messages map (history.messages)
+      final List<Map<String, dynamic>> combinedFilesMap = [];
+      if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty) {
+        for (final id in msg.attachmentIds!) {
+          if (id.startsWith('data:') || id.startsWith('http')) {
+            combinedFilesMap.add({'type': 'image', 'url': id});
+          } else {
+            combinedFilesMap.add({'file_id': id});
+          }
+        }
+      }
+      if (msg.files != null && msg.files!.isNotEmpty) {
+        combinedFilesMap.addAll(msg.files!);
+      }
+
       messagesMap[messageId] = {
         'id': messageId,
         'parentId': previousId,
@@ -822,9 +836,7 @@ class ApiService {
         if (msg.role == 'assistant') 'modelIdx': 0,
         if (msg.role == 'assistant') 'done': true,
         if (msg.role == 'user' && model != null) 'models': [model],
-        if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty)
-          'files': msg.attachmentIds!.map((id) => {'file_id': id}).toList(),
-        if (msg.files != null && msg.files!.isNotEmpty) 'files': msg.files,
+        if (combinedFilesMap.isNotEmpty) 'files': combinedFilesMap,
       };
 
       // Update parent's childrenIds
@@ -833,6 +845,20 @@ class ApiService {
       }
 
       // Build message for messages array
+      final List<Map<String, dynamic>> combinedFilesArray = [];
+      if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty) {
+        for (final id in msg.attachmentIds!) {
+          if (id.startsWith('data:') || id.startsWith('http')) {
+            combinedFilesArray.add({'type': 'image', 'url': id});
+          } else {
+            combinedFilesArray.add({'file_id': id});
+          }
+        }
+      }
+      if (msg.files != null && msg.files!.isNotEmpty) {
+        combinedFilesArray.addAll(msg.files!);
+      }
+
       messagesArray.add({
         'id': messageId,
         'parentId': previousId,
@@ -846,9 +872,7 @@ class ApiService {
         if (msg.role == 'assistant') 'modelIdx': 0,
         if (msg.role == 'assistant') 'done': true,
         if (msg.role == 'user' && model != null) 'models': [model],
-        if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty)
-          'files': msg.attachmentIds!.map((id) => {'file_id': id}).toList(),
-        if (msg.files != null && msg.files!.isNotEmpty) 'files': msg.files,
+        if (combinedFilesArray.isNotEmpty) 'files': combinedFilesArray,
       });
 
       previousId = messageId;
