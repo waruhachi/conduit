@@ -15,7 +15,6 @@ import '../../../shared/utils/ui_utils.dart';
 import '../../../core/auth/auth_state_manager.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import '../../../core/models/user.dart' as models;
-import '../../../shared/widgets/skeleton_loader.dart';
 
 class ChatsDrawer extends ConsumerStatefulWidget {
   const ChatsDrawer({super.key});
@@ -1559,13 +1558,13 @@ class _ConversationTile extends StatelessWidget {
               const SizedBox(width: Spacing.xs),
               if (isLoading)
                 SizedBox(
-                  width: 72,
-                  height: TouchTarget.small,
-                  child: SkeletonLoader(
-                    width: 72,
-                    height: TouchTarget.small,
-                    borderRadius: BorderRadius.circular(AppBorderRadius.chip),
-                    isCompact: true,
+                  width: IconSize.sm,
+                  height: IconSize.sm,
+                  child: CircularProgressIndicator(
+                    strokeWidth: BorderWidth.medium,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      theme.loadingIndicator,
+                    ),
                   ),
                 )
               else if (onMorePressed != null)

@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io' show Platform, File;
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 import '../../../core/providers/app_providers.dart';
 import '../providers/chat_providers.dart';
 import '../../../core/utils/debug_logger.dart';
@@ -459,14 +460,29 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     // Debounce scroll handling to reduce rebuilds
     if (_scrollDebounceTimer?.isActive == true) return;
 
-    _scrollDebounceTimer = Timer(const Duration(milliseconds: 50), () {
+    _scrollDebounceTimer = Timer(const Duration(milliseconds: 80), () {
       if (!mounted || !_scrollController.hasClients) return;
 
       final maxScroll = _scrollController.position.maxScrollExtent;
       final currentScroll = _scrollController.position.pixels;
 
-      // Only show button if user has scrolled up significantly
-      final showButton = maxScroll > 100 && currentScroll < maxScroll - 200;
+      // Hysteresis thresholds to avoid flicker
+      const double showThreshold =
+          300.0; // show when farther than this from bottom
+      const double hideThreshold =
+          150.0; // hide when within this distance of bottom
+
+      final bool farFromBottom = currentScroll < (maxScroll - showThreshold);
+      final bool nearBottom = currentScroll >= (maxScroll - hideThreshold);
+
+      bool showButton;
+      if (_showScrollToBottom) {
+        // Currently shown: keep it until we are near the bottom
+        showButton = !nearBottom && maxScroll > showThreshold;
+      } else {
+        // Currently hidden: only show when far from bottom
+        showButton = farFromBottom && maxScroll > showThreshold;
+      }
 
       if (showButton != _showScrollToBottom && mounted) {
         setState(() {
@@ -1351,36 +1367,77 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 ],
               ),
 
-              // Floating Scroll to Bottom Button (only if there are messages)
-              if (_showScrollToBottom &&
-                  ref.watch(chatMessagesProvider).isNotEmpty)
-                Positioned(
-                      bottom:
-                          Spacing.xxl +
-                          Spacing
-                              .xxxl, // Position higher to avoid overlapping chat input
-                      right: Spacing.lg,
-                      child: FloatingActionButton(
-                        onPressed: _scrollToBottom,
-                        backgroundColor: context.conduitTheme.buttonPrimary,
-                        foregroundColor: context.conduitTheme.buttonPrimaryText,
-                        elevation: Elevation.medium,
-                        child: Icon(
-                          Platform.isIOS
-                              ? CupertinoIcons.arrow_down
-                              : Icons.keyboard_arrow_down,
-                          size: IconSize.large,
-                        ),
+              // Floating Scroll to Bottom Button with smooth appear/disappear
+              Positioned(
+                bottom: Spacing.xxl + Spacing.xxxl,
+                right: Spacing.lg,
+                child: AnimatedSwitcher(
+                  duration: AnimationDuration.microInteraction,
+                  switchInCurve: AnimationCurves.microInteraction,
+                  switchOutCurve: AnimationCurves.microInteraction,
+                  transitionBuilder: (child, animation) {
+                    final slideAnimation = Tween<Offset>(
+                      begin: const Offset(0, 0.15),
+                      end: Offset.zero,
+                    ).animate(animation);
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: slideAnimation,
+                        child: child,
                       ),
-                    )
-                    .animate()
-                    .fadeIn(duration: AnimationDuration.microInteraction)
-                    .slideY(
-                      begin: AnimationValues.slideInFromBottom.dy,
-                      end: AnimationValues.slideCenter.dy,
-                      duration: AnimationDuration.microInteraction,
-                      curve: AnimationCurves.microInteraction,
-                    ),
+                    );
+                  },
+                  child:
+                      (_showScrollToBottom &&
+                          ref.watch(chatMessagesProvider).isNotEmpty)
+                      ? ClipRRect(
+                          key: const ValueKey('scroll_to_bottom_visible'),
+                          borderRadius: BorderRadius.circular(
+                            AppBorderRadius.floatingButton,
+                          ),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: context
+                                    .conduitTheme
+                                    .surfaceContainerHighest
+                                    .withValues(alpha: 0.75),
+                                border: Border.all(
+                                  color: context.conduitTheme.cardBorder
+                                      .withValues(alpha: 0.3),
+                                  width: BorderWidth.regular,
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  AppBorderRadius.floatingButton,
+                                ),
+                                boxShadow: ConduitShadows.button,
+                              ),
+                              child: SizedBox(
+                                width: TouchTarget.button,
+                                height: TouchTarget.button,
+                                child: IconButton(
+                                  onPressed: _scrollToBottom,
+                                  splashRadius: 24,
+                                  icon: Icon(
+                                    Platform.isIOS
+                                        ? CupertinoIcons.arrow_down
+                                        : Icons.keyboard_arrow_down,
+                                    size: IconSize.lg,
+                                    color: context.conduitTheme.iconPrimary
+                                        .withValues(alpha: 0.9),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(
+                          key: ValueKey('scroll_to_bottom_hidden'),
+                        ),
+                ),
+              ),
               // Edge overlay removed; rely on native interactive drawer drag
             ],
           ),

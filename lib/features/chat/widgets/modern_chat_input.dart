@@ -274,7 +274,12 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                       children: [
                         // Collapsed/Expanded top row: text input with left/right buttons in collapsed
                         Padding(
-                          padding: const EdgeInsets.all(Spacing.inputPadding),
+                          padding: const EdgeInsets.only(
+                            left: Spacing.inputPadding,
+                            right: Spacing.inputPadding,
+                            top: Spacing.inputPadding,
+                            bottom: Spacing.inputPadding,
+                          ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
@@ -288,9 +293,15 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                     context,
                                   )!.addAttachment,
                                   showBackground: false,
-                                  iconSize: IconSize.large,
+                                  iconSize: IconSize.large + 2.0,
                                 ),
                                 const SizedBox(width: Spacing.xs),
+                              ] else ...[
+                                // When expanded, the left padding was reduced to move the plus button.
+                                // Add back spacing so the text field aligns comfortably from the edge.
+                                SizedBox(
+                                  width: Spacing.inputPadding - Spacing.xs,
+                                ),
                               ],
                               // Text input expands to fill
                               Expanded(
@@ -398,7 +409,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                       context,
                                     )!.addAttachment,
                                     showBackground: false,
-                                    iconSize: IconSize.large,
+                                    iconSize: IconSize.large + 2.0,
                                   ),
                                   const SizedBox(width: Spacing.xs),
                                   // Quick pills: no scroll, clip text within fixed max width
