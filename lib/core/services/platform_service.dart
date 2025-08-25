@@ -312,6 +312,7 @@ class PlatformService {
   }
 
   /// Apply platform-specific status bar styling
+  /// Updated for Android 15+ edge-to-edge compatibility
   static void setPlatformStatusBarStyle({
     bool isDarkContent = false,
     Color? backgroundColor,
@@ -329,16 +330,20 @@ class PlatformService {
         ),
       );
     } else {
+      // For Android 15+, use edge-to-edge approach
+      // Avoid deprecated setStatusBarColor, setNavigationBarColor, setNavigationBarDividerColor
       SystemChrome.setSystemUIOverlayStyle(
         SystemUiOverlayStyle(
-          statusBarColor: backgroundColor ?? Colors.transparent,
+          // Only set icon brightness, avoid deprecated color properties
           statusBarIconBrightness: isDarkContent
               ? Brightness.dark
               : Brightness.light,
-          systemNavigationBarColor: backgroundColor,
           systemNavigationBarIconBrightness: isDarkContent
               ? Brightness.dark
               : Brightness.light,
+          // Use transparent colors for edge-to-edge
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.transparent,
         ),
       );
     }
