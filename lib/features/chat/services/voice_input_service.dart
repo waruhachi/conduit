@@ -27,6 +27,8 @@ class VoiceInputService {
   StreamController<int>? _intensityController;
   Stream<int> get intensityStream =>
       _intensityController?.stream ?? const Stream<int>.empty();
+  int _lastIntensity = 0;
+  Timer? _intensityDecayTimer;
 
   /// Public stream of partial/final transcript strings and special audio tokens.
   Stream<String> get textStream =>
@@ -166,6 +168,20 @@ class VoiceInputService {
     _currentText = '';
     _isListening = true;
     _intensityController = StreamController<int>.broadcast();
+    _lastIntensity = 0;
+
+    // Begin a gentle decay timer so the UI level bars fall when silent
+    _intensityDecayTimer?.cancel();
+    _intensityDecayTimer = Timer.periodic(const Duration(milliseconds: 120), (
+      t,
+    ) {
+      if (!_isListening) return;
+      if (_lastIntensity <= 0) return;
+      _lastIntensity = (_lastIntensity - 1).clamp(0, 10);
+      try {
+        _intensityController?.add(_lastIntensity);
+      } catch (_) {}
+    });
 
     // Check if speech recognition is available before trying to use it
     if (_localSttAvailable) {
@@ -195,8 +211,16 @@ class VoiceInputService {
       // Listen for results and state changes; keep subscriptions so we can cancel later
       _sttResultSub = _speech.onResultChanged.listen((SttRecognition result) {
         if (!_isListening) return;
+        final prevLen = _currentText.length;
         _currentText = result.text;
         _textStreamController?.add(_currentText);
+        // Map number of new characters to a rough 0..10 intensity
+        final delta = (_currentText.length - prevLen).clamp(0, 50);
+        final mapped = (delta / 5.0).ceil(); // 0 chars -> 0, 1-5 -> 1, ...
+        _lastIntensity = mapped.clamp(0, 10);
+        try {
+          _intensityController?.add(_lastIntensity);
+        } catch (_) {}
         if (result.isFinal) {
           _stopListening();
         }
@@ -253,6 +277,9 @@ class VoiceInputService {
     _autoStopTimer = null;
     _ampSub?.cancel();
     _ampSub = null;
+    _intensityDecayTimer?.cancel();
+    _intensityDecayTimer = null;
+    _lastIntensity = 0;
 
     if (_currentText.isNotEmpty) {
       _textStreamController?.add(_currentText);

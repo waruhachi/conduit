@@ -39,6 +39,116 @@ class ModernChatInput extends ConsumerStatefulWidget {
   ConsumerState<ModernChatInput> createState() => _ModernChatInputState();
 }
 
+class _MicButton extends StatelessWidget {
+  final bool isRecording;
+  final int intensity; // 0..10
+  final VoidCallback? onTap;
+  final String tooltip;
+
+  const _MicButton({
+    required this.isRecording,
+    required this.intensity,
+    required this.onTap,
+    required this.tooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Color borderColor = isRecording
+        ? context.conduitTheme.buttonPrimary
+        : context.conduitTheme.cardBorder;
+    final Color bgColor = isRecording
+        ? context.conduitTheme.buttonPrimary.withValues(
+            alpha: Alpha.buttonHover,
+          )
+        : context.conduitTheme.cardBackground;
+    final Color iconColor = isRecording
+        ? context.conduitTheme.textPrimary
+        : context.conduitTheme.textPrimary.withValues(alpha: Alpha.strong);
+
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppBorderRadius.round),
+          side: BorderSide(color: borderColor, width: BorderWidth.regular),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppBorderRadius.round),
+          onTap: onTap == null
+              ? null
+              : () {
+                  HapticFeedback.selectionClick();
+                  onTap!();
+                },
+          child: Container(
+            width: TouchTarget.comfortable,
+            height: TouchTarget.comfortable,
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(AppBorderRadius.round),
+              boxShadow: ConduitShadows.button,
+            ),
+            child: Center(
+              child: isRecording
+                  ? _WaveformBars(intensity: intensity, color: iconColor)
+                  : Icon(
+                      Platform.isIOS ? CupertinoIcons.mic_fill : Icons.mic,
+                      size: IconSize.medium,
+                      color: iconColor,
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WaveformBars extends StatelessWidget {
+  final int intensity; // 0..10
+  final Color color;
+
+  const _WaveformBars({required this.intensity, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    // 5 bars with varying base heights; scale with intensity
+    final double unit = (intensity.clamp(0, 10)) / 10.0; // 0..1
+    final List<double> factors = [0.4, 0.7, 1.0, 0.7, 0.4];
+    final double maxHeight = IconSize.medium; // ~24px
+    // Keep bars within the available width to avoid RenderFlex overflow
+    final double width = 14.0; // tighter than 16 to accommodate padding
+    final double barWidth = 2.0;
+    final double gap = 1.0;
+    return SizedBox(
+      width: width,
+      height: maxHeight,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: List.generate(5, (i) {
+          final double h = (maxHeight * (factors[i] * (0.3 + 0.7 * unit)))
+              .clamp(4.0, maxHeight);
+          return Padding(
+            padding: EdgeInsets.only(left: i == 0 ? 0.0 : gap),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              width: barWidth,
+              height: h,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(2.0),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
 class _ModernChatInputState extends ConsumerState<ModernChatInput>
     with TickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
@@ -297,11 +407,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                   ),
                                   const SizedBox(width: Spacing.xs),
                                 ] else ...[
-                                  // When expanded, the left padding was reduced to move the plus button.
-                                  // Add back spacing so the text field aligns comfortably from the edge.
-                                  SizedBox(
-                                    width: Spacing.inputPadding - Spacing.xs,
-                                  ),
+                                  SizedBox(width: Spacing.xs),
                                 ],
                                 // Text input expands to fill
                                 Expanded(
@@ -328,8 +434,19 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                           context.conduitTheme.inputText,
                                       style: AppTypography.chatMessageStyle
                                           .copyWith(
-                                            color:
-                                                context.conduitTheme.inputText,
+                                            color: _isRecording
+                                                ? context
+                                                      .conduitTheme
+                                                      .inputPlaceholder
+                                                : context
+                                                      .conduitTheme
+                                                      .inputText,
+                                            fontStyle: _isRecording
+                                                ? FontStyle.italic
+                                                : FontStyle.normal,
+                                            fontWeight: _isRecording
+                                                ? FontWeight.w500
+                                                : FontWeight.w400,
                                           ),
                                       decoration: InputDecoration(
                                         hintText: AppLocalizations.of(
@@ -404,7 +521,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                   children: [
                                     _buildRoundButton(
                                       icon: Icons.add,
-                                      onTap: widget.enabled
+                                      onTap: widget.enabled && !_isRecording
                                           ? _showAttachmentOptions
                                           : null,
                                       tooltip: AppLocalizations.of(
@@ -428,7 +545,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                                 context,
                                               )!.web,
                                               isActive: webSearchEnabled,
-                                              onTap: widget.enabled
+                                              onTap:
+                                                  widget.enabled &&
+                                                      !_isRecording
                                                   ? () {
                                                       ref
                                                               .read(
@@ -453,7 +572,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                                   context,
                                                 )!.imageGen,
                                                 isActive: imageGenEnabled,
-                                                onTap: widget.enabled
+                                                onTap:
+                                                    widget.enabled &&
+                                                        !_isRecording
                                                     ? () {
                                                         ref
                                                                 .read(
@@ -470,7 +591,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                           const SizedBox(width: Spacing.xs),
                                           _buildRoundButton(
                                             icon: Icons.more_horiz,
-                                            onTap: widget.enabled
+                                            onTap:
+                                                widget.enabled && !_isRecording
                                                 ? _showUnifiedToolsModal
                                                 : null,
                                             tooltip: AppLocalizations.of(
@@ -539,11 +661,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                                                   ) /
                                                                   200)
                                                         : 1.0,
-                                                    child: _buildRoundButton(
-                                                      icon: Platform.isIOS
-                                                          ? CupertinoIcons
-                                                                .mic_fill
-                                                          : Icons.mic,
+                                                    child: _MicButton(
+                                                      isRecording: _isRecording,
+                                                      intensity: _intensity,
                                                       onTap:
                                                           (widget.enabled &&
                                                               voiceAvailable)
@@ -553,7 +673,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                                           AppLocalizations.of(
                                                             context,
                                                           )!.voiceInput,
-                                                      isActive: _isRecording,
                                                     ),
                                                   ),
                                                 ],
@@ -842,7 +961,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
             color: context.conduitTheme.cardBackground,
             borderRadius: BorderRadius.circular(AppBorderRadius.xl),
             // No elevation to match modal chips
-            boxShadow: null,
+            boxShadow: ConduitShadows.button,
           ),
           child: Center(
             child: Text(

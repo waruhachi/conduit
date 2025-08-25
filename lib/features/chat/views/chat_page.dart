@@ -869,6 +869,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         padding: const EdgeInsets.all(Spacing.lg),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Minimal, clean empty state
             Container(
@@ -907,6 +908,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 fontWeight: FontWeight.w600,
                 color: context.conduitTheme.textPrimary,
               ),
+              textAlign: TextAlign.center,
             ).animate().fadeIn(delay: const Duration(milliseconds: 150)),
 
             const SizedBox(height: Spacing.sm),
@@ -917,6 +919,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 color: context.conduitTheme.textSecondary,
                 fontWeight: FontWeight.w400,
               ),
+              textAlign: TextAlign.center,
             ).animate().fadeIn(delay: const Duration(milliseconds: 300)),
           ],
         ),
@@ -1044,42 +1047,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Transform.translate(
-                          offset: const Offset(-6, 0),
-                          child: Center(
+                          offset: const Offset(0, 0),
+                          child: SizedBox(
+                            height: 28,
                             child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Opacity(
-                                  opacity: 0.0,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: Spacing.xs,
-                                      vertical: Spacing.xxs,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: context
-                                          .conduitTheme
-                                          .surfaceBackground
-                                          .withValues(alpha: 0.3),
-                                      borderRadius: BorderRadius.circular(
-                                        AppBorderRadius.badge,
-                                      ),
-                                      border: Border.all(
-                                        color:
-                                            context.conduitTheme.dividerColor,
-                                        width: BorderWidth.thin,
-                                      ),
-                                    ),
-                                    child: Icon(
-                                      Platform.isIOS
-                                          ? CupertinoIcons.chevron_down
-                                          : Icons.keyboard_arrow_down,
-                                      size: IconSize.small,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: Spacing.xs),
                                 Flexible(
                                   child: Text(
                                     _formatModelDisplayName(selectedModel.name),
