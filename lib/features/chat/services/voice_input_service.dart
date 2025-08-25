@@ -5,26 +5,37 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
-import 'package:speech_to_text/speech_recognition_error.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:stts/stts.dart';
+
+// Lightweight replacement for previous stt.LocaleName used across the UI
+class LocaleName {
+  final String localeId;
+  final String name;
+  const LocaleName(this.localeId, this.name);
+}
 
 class VoiceInputService {
   final AudioRecorder _recorder = AudioRecorder();
-  stt.SpeechToText? _speech;
+  final Stt _speech = Stt();
   bool _isInitialized = false;
   bool _isListening = false;
   bool _localSttAvailable = false;
   String? _selectedLocaleId;
-  List<stt.LocaleName> _locales = const [];
+  List<LocaleName> _locales = const [];
   StreamController<String>? _textStreamController;
   String _currentText = '';
   // Public stream for UI waveform visualization (emits partial text length as proxy)
   StreamController<int>? _intensityController;
   Stream<int> get intensityStream =>
       _intensityController?.stream ?? const Stream<int>.empty();
+
+  /// Public stream of partial/final transcript strings and special audio tokens.
+  Stream<String> get textStream =>
+      _textStreamController?.stream ?? const Stream<String>.empty();
   Timer? _autoStopTimer;
   StreamSubscription<Amplitude>? _ampSub;
+  StreamSubscription<SttRecognition>? _sttResultSub;
+  StreamSubscription<SttState>? _sttStateSub;
 
   bool get isSupportedPlatform => Platform.isAndroid || Platform.isIOS;
 
@@ -33,40 +44,14 @@ class VoiceInputService {
     if (!isSupportedPlatform) return false;
     // Prepare local speech recognizer
     try {
-      _speech = stt.SpeechToText();
-      debugPrint('DEBUG: Initializing speech_to_text...');
-      _localSttAvailable = await _speech!.initialize(
-        onStatus: (status) {
-          debugPrint('DEBUG: SpeechToText status: $status');
-          // When platform end-of-speech triggers, ensure we stop timer/streams
-          if (status.toLowerCase().contains('notListening') ||
-              status.toLowerCase().contains('done')) {
-            // No-op: UI manages stopping; SpeechToText emits final result
-          }
-        },
-        onError: (SpeechRecognitionError error) {
-          debugPrint('DEBUG: SpeechToText error: ${error.errorMsg}');
-          debugPrint('DEBUG: SpeechToText error permanent: ${error.permanent}');
-          // If error is permanent, mark local STT as unavailable
-          if (error.permanent) {
-            debugPrint('DEBUG: Permanent error detected, disabling local STT');
-            _localSttAvailable = false;
-          }
-          // If any error, we keep fallback available; no throws here.
-        },
-      );
-      debugPrint(
-        'DEBUG: SpeechToText initialization result: $_localSttAvailable',
-      );
+      // Check permission and supported status
+      _localSttAvailable = await _speech.isSupported();
       if (_localSttAvailable) {
         try {
-          _locales = await _speech!.locales();
-          debugPrint(
-            'DEBUG: Available locales: ${_locales.map((l) => l.localeId).join(', ')}',
-          );
+          final langs = await _speech.getLanguages();
+          _locales = langs.map((l) => LocaleName(l, l)).toList();
           final deviceTag = WidgetsBinding.instance.platformDispatcher.locale
               .toLanguageTag();
-          debugPrint('DEBUG: Device locale: $deviceTag');
           final match = _locales.firstWhere(
             (l) => l.localeId.toLowerCase() == deviceTag.toLowerCase(),
             orElse: () {
@@ -78,14 +63,13 @@ class VoiceInputService {
                 (l) => l.localeId.toLowerCase().startsWith('$primary-'),
                 orElse: () => _locales.isNotEmpty
                     ? _locales.first
-                    : stt.LocaleName('en_US', 'English (US)'),
+                    : LocaleName('en_US', 'en_US'),
               );
             },
           );
           _selectedLocaleId = match.localeId;
-          debugPrint('DEBUG: Selected locale: $_selectedLocaleId');
         } catch (e) {
-          debugPrint('DEBUG: Error loading locales: $e');
+          // ignore locale load errors
           _selectedLocaleId = null;
         }
       }
@@ -98,6 +82,9 @@ class VoiceInputService {
 
   Future<bool> checkPermissions() async {
     try {
+      // Prefer stts permission check which will request microphone permission
+      final mic = await _speech.hasPermission();
+      if (mic) return true;
       return await _recorder.hasPermission();
     } catch (_) {
       return false;
@@ -111,24 +98,11 @@ class VoiceInputService {
   // Add a method to check if on-device STT is properly supported
   Future<bool> checkOnDeviceSupport() async {
     if (!isSupportedPlatform || !_isInitialized) return false;
-    if (_speech == null) return false;
-
     try {
-      // Check if the speech engine supports on-device recognition
-      final result = await _speech!.initialize();
-      debugPrint('DEBUG: On-device support check - initialize result: $result');
-
-      if (result) {
-        // Note: getEngines() method is not available in speech_to_text 7.3.0
-        // The package handles engine selection internally
-        debugPrint(
-          'DEBUG: SpeechToText initialized successfully - engine selection handled internally',
-        );
-      }
-
-      return result;
+      final supported = await _speech.isSupported();
+      return supported;
     } catch (e) {
-      debugPrint('DEBUG: Error checking on-device support: $e');
+      // ignore errors checking on-device support
       return false;
     }
   }
@@ -136,13 +110,13 @@ class VoiceInputService {
   // Test method to verify on-device STT functionality
   Future<String> testOnDeviceStt() async {
     try {
-      debugPrint('DEBUG: Starting on-device STT test');
+      // starting on-device STT test
 
       // First ensure we're initialized
       await initialize();
 
-      if (!_localSttAvailable || _speech == null) {
-        return 'Local STT not available. Available: $_localSttAvailable, Speech: ${_speech != null}';
+      if (!_localSttAvailable) {
+        return 'Local STT not available. Available: $_localSttAvailable';
       }
 
       // Check microphone permission
@@ -152,40 +126,29 @@ class VoiceInputService {
       }
 
       // Test if speech recognition is available
-      final isAvailable = await _speech!.isAvailable;
-      debugPrint('DEBUG: Speech recognition isAvailable: $isAvailable');
-
-      if (!isAvailable) {
+      final supported = await _speech.isSupported();
+      if (!supported)
         return 'Speech recognition service is not available on this device';
+
+      // Set language if available, then start and stop quickly
+      if (_selectedLocaleId != null) {
+        try {
+          await _speech.setLanguage(_selectedLocaleId!);
+        } catch (_) {}
       }
-
-      // Check if listening is already active
-      final isListening = await _speech!.isListening;
-      debugPrint('DEBUG: Speech recognition isListening: $isListening');
-
-      if (isListening) {
-        await _speech!.stop();
-        await Future.delayed(const Duration(milliseconds: 500));
-      }
-
-      // Check if we can start listening
-      startListening();
-
-      // Wait a bit for initialization
+      await _speech.start(SttRecognitionOptions(punctuation: true));
       await Future.delayed(const Duration(milliseconds: 100));
-
-      // Stop immediately after starting
-      await stopListening();
+      await _speech.stop();
 
       return 'On-device STT test completed successfully. Local STT available: $_localSttAvailable, Selected locale: $_selectedLocaleId';
     } catch (e) {
-      debugPrint('DEBUG: On-device STT test failed: $e');
+      // on-device STT test failed
       return 'On-device STT test failed: $e';
     }
   }
 
   String? get selectedLocaleId => _selectedLocaleId;
-  List<stt.LocaleName> get locales => _locales;
+  List<LocaleName> get locales => _locales;
 
   void setLocale(String? localeId) {
     _selectedLocaleId = localeId;
@@ -206,15 +169,13 @@ class VoiceInputService {
     _intensityController = StreamController<int>.broadcast();
 
     // Check if speech recognition is available before trying to use it
-    if (_localSttAvailable && _speech != null) {
+    if (_localSttAvailable) {
       // Schedule a check for speech recognition availability
       Future.microtask(() async {
         try {
-          final isStillAvailable = await _speech!.isAvailable;
+          final isStillAvailable = await _speech.isSupported();
           if (!isStillAvailable && _isListening) {
-            debugPrint(
-              'DEBUG: Speech recognition no longer available, falling back to recording',
-            );
+            // speech recognition no longer available, fallback to recording
             _localSttAvailable = false;
             // Restart with fallback method
             _startRecordingProxyIntensity();
@@ -227,52 +188,47 @@ class VoiceInputService {
             return;
           }
         } catch (e) {
-          debugPrint('DEBUG: Error checking speech availability: $e');
+          // ignore availability check errors
         }
       });
 
       // Local on-device STT path
-      debugPrint(
-        'DEBUG: Starting on-device STT with locale: $_selectedLocaleId',
-      );
       _autoStopTimer?.cancel();
-      // SpeechToText has its own end-of-speech handling; we still cap at 60s
       _autoStopTimer = Timer(const Duration(seconds: 60), () {
         if (_isListening) {
           _stopListening();
         }
       });
-      _speech!.listen(
-        localeId: _selectedLocaleId,
-        listenFor: const Duration(seconds: 60),
-        pauseFor: const Duration(seconds: 3),
-        onResult: (SpeechRecognitionResult result) {
-          if (!_isListening) return;
-          debugPrint(
-            'DEBUG: Speech result: "${result.recognizedWords}" (final: ${result.finalResult})',
-          );
-          _currentText = result.recognizedWords;
-          _textStreamController?.add(_currentText);
-          if (result.finalResult) {
-            // Will be followed by notListening status; we proactively close
-            _stopListening();
-          }
-        },
-        onSoundLevelChange: (level) {
-          debugPrint('DEBUG: Sound level: $level');
-          // level is roughly 0..1+; map to 0..10
-          final scaled = (level * 10).clamp(0, 10).round();
-          _intensityController?.add(scaled);
-        },
-        partialResults: true,
-        cancelOnError: true,
-        listenMode: stt.ListenMode.dictation,
-        onDevice: true,
-      );
-      debugPrint('DEBUG: SpeechToText.listen() called with onDevice: true');
+
+      // Listen for results and state changes; keep subscriptions so we can cancel later
+      _sttResultSub = _speech.onResultChanged.listen((SttRecognition result) {
+        if (!_isListening) return;
+        _currentText = result.text;
+        _textStreamController?.add(_currentText);
+        if (result.isFinal) {
+          _stopListening();
+        }
+      }, onError: (_) {});
+
+      _sttStateSub = _speech.onStateChanged.listen((_) {}, onError: (_) {});
+
+      try {
+        if (_selectedLocaleId != null) {
+          _speech.setLanguage(_selectedLocaleId!).catchError((_) {});
+        }
+        // Start recognition (no await blocking the sync flow)
+        _speech.start(SttRecognitionOptions(punctuation: true)).catchError((_) {
+          // fallback to recording
+          _localSttAvailable = false;
+          _startRecordingProxyIntensity();
+        });
+      } catch (e) {
+        _localSttAvailable = false;
+        _startRecordingProxyIntensity();
+      }
     } else {
       // Fallback: record audio and signal file path for server transcription
-      debugPrint('DEBUG: Local STT not available, falling back to recording');
+      // Local STT not available, falling back to recording
       _startRecordingProxyIntensity();
       _autoStopTimer?.cancel();
       _autoStopTimer = Timer(const Duration(seconds: 30), () {
@@ -293,10 +249,19 @@ class VoiceInputService {
     if (!_isListening) return;
 
     _isListening = false;
-    if (_localSttAvailable && _speech != null) {
+    if (_localSttAvailable) {
       try {
-        await _speech!.stop();
+        await _speech.stop();
       } catch (_) {}
+      // Cancel STT subscriptions
+      try {
+        _sttResultSub?.cancel();
+      } catch (_) {}
+      _sttResultSub = null;
+      try {
+        _sttStateSub?.cancel();
+      } catch (_) {}
+      _sttStateSub = null;
     } else {
       // Also stop recorder if active
       await _stopRecording();
@@ -321,7 +286,7 @@ class VoiceInputService {
     stopListening();
     _stopRecording(force: true);
     try {
-      _speech?.cancel();
+      _speech.dispose().catchError((_) {});
     } catch (_) {}
   }
 
@@ -418,12 +383,12 @@ final voiceInputAvailableProvider = FutureProvider<bool>((ref) async {
 });
 
 final voiceInputStreamProvider = StreamProvider<String>((ref) {
-  // Voice input stream would be initialized when needed
-  return const Stream.empty();
+  final service = ref.watch(voiceInputServiceProvider);
+  return service.textStream;
 });
 
 /// Stream of crude voice intensity for waveform visuals
 final voiceIntensityStreamProvider = StreamProvider<int>((ref) {
-  // Connected at runtime by the UI after calling startListening
-  return const Stream.empty();
+  final service = ref.watch(voiceInputServiceProvider);
+  return service.intensityStream;
 });
