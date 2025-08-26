@@ -30,8 +30,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get unableToLoadProfile => 'Profil konnte nicht geladen werden';
 
   @override
-  String get pleaseCheckConnection =>
-      'Bitte überprüfe deine Verbindung und versuche es erneut';
+  String get pleaseCheckConnection => 'Bitte überprüfe deine Verbindung und versuche es erneut';
 
   @override
   String get account => 'Konto';
@@ -64,8 +63,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get searchModels => 'Modelle suchen...';
 
   @override
-  String get errorMessage =>
-      'Etwas ist schief gelaufen. Bitte versuche es erneut.';
+  String get errorMessage => 'Etwas ist schief gelaufen. Bitte versuche es erneut.';
 
   @override
   String get loginButton => 'Anmelden';
@@ -118,8 +116,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get noFilesYet => 'Noch keine Dateien';
 
   @override
-  String get uploadDocsPrompt =>
-      'Lade Dokumente hoch, um sie in deinen Unterhaltungen mit Conduit zu verwenden';
+  String get uploadDocsPrompt => 'Lade Dokumente hoch, um sie in deinen Unterhaltungen mit Conduit zu verwenden';
 
   @override
   String get uploadFirstFile => 'Erste Datei hochladen';
@@ -128,8 +125,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get knowledgeBaseEmpty => 'Wissensdatenbank ist leer';
 
   @override
-  String get createCollectionsPrompt =>
-      'Erstelle Sammlungen verwandter Dokumente zur einfachen Referenz';
+  String get createCollectionsPrompt => 'Erstelle Sammlungen verwandter Dokumente zur einfachen Referenz';
 
   @override
   String get chooseSourcePhoto => 'Quelle auswählen';
@@ -155,8 +151,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get kbCreationComingSoon =>
-      'Erstellung der Wissensdatenbank kommt bald!';
+  String get kbCreationComingSoon => 'Erstellung der Wissensdatenbank kommt bald!';
 
   @override
   String get backToServerSetup => 'Zur Servereinrichtung zurück';
@@ -168,8 +163,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get signIn => 'Anmelden';
 
   @override
-  String get enterCredentials =>
-      'Gib deine Anmeldedaten ein, um auf deine KI-Unterhaltungen zuzugreifen';
+  String get enterCredentials => 'Gib deine Anmeldedaten ein, um auf deine KI-Unterhaltungen zuzugreifen';
 
   @override
   String get credentials => 'Zugangsdaten';
@@ -190,8 +184,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get connectToServer => 'Mit Server verbinden';
 
   @override
-  String get enterServerAddress =>
-      'Gib die Adresse deines Open-WebUI-Servers ein, um zu beginnen';
+  String get enterServerAddress => 'Gib die Adresse deines Open-WebUI-Servers ein, um zu beginnen';
 
   @override
   String get serverUrl => 'Server-URL';
@@ -200,8 +193,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get serverUrlHint => 'https://dein-server.com';
 
   @override
-  String get enterServerUrlSemantic =>
-      'Gib deine Server-URL oder IP-Adresse ein';
+  String get enterServerUrlSemantic => 'Gib deine Server-URL oder IP-Adresse ein';
 
   @override
   String get headerName => 'Header-Name';
@@ -231,8 +223,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get demoModeActive => 'Demo-Modus aktiv';
 
   @override
-  String get skipServerSetupTryDemo =>
-      'Servereinrichtung überspringen und Demo testen';
+  String get skipServerSetupTryDemo => 'Servereinrichtung überspringen und Demo testen';
 
   @override
   String get enterDemo => 'Demo starten';
@@ -241,8 +232,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get demoBadge => 'Demo';
 
   @override
-  String get serverNotOpenWebUI =>
-      'Dies scheint kein Open-WebUI-Server zu sein.';
+  String get serverNotOpenWebUI => 'Dies scheint kein Open-WebUI-Server zu sein.';
 
   @override
   String get serverUrlEmpty => 'Server-URL darf nicht leer sein';
@@ -251,12 +241,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get invalidUrlFormat => 'Ungültiges URL-Format. Bitte Eingabe prüfen.';
 
   @override
-  String get onlyHttpHttps =>
-      'Nur HTTP- und HTTPS-Protokolle werden unterstützt.';
+  String get onlyHttpHttps => 'Nur HTTP- und HTTPS-Protokolle werden unterstützt.';
 
   @override
-  String get serverAddressRequired =>
-      'Serveradresse erforderlich (z. B. 192.168.1.10 oder example.com).';
+  String get serverAddressRequired => 'Serveradresse erforderlich (z. B. 192.168.1.10 oder example.com).';
 
   @override
   String get portRange => 'Port muss zwischen 1 und 65535 liegen.';
@@ -265,16 +253,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get invalidIpFormat => 'Ungültiges IP-Format. Beispiel: 192.168.1.10.';
 
   @override
-  String get couldNotConnectGeneric =>
-      'Verbindung fehlgeschlagen. Adresse prüfen und erneut versuchen.';
+  String get couldNotConnectGeneric => 'Verbindung fehlgeschlagen. Adresse prüfen und erneut versuchen.';
 
   @override
-  String get weCouldntReachServer =>
-      'Server nicht erreichbar. Verbindung und Serverstatus prüfen.';
+  String get weCouldntReachServer => 'Server nicht erreichbar. Verbindung und Serverstatus prüfen.';
 
   @override
-  String get connectionTimedOut =>
-      'Zeitüberschreitung. Server eventuell ausgelastet oder blockiert.';
+  String get connectionTimedOut => 'Zeitüberschreitung. Server eventuell ausgelastet oder blockiert.';
 
   @override
   String get useHttpOrHttpsOnly => 'Nur http:// oder https:// verwenden.';
@@ -283,23 +268,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String get loginFailed => 'Anmeldung fehlgeschlagen';
 
   @override
-  String get invalidCredentials =>
-      'Ungültiger Benutzername oder Passwort. Bitte erneut versuchen.';
+  String get invalidCredentials => 'Ungültiger Benutzername oder Passwort. Bitte erneut versuchen.';
 
   @override
-  String get serverRedirectingHttps =>
-      'Server leitet um. HTTPS-Konfiguration prüfen.';
+  String get serverRedirectingHttps => 'Server leitet um. HTTPS-Konfiguration prüfen.';
 
   @override
-  String get unableToConnectServer =>
-      'Verbindung zum Server nicht möglich. Bitte Verbindung prüfen.';
+  String get unableToConnectServer => 'Verbindung zum Server nicht möglich. Bitte Verbindung prüfen.';
 
   @override
   String get requestTimedOut => 'Zeitüberschreitung. Bitte erneut versuchen.';
 
   @override
-  String get genericSignInFailed =>
-      'Anmeldung nicht möglich. Zugangsdaten und Server prüfen.';
+  String get genericSignInFailed => 'Anmeldung nicht möglich. Zugangsdaten und Server prüfen.';
 
   @override
   String get skip => 'Überspringen';
@@ -314,8 +295,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get onboardStartTitle => 'Unterhaltung starten';
 
   @override
-  String get onboardStartSubtitle =>
-      'Wähle ein Modell und tippe los. Tippe jederzeit auf Neuer Chat.';
+  String get onboardStartSubtitle => 'Wähle ein Modell und tippe los. Tippe jederzeit auf Neuer Chat.';
 
   @override
   String get onboardStartBullet1 => 'Modellname oben antippen, um zu wechseln';
@@ -324,17 +304,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get onboardStartBullet2 => 'Mit Neuer Chat den Kontext zurücksetzen';
 
   @override
-  String get onboardAttachTitle => 'Kontext anhängen';
+  String get onboardAttachTitle => 'Kontext hinzufügen';
 
   @override
-  String get onboardAttachSubtitle =>
-      'Antworten mit Dateien oder Bildern untermauern.';
+  String get onboardAttachSubtitle => 'Antworten mit Inhalten aus Arbeitsbereich oder Fotos untermauern.';
 
   @override
-  String get onboardAttachBullet1 => 'Dateien: PDFs, Dokumente, Datensätze';
+  String get onboardAttachBullet1 => 'Arbeitsbereich: PDFs, Dokumente, Datensätze';
 
   @override
-  String get onboardAttachBullet2 => 'Bilder: Fotos oder Screenshots';
+  String get onboardAttachBullet2 => 'Fotos: Kamera oder Bibliothek';
 
   @override
   String get onboardSpeakTitle => 'Natürlich sprechen';
@@ -346,23 +325,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String get onboardSpeakBullet1 => 'Jederzeit stoppen; Text bleibt erhalten';
 
   @override
-  String get onboardSpeakBullet2 =>
-      'Ideal für kurze Notizen oder lange Prompts';
+  String get onboardSpeakBullet2 => 'Ideal für kurze Notizen oder lange Prompts';
 
   @override
   String get onboardQuickTitle => 'Schnellaktionen';
 
   @override
-  String get onboardQuickSubtitle =>
-      'Links oben das Menü für Chats und Navigation öffnen.';
+  String get onboardQuickSubtitle => 'Menü öffnen, um zwischen Chats, Arbeitsbereich und Profil zu wechseln.';
 
   @override
-  String get onboardQuickBullet1 =>
-      'Menü tippen, um Chats und Navigation zu öffnen';
+  String get onboardQuickBullet1 => 'Menü tippen für Chats, Arbeitsbereich, Profil';
 
   @override
-  String get onboardQuickBullet2 =>
-      'Schnell zu Neuer Chat, Dateien oder Profil springen';
+  String get onboardQuickBullet2 => 'Neuer Chat starten oder Modelle oben verwalten';
 
   @override
   String get addAttachment => 'Anhang hinzufügen';
@@ -429,16 +404,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get emptyImageData => 'Leere Bilddaten';
 
   @override
-  String get offlineBanner =>
-      'Du bist offline. Einige Funktionen sind eingeschränkt.';
+  String get offlineBanner => 'Du bist offline. Einige Funktionen sind eingeschränkt.';
 
   @override
-  String get featureRequiresInternet =>
-      'Diese Funktion erfordert eine Internetverbindung';
+  String get featureRequiresInternet => 'Diese Funktion erfordert eine Internetverbindung';
 
   @override
-  String get messagesWillSendWhenOnline =>
-      'Nachrichten werden gesendet, sobald du wieder online bist';
+  String get messagesWillSendWhenOnline => 'Nachrichten werden gesendet, sobald du wieder online bist';
 
   @override
   String get confirm => 'Bestätigen';
@@ -604,78 +576,4 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get aboutAppSubtitle => 'Conduit Informationen und Links';
-
-  @override
-  String get appLanguage => 'App-Sprache';
-
-  @override
-  String get typeBelowToBegin => 'Unten tippen, um zu beginnen';
-
-  @override
-  String get listening => 'Zuhören…';
-
-  @override
-  String get recording => 'Aufnahme…';
-
-  @override
-  String get transcribing => 'Transkription…';
-
-  @override
-  String get speakNow => 'Jetzt sprechen…';
-
-  @override
-  String get chats => 'Chats';
-
-  @override
-  String get darkMode => 'Dunkler Modus';
-
-  @override
-  String get transcript => 'Transkript';
-
-  @override
-  String get pinned => 'Angeheftet';
-
-  @override
-  String get folders => 'Ordner';
-
-  @override
-  String get archived => 'Archiviert';
-
-  @override
-  String get holdToTalk => 'Zum Sprechen halten';
-
-  @override
-  String get autoSend => 'Automatisch senden';
-
-  @override
-  String get stopListening => 'Zuhören stoppen';
-
-  @override
-  String get startListening => 'Zuhören starten';
-
-  @override
-  String get start => 'Start';
-
-  @override
-  String get stop => 'Stopp';
-
-  @override
-  String get web => 'Web';
-
-  @override
-  String get imageGen => 'Bild-Gen';
-
-  @override
-  String get webSearch => 'Websuche';
-
-  @override
-  String get webSearchDescription =>
-      'Lassen Sie den Assistenten beim Antworten im Internet suchen.';
-
-  @override
-  String get imageGeneration => 'Bilderzeugung';
-
-  @override
-  String get imageGenerationDescription =>
-      'Bilder aus Ihrer Eingabe generieren und anhängen.';
 }
