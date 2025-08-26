@@ -576,4 +576,40 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get aboutAppSubtitle => 'Informazioni e link di Conduit';
+
+  @override
+  String get typeBelowToBegin => 'Scrivi qui sotto per iniziare';
+
+  @override
+  String get web => 'Web';
+
+  @override
+  String get imageGen => 'Gen. immagini';
+
+  @override
+  String get pinned => 'Fissati';
+
+  @override
+  String get folders => 'Cartelle';
+
+  @override
+  String get archived => 'Archiviati';
+
+  @override
+  String get appLanguage => 'Lingua app';
+
+  @override
+  String get darkMode => 'Modalità scura';
+
+  @override
+  String get webSearch => 'Ricerca Web';
+
+  @override
+  String get webSearchDescription => 'Cerca sul web e cita le fonti.';
+
+  @override
+  String get imageGeneration => 'Generazione immagini';
+
+  @override
+  String get imageGenerationDescription => 'Crea immagini dai tuoi prompt.';
 }

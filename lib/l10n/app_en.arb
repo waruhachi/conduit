@@ -224,5 +224,17 @@
   "deleteChatTitle": "Delete Chat",
   "deleteChatMessage": "This chat will be permanently deleted.",
   "aboutApp": "About App",
-  "aboutAppSubtitle": "Conduit information and links"
+  "aboutAppSubtitle": "Conduit information and links",
+  "typeBelowToBegin": "Type below to begin",
+  "web": "Web",
+  "imageGen": "Image Gen",
+  "pinned": "Pinned",
+  "folders": "Folders",
+  "archived": "Archived",
+  "appLanguage": "App language",
+  "darkMode": "Dark mode",
+  "webSearch": "Web Search",
+  "webSearchDescription": "Search the web and cite sources in replies.",
+  "imageGeneration": "Image Generation",
+  "imageGenerationDescription": "Create images from your prompts."
 }

@@ -576,4 +576,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aboutAppSubtitle => 'Conduit information and links';
+
+  @override
+  String get typeBelowToBegin => 'Type below to begin';
+
+  @override
+  String get web => 'Web';
+
+  @override
+  String get imageGen => 'Image Gen';
+
+  @override
+  String get pinned => 'Pinned';
+
+  @override
+  String get folders => 'Folders';
+
+  @override
+  String get archived => 'Archived';
+
+  @override
+  String get appLanguage => 'App language';
+
+  @override
+  String get darkMode => 'Dark mode';
+
+  @override
+  String get webSearch => 'Web Search';
+
+  @override
+  String get webSearchDescription => 'Search the web and cite sources in replies.';
+
+  @override
+  String get imageGeneration => 'Image Generation';
+
+  @override
+  String get imageGenerationDescription => 'Create images from your prompts.';
 }

@@ -200,5 +200,17 @@
   "deleteChatTitle": "Elimina chat",
   "deleteChatMessage": "Questa chat verrà eliminata definitivamente.",
   "aboutApp": "Informazioni sull'app",
-  "aboutAppSubtitle": "Informazioni e link di Conduit"
+  "aboutAppSubtitle": "Informazioni e link di Conduit",
+  "typeBelowToBegin": "Scrivi qui sotto per iniziare",
+  "web": "Web",
+  "imageGen": "Gen. immagini",
+  "pinned": "Fissati",
+  "folders": "Cartelle",
+  "archived": "Archiviati",
+  "appLanguage": "Lingua app",
+  "darkMode": "Modalità scura",
+  "webSearch": "Ricerca Web",
+  "webSearchDescription": "Cerca sul web e cita le fonti.",
+  "imageGeneration": "Generazione immagini",
+  "imageGenerationDescription": "Crea immagini dai tuoi prompt."
 }

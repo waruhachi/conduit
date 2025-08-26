@@ -200,5 +200,17 @@
   "deleteChatTitle": "Chat löschen",
   "deleteChatMessage": "Dieser Chat wird dauerhaft gelöscht.",
   "aboutApp": "Über die App",
-  "aboutAppSubtitle": "Conduit Informationen und Links"
+  "aboutAppSubtitle": "Conduit Informationen und Links",
+  "typeBelowToBegin": "Unten tippen, um zu beginnen",
+  "web": "Web",
+  "imageGen": "Bild-Gen",
+  "pinned": "Angeheftet",
+  "folders": "Ordner",
+  "archived": "Archiviert",
+  "appLanguage": "App-Sprache",
+  "darkMode": "Dunkelmodus",
+  "webSearch": "Websuche",
+  "webSearchDescription": "Im Web suchen und Quellen zitieren.",
+  "imageGeneration": "Bildgenerierung",
+  "imageGenerationDescription": "Bilder aus deinen Prompts erstellen."
 }

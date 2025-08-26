@@ -200,5 +200,17 @@
   "deleteChatTitle": "Supprimer le chat",
   "deleteChatMessage": "Ce chat sera supprimé définitivement.",
   "aboutApp": "À propos de l'application",
-  "aboutAppSubtitle": "Informations et liens Conduit"
+  "aboutAppSubtitle": "Informations et liens Conduit",
+  "typeBelowToBegin": "Saisissez ci‑dessous pour commencer",
+  "web": "Web",
+  "imageGen": "Gén. image",
+  "pinned": "Épinglé",
+  "folders": "Dossiers",
+  "archived": "Archivé",
+  "appLanguage": "Langue de l'app",
+  "darkMode": "Mode sombre",
+  "webSearch": "Recherche Web",
+  "webSearchDescription": "Recherchez sur le web et citez les sources.",
+  "imageGeneration": "Génération d'images",
+  "imageGenerationDescription": "Créez des images à partir de vos prompts."
 }

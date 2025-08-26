@@ -1190,6 +1190,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Conduit information and links'**
   String get aboutAppSubtitle;
+
+  /// No description provided for @typeBelowToBegin.
+  ///
+  /// In en, this message translates to:
+  /// **'Type below to begin'**
+  String get typeBelowToBegin;
+
+  /// No description provided for @web.
+  ///
+  /// In en, this message translates to:
+  /// **'Web'**
+  String get web;
+
+  /// No description provided for @imageGen.
+  ///
+  /// In en, this message translates to:
+  /// **'Image Gen'**
+  String get imageGen;
+
+  /// No description provided for @pinned.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned'**
+  String get pinned;
+
+  /// No description provided for @folders.
+  ///
+  /// In en, this message translates to:
+  /// **'Folders'**
+  String get folders;
+
+  /// No description provided for @archived.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived'**
+  String get archived;
+
+  /// No description provided for @appLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'App language'**
+  String get appLanguage;
+
+  /// No description provided for @darkMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark mode'**
+  String get darkMode;
+
+  /// No description provided for @webSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Web Search'**
+  String get webSearch;
+
+  /// No description provided for @webSearchDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Search the web and cite sources in replies.'**
+  String get webSearchDescription;
+
+  /// No description provided for @imageGeneration.
+  ///
+  /// In en, this message translates to:
+  /// **'Image Generation'**
+  String get imageGeneration;
+
+  /// No description provided for @imageGenerationDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Create images from your prompts.'**
+  String get imageGenerationDescription;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
