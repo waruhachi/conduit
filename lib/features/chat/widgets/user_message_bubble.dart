@@ -70,16 +70,43 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
     );
   }
 
-  Widget _buildImageLayout(int imageCount) {
+  Widget _buildUserFileImages() {
+    if (widget.message.files == null || widget.message.files!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final imageFiles = widget.message.files!
+        .where(
+          (file) =>
+              file is Map && file['type'] == 'image' && file['url'] != null,
+        )
+        .toList();
+
+    if (imageFiles.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final imageCount = imageFiles.length;
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      switchInCurve: Curves.easeInOut,
+      child: _buildFileImageLayout(imageFiles, imageCount),
+    );
+  }
+
+  Widget _buildFileImageLayout(List<dynamic> imageFiles, int imageCount) {
     if (imageCount == 1) {
-      // Single image - larger display
+      final String imageUrl = imageFiles[0]['url'] as String;
       return Row(
-        key: ValueKey('user_single_${widget.message.attachmentIds![0]}'),
+        key: ValueKey('user_file_single_$imageUrl'),
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppBorderRadius.messageBubble),
+              borderRadius: BorderRadius.circular(
+                AppBorderRadius.messageBubble,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: context.conduitTheme.cardShadow.withValues(alpha: 0.1),
@@ -89,11 +116,161 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppBorderRadius.messageBubble),
+              borderRadius: BorderRadius.circular(
+                AppBorderRadius.messageBubble,
+              ),
+              child: EnhancedImageAttachment(
+                attachmentId: imageUrl,
+                isUserMessage: true,
+                isMarkdownFormat: false,
+                constraints: const BoxConstraints(
+                  maxWidth: 280,
+                  maxHeight: 350,
+                ),
+                disableAnimation: widget.isStreaming,
+              ),
+            ),
+          ),
+        ],
+      );
+    } else if (imageCount == 2) {
+      return Row(
+        key: ValueKey(
+          'user_file_double_${imageFiles.map((e) => e['url']).join('_')}',
+        ),
+        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: imageFiles.asMap().entries.map((entry) {
+                final index = entry.key;
+                final String imageUrl = entry.value['url'] as String;
+                return Padding(
+                  padding: EdgeInsets.only(left: index == 0 ? 0 : Spacing.xs),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(
+                        AppBorderRadius.messageBubble,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: context.conduitTheme.cardShadow.withValues(
+                            alpha: 0.08,
+                          ),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(
+                        AppBorderRadius.messageBubble,
+                      ),
+                      child: EnhancedImageAttachment(
+                        key: ValueKey('user_file_attachment_$imageUrl'),
+                        attachmentId: imageUrl,
+                        isUserMessage: true,
+                        isMarkdownFormat: false,
+                        constraints: const BoxConstraints(
+                          maxWidth: 135,
+                          maxHeight: 180,
+                        ),
+                        disableAnimation: widget.isStreaming,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      );
+    } else {
+      return Row(
+        key: ValueKey(
+          'user_file_grid_${imageFiles.map((e) => e['url']).join('_')}',
+        ),
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Flexible(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 280),
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: Spacing.xs,
+                runSpacing: Spacing.xs,
+                children: imageFiles.map((file) {
+                  final String imageUrl = file['url'] as String;
+                  return Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                      boxShadow: [
+                        BoxShadow(
+                          color: context.conduitTheme.cardShadow.withValues(
+                            alpha: 0.06,
+                          ),
+                          blurRadius: 3,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                      child: EnhancedImageAttachment(
+                        key: ValueKey('user_file_grid_attachment_$imageUrl'),
+                        attachmentId: imageUrl,
+                        isUserMessage: true,
+                        isMarkdownFormat: false,
+                        constraints: BoxConstraints(
+                          maxWidth: imageCount == 3 ? 135 : 90,
+                          maxHeight: imageCount == 3 ? 135 : 90,
+                        ),
+                        disableAnimation: widget.isStreaming,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+  }
+
+  Widget _buildImageLayout(int imageCount) {
+    if (imageCount == 1) {
+      // Single image - larger display
+      return Row(
+        key: ValueKey('user_single_${widget.message.attachmentIds![0]}'),
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(
+                AppBorderRadius.messageBubble,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: context.conduitTheme.cardShadow.withValues(alpha: 0.1),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(
+                AppBorderRadius.messageBubble,
+              ),
               child: EnhancedImageAttachment(
                 attachmentId: widget.message.attachmentIds![0],
                 isUserMessage: true,
-                constraints: const BoxConstraints(maxWidth: 280, maxHeight: 350),
+                constraints: const BoxConstraints(
+                  maxWidth: 280,
+                  maxHeight: 350,
+                ),
                 disableAnimation: widget.isStreaming,
               ),
             ),
@@ -110,24 +287,32 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
           Flexible(
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: widget.message.attachmentIds!.asMap().entries.map((entry) {
+              children: widget.message.attachmentIds!.asMap().entries.map((
+                entry,
+              ) {
                 final index = entry.key;
                 final attachmentId = entry.value;
                 return Padding(
                   padding: EdgeInsets.only(left: index == 0 ? 0 : Spacing.xs),
                   child: Container(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(AppBorderRadius.messageBubble),
+                      borderRadius: BorderRadius.circular(
+                        AppBorderRadius.messageBubble,
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: context.conduitTheme.cardShadow.withValues(alpha: 0.08),
+                          color: context.conduitTheme.cardShadow.withValues(
+                            alpha: 0.08,
+                          ),
                           blurRadius: 4,
                           offset: const Offset(0, 1),
                         ),
                       ],
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(AppBorderRadius.messageBubble),
+                      borderRadius: BorderRadius.circular(
+                        AppBorderRadius.messageBubble,
+                      ),
                       child: EnhancedImageAttachment(
                         key: ValueKey('user_attachment_$attachmentId'),
                         attachmentId: attachmentId,
@@ -165,7 +350,9 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
                       borderRadius: BorderRadius.circular(AppBorderRadius.md),
                       boxShadow: [
                         BoxShadow(
-                          color: context.conduitTheme.cardShadow.withValues(alpha: 0.06),
+                          color: context.conduitTheme.cardShadow.withValues(
+                            alpha: 0.06,
+                          ),
                           blurRadius: 3,
                           offset: const Offset(0, 1),
                         ),
@@ -227,6 +414,11 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
         widget.message.attachmentIds != null &&
         widget.message.attachmentIds!.isNotEmpty;
     final hasText = widget.message.content.isNotEmpty;
+    final hasGeneratedImages =
+        widget.message.files != null &&
+        (widget.message.files as List).any(
+          (f) => f is Map && f['type'] == 'image' && f['url'] != null,
+        );
 
     return GestureDetector(
           onLongPress: () => _toggleActions(),
@@ -243,6 +435,7 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
               children: [
                 // Display images outside and above the text bubble (iMessage style)
                 if (hasImages) ...[_buildUserAttachmentImages()],
+                if (hasGeneratedImages) ...[_buildUserFileImages()],
 
                 // Display text bubble if there's text content
                 if (hasText) const SizedBox(height: Spacing.xs),
