@@ -9,6 +9,7 @@ import '../../../shared/widgets/markdown/streaming_markdown_widget.dart';
 import '../../../core/utils/reasoning_parser.dart';
 import 'enhanced_image_attachment.dart';
 import 'package:conduit/l10n/app_localizations.dart';
+import 'enhanced_attachment.dart';
 
 class AssistantMessageWidget extends ConsumerStatefulWidget {
   final dynamic message;
@@ -281,10 +282,10 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Display attachment images if any (for user uploaded images)
+                    // Display attachments (images use EnhancedImageAttachment; non-images use card)
                     if (widget.message.attachmentIds != null &&
                         widget.message.attachmentIds!.isNotEmpty) ...[
-                      _buildAttachmentImages(),
+                      _buildAttachmentItems(),
                       const SizedBox(height: Spacing.md),
                     ],
 
@@ -371,7 +372,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     return content;
   }
 
-  Widget _buildAttachmentImages() {
+  Widget _buildAttachmentItems() {
     if (widget.message.attachmentIds == null ||
         widget.message.attachmentIds!.isEmpty) {
       return const SizedBox.shrink();
@@ -386,28 +387,27 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
       switchInCurve: Curves.easeInOut,
       child: imageCount == 1
           ? Container(
-              key: ValueKey('single_image_${widget.message.attachmentIds![0]}'),
-              child: EnhancedImageAttachment(
+              key: ValueKey('single_item_${widget.message.attachmentIds![0]}'),
+              child: EnhancedAttachment(
                 attachmentId: widget.message.attachmentIds![0],
                 isMarkdownFormat: true,
                 constraints: const BoxConstraints(
                   maxWidth: 500,
                   maxHeight: 400,
                 ),
-                disableAnimation:
-                    widget.isStreaming, // Disable animation during streaming
+                disableAnimation: widget.isStreaming,
               ),
             )
           : Wrap(
               key: ValueKey(
-                'multi_images_${widget.message.attachmentIds!.join('_')}',
+                'multi_items_${widget.message.attachmentIds!.join('_')}',
               ),
               spacing: Spacing.sm,
               runSpacing: Spacing.sm,
               children: widget.message.attachmentIds!.map<Widget>((
                 attachmentId,
               ) {
-                return EnhancedImageAttachment(
+                return EnhancedAttachment(
                   key: ValueKey('attachment_$attachmentId'),
                   attachmentId: attachmentId,
                   isMarkdownFormat: true,
@@ -415,8 +415,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                     maxWidth: imageCount == 2 ? 245 : 160,
                     maxHeight: imageCount == 2 ? 245 : 160,
                   ),
-                  disableAnimation:
-                      widget.isStreaming, // Disable animation during streaming
+                  disableAnimation: widget.isStreaming,
                 );
               }).toList(),
             ),

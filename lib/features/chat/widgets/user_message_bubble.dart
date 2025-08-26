@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import 'enhanced_image_attachment.dart';
+import 'enhanced_attachment.dart';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -264,7 +265,7 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
               borderRadius: BorderRadius.circular(
                 AppBorderRadius.messageBubble,
               ),
-              child: EnhancedImageAttachment(
+              child: EnhancedAttachment(
                 attachmentId: widget.message.attachmentIds![0],
                 isUserMessage: true,
                 constraints: const BoxConstraints(
@@ -313,7 +314,7 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
                       borderRadius: BorderRadius.circular(
                         AppBorderRadius.messageBubble,
                       ),
-                      child: EnhancedImageAttachment(
+                      child: EnhancedAttachment(
                         key: ValueKey('user_attachment_$attachmentId'),
                         attachmentId: attachmentId,
                         isUserMessage: true,
@@ -360,7 +361,7 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                      child: EnhancedImageAttachment(
+                      child: EnhancedAttachment(
                         key: ValueKey('user_grid_attachment_$attachmentId'),
                         attachmentId: attachmentId,
                         isUserMessage: true,
