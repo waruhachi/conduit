@@ -427,7 +427,7 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
           child: Container(
             width: double.infinity,
             margin: const EdgeInsets.only(
-              bottom: Spacing.sm,
+              bottom: Spacing.md,
               left: Spacing.xxxl,
               right: Spacing.xs,
             ),
@@ -444,47 +444,49 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.82,
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: Spacing.chatBubblePadding,
-                            vertical: Spacing.sm,
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.of(context).size.width * 0.82,
                           ),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                context.conduitTheme.chatBubbleUser.withValues(
-                                  alpha: 0.95,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: Spacing.chatBubblePadding,
+                              vertical: Spacing.sm,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  context.conduitTheme.chatBubbleUser
+                                      .withValues(alpha: 0.95),
+                                  context.conduitTheme.chatBubbleUser,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                AppBorderRadius.messageBubble,
+                              ),
+                              border: Border.all(
+                                color:
+                                    context.conduitTheme.chatBubbleUserBorder,
+                                width: BorderWidth.regular,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.08),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
                                 ),
-                                context.conduitTheme.chatBubbleUser,
                               ],
                             ),
-                            borderRadius: BorderRadius.circular(
-                              AppBorderRadius.messageBubble,
-                            ),
-                            border: Border.all(
-                              color: context.conduitTheme.chatBubbleUserBorder,
-                              width: BorderWidth.regular,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.08),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                            child: Text(
+                              widget.message.content,
+                              style: AppTypography.chatMessageStyle.copyWith(
+                                color: context.conduitTheme.chatBubbleUserText,
                               ),
-                            ],
-                          ),
-                          child: Text(
-                            widget.message.content,
-                            style: AppTypography.chatMessageStyle.copyWith(
-                              color: context.conduitTheme.chatBubbleUserText,
+                              softWrap: true,
                             ),
-                            softWrap: true,
                           ),
                         ),
                       ),

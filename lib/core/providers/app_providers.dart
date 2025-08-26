@@ -743,21 +743,72 @@ final serverSearchProvider = FutureProvider.family<List<Conversation>, String>((
     foundation.debugPrint('DEBUG: Performing server-side search for: "$query"');
 
     // Use the new server-side search API
-    final searchResult = await api.searchChats(
+    final chatHits = await api.searchChats(
       query: query.trim(),
       archived: false, // Only search non-archived conversations
       limit: 50,
       sortBy: 'updated_at',
       sortOrder: 'desc',
     );
+    // chatHits is already List<Conversation>
+    final List<Conversation> conversations = List.of(chatHits);
 
-    // Extract conversations from search result
-    final List<dynamic> conversationsData = searchResult['conversations'] ?? [];
+    // Perform message-level search and merge chat hits
+    try {
+      final messageHits = await api.searchMessages(
+        query: query.trim(),
+        limit: 100,
+      );
 
-    // Convert to Conversation objects
-    final List<Conversation> conversations = conversationsData.map((data) {
-      return Conversation.fromJson(data as Map<String, dynamic>);
-    }).toList();
+      // Build a set of conversation IDs already present from chat search
+      final existingIds = conversations.map((c) => c.id).toSet();
+
+      // Extract chat ids from message hits (supporting multiple key casings)
+      final messageChatIds = <String>{};
+      for (final hit in messageHits) {
+        final chatId =
+            (hit['chat_id'] ?? hit['chatId'] ?? hit['chatID']) as String?;
+        if (chatId != null && chatId.isNotEmpty) {
+          messageChatIds.add(chatId);
+        }
+      }
+
+      // Determine which chat ids we still need to fetch
+      final idsToFetch = messageChatIds
+          .where((id) => !existingIds.contains(id))
+          .toList();
+
+      // Fetch conversations for those ids in parallel (cap to avoid overload)
+      const maxFetch = 50;
+      final fetchList = idsToFetch.take(maxFetch).toList();
+      if (fetchList.isNotEmpty) {
+        foundation.debugPrint(
+          'DEBUG: Fetching ${fetchList.length} conversations from message hits',
+        );
+        final fetched = await Future.wait(
+          fetchList.map((id) async {
+            try {
+              return await api.getConversation(id);
+            } catch (_) {
+              return null;
+            }
+          }),
+        );
+
+        // Merge fetched conversations
+        for (final conv in fetched) {
+          if (conv != null && !existingIds.contains(conv.id)) {
+            conversations.add(conv);
+            existingIds.add(conv.id);
+          }
+        }
+
+        // Optional: sort by updated date desc to keep results consistent
+        conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      }
+    } catch (e) {
+      foundation.debugPrint('DEBUG: Message-level search failed: $e');
+    }
 
     foundation.debugPrint(
       'DEBUG: Server search returned ${conversations.length} results',

@@ -1054,6 +1054,37 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                Opacity(
+                                  opacity: 0.0,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: Spacing.xs,
+                                      vertical: Spacing.xxs,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: context
+                                          .conduitTheme
+                                          .surfaceBackground
+                                          .withValues(alpha: 0.3),
+                                      borderRadius: BorderRadius.circular(
+                                        AppBorderRadius.badge,
+                                      ),
+                                      border: Border.all(
+                                        color:
+                                            context.conduitTheme.dividerColor,
+                                        width: BorderWidth.thin,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Platform.isIOS
+                                          ? CupertinoIcons.chevron_down
+                                          : Icons.keyboard_arrow_down,
+                                      color: context.conduitTheme.iconSecondary,
+                                      size: IconSize.small,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: Spacing.xs),
                                 Flexible(
                                   child: Text(
                                     _formatModelDisplayName(selectedModel.name),
@@ -1151,6 +1182,37 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                Opacity(
+                                  opacity: 0.0,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: Spacing.xs,
+                                      vertical: Spacing.xxs,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: context
+                                          .conduitTheme
+                                          .surfaceBackground
+                                          .withValues(alpha: 0.3),
+                                      borderRadius: BorderRadius.circular(
+                                        AppBorderRadius.badge,
+                                      ),
+                                      border: Border.all(
+                                        color:
+                                            context.conduitTheme.dividerColor,
+                                        width: BorderWidth.thin,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Platform.isIOS
+                                          ? CupertinoIcons.chevron_down
+                                          : Icons.keyboard_arrow_down,
+                                      color: context.conduitTheme.iconSecondary,
+                                      size: IconSize.small,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: Spacing.xs),
                                 Flexible(
                                   child: Text(
                                     'Choose Model',

@@ -3164,7 +3164,7 @@ class ApiService {
   }
 
   /// Advanced search for chats and messages
-  Future<Map<String, dynamic>> searchChats({
+  Future<List<Conversation>> searchChats({
     String? query,
     String? userId,
     String? model,
@@ -3181,7 +3181,8 @@ class ApiService {
   }) async {
     debugPrint('DEBUG: Searching chats with query: $query');
     final queryParams = <String, dynamic>{};
-    if (query != null) queryParams['q'] = query;
+    // OpenAPI expects 'text' for this endpoint; keep extras if server tolerates them
+    if (query != null) queryParams['text'] = query;
     if (userId != null) queryParams['user_id'] = userId;
     if (model != null) queryParams['model'] = model;
     if (tag != null) queryParams['tag'] = tag;
@@ -3199,7 +3200,25 @@ class ApiService {
       '/api/v1/chats/search',
       queryParameters: queryParams,
     );
-    return response.data as Map<String, dynamic>;
+    final data = response.data;
+    // The endpoint can return a List[ChatTitleIdResponse] or a map.
+    // Normalize to a List<Conversation> using our safe parser.
+    if (data is List) {
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map((e) => _parseOpenWebUIChat(e))
+          .toList();
+    }
+    if (data is Map<String, dynamic>) {
+      final list = (data['conversations'] ?? data['items'] ?? data['results']);
+      if (list is List) {
+        return list
+            .whereType<Map<String, dynamic>>()
+            .map((e) => _parseOpenWebUIChat(e))
+            .toList();
+      }
+    }
+    return <Conversation>[];
   }
 
   /// Search within messages content
