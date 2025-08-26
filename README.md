@@ -1,11 +1,21 @@
 # Conduit
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Platforms-iOS%20%7C%20Android-00BFA5" alt="Platforms" />
+  <a href="https://github.com/cogwheel0/conduit/releases">
+    <img src="https://img.shields.io/github/v/release/cogwheel0/conduit?display_name=tag&color=8A2BE2" alt="Latest Release" />
+  </a>
+  <a href="https://github.com/cogwheel0/conduit/releases">
+    <img src="https://img.shields.io/github/downloads/cogwheel0/conduit/total?label=Downloads&color=0A84FF" alt="Downloads" />
+  </a>
+</p>
+
 <div align="center">
   <a href="https://groups.google.com/g/conduit">
     <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" style="height:80px; vertical-align:middle;"/>
   </a>
   <a href="https://apps.apple.com/us/app/conduit-open-webui-client/id6749840287">
-    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" style="height:56px; vertical-align:middle;"/>
+    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" style="height:54px; vertical-align:middle;"/>
   </a>
   <br><br>
 </div>
@@ -13,11 +23,42 @@
 <br>
 
 <p align="center">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" alt="Screenshot 1" width="250" />
-  
+  <video src="fastlane/metadata/android/en-US/videos/conduit-demo.mp4"
+         controls
+         poster="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png"
+         width="300">
+  </video>
 </p>
 
 Conduit is an open-source, cross-platform mobile application for Open-WebUI, providing a native mobile experience for interacting with your self-hosted AI infrastructure.
+
+## Table of Contents
+
+- [Features](#features)
+- [Screenshots](#screenshots)
+- [Requirements](#requirements)
+- [Quickstart](#quickstart)
+- [Installation](#installation)
+- [Building for Release](#building-for-release)
+- [Configuration](#configuration)
+- [Localization (i18n)](#localization-i18n)
+- [Compatibility](#compatibility)
+- [Docs](#docs)
+- [Architecture](#architecture)
+- [Troubleshooting](#troubleshooting)
+- [Security & Privacy](#security--privacy)
+- [Contributing](#contributing)
+- [License](#license)
+- [Support](#support)
+
+## Quickstart
+
+```bash
+git clone https://github.com/cogwheel0/conduit && cd conduit
+flutter pub get
+flutter pub run build_runner build --delete-conflicting-outputs
+flutter run -d ios   # or: -d android
+```
 
 ## Features
 
@@ -33,16 +74,13 @@ Conduit is an open-source, cross-platform mobile application for Open-WebUI, pro
 - **File Uploads**: Support for images and documents (RAG)
 - **Multi-modal Support**: Work with vision models
 - **Secure Storage**: Credentials stored securely using platform keychains
+- **Folder Management**: Organize conversations into folders; create, rename, move, and delete
 
 ## Screenshots
 
-<p align="center">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.png" alt="Screenshot 2" width="200" />
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.png" alt="Screenshot 3" width="200" />
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.png" alt="Screenshot 4" width="200" />
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.png" alt="Screenshot 5" width="200" />
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/6.png" alt="Screenshot 6" width="200" />
-</p>
+| | | | |
+| --- | --- | --- | --- |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.png" alt="Screenshot 2" width="200" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.png" alt="Screenshot 3" width="200" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.png" alt="Screenshot 4" width="200" /> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.png" alt="Screenshot 5" width="200" /> |
 
 ## Requirements
 
@@ -110,67 +148,20 @@ The app will request permissions for:
 
 ## Localization (i18n)
 
-- Supported locales: `en`, `de`, `fr`, `it`.
-- Uses Flutter's `gen_l10n` with ARB files and the `intl` package for date/number formatting.
+See the dedicated documentation: [docs/localization.md](docs/localization.md)
 
-### Install & Generate
+## Compatibility
 
-- Install packages:
-  - `flutter_localizations` (Flutter SDK)
-  - `intl: ^0.20.2`
-- Files are under `lib/l10n/*.arb`. The template is `app_en.arb`.
-- Generate localizations:
-  - `flutter gen-l10n`
-  - or run a full build: `flutter pub get && flutter gen-l10n`
+| Conduit App | Open‑WebUI | Notes |
+| --- | --- | --- |
+| 1.x | 0.3.x+ | Uses OpenAPI schema at `assets/openapi.json` |
 
-### Usage Examples
+## Docs
 
-- Basic text:
-  - `Text(AppLocalizations.of(context)!.appTitle)`
-- With placeholder:
-  - `Text(AppLocalizations.of(context)!.dynamicContentWithPlaceholder('Alex'))`
-- Pluralization:
-  - `Text(AppLocalizations.of(context)!.itemsCount(3))`
-- Date/time formatting:
-  - `final dateText = DateFormat.yMMMMEEEEd(Localizations.localeOf(context).toString()).format(DateTime.now());`
-  - `Text(dateText)`
-- Number formatting:
-  - `final price = NumberFormat.currency(locale: Localizations.localeOf(context).toString(), symbol: '€').format(1234.56);`
-  - `Text(price)`
-
-### Add a New Language
-
-- Create a new ARB file in `lib/l10n/`, e.g. `app_es.arb`.
-- Copy keys from `app_en.arb` and provide translated values.
-- Ensure placeholders and plural rules match the template.
-- Add the locale to `supportedLocales` in `MaterialApp` (see `lib/main.dart`).
-- Regenerate: `flutter gen-l10n`.
-
-### Best Practices
-
-- Key naming: use lowerCamelCase (e.g., `loginButton`, `errorMessage`).
-- Include `@` metadata with `description` for context and `placeholders` with examples.
-- Prefer ICU plural/select syntax in ARB for quantities and genders.
-- Avoid concatenating strings at runtime; use placeholders in ARB.
-
-### In‑App Locale Switching
-
-- Open the Profile page → Settings tile → choose `System`, `English`, `Deutsch`, `Français`, or `Italiano`.
-- Selection persists across app launches.
-
-### Troubleshooting
-
-- Build fails with ARB placeholder errors:
-  - Ensure every placeholder has an example string and correct type.
-- Missing translation at runtime:
-  - Flutter falls back to English; search for hard‑coded strings and replace with `AppLocalizations`.
-- iOS strings not changing:
-  - Restart the app after changing system language or use the in‑app language selector.
-
-### References
-
-- Flutter localization: https://docs.flutter.dev/ui/accessibility-and-localization/internationalization
-- Intl package: https://pub.dev/packages/intl
+- Localization: `docs/localization.md`
+- Architecture (planned): `docs/architecture.md`
+- Theming (planned): `docs/theming.md`
+- Release Process (planned): `docs/release.md`
 
 ## Architecture
 
@@ -203,11 +194,31 @@ lib/
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+Developer workflow:
+
+```bash
+flutter analyze
+flutter pub run build_runner build --delete-conflicting-outputs
+# flutter test  # add when tests are available
+```
+
 1. Fork the project
 2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
 3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
+
+## Troubleshooting
+
+- iOS: ensure recent Xcode, run `cd ios && pod install`, set signing team in Xcode if building on device.
+- Android: minSdk 23+, ensure correct Java and Gradle; if builds fail, try `flutter clean`.
+- Codegen conflicts: `flutter pub run build_runner build --delete-conflicting-outputs`.
+
+## Security & Privacy
+
+- Credentials are stored using platform secure storage (Keychain/Keystore).
+- No analytics or telemetry are collected.
+- Network calls are only made to your configured Open‑WebUI server.
 
 ## License
 
