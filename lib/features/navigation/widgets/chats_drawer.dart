@@ -1098,31 +1098,49 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     if (_isLoadingConversation) return;
     setState(() => _isLoadingConversation = true);
     final navigator = Navigator.of(context);
+    // Capture a provider container detached from this widget's lifecycle so
+    // we can continue to read/write providers after the drawer is closed.
+    final container = ProviderScope.containerOf(context, listen: false);
     try {
       // Mark global loading to show skeletons in chat
-      ref.read(chat.isLoadingConversationProvider.notifier).state = true;
+      container.read(chat.isLoadingConversationProvider.notifier).state = true;
       _pendingConversationId = id;
 
-      final api = ref.read(apiServiceProvider);
+      // Immediately clear current chat to show loading skeleton in the chat view
+      container.read(activeConversationProvider.notifier).state = null;
+      container.read(chat.chatMessagesProvider.notifier).clearMessages();
+
+      // Close the drawer immediately for faster perceived performance
+      if (mounted) {
+        // Prefer closing the Scaffold's drawer to avoid popping other routes
+        final scaffold = Scaffold.maybeOf(context);
+        if (scaffold?.isDrawerOpen == true) {
+          scaffold!.closeDrawer();
+        } else {
+          navigator.maybePop();
+        }
+      }
+
+      // Load the full conversation details in the background
+      final api = container.read(apiServiceProvider);
       if (api != null) {
         final full = await api.getConversation(id);
-        ref.read(activeConversationProvider.notifier).state = full;
+        container.read(activeConversationProvider.notifier).state = full;
       } else {
-        // Fallback: let ChatPage handle if API missing
-        ref.read(activeConversationProvider.notifier).state = (await ref.read(
+        // Fallback: use the lightweight item to update the active conversation
+        container
+            .read(activeConversationProvider.notifier)
+            .state = (await container.read(
           conversationsProvider.future,
         )).firstWhere((c) => c.id == id);
       }
 
-      // Clear global loading before closing drawer
-      ref.read(chat.isLoadingConversationProvider.notifier).state = false;
+      // Clear loading after data is ready
+      container.read(chat.isLoadingConversationProvider.notifier).state = false;
       _pendingConversationId = null;
-
-      if (mounted) navigator.maybePop();
     } catch (_) {
-      ref.read(chat.isLoadingConversationProvider.notifier).state = false;
+      container.read(chat.isLoadingConversationProvider.notifier).state = false;
       _pendingConversationId = null;
-      if (mounted) navigator.maybePop();
     } finally {
       if (mounted) setState(() => _isLoadingConversation = false);
     }
