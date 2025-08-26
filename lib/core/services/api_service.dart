@@ -2442,6 +2442,14 @@ class ApiService {
       debugPrint('DEBUG: Including tool_ids in SSE request: $toolIds');
     }
 
+    // Include non-image files at the top level as expected by Open WebUI
+    if (allFiles.isNotEmpty) {
+      data['files'] = allFiles;
+      debugPrint(
+        'DEBUG: Including non-image files in request: ${allFiles.length}',
+      );
+    }
+
     // Don't add session_id or id - they break SSE streaming!
     // The server falls back to task-based async when these are present
 

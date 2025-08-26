@@ -37,9 +37,15 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
 
       // Only react when the conversation actually changes
       if (previous?.id == next?.id) {
-        // If same conversation but server updated it (e.g., title/content), sync messages without flicker
+        // If same conversation but server updated it (e.g., title/content), avoid overwriting
+        // locally streamed assistant content with an outdated server copy.
         if (previous?.updatedAt != next?.updatedAt) {
-          state = next?.messages ?? state;
+          final serverMessages = next?.messages ?? const [];
+          // Only replace local messages if the server has strictly more messages
+          // (i.e., includes new content we don't have yet).
+          if (serverMessages.length > state.length) {
+            state = serverMessages;
+          }
         }
         return;
       }
