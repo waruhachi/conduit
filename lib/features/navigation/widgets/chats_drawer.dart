@@ -75,9 +75,11 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Spacing.md,
-              vertical: Spacing.sm,
+            padding: const EdgeInsets.fromLTRB(
+              Spacing.md,
+              0,
+              Spacing.md,
+              Spacing.sm,
             ),
             child: Row(
               children: [
