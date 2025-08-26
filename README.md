@@ -1,23 +1,21 @@
 # Conduit
 
 <p align="center">
-  <span style="display:inline-block; line-height:0; vertical-align:middle;">
-    <img src="https://img.shields.io/badge/Platforms-iOS%20%7C%20Android-00BFA5" alt="Platforms" />
-  </span>
-  <a href="https://github.com/cogwheel0/conduit/releases" style="text-decoration:none; line-height:0; display:inline-block; vertical-align:middle;">
-    <img src="https://img.shields.io/github/v/release/cogwheel0/conduit?display_name=tag&color=8A2BE2" alt="Latest Release" />
+  <img src="https://img.shields.io/badge/Platforms-iOS%20%7C%20Android-00BFA5" alt="Platforms" style="vertical-align:middle; display:inline-block;"/>
+  <a href="https://github.com/cogwheel0/conduit/releases" style="text-decoration:none;">
+    <img src="https://img.shields.io/github/v/release/cogwheel0/conduit?display_name=tag&color=8A2BE2" alt="Latest Release" style="vertical-align:middle; display:inline-block;"/>
   </a>
-  <a href="https://github.com/cogwheel0/conduit/releases" style="text-decoration:none; line-height:0; display:inline-block; vertical-align:middle;">
-    <img src="https://img.shields.io/github/downloads/cogwheel0/conduit/total?label=Downloads&color=0A84FF" alt="Downloads" />
+  <a href="https://github.com/cogwheel0/conduit/releases" style="text-decoration:none;">
+    <img src="https://img.shields.io/github/downloads/cogwheel0/conduit/total?label=Downloads&color=0A84FF" alt="Downloads" style="vertical-align:middle; display:inline-block;"/>
   </a>
 </p>
 
 <div align="center">
-  <a href="https://groups.google.com/g/conduit" style="text-decoration:none; line-height:0; display:inline-block;">
-    <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" style="height:80px; vertical-align:middle;"/>
+  <a href="https://groups.google.com/g/conduit" style="text-decoration:none; display:inline-block;">
+    <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" style="height:80px; vertical-align:middle; margin:0 6px;"/>
   </a>
-  <a href="https://apps.apple.com/us/app/conduit-open-webui-client/id6749840287" style="text-decoration:none; line-height:0; display:inline-block;">
-    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" style="height:54px; vertical-align:middle;"/>
+  <a href="https://apps.apple.com/us/app/conduit-open-webui-client/id6749840287" style="text-decoration:none; display:inline-block;">
+    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" style="height:54px; vertical-align:middle; margin:0 6px;"/>
   </a>
   <br><br>
 </div>
@@ -25,11 +23,8 @@
 <br>
 
 <p align="center">
-  <video src="fastlane/metadata/android/en-US/videos/conduit-demo.mp4?raw=1"
-         controls
-         poster="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png"
-         width="300">
-  </video>
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" alt="Screenshot 1" width="250" />
+  
 </p>
 
 Conduit is an open-source, cross-platform mobile application for Open-WebUI, providing a native mobile experience for interacting with your self-hosted AI infrastructure.
