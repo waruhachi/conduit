@@ -5,8 +5,8 @@
 ![Latest Release](https://img.shields.io/github/v/release/cogwheel0/conduit?display_name=tag&color=8A2BE2)
 ![GitHub all downloads](https://img.shields.io/github/downloads/cogwheel0/conduit/total?style=flat-square&label=Downloads&logo=github&color=0A84FF)
 
-[<img alt="Get it on Google Play" src="https://github.com/pioug/google-play-badges/raw/refs/heads/main/svg/English.svg" height="54"/>](https://groups.google.com/g/conduit)
-[<img alt="Get it on Apple Store" src="https://toolbox.marketingtools.apple.com/api/assets/featured-content/apps/badges/badge-2/en-us.svg" height="54"/>](https://apps.apple.com/us/app/conduit-open-webui-client/id6749840287)
+[<img alt="Get it on Google Play" src="https://github.com/pioug/google-play-badges/raw/refs/heads/main/svg/English.svg" height="56"/>](https://groups.google.com/g/conduit)
+[<img alt="Get it on Apple Store" src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" height="56"/>](https://apps.apple.com/us/app/conduit-open-webui-client/id6749840287)
 
 </div>
 
