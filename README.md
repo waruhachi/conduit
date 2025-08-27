@@ -1,31 +1,22 @@
 # Conduit
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Platforms-iOS%20%7C%20Android-00BFA5" alt="Platforms" style="vertical-align:middle; display:inline-block;"/>
-  <a href="https://github.com/cogwheel0/conduit/releases" style="text-decoration:none;">
-    <img src="https://img.shields.io/github/v/release/cogwheel0/conduit?display_name=tag&color=8A2BE2" alt="Latest Release" style="vertical-align:middle; display:inline-block;"/>
-  </a>
-  <a href="https://github.com/cogwheel0/conduit/releases" style="text-decoration:none;">
-    <img src="https://img.shields.io/github/downloads/cogwheel0/conduit/total?label=Downloads&color=0A84FF" alt="Downloads" style="vertical-align:middle; display:inline-block;"/>
-  </a>
-</p>
-
 <div align="center">
-  <a href="https://groups.google.com/g/conduit" style="text-decoration:none; display:inline-block;">
-    <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" style="height:80px; vertical-align:middle; margin:0 6px;"/>
-  </a>
-  <a href="https://apps.apple.com/us/app/conduit-open-webui-client/id6749840287" style="text-decoration:none; display:inline-block;">
-    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" style="height:54px; vertical-align:middle; margin:0 6px;"/>
-  </a>
-  <br><br>
+
+![Latest Release](https://img.shields.io/github/v/release/cogwheel0/conduit?display_name=tag&color=8A2BE2)
+![GitHub all downloads](https://img.shields.io/github/downloads/cogwheel0/conduit/total?style=flat-square&label=Downloads&logo=github&color=0A84FF)
+
+[<img alt="Get it on Google Play" src="https://github.com/pioug/google-play-badges/raw/refs/heads/main/svg/English.svg" height="54"/>](https://groups.google.com/g/conduit)
+[<img alt="Get it on Apple Store" src="https://toolbox.marketingtools.apple.com/api/assets/featured-content/apps/badges/badge-2/en-us.svg" height="54"/>](https://apps.apple.com/us/app/conduit-open-webui-client/id6749840287)
+
 </div>
 
 <br>
 
-<p align="center">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" alt="Screenshot 1" width="250" />
-  
-</p>
+<div align="center">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" alt="App Demo" width="250" />
+</div>
+
+<br>
 
 Conduit is an open-source, cross-platform mobile application for Open-WebUI, providing a native mobile experience for interacting with your self-hosted AI infrastructure.
 
