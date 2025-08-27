@@ -18,9 +18,7 @@
 <br>
 
 <div align="center">
-
-![Conduit Demo](fastlane/metadata/en-US/images/conduit-demo.gif)
-
+<img src="fastlane/metadata/en-US/images/conduit-demo.gif" alt="Conduit Demo" style="height:600px;"/>
 </div>
 
 <br>
