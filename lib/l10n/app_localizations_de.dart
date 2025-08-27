@@ -178,7 +178,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String get password => 'Passwort';
 
   @override
+  String get usernameOrEmailHint => 'Gib deinen Benutzernamen oder deine E‑Mail ein';
+
+  @override
+  String get passwordHint => 'Gib dein Passwort ein';
+
+  @override
   String get signInWithApiKey => 'Mit API-Schlüssel anmelden';
+
+  @override
+  String get enterApiKey => 'Gib deinen API-Schlüssel ein';
+  
+  @override
+  String get signingIn => 'Anmeldung läuft...';
 
   @override
   String get connectToServer => 'Mit Server verbinden';
@@ -212,6 +224,51 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get removeHeader => 'Header entfernen';
+
+  @override
+  String get advancedSettings => 'Erweiterte Einstellungen';
+
+  @override
+  String get customHeaders => 'Benutzerdefinierte Header';
+
+  @override
+  String get customHeadersDescription =>
+      'Füge benutzerdefinierte HTTP-Header für Authentifizierung, API-Schlüssel oder spezielle Serveranforderungen hinzu.';
+
+  @override
+  String get headerNameEmpty => 'Header-Name darf nicht leer sein';
+
+  @override
+  String get headerNameTooLong => 'Header-Name zu lang (max. 64 Zeichen)';
+
+  @override
+  String get headerNameInvalidChars =>
+      'Ungültiger Header-Name. Verwende nur Buchstaben, Zahlen und diese Symbole: !#\$&-^_`|~';
+
+  @override
+  String headerNameReserved(String key) => 'Reservierter Header "$key" kann nicht überschrieben werden';
+
+  @override
+  String get headerValueEmpty => 'Header-Wert darf nicht leer sein';
+
+  @override
+  String get headerValueTooLong => 'Header-Wert zu lang (max. 1024 Zeichen)';
+
+  @override
+  String get headerValueInvalidChars =>
+      'Header-Wert enthält ungültige Zeichen. Verwende nur druckbare ASCII-Zeichen.';
+
+  @override
+  String get headerValueUnsafe =>
+      'Header-Wert scheint potenziell unsicheren Inhalt zu enthalten';
+
+  @override
+  String headerAlreadyExists(String key) =>
+      'Header "$key" existiert bereits. Entferne ihn zuerst, um ihn zu aktualisieren.';
+
+  @override
+  String get maxHeadersReachedDetail =>
+      'Maximal 10 benutzerdefinierte Header erlaubt. Entferne einige, um weitere hinzuzufügen.';
 
   @override
   String get connecting => 'Verbindung wird hergestellt...';

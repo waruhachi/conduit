@@ -404,18 +404,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Username or Email'**
   String get usernameOrEmail;
-
+  
   /// No description provided for @password.
   ///
   /// In en, this message translates to:
   /// **'Password'**
   String get password;
 
+  /// No description provided for @usernameOrEmailHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your username or email'**
+  String get usernameOrEmailHint;
+
+  /// No description provided for @passwordHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your password'**
+  String get passwordHint;
+
   /// No description provided for @signInWithApiKey.
   ///
   /// In en, this message translates to:
   /// **'Sign in with API Key'**
   String get signInWithApiKey;
+
+  /// No description provided for @enterApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your API key'**
+  String get enterApiKey;
+
+  /// No description provided for @signingIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing in...'**
+  String get signingIn;
 
   /// No description provided for @connectToServer.
   ///
@@ -483,6 +507,84 @@ abstract class AppLocalizations {
   /// **'Remove header'**
   String get removeHeader;
 
+  /// No description provided for @advancedSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced Settings'**
+  String get advancedSettings;
+
+  /// No description provided for @customHeaders.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Headers'**
+  String get customHeaders;
+
+  /// No description provided for @customHeadersDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Add custom HTTP headers for authentication, API keys, or special server requirements.'**
+  String get customHeadersDescription;
+
+  /// No description provided for @headerNameEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Header name cannot be empty'**
+  String get headerNameEmpty;
+
+  /// No description provided for @headerNameTooLong.
+  ///
+  /// In en, this message translates to:
+  /// **'Header name too long (max 64 characters)'**
+  String get headerNameTooLong;
+
+  /// No description provided for @headerNameInvalidChars.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid header name. Use only letters, numbers, and these symbols: !#\$&-^_`|~'**
+  String get headerNameInvalidChars;
+
+  /// No description provided for @headerNameReserved.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot override reserved header "{key}"'**
+  String headerNameReserved(String key);
+
+  /// No description provided for @headerValueEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Header value cannot be empty'**
+  String get headerValueEmpty;
+
+  /// No description provided for @headerValueTooLong.
+  ///
+  /// In en, this message translates to:
+  /// **'Header value too long (max 1024 characters)'**
+  String get headerValueTooLong;
+
+  /// No description provided for @headerValueInvalidChars.
+  ///
+  /// In en, this message translates to:
+  /// **'Header value contains invalid characters. Use only printable ASCII.'**
+  String get headerValueInvalidChars;
+
+  /// No description provided for @headerValueUnsafe.
+  ///
+  /// In en, this message translates to:
+  /// **'Header value appears to contain potentially unsafe content'**
+  String get headerValueUnsafe;
+
+  /// No description provided for @headerAlreadyExists.
+  ///
+  /// In en, this message translates to:
+  /// **'Header "{key}" already exists. Remove it first to update.'**
+  String headerAlreadyExists(String key);
+
+  /// No description provided for @maxHeadersReachedDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum of 10 custom headers allowed. Remove some to add more.'**
+  String get maxHeadersReachedDetail;
+  
   /// No description provided for @connecting.
   ///
   /// In en, this message translates to:

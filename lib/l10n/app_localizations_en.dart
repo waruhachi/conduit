@@ -178,7 +178,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get password => 'Password';
 
   @override
+  String get usernameOrEmailHint => 'Enter your username or email';
+
+  @override
+  String get passwordHint => 'Enter your password';
+
+  @override
   String get signInWithApiKey => 'Sign in with API Key';
+
+  @override
+  String get enterApiKey => 'Enter your API key';
+  
+  @override
+  String get signingIn => 'Signing in...';
 
   @override
   String get connectToServer => 'Connect to Server';
@@ -212,6 +224,51 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get removeHeader => 'Remove header';
+
+  @override
+  String get advancedSettings => 'Advanced Settings';
+
+  @override
+  String get customHeaders => 'Custom Headers';
+
+  @override
+  String get customHeadersDescription =>
+      'Add custom HTTP headers for authentication, API keys, or special server requirements.';
+
+  @override
+  String get headerNameEmpty => 'Header name cannot be empty';
+
+  @override
+  String get headerNameTooLong => 'Header name too long (max 64 characters)';
+
+  @override
+  String get headerNameInvalidChars =>
+      'Invalid header name. Use only letters, numbers, and these symbols: !#\$&-^_`|~';
+
+  @override
+  String headerNameReserved(String key) => 'Cannot override reserved header "$key"';
+
+  @override
+  String get headerValueEmpty => 'Header value cannot be empty';
+
+  @override
+  String get headerValueTooLong => 'Header value too long (max 1024 characters)';
+
+  @override
+  String get headerValueInvalidChars =>
+      'Header value contains invalid characters. Use only printable ASCII.';
+
+  @override
+  String get headerValueUnsafe =>
+      'Header value appears to contain potentially unsafe content';
+
+  @override
+  String headerAlreadyExists(String key) =>
+      'Header "$key" already exists. Remove it first to update.';
+
+  @override
+  String get maxHeadersReachedDetail =>
+      'Maximum of 10 custom headers allowed. Remove some to add more.';
 
   @override
   String get connecting => 'Connecting...';

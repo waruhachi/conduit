@@ -178,7 +178,19 @@ class AppLocalizationsIt extends AppLocalizations {
   String get password => 'Password';
 
   @override
+  String get usernameOrEmailHint => 'Inserisci il tuo username o e‑mail';
+
+  @override
+  String get passwordHint => 'Inserisci la password';
+
+  @override
   String get signInWithApiKey => 'Accedi con chiave API';
+
+  @override
+  String get enterApiKey => 'Inserisci la tua chiave API';
+  
+  @override
+  String get signingIn => 'Accesso in corso...';
 
   @override
   String get connectToServer => 'Connetti al server';
@@ -212,6 +224,52 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get removeHeader => 'Rimuovi header';
+
+  @override
+  String get advancedSettings => 'Impostazioni avanzate';
+
+  @override
+  String get customHeaders => 'Header personalizzati';
+
+  @override
+  String get customHeadersDescription =>
+      'Aggiungi header HTTP personalizzati per autenticazione, chiavi API o requisiti speciali del server.';
+
+  @override
+  String get headerNameEmpty => 'Il nome header non può essere vuoto';
+
+  @override
+  String get headerNameTooLong => 'Nome header troppo lungo (max 64 caratteri)';
+
+  @override
+  String get headerNameInvalidChars =>
+      'Nome header non valido. Usa solo lettere, numeri e questi simboli: !#\$&-^_`|~';
+
+  @override
+  String headerNameReserved(String key) =>
+      'Impossibile sovrascrivere l\'header riservato "$key"';
+
+  @override
+  String get headerValueEmpty => 'Il valore header non può essere vuoto';
+
+  @override
+  String get headerValueTooLong => 'Valore header troppo lungo (max 1024 caratteri)';
+
+  @override
+  String get headerValueInvalidChars =>
+      'Il valore header contiene caratteri non validi. Usa solo ASCII stampabile.';
+
+  @override
+  String get headerValueUnsafe =>
+      'Il valore header sembra contenere contenuto potenzialmente non sicuro';
+
+  @override
+  String headerAlreadyExists(String key) =>
+      'L\'header "$key" esiste già. Rimuovilo prima per aggiornarlo.';
+
+  @override
+  String get maxHeadersReachedDetail =>
+      'Massimo 10 header personalizzati consentiti. Rimuovine alcuni per aggiungerne altri.';
 
   @override
   String get connecting => 'Connessione in corso...';

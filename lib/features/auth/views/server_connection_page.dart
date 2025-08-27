@@ -360,7 +360,7 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
                 Positioned(
                   bottom: 0,
                   child: ConduitBadge(
-                    text: 'Demo',
+                    text: AppLocalizations.of(context)!.demoBadge,
                     backgroundColor: context.conduitTheme.warning.withValues(alpha: 0.15),
                     textColor: context.conduitTheme.warning,
                     isCompact: true,
@@ -425,7 +425,7 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Demo Mode Active',
+                      AppLocalizations.of(context)!.demoModeActive,
                       style: context.conduitTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: context.conduitTheme.warning,
@@ -433,7 +433,7 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
                     ),
                     const SizedBox(height: Spacing.xs),
                     Text(
-                      'Skip server setup and try the demo',
+                      AppLocalizations.of(context)!.skipServerSetupTryDemo,
                       style: context.conduitTheme.bodySmall?.copyWith(
                         color: context.conduitTheme.textSecondary,
                       ),
@@ -445,7 +445,7 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
           ),
           const SizedBox(height: Spacing.lg),
           ConduitButton(
-            text: 'Enter Demo',
+            text: AppLocalizations.of(context)!.enterDemo,
             icon: Platform.isIOS ? CupertinoIcons.play_fill : Icons.play_arrow,
             onPressed: () {
               Navigator.of(context).push(
@@ -470,15 +470,15 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AccessibleFormField(
-            label: 'Server URL',
-            hint: 'https://your-server.com',
+            label: AppLocalizations.of(context)!.serverUrl,
+            hint: AppLocalizations.of(context)!.serverUrlHint,
             controller: _urlController,
             validator: InputValidationService.combine([
               InputValidationService.validateRequired,
               (value) => InputValidationService.validateUrl(value, required: true),
             ]),
             keyboardType: TextInputType.url,
-            semanticLabel: 'Enter your server URL or IP address',
+            semanticLabel: AppLocalizations.of(context)!.enterServerUrlSemantic,
             onSubmitted: (_) => _connectToServer(),
             prefixIcon: Icon(
               Platform.isIOS ? CupertinoIcons.globe : Icons.public,
@@ -533,7 +533,7 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Advanced Settings',
+                              AppLocalizations.of(context)!.advancedSettings,
                               style: context.conduitTheme.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -582,7 +582,7 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Custom Headers',
+              AppLocalizations.of(context)!.customHeaders,
               style: context.conduitTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -600,7 +600,7 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
         ),
         const SizedBox(height: Spacing.xs),
         Text(
-          'Add custom HTTP headers for authentication, API keys, or special server requirements.',
+          AppLocalizations.of(context)!.customHeadersDescription,
           style: context.conduitTheme.bodySmall?.copyWith(
             color: context.conduitTheme.textSecondary,
           ),
@@ -787,13 +787,13 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
     
     // Check for duplicates
     if (_customHeaders.containsKey(key)) {
-      _showHeaderError('Header "$key" already exists. Remove it first to update.');
+      _showHeaderError(AppLocalizations.of(context)!.headerAlreadyExists(key));
       return;
     }
     
     // Check header count limit
     if (_customHeaders.length >= 10) {
-      _showHeaderError('Maximum of 10 custom headers allowed. Remove some to add more.');
+      _showHeaderError(AppLocalizations.of(context)!.maxHeadersReachedDetail);
       return;
     }
     
@@ -807,47 +807,47 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
 
   String? _validateHeaderKey(String key) {
     // RFC 7230 compliant header name validation
-    if (key.isEmpty) return 'Header name cannot be empty';
-    if (key.length > 64) return 'Header name too long (max 64 characters)';
+    if (key.isEmpty) return AppLocalizations.of(context)!.headerNameEmpty;
+    if (key.length > 64) return AppLocalizations.of(context)!.headerNameTooLong;
     
     // Check for valid characters (RFC 7230: token characters)
     if (!RegExp(r'^[a-zA-Z0-9!#$&\-^_`|~]+$').hasMatch(key)) {
-      return 'Invalid header name. Use only letters, numbers, and these symbols: !#\$&-^_`|~';
+      return AppLocalizations.of(context)!.headerNameInvalidChars;
     }
     
     // Check for reserved headers that should not be overridden
     final lowerKey = key.toLowerCase();
     final reservedHeaders = {
-      'authorization', 'content-type', 'content-length', 'host', 
+      'authorization', 'content-type', 'content-length', 'host',
       'user-agent', 'accept', 'accept-encoding', 'connection',
       'transfer-encoding', 'upgrade', 'via', 'warning'
     };
     
     if (reservedHeaders.contains(lowerKey)) {
-      return 'Cannot override reserved header "$key"';
+      return AppLocalizations.of(context)!.headerNameReserved(key);
     }
     
     return null;
   }
 
   String? _validateHeaderValue(String value) {
-    if (value.isEmpty) return 'Header value cannot be empty';
-    if (value.length > 1024) return 'Header value too long (max 1024 characters)';
+    if (value.isEmpty) return AppLocalizations.of(context)!.headerValueEmpty;
+    if (value.length > 1024) return AppLocalizations.of(context)!.headerValueTooLong;
     
     // Check for valid characters (no control characters except tab)
     for (int i = 0; i < value.length; i++) {
       final char = value.codeUnitAt(i);
       // Allow printable ASCII (32-126) and tab (9)
       if (char != 9 && (char < 32 || char > 126)) {
-        return 'Header value contains invalid characters. Use only printable ASCII.';
+        return AppLocalizations.of(context)!.headerValueInvalidChars;
       }
     }
     
     // Check for security-sensitive patterns
-    if (value.toLowerCase().contains('script') || 
-        value.contains('<') || 
+    if (value.toLowerCase().contains('script') ||
+        value.contains('<') ||
         value.contains('>')) {
-      return 'Header value appears to contain potentially unsafe content';
+      return AppLocalizations.of(context)!.headerValueUnsafe;
     }
     
     return null;

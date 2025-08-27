@@ -483,7 +483,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
             ),
           ]),
           obscureText: _obscurePassword,
-          semanticLabel: 'Enter your API key',
+          semanticLabel: AppLocalizations.of(context)!.enterApiKey,
           prefixIcon: Icon(
             Platform.isIOS
                 ? CupertinoIcons.lock_shield
@@ -516,14 +516,14 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
       children: [
         AccessibleFormField(
           label: AppLocalizations.of(context)!.usernameOrEmail,
-          hint: 'Enter your username or email',
+          hint: AppLocalizations.of(context)!.usernameOrEmailHint,
           controller: _usernameController,
           validator: InputValidationService.combine([
             InputValidationService.validateRequired,
             (value) => InputValidationService.validateEmailOrUsername(value),
           ]),
           keyboardType: TextInputType.emailAddress,
-          semanticLabel: 'Enter your username or email',
+          semanticLabel: AppLocalizations.of(context)!.usernameOrEmailHint,
           prefixIcon: Icon(
             Platform.isIOS ? CupertinoIcons.person : Icons.person_outline,
             color: context.conduitTheme.iconSecondary,
@@ -534,18 +534,18 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
         const SizedBox(height: Spacing.lg),
         AccessibleFormField(
           label: AppLocalizations.of(context)!.password,
-          hint: 'Enter your password',
+          hint: AppLocalizations.of(context)!.passwordHint,
           controller: _passwordController,
           validator: InputValidationService.combine([
             InputValidationService.validateRequired,
             (value) => InputValidationService.validateMinLength(
               value,
               1,
-              fieldName: 'Password',
+              fieldName: AppLocalizations.of(context)!.password,
             ),
           ]),
           obscureText: _obscurePassword,
-          semanticLabel: 'Enter your password',
+          semanticLabel: AppLocalizations.of(context)!.passwordHint,
           prefixIcon: Icon(
             Platform.isIOS ? CupertinoIcons.lock : Icons.lock_outline,
             color: context.conduitTheme.iconSecondary,
@@ -576,7 +576,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
       child:
           ConduitButton(
             text: _isSigningIn
-                ? 'Signing in...'
+                ? AppLocalizations.of(context)!.signingIn
                 : _useApiKey
                 ? AppLocalizations.of(context)!.signInWithApiKey
                 : AppLocalizations.of(context)!.signIn,
