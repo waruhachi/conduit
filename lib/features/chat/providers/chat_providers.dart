@@ -21,6 +21,9 @@ final chatMessagesProvider =
 // Loading state for conversation (used to show chat skeletons during fetch)
 final isLoadingConversationProvider = StateProvider<bool>((ref) => false);
 
+// Prefilled input text (e.g., when sharing text from other apps)
+final prefilledInputTextProvider = StateProvider<String?>((ref) => null);
+
 class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
   final Ref _ref;
   StreamSubscription? _messageStream;
@@ -446,6 +449,16 @@ Future<void> regenerateMessage(
 // Send message function for widgets
 Future<void> sendMessage(
   WidgetRef ref,
+  String message,
+  List<String>? attachments, [
+  List<String>? toolIds,
+]) async {
+  await _sendMessageInternal(ref, message, attachments, toolIds);
+}
+
+// Service-friendly wrapper (accepts generic Ref)
+Future<void> sendMessageFromService(
+  Ref ref,
   String message,
   List<String>? attachments, [
   List<String>? toolIds,

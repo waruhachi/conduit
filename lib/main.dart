@@ -18,6 +18,7 @@ import 'features/onboarding/views/onboarding_sheet.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import 'features/chat/views/chat_page.dart';
 import 'features/navigation/views/splash_launcher_page.dart';
+import 'core/services/share_receiver_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -66,6 +67,9 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
 
     // Ensure API service auth integration is active
     ref.read(authApiIntegrationProvider);
+
+    // Initialize OS share receiver so users can share text/files to Conduit
+    ref.read(shareReceiverInitializerProvider);
   }
 
   @override

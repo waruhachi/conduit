@@ -1,0 +1,172 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_handler/share_handler.dart' as sh;
+
+import '../../features/auth/providers/unified_auth_providers.dart';
+import '../../features/chat/providers/chat_providers.dart';
+import '../../features/chat/services/file_attachment_service.dart';
+import '../../core/providers/app_providers.dart';
+
+/// Lightweight payload for a share event
+class SharedPayload {
+  final String? text;
+  final List<String> filePaths;
+  const SharedPayload({this.text, this.filePaths = const []});
+
+  bool get hasAnything =>
+      (text != null && text!.trim().isNotEmpty) || filePaths.isNotEmpty;
+}
+
+/// Holds a pending shared payload until the app is ready (e.g., authed + model loaded)
+final pendingSharedPayloadProvider = StateProvider<SharedPayload?>((_) => null);
+
+/// Initializes listening to OS share intents and handles them
+final shareReceiverInitializerProvider = Provider<void>((ref) {
+  // Do nothing on web/desktop
+  if (kIsWeb) return;
+
+  final sub = StreamController<SharedPayload>.broadcast();
+
+  // Listen for app readiness: authenticated and model available
+  void maybeProcessPending() {
+    final navState = ref.read(authNavigationStateProvider);
+    final model = ref.read(selectedModelProvider);
+    final pending = ref.read(pendingSharedPayloadProvider);
+    if (pending != null &&
+        pending.hasAnything &&
+        navState == AuthNavigationState.authenticated &&
+        model != null) {
+      _processPayload(ref, pending);
+      ref.read(pendingSharedPayloadProvider.notifier).state = null;
+    }
+  }
+
+  // React when auth/model changes to process a queued share
+  ref.listen<AuthNavigationState>(
+    authNavigationStateProvider,
+    (_, __) => maybeProcessPending(),
+  );
+  ref.listen(selectedModelProvider, (_, __) => maybeProcessPending());
+
+  // Hook into share_handler
+  final handler = sh.ShareHandler.instance;
+
+  // Handle initial share when app is cold-started via Share
+  Future.microtask(() async {
+    try {
+      final dynamic media = await handler.getInitialSharedMedia();
+      final payload = _toPayload(media);
+      if (payload.hasAnything) {
+        ref.read(pendingSharedPayloadProvider.notifier).state = payload;
+        maybeProcessPending();
+      }
+    } catch (e) {
+      debugPrint('ShareReceiver: failed to get initial shared media: $e');
+    }
+  });
+
+  // Handle subsequent shares while app is alive
+  final streamSub = handler.sharedMediaStream.listen((dynamic media) {
+    try {
+      final payload = _toPayload(media);
+      if (payload.hasAnything) {
+        ref.read(pendingSharedPayloadProvider.notifier).state = payload;
+        maybeProcessPending();
+      }
+    } catch (e) {
+      debugPrint('ShareReceiver: failed to parse shared media: $e');
+    }
+  });
+
+  // Ensure cleanup
+  ref.onDispose(() async {
+    await streamSub.cancel();
+    await sub.close();
+  });
+});
+
+SharedPayload _toPayload(dynamic media) {
+  if (media == null) return const SharedPayload();
+
+  String? text;
+  final filePaths = <String>[];
+
+  try {
+    // Common field in share_handler: `content` (String?)
+    text = (media as dynamic).content as String?;
+  } catch (_) {
+    try {
+      // Some plugins use `text`
+      text = (media as dynamic).text as String?;
+    } catch (_) {}
+  }
+
+  try {
+    final list = (media as dynamic).attachments as List<dynamic>?;
+    if (list != null) {
+      for (final att in list) {
+        try {
+          final p = (att as dynamic).path as String?;
+          if (p != null && p.isNotEmpty) filePaths.add(p);
+        } catch (_) {
+          // Ignore a malformed entry
+        }
+      }
+    }
+  } catch (_) {
+    // Older plugins may call it files
+    try {
+      final list = (media as dynamic).files as List<dynamic>?;
+      if (list != null) {
+        for (final att in list) {
+          try {
+            final p = (att as dynamic).path as String?;
+            if (p != null && p.isNotEmpty) filePaths.add(p);
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
+
+  return SharedPayload(text: text, filePaths: filePaths);
+}
+
+Future<void> _processPayload(Ref ref, SharedPayload payload) async {
+  try {
+    // Start a fresh chat context but do NOT auto-send
+    startNewChat(ref);
+
+    // Prefer attaching files to the composer so user can add text before sending
+    if (payload.filePaths.isNotEmpty) {
+      final svc = ref.read(fileAttachmentServiceProvider);
+      if (svc != null) {
+        // Add files to attachment list and kick off uploads, mirroring UI flow
+        final files = payload.filePaths.map((p) => File(p)).toList();
+        if (files.isNotEmpty) {
+          ref.read(attachedFilesProvider.notifier).addFiles(files);
+
+          for (final file in files) {
+            final uploadStream = svc.uploadFile(file);
+            uploadStream.listen((state) {
+              ref
+                  .read(attachedFilesProvider.notifier)
+                  .updateFileState(file.path, state);
+            }, onError: (_) {});
+          }
+        }
+      }
+    }
+
+    // Prefill text in the composer (do not auto-send)
+    final text = payload.text?.trim();
+    if (text != null && text.isNotEmpty) {
+      ref.read(prefilledInputTextProvider.notifier).state = text;
+    }
+    // This allows the user to add a caption before sending
+  } catch (e) {
+    debugPrint('ShareReceiver: failed to process payload: $e');
+  }
+}

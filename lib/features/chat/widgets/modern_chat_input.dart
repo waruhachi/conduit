@@ -185,6 +185,20 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       vsync: this,
     );
 
+    // Listen for prefilled text updates (e.g., from share intent)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final text = ref.read(prefilledInputTextProvider);
+      if (text != null && text.isNotEmpty) {
+        _controller.text = text;
+        _controller.selection = TextSelection.collapsed(offset: text.length);
+        // Clear after applying so it doesn't re-apply on rebuilds
+        ref.read(prefilledInputTextProvider.notifier).state = null;
+        _ensureFocusedIfEnabled();
+        if (!_isExpanded) _setExpanded(true);
+      }
+    });
+
     // Listen for text changes and update only when emptiness flips
     _controller.addListener(() {
       final has = _controller.text.trim().isNotEmpty;
@@ -878,8 +892,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
             color: isActive
                 ? context.conduitTheme.buttonPrimary
                 : showBackground
-                    ? context.conduitTheme.cardBorder
-                    : Colors.transparent,
+                ? context.conduitTheme.cardBorder
+                : Colors.transparent,
             width: BorderWidth.regular,
           ),
         ),
@@ -898,8 +912,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               color: isActive
                   ? context.conduitTheme.buttonPrimary
                   : showBackground
-                      ? context.conduitTheme.cardBackground
-                      : Colors.transparent,
+                  ? context.conduitTheme.cardBackground
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(AppBorderRadius.xl),
               boxShadow: (isActive || showBackground)
                   ? ConduitShadows.button
@@ -910,11 +924,13 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               size: iconSize ?? IconSize.medium,
               color: widget.enabled
                   ? (isActive
-                      ? context.conduitTheme.buttonPrimaryText
-                      : context.conduitTheme.textPrimary
-                          .withValues(alpha: Alpha.strong))
-                  : context.conduitTheme.textPrimary
-                      .withValues(alpha: Alpha.disabled),
+                        ? context.conduitTheme.buttonPrimaryText
+                        : context.conduitTheme.textPrimary.withValues(
+                            alpha: Alpha.strong,
+                          ))
+                  : context.conduitTheme.textPrimary.withValues(
+                      alpha: Alpha.disabled,
+                    ),
             ),
           ),
         ),
@@ -954,8 +970,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
           decoration: BoxDecoration(
             // Subtle primary tint when active for clearer affordance
             color: isActive
-                ? context.conduitTheme.buttonPrimary
-                    .withValues(alpha: Alpha.buttonHover + 0.04)
+                ? context.conduitTheme.buttonPrimary.withValues(
+                    alpha: Alpha.buttonHover + 0.04,
+                  )
                 : context.conduitTheme.cardBackground,
             borderRadius: BorderRadius.circular(AppBorderRadius.xl),
             // No elevation to match modal chips

@@ -55,6 +55,7 @@ dependencies:
   freezed_annotation: ^3.0.0
   wakelock_plus: ^1.2.10
   share_plus: ^11.1.0
+  share_handler: ^0.0.19
   
   # Clipboard functionality is available through flutter/services (part of Flutter SDK)
 
