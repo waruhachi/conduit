@@ -283,7 +283,10 @@ class ApiService {
     if (limit == null) {
       // Fetch all conversations using pagination
 
-      int currentPage = 0;
+      // OpenWebUI expects 1-based pagination for the `page` query param.
+      // Using 0 triggers server-side offset calculation like `offset = page*limit - limit`,
+      // which becomes negative for page=0 and causes a DB error.
+      int currentPage = 1;
 
       while (true) {
         final response = await _dio.get(
@@ -322,7 +325,12 @@ class ApiService {
       // Original single page fetch
       final regularResponse = await _dio.get(
         '/api/v1/chats/',
-        queryParameters: {if (limit > 0) 'page': ((skip ?? 0) / limit).floor()},
+        // Convert skip/limit to 1-based page index expected by OpenWebUI.
+        // Example: skip=0 => page=1, skip=limit => page=2, etc.
+        queryParameters: {
+          if (limit > 0)
+            'page': (((skip ?? 0) / limit).floor() + 1).clamp(1, 1 << 30),
+        },
       );
 
       if (regularResponse.data is! List) {
