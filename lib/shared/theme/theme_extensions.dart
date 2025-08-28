@@ -515,7 +515,7 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
     inputBorder: AppTheme.neutral600,
     inputBorderFocused: AppTheme.brandPrimary,
     inputText: AppTheme.neutral50,
-    inputPlaceholder: AppTheme.neutral400,
+    inputPlaceholder: AppTheme.neutral300,
     inputError: AppTheme.error,
 
     // Card and surface colors - Enhanced depth and hierarchy
@@ -545,10 +545,10 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
     infoBackground: Color(0xFF0C4A6E),
 
     // Navigation and UI element colors - Enhanced contrast
-    dividerColor: Color(0xFF1A1D1C),
+    dividerColor: AppTheme.neutral600,
     navigationBackground: Color(0xFF0A0D0C),
     navigationSelected: AppTheme.brandPrimary,
-    navigationUnselected: AppTheme.neutral400,
+    navigationUnselected: AppTheme.neutral300,
     navigationSelectedBackground: AppTheme.brandPrimary,
 
     // Loading and animation colors - Enhanced visibility
@@ -670,7 +670,7 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
     infoBackground: Color(0xFFE8F4FD),
 
     // Navigation and UI element colors - Enhanced contrast
-    dividerColor: Color(0xFFE7E7E7),
+    dividerColor: AppTheme.neutral100,
     navigationBackground: AppTheme.neutral50,
     navigationSelected: AppTheme.brandPrimary,
     navigationUnselected: AppTheme.neutral600,
@@ -752,291 +752,9 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
     ),
   );
 
-  // Aurora palette: original, cool cyan-teal with midnight accents
-  static const ConduitThemeExtension auroraDark = ConduitThemeExtension(
-    // Chat-specific colors
-    chatBubbleUser: Color(0xFF0EA5A5),
-    chatBubbleAssistant: Color(0xFF111827),
-    chatBubbleUserText: AppTheme.neutral50,
-    chatBubbleAssistantText: AppTheme.neutral50,
-    chatBubbleUserBorder: Color(0xFF0EA5A5),
-    chatBubbleAssistantBorder: Color(0xFF1F2937),
-    // Input and form colors
-    inputBackground: AppTheme.neutral700,
-    inputBorder: AppTheme.neutral600,
-    inputBorderFocused: Color(0xFF06B6D4),
-    inputText: AppTheme.neutral50,
-    inputPlaceholder: AppTheme.neutral400,
-    inputError: AppTheme.error,
-    // Card and surface colors
-    cardBackground: Color(0xFF0B1220),
-    cardBorder: Color(0xFF1F2A37),
-    cardShadow: AppTheme.neutral900,
-    surfaceBackground: Color(0xFF0A0F1A),
-    surfaceContainer: Color(0xFF0F172A),
-    surfaceContainerHighest: Color(0xFF111827),
-    // Interactive element colors
-    buttonPrimary: Color(0xFF06B6D4),
-    buttonPrimaryText: AppTheme.neutral50,
-    buttonSecondary: Color(0xFF1E293B),
-    buttonSecondaryText: AppTheme.neutral50,
-    buttonDisabled: AppTheme.neutral600,
-    buttonDisabledText: AppTheme.neutral400,
-    // Status and feedback colors
-    success: Color(0xFF22C55E),
-    successBackground: Color(0xFF14532D),
-    error: Color(0xFFEF4444),
-    errorBackground: Color(0xFF7F1D1D),
-    warning: Color(0xFFF59E0B),
-    warningBackground: Color(0xFF7C2D12),
-    info: Color(0xFF38BDF8),
-    infoBackground: Color(0xFF0C4A6E),
-    // Navigation and UI element colors
-    dividerColor: Color(0xFF334155),
-    navigationBackground: Color(0xFF0B1220),
-    navigationSelected: Color(0xFF06B6D4),
-    navigationUnselected: AppTheme.neutral400,
-    navigationSelectedBackground: Color(0xFF06B6D4),
-    // Loading and animation colors
-    shimmerBase: Color(0xFF0F172A),
-    shimmerHighlight: Color(0xFF1F2937),
-    loadingIndicator: Color(0xFF06B6D4),
-    // Text colors
-    textPrimary: AppTheme.neutral50,
-    textSecondary: Color(0xFFE5E7EB),
-    textTertiary: AppTheme.neutral400,
-    textInverse: AppTheme.neutral900,
-    textDisabled: AppTheme.neutral600,
-    // Icon colors
-    iconPrimary: AppTheme.neutral50,
-    iconSecondary: Color(0xFF94A3B8),
-    iconDisabled: AppTheme.neutral600,
-    iconInverse: AppTheme.neutral900,
-    // Typography styles (reuse base sizes with aurora accent implied by colors)
-    headingLarge: null,
-    headingMedium: null,
-    headingSmall: null,
-    bodyLarge: null,
-    bodyMedium: null,
-    bodySmall: null,
-    caption: null,
-    label: null,
-    code: null,
-  );
 
-  static const ConduitThemeExtension auroraLight = ConduitThemeExtension(
-    // Chat-specific colors
-    chatBubbleUser: Color(0xFF0EA5A5),
-    chatBubbleAssistant: Color(0xFFF8FAFC),
-    chatBubbleUserText: AppTheme.neutral50,
-    chatBubbleAssistantText: Color(0xFF0F172A),
-    chatBubbleUserBorder: Color(0xFF0EA5A5),
-    chatBubbleAssistantBorder: Color(0xFFE2E8F0),
-    // Input and form colors
-    inputBackground: AppTheme.neutral50,
-    inputBorder: Color(0xFFE2E8F0),
-    inputBorderFocused: Color(0xFF06B6D4),
-    inputText: Color(0xFF0F172A),
-    inputPlaceholder: AppTheme.neutral500,
-    inputError: AppTheme.error,
-    // Card and surface colors
-    cardBackground: AppTheme.neutral50,
-    cardBorder: Color(0xFFE2E8F0),
-    cardShadow: Color(0xFFF1F5F9),
-    surfaceBackground: AppTheme.neutral50,
-    surfaceContainer: Color(0xFFF8FAFC),
-    surfaceContainerHighest: Color(0xFFF1F5F9),
-    // Interactive element colors
-    buttonPrimary: Color(0xFF06B6D4),
-    buttonPrimaryText: AppTheme.neutral50,
-    buttonSecondary: Color(0xFFE2E8F0),
-    buttonSecondaryText: Color(0xFF0F172A),
-    buttonDisabled: AppTheme.neutral300,
-    buttonDisabledText: AppTheme.neutral500,
-    // Status and feedback colors
-    success: Color(0xFF16A34A),
-    successBackground: Color(0xFFEFFBF3),
-    error: Color(0xFFDC2626),
-    errorBackground: Color(0xFFFDECEC),
-    warning: Color(0xFFD97706),
-    warningBackground: Color(0xFFFEF6E7),
-    info: Color(0xFF0284C7),
-    infoBackground: Color(0xFFE8F4FD),
-    // Navigation and UI element colors
-    dividerColor: Color(0xFFE2E8F0),
-    navigationBackground: AppTheme.neutral50,
-    navigationSelected: Color(0xFF06B6D4),
-    navigationUnselected: AppTheme.neutral600,
-    navigationSelectedBackground: Color(0xFF06B6D4),
-    // Loading and animation colors
-    shimmerBase: Color(0xFFF1F5F9),
-    shimmerHighlight: AppTheme.neutral50,
-    loadingIndicator: Color(0xFF06B6D4),
-    // Text colors
-    textPrimary: Color(0xFF0F172A),
-    textSecondary: Color(0xFF334155),
-    textTertiary: AppTheme.neutral500,
-    textInverse: AppTheme.neutral50,
-    textDisabled: AppTheme.neutral400,
-    // Icon colors
-    iconPrimary: Color(0xFF0F172A),
-    iconSecondary: Color(0xFF64748B),
-    iconDisabled: AppTheme.neutral400,
-    iconInverse: AppTheme.neutral50,
-    // Typography styles (inherit from base)
-    headingLarge: null,
-    headingMedium: null,
-    headingSmall: null,
-    bodyLarge: null,
-    bodyMedium: null,
-    bodySmall: null,
-    caption: null,
-    label: null,
-    code: null,
-  );
 
-  // Serenity palette: soft sage greens with gentle neutrals
-  static const ConduitThemeExtension serenityDark = ConduitThemeExtension(
-    // Chat-specific colors
-    chatBubbleUser: Color(0xFF4F9D88),
-    chatBubbleAssistant: Color(0xFF0A100E),
-    chatBubbleUserText: Color(0xFFD7E3DE),
-    chatBubbleAssistantText: Color(0xFFD7E3DE),
-    chatBubbleUserBorder: Color(0xFF15201B),
-    chatBubbleAssistantBorder: Color(0xFF121A16),
-    // Input and form colors
-    inputBackground: Color(0xFF0A100E),
-    inputBorder: Color(0xFF15201B),
-    inputBorderFocused: Color(0xFF4F9D88),
-    inputText: Color(0xFFD7E3DE),
-    inputPlaceholder: Color(0xFF7C8A84),
-    inputError: AppTheme.error,
-    // Card and surface colors
-    cardBackground: Color(0xFF0A100E),
-    cardBorder: Color(0xFF121A16),
-    cardShadow: AppTheme.neutral900,
-    surfaceBackground: Color(0xFF080D0B),
-    surfaceContainer: Color(0xFF0A100E),
-    surfaceContainerHighest: Color(0xFF0D1411),
-    // Interactive element colors
-    buttonPrimary: Color(0xFF4F9D88),
-    buttonPrimaryText: Color(0xFFD7E3DE),
-    buttonSecondary: Color(0xFF101613),
-    buttonSecondaryText: Color(0xFFD7E3DE),
-    buttonDisabled: AppTheme.neutral600,
-    buttonDisabledText: AppTheme.neutral400,
-    // Status and feedback colors
-    success: Color(0xFF22C55E),
-    successBackground: Color(0xFF14532D),
-    error: Color(0xFFEF4444),
-    errorBackground: Color(0xFF7F1D1D),
-    warning: Color(0xFFF59E0B),
-    warningBackground: Color(0xFF7C2D12),
-    info: Color(0xFF38BDF8),
-    infoBackground: Color(0xFF0C4A6E),
-    // Navigation and UI element colors
-    dividerColor: Color(0xFF15201B),
-    navigationBackground: Color(0xFF080D0B),
-    navigationSelected: Color(0xFF4F9D88),
-    navigationUnselected: AppTheme.neutral400,
-    navigationSelectedBackground: Color(0xFF4F9D88),
-    // Loading and animation colors
-    shimmerBase: Color(0xFF0A100E),
-    shimmerHighlight: Color(0xFF121A16),
-    loadingIndicator: Color(0xFF4F9D88),
-    // Text colors
-    textPrimary: Color(0xFFD7E3DE),
-    textSecondary: Color(0xFFA8B6AF),
-    textTertiary: AppTheme.neutral400,
-    textInverse: AppTheme.neutral900,
-    textDisabled: AppTheme.neutral600,
-    // Icon colors
-    iconPrimary: Color(0xFFD7E3DE),
-    iconSecondary: Color(0xFFA3B3AD),
-    iconDisabled: AppTheme.neutral600,
-    iconInverse: AppTheme.neutral900,
-    // Typography styles (inherit from base)
-    headingLarge: null,
-    headingMedium: null,
-    headingSmall: null,
-    bodyLarge: null,
-    bodyMedium: null,
-    bodySmall: null,
-    caption: null,
-    label: null,
-    code: null,
-  );
 
-  static const ConduitThemeExtension serenityLight = ConduitThemeExtension(
-    // Chat-specific colors
-    chatBubbleUser: Color(0xFF5FAE97),
-    chatBubbleAssistant: Color(0xFFF7FAF8),
-    chatBubbleUserText: AppTheme.neutral50,
-    chatBubbleAssistantText: Color(0xFF0F1A14),
-    chatBubbleUserBorder: Color(0xFF5FAE97),
-    chatBubbleAssistantBorder: Color(0xFFD5E3DB),
-    // Input and form colors
-    inputBackground: Color(0xFFF7FAF8),
-    inputBorder: Color(0xFFD5E3DB),
-    inputBorderFocused: Color(0xFF4F9D88),
-    inputText: Color(0xFF0F1A14),
-    inputPlaceholder: AppTheme.neutral500,
-    inputError: AppTheme.error,
-    // Card and surface colors
-    cardBackground: Color(0xFFFAFBF9),
-    cardBorder: Color(0xFFD9E2DB),
-    cardShadow: Color(0xFFEEF2EE),
-    surfaceBackground: Color(0xFFF7FAF8),
-    surfaceContainer: Color(0xFFEFF4F1),
-    surfaceContainerHighest: Color(0xFFE6EEEA),
-    // Interactive element colors
-    buttonPrimary: Color(0xFF4F9D88),
-    buttonPrimaryText: AppTheme.neutral50,
-    buttonSecondary: Color(0xFFEEF2EE),
-    buttonSecondaryText: Color(0xFF1A241E),
-    buttonDisabled: AppTheme.neutral300,
-    buttonDisabledText: AppTheme.neutral500,
-    // Status and feedback colors
-    success: Color(0xFF16A34A),
-    successBackground: Color(0xFFEFFBF3),
-    error: Color(0xFFDC2626),
-    errorBackground: Color(0xFFFDECEC),
-    warning: Color(0xFFD97706),
-    warningBackground: Color(0xFFFEF6E7),
-    info: Color(0xFF0284C7),
-    infoBackground: Color(0xFFE8F4FD),
-    // Navigation and UI element colors
-    dividerColor: Color(0xFFD9E2DB),
-    navigationBackground: Color(0xFFF7FAF8),
-    navigationSelected: Color(0xFF4F9D88),
-    navigationUnselected: AppTheme.neutral600,
-    navigationSelectedBackground: Color(0xFF4F9D88),
-    // Loading and animation colors
-    shimmerBase: Color(0xFFEFF4F1),
-    shimmerHighlight: AppTheme.neutral50,
-    loadingIndicator: Color(0xFF4F9D88),
-    // Text colors
-    textPrimary: Color(0xFF0F1A14),
-    textSecondary: Color(0xFF2D3A34),
-    textTertiary: AppTheme.neutral500,
-    textInverse: AppTheme.neutral50,
-    textDisabled: AppTheme.neutral400,
-    // Icon colors
-    iconPrimary: Color(0xFF0F1A14),
-    iconSecondary: Color(0xFF53665C),
-    iconDisabled: AppTheme.neutral400,
-    iconInverse: AppTheme.neutral50,
-    // Typography styles (inherit from base)
-    headingLarge: null,
-    headingMedium: null,
-    headingSmall: null,
-    bodyLarge: null,
-    bodyMedium: null,
-    bodySmall: null,
-    caption: null,
-    label: null,
-    code: null,
-  );
 }
 
 /// Extension method to easily access Conduit theme from BuildContext

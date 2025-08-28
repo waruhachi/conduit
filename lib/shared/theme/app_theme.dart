@@ -66,7 +66,7 @@ class AppTheme {
       centerTitle: true,
       elevation: Elevation.none,
       backgroundColor: Colors.transparent,
-      foregroundColor: neutral800,
+      foregroundColor: neutral900,
     ),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: neutral50,
@@ -132,7 +132,7 @@ class AppTheme {
     ),
     // Use platform default system font text theme
     textTheme: ThemeData.light().textTheme,
-    extensions: const [ConduitThemeExtension.auroraLight],
+    extensions: const [ConduitThemeExtension.light],
   );
 
   // Base Dark Theme

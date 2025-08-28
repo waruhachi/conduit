@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import '../../../shared/theme/theme_extensions.dart';
+// app_theme not required here; using theme extension tokens
 import '../../../shared/widgets/sheet_handle.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,7 +64,7 @@ class _MicButton extends StatelessWidget {
           )
         : context.conduitTheme.cardBackground;
     final Color iconColor = isRecording
-        ? context.conduitTheme.textPrimary
+        ? context.conduitTheme.buttonPrimaryText
         : context.conduitTheme.textPrimary.withValues(alpha: Alpha.strong);
 
     return Tooltip(
@@ -875,12 +876,10 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
           borderRadius: BorderRadius.circular(AppBorderRadius.xl),
           side: BorderSide(
             color: isActive
-                ? context.conduitTheme.textPrimary.withValues(
-                    alpha: Alpha.buttonHover + Alpha.subtle,
-                  )
+                ? context.conduitTheme.buttonPrimary
                 : showBackground
-                ? context.conduitTheme.cardBorder
-                : Colors.transparent,
+                    ? context.conduitTheme.cardBorder
+                    : Colors.transparent,
             width: BorderWidth.regular,
           ),
         ),
@@ -897,12 +896,10 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
             height: TouchTarget.comfortable,
             decoration: BoxDecoration(
               color: isActive
-                  ? context.conduitTheme.textPrimary.withValues(
-                      alpha: Alpha.buttonHover,
-                    )
+                  ? context.conduitTheme.buttonPrimary
                   : showBackground
-                  ? context.conduitTheme.cardBackground
-                  : Colors.transparent,
+                      ? context.conduitTheme.cardBackground
+                      : Colors.transparent,
               borderRadius: BorderRadius.circular(AppBorderRadius.xl),
               boxShadow: (isActive || showBackground)
                   ? ConduitShadows.button
@@ -913,13 +910,11 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               size: iconSize ?? IconSize.medium,
               color: widget.enabled
                   ? (isActive
-                        ? context.conduitTheme.textPrimary
-                        : context.conduitTheme.textPrimary.withValues(
-                            alpha: Alpha.strong,
-                          ))
-                  : context.conduitTheme.textPrimary.withValues(
-                      alpha: Alpha.disabled,
-                    ),
+                      ? context.conduitTheme.buttonPrimaryText
+                      : context.conduitTheme.textPrimary
+                          .withValues(alpha: Alpha.strong))
+                  : context.conduitTheme.textPrimary
+                      .withValues(alpha: Alpha.disabled),
             ),
           ),
         ),
@@ -957,8 +952,11 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
           decoration: BoxDecoration(
-            // Align with unified tools modal: keep subtle card background even when active
-            color: context.conduitTheme.cardBackground,
+            // Subtle primary tint when active for clearer affordance
+            color: isActive
+                ? context.conduitTheme.buttonPrimary
+                    .withValues(alpha: Alpha.buttonHover + 0.04)
+                : context.conduitTheme.cardBackground,
             borderRadius: BorderRadius.circular(AppBorderRadius.xl),
             // No elevation to match modal chips
             boxShadow: ConduitShadows.button,
