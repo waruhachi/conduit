@@ -227,9 +227,24 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                         ),
                         const SizedBox(width: Spacing.xs),
                         Text(
-                          _reasoningContent!.summary.isNotEmpty
-                              ? _reasoningContent!.summary
-                              : 'Thought for ${_reasoningContent!.formattedDuration}',
+                          () {
+                            final rc = _reasoningContent!;
+                            final hasSummary = rc.summary.isNotEmpty;
+                            final isThinkingSummary = rc.summary.trim().toLowerCase() == 'thinking…' || rc.summary.trim().toLowerCase() == 'thinking...';
+                            if (widget.isStreaming) {
+                              // During streaming, prefer showing Thinking…
+                              return hasSummary ? rc.summary : 'Thinking…';
+                            }
+                            // After streaming ends:
+                            if (rc.duration > 0) {
+                              return 'Thought for ${rc.formattedDuration}';
+                            }
+                            // If summary was just the placeholder 'Thinking…', replace with a neutral title
+                            if (!hasSummary || isThinkingSummary) {
+                              return 'Thoughts';
+                            }
+                            return rc.summary;
+                          }(),
                           style: TextStyle(
                             fontSize: AppTypography.bodySmall,
                             color: context.conduitTheme.textSecondary,
@@ -273,7 +288,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                   duration: const Duration(milliseconds: 200),
                 ),
 
-                const SizedBox(height: Spacing.md),
+                const SizedBox(height: 0),
               ],
 
               // Documentation-style content without heavy bubble; premium markdown
@@ -303,8 +318,10 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                     else if (widget.isStreaming &&
                         widget.message.content.isNotEmpty &&
                         widget.message.content != '[TYPING_INDICATOR]')
-                      // While streaming, render markdown with throttling and safety fixes
-                      _buildEnhancedMarkdownContent(_renderedContent)
+                      // While streaming, render only main content (strip reasoning details to avoid flashing tags)
+                      _buildEnhancedMarkdownContent(
+                        _reasoningContent?.mainContent ?? _renderedContent,
+                      )
                     else
                       // After streaming finishes (or static content), render full markdown
                       _buildEnhancedMarkdownContent(

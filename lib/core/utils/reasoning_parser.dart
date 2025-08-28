@@ -1,47 +1,112 @@
 /// Utility class for parsing and extracting reasoning/thinking content from messages
 class ReasoningParser {
+  /// Default tag pairs to detect raw reasoning blocks when providers don't emit <details>
+  /// This mirrors Open WebUI defaults: <think>...</think>, <reasoning>...</reasoning>
+  static const List<List<String>> defaultReasoningTagPairs = <List<String>>[
+    ['<think>', '</think>'],
+    ['<reasoning>', '</reasoning>'],
+  ];
+
   /// Parses a message and extracts reasoning content
-  static ReasoningContent? parseReasoningContent(String content) {
+  /// Supports:
+  /// - <details type="reasoning" ...> blocks (server-emitted)
+  /// - Raw tag pairs like <think>...</think> or <reasoning>...</reasoning>
+  /// - Optional custom tag pair override
+  static ReasoningContent? parseReasoningContent(
+    String content, {
+    List<String>? customTagPair,
+    bool detectDefaultTags = true,
+  }) {
     if (content.isEmpty) return null;
 
-    // Check if content contains reasoning
-    if (!content.contains('<details type="reasoning"')) {
-      return null;
-    }
-
-    // Match the <details> tag with type="reasoning"
-    final reasoningRegex = RegExp(
-      r'<details\s+type="reasoning"\s+done="(true|false)"\s+duration="(\d+)"[^>]*>\s*<summary>([^<]*)</summary>\s*(.*?)\s*</details>',
+    // 1) Prefer server-emitted <details type="reasoning"> blocks
+    final detailsRegex = RegExp(
+      r'<details\s+type="reasoning"(?:\s+done="(true|false)")?(?:\s+duration="(\d+)")?[^>]*>\s*<summary>([^<]*)<\/summary>\s*([\s\S]*?)<\/details>',
       multiLine: true,
       dotAll: true,
     );
+    final detailsMatch = detailsRegex.firstMatch(content);
+    if (detailsMatch != null) {
+      final isDone = (detailsMatch.group(1) ?? 'true') == 'true';
+      final duration = int.tryParse(detailsMatch.group(2) ?? '0') ?? 0;
+      final summary = (detailsMatch.group(3) ?? '').trim();
+      final reasoning = (detailsMatch.group(4) ?? '').trim();
 
-    final match = reasoningRegex.firstMatch(content);
-    if (match == null) {
-      return null;
+      final mainContent = content.replaceAll(detailsRegex, '').trim();
+
+      return ReasoningContent(
+        reasoning: reasoning,
+        summary: summary,
+        duration: duration,
+        isDone: isDone,
+        mainContent: mainContent,
+        originalContent: content,
+      );
     }
 
-    final isDone = match.group(1) == 'true';
-    final duration = int.tryParse(match.group(2) ?? '0') ?? 0;
-    final summary = match.group(3)?.trim() ?? '';
-    final reasoning = match.group(4)?.trim() ?? '';
+    // 2) Handle partially streamed <details> (opening present, no closing yet)
+    final openingIdx = content.indexOf('<details type="reasoning"');
+    if (openingIdx >= 0 && !content.contains('</details>')) {
+      final after = content.substring(openingIdx);
+      // Try to extract optional summary
+      final summaryMatch = RegExp(r'<summary>([^<]*)<\/summary>').firstMatch(after);
+      final summary = (summaryMatch?.group(1) ?? '').trim();
+      final reasoning = after
+          .replaceAll(RegExp(r'^<details[^>]*>'), '')
+          .replaceAll(RegExp(r'<summary>[\s\S]*?<\/summary>'), '')
+          .trim();
 
-    // Remove the reasoning section from the main content
-    final mainContent = content.replaceAll(reasoningRegex, '').trim();
+      final mainContent = content.substring(0, openingIdx).trim();
 
-    return ReasoningContent(
-      reasoning: reasoning,
-      summary: summary,
-      duration: duration,
-      isDone: isDone,
-      mainContent: mainContent,
-      originalContent: content,
-    );
+      return ReasoningContent(
+        reasoning: reasoning,
+        summary: summary,
+        duration: 0,
+        isDone: false,
+        mainContent: mainContent,
+        originalContent: content,
+      );
+    }
+
+    // 3) Otherwise, look for raw tag pairs
+    List<List<String>> tagPairs = [];
+    if (customTagPair != null && customTagPair.length == 2) {
+      tagPairs.add(customTagPair);
+    }
+    if (detectDefaultTags) {
+      tagPairs.addAll(defaultReasoningTagPairs);
+    }
+
+    for (final pair in tagPairs) {
+      final start = RegExp.escape(pair[0]);
+      final end = RegExp.escape(pair[1]);
+      final tagRegex = RegExp('($start)([\n\r\s\S]*?)($end)', multiLine: true, dotAll: true);
+      final match = tagRegex.firstMatch(content);
+      if (match != null) {
+        final reasoning = (match.group(2) ?? '').trim();
+        final mainContent = content.replaceAll(tagRegex, '').trim();
+
+        return ReasoningContent(
+          reasoning: reasoning,
+          summary: '', // no summary available for raw tags
+          duration: 0,
+          isDone: true,
+          mainContent: mainContent,
+          originalContent: content,
+        );
+      }
+    }
+
+    return null;
   }
 
   /// Checks if a message contains reasoning content
   static bool hasReasoningContent(String content) {
-    return content.contains('<details type="reasoning"');
+    if (content.contains('<details type="reasoning"')) return true;
+    for (final pair in defaultReasoningTagPairs) {
+      if (content.contains(pair[0]) && content.contains(pair[1])) return true;
+    }
+    return false;
   }
 
   /// Formats the duration for display

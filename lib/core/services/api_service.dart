@@ -2362,9 +2362,7 @@ class ApiService {
     final messageId = const Uuid().v4();
     final sessionId = const Uuid().v4().substring(0, 20);
 
-    // Check if this is a Gemini model that requires special handling
-    final isGeminiModel = model.toLowerCase().contains('gemini');
-    debugPrint('DEBUG: Is Gemini model: $isGeminiModel');
+    // NOTE: Previously used to branch for Gemini-specific handling; not needed now.
 
     // Process messages to match OpenWebUI format
     final processedMessages = messages.map((message) {
@@ -2444,6 +2442,14 @@ class ApiService {
         'memory': false,
       };
     }
+
+    // Hint the server to emit reasoning details blocks when supported.
+    // This mirrors Open WebUI "reasoning_tags" behavior (default enabled).
+    // It allows the client to display a collapsible "Thinking" section.
+    data['params'] = {
+      'reasoning_tags': true,
+      'reasoning_effort': 'medium', // Safe default; providers ignore if unsupported
+    };
 
     // Add tool_ids if provided (Open-WebUI expects tool_ids as array of strings)
     if (toolIds != null && toolIds.isNotEmpty) {
@@ -2826,6 +2832,8 @@ class ApiService {
     // Handle completion signal
     if (event.data == '[DONE]') {
       debugPrint('Persistent: SSE stream finished with [DONE]');
+      // Ensure any open reasoning block is closed
+      _closeReasoningBlockIfOpen(streamController, persistentStreamId);
       if (!streamController.isClosed) {
         streamController.close();
       }
@@ -2852,11 +2860,27 @@ class ApiService {
           if (choice.containsKey('delta')) {
             final delta = choice['delta'] as Map<String, dynamic>;
 
+            // 1) Handle provider-native reasoning deltas (common keys)
+            final reasoning = delta['reasoning'] ?? delta['reasoning_content'];
+            if (reasoning is String && reasoning.isNotEmpty) {
+              // Open a reasoning block if not yet opened for this stream
+              _openReasoningBlockIfNeeded(streamController, persistentStreamId);
+
+              if (!streamController.isClosed) {
+                streamController.add(reasoning);
+              }
+
+              // We do NOT return here; model can send content alongside reasoning later
+            }
+
             // Extract content
             if (delta.containsKey('content')) {
               final content = delta['content'] as String?;
               if (content != null && content.isNotEmpty) {
                 debugPrint('Persistent: SSE content chunk: "$content"');
+
+                // Close any open reasoning block before normal content begins
+                _closeReasoningBlockIfOpen(streamController, persistentStreamId);
 
                 // Add content to stream
                 if (!streamController.isClosed) {
@@ -2880,6 +2904,8 @@ class ApiService {
               debugPrint(
                 'Persistent: Stream finished with reason: $finishReason',
               );
+              // Ensure reasoning block is closed when finishing
+              _closeReasoningBlockIfOpen(streamController, persistentStreamId);
               if (!streamController.isClosed) {
                 streamController.close();
               }
@@ -2892,6 +2918,7 @@ class ApiService {
               debugPrint(
                 'Persistent: Stream finished with reason: $finishReason',
               );
+              _closeReasoningBlockIfOpen(streamController, persistentStreamId);
               if (!streamController.isClosed) {
                 streamController.close();
               }
@@ -2927,10 +2954,20 @@ class ApiService {
       // Handle OpenRouter-style streaming
       if (json.containsKey('message')) {
         final message = json['message'] as Map<String, dynamic>;
+        // Providers like Ollama may stream a separate thinking field
+        final thinking = message['thinking'];
+        if (thinking is String && thinking.isNotEmpty) {
+          _openReasoningBlockIfNeeded(streamController, persistentStreamId);
+          if (!streamController.isClosed) {
+            streamController.add(thinking);
+          }
+        }
         if (message.containsKey('content')) {
           final content = message['content'] as String?;
           if (content != null && content.isNotEmpty) {
             debugPrint('Persistent: Message content: "$content"');
+
+            _closeReasoningBlockIfOpen(streamController, persistentStreamId);
 
             if (!streamController.isClosed) {
               streamController.add(content);
@@ -2947,6 +2984,34 @@ class ApiService {
     } catch (e) {
       debugPrint('Persistent: Error parsing SSE event data: $e');
       // Don't fail the entire stream for one bad event
+    }
+  }
+
+  // ===== Reasoning block helpers =====
+  // Track open reasoning blocks by stream id
+  final Map<String, bool> _reasoningOpen = {};
+
+  void _openReasoningBlockIfNeeded(
+    StreamController<String> streamController,
+    String persistentStreamId,
+  ) {
+    if (_reasoningOpen[persistentStreamId] == true) return;
+    _reasoningOpen[persistentStreamId] = true;
+    if (!streamController.isClosed) {
+      // Minimal details block (parser supports missing attrs)
+      streamController.add('<details type="reasoning"><summary>Thinking…</summary>\n');
+    }
+  }
+
+  void _closeReasoningBlockIfOpen(
+    StreamController<String> streamController,
+    String persistentStreamId,
+  ) {
+    if (_reasoningOpen[persistentStreamId] == true) {
+      _reasoningOpen[persistentStreamId] = false;
+      if (!streamController.isClosed) {
+        streamController.add('\n</details>\n');
+      }
     }
   }
 
