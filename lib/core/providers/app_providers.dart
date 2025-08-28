@@ -442,8 +442,11 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
           conversationMap[conversation.id] = conversation.copyWith(
             folderId: folderIdToUse,
           );
+          final _idPreview = conversation.id.length > 8
+              ? conversation.id.substring(0, 8)
+              : conversation.id;
           foundation.debugPrint(
-            'DEBUG: Updated conversation ${conversation.id.substring(0, 8)} with folderId: $folderIdToUse (explicit: ${explicitFolderId != null})',
+            'DEBUG: Updated conversation $_idPreview with folderId: $folderIdToUse (explicit: ${explicitFolderId != null})',
           );
         } else {
           conversationMap[conversation.id] = conversation;
@@ -505,8 +508,11 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
             // Use map to prevent duplicates - this will overwrite if ID already exists
             conversationMap[toAdd.id] = toAdd;
             existingIds.add(toAdd.id);
+            final _idPreview = toAdd.id.length > 8
+                ? toAdd.id.substring(0, 8)
+                : toAdd.id;
             foundation.debugPrint(
-              'DEBUG: Added missing conversation from folder fetch: ${toAdd.id.substring(0, 8)} -> folder ${folder.id}',
+              'DEBUG: Added missing conversation from folder fetch: $_idPreview -> folder ${folder.id}',
             );
           } else {
             // Create a minimal placeholder if not returned by folder API
@@ -521,8 +527,11 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
             // Use map to prevent duplicates
             conversationMap[convId] = placeholder;
             existingIds.add(convId);
+            final _idPreview = convId.length > 8
+                ? convId.substring(0, 8)
+                : convId;
             foundation.debugPrint(
-              'DEBUG: Added placeholder conversation for missing ID: ${convId.substring(0, 8)} -> folder ${folder.id}',
+              'DEBUG: Added placeholder conversation for missing ID: $_idPreview -> folder ${folder.id}',
             );
           }
         }

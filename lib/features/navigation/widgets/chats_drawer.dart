@@ -198,23 +198,32 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
 
           // Build sections
           final pinned = list.where((c) => c.pinned == true).toList();
-          final regular = list
-              .where(
-                (c) =>
-                    c.pinned != true &&
-                    c.archived != true &&
-                    (c.folderId == null || c.folderId!.isEmpty),
-              )
-              .toList();
-          final foldered = list
-              .where(
-                (c) =>
-                    c.pinned != true &&
-                    c.archived != true &&
-                    c.folderId != null &&
-                    c.folderId!.isNotEmpty,
-              )
-              .toList();
+
+          // Determine which folder IDs actually exist from the API
+          final foldersState = ref.watch(foldersProvider);
+          final availableFolderIds = foldersState.maybeWhen(
+            data: (folders) => folders.map((f) => f.id).toSet(),
+            orElse: () => <String>{},
+          );
+
+          // Conversations that reference a non-existent/unknown folder should not disappear.
+          // Treat those as regular until the folders list is available and contains the ID.
+          final regular = list.where((c) {
+            final hasFolder = (c.folderId != null && c.folderId!.isNotEmpty);
+            final folderKnown = hasFolder && availableFolderIds.contains(c.folderId);
+            return c.pinned != true &&
+                c.archived != true &&
+                (!hasFolder || !folderKnown);
+          }).toList();
+
+          final foldered = list.where((c) {
+            final hasFolder = (c.folderId != null && c.folderId!.isNotEmpty);
+            return c.pinned != true &&
+                c.archived != true &&
+                hasFolder &&
+                availableFolderIds.contains(c.folderId);
+          }).toList();
+
           final archived = list.where((c) => c.archived == true).toList();
 
           return Scrollbar(
@@ -342,23 +351,30 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         }
 
         final pinned = list.where((c) => c.pinned == true).toList();
-        final regular = list
-            .where(
-              (c) =>
-                  c.pinned != true &&
-                  c.archived != true &&
-                  (c.folderId == null || c.folderId!.isEmpty),
-            )
-            .toList();
-        final foldered = list
-            .where(
-              (c) =>
-                  c.pinned != true &&
-                  c.archived != true &&
-                  c.folderId != null &&
-                  c.folderId!.isNotEmpty,
-            )
-            .toList();
+
+        // For search results, apply the same folder safety logic
+        final foldersState = ref.watch(foldersProvider);
+        final availableFolderIds = foldersState.maybeWhen(
+          data: (folders) => folders.map((f) => f.id).toSet(),
+          orElse: () => <String>{},
+        );
+
+        final regular = list.where((c) {
+          final hasFolder = (c.folderId != null && c.folderId!.isNotEmpty);
+          final folderKnown = hasFolder && availableFolderIds.contains(c.folderId);
+          return c.pinned != true &&
+              c.archived != true &&
+              (!hasFolder || !folderKnown);
+        }).toList();
+
+        final foldered = list.where((c) {
+          final hasFolder = (c.folderId != null && c.folderId!.isNotEmpty);
+          return c.pinned != true &&
+              c.archived != true &&
+              hasFolder &&
+              availableFolderIds.contains(c.folderId);
+        }).toList();
+
         final archived = list.where((c) => c.archived == true).toList();
 
         return Scrollbar(
