@@ -3229,7 +3229,12 @@ class ApiService {
     return <Conversation>[];
   }
 
-  /// Search within messages content
+  /// Search within messages content (capability-safe)
+  ///
+  /// Many OpenWebUI versions do not expose a dedicated messages search endpoint.
+  /// We attempt a GET to `/api/v1/chats/messages/search` and gracefully return
+  /// an empty list when the endpoint is missing or method is not allowed
+  /// (404/405), avoiding noisy errors.
   Future<List<Map<String, dynamic>>> searchMessages({
     required String query,
     String? chatId,
@@ -3241,24 +3246,52 @@ class ApiService {
     int? offset,
   }) async {
     debugPrint('DEBUG: Searching messages with query: $query');
-    final response = await _dio.post(
-      '/api/v1/chats/messages/search',
-      data: {
-        'query': query,
-        if (chatId != null) 'chat_id': chatId,
-        if (userId != null) 'user_id': userId,
-        if (role != null) 'role': role,
-        if (fromDate != null) 'from_date': fromDate.toIso8601String(),
-        if (toDate != null) 'to_date': toDate.toIso8601String(),
-        if (limit != null) 'limit': limit,
-        if (offset != null) 'offset': offset,
-      },
-    );
-    final data = response.data;
-    if (data is List) {
-      return data.cast<Map<String, dynamic>>();
+
+    // Build query parameters; include both 'text' and 'query' for compatibility
+    final qp = <String, dynamic>{
+      'text': query,
+      'query': query,
+      if (chatId != null) 'chat_id': chatId,
+      if (userId != null) 'user_id': userId,
+      if (role != null) 'role': role,
+      if (fromDate != null) 'from_date': fromDate.toIso8601String(),
+      if (toDate != null) 'to_date': toDate.toIso8601String(),
+      if (limit != null) 'limit': limit,
+      if (offset != null) 'offset': offset,
+    };
+
+    try {
+      final response = await _dio.get(
+        '/api/v1/chats/messages/search',
+        queryParameters: qp,
+        // Accept 404/405 to avoid throwing when endpoint is unsupported
+        options: Options(
+          validateStatus: (code) => code != null && (code < 400 || code == 404 || code == 405),
+        ),
+      );
+
+      // If not supported, quietly return empty results
+      if (response.statusCode == 404 || response.statusCode == 405) {
+        debugPrint('DEBUG: messages search endpoint not supported (status: ${response.statusCode})');
+        return [];
+      }
+
+      final data = response.data;
+      if (data is List) {
+        return data.whereType<Map<String, dynamic>>().toList();
+      }
+      if (data is Map<String, dynamic>) {
+        final list = (data['items'] ?? data['results'] ?? data['messages']);
+        if (list is List) {
+          return list.whereType<Map<String, dynamic>>().toList();
+        }
+      }
+      return [];
+    } on DioException catch (e) {
+      // On any transport or other error, degrade gracefully without surfacing
+      debugPrint('DEBUG: messages search request failed gracefully: ${e.type}');
+      return [];
     }
-    return [];
   }
 
   /// Get chat statistics and analytics
