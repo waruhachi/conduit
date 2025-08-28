@@ -63,6 +63,15 @@ class _SkeletonLoaderState extends State<SkeletonLoader>
   }
 
   @override
+  void activate() {
+    super.activate();
+    if (!_controller.isAnimating) {
+      // Resume shimmer after re-activation
+      _controller.repeat();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _animation,

@@ -68,6 +68,9 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
     // Ensure API service auth integration is active
     ref.read(authApiIntegrationProvider);
 
+    // Initialize auto-selection listener for default model changes in settings
+    ref.read(defaultModelAutoSelectionProvider);
+
     // Initialize OS share receiver so users can share text/files to Conduit
     ref.read(shareReceiverInitializerProvider);
   }

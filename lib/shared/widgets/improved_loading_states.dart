@@ -476,6 +476,14 @@ class _ShimmerLoaderState extends State<ShimmerLoader>
   }
 
   @override
+  void activate() {
+    super.activate();
+    if (!_shimmerController.isAnimating) {
+      _shimmerController.repeat();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = context.conduitTheme;
 

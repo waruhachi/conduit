@@ -383,6 +383,15 @@ class _AnimatedThemeWrapperState extends State<AnimatedThemeWrapper>
   }
 
   @override
+  void activate() {
+    super.activate();
+    // If a theme transition was in progress, resume it
+    if (_controller.value < 1.0 && !_controller.isAnimating) {
+      _controller.forward();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _animation,

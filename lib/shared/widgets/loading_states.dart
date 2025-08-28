@@ -237,6 +237,14 @@ class _SkeletonLoaderState extends State<_SkeletonLoader>
   }
 
   @override
+  void activate() {
+    super.activate();
+    if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       width: widget.width,

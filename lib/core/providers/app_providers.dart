@@ -299,6 +299,59 @@ final _settingsWatcherProvider = Provider<void>((ref) {
   });
 });
 
+// Auto-apply default model from settings when it changes (and not manually overridden)
+final defaultModelAutoSelectionProvider = Provider<void>((ref) {
+  ref.listen<AppSettings>(appSettingsProvider, (previous, next) {
+    // Only react when default model value changes
+    if (previous?.defaultModel == next.defaultModel) return;
+
+    // Do not override manual selections
+    if (ref.read(isManualModelSelectionProvider)) return;
+
+    final desired = next.defaultModel;
+    if (desired == null || desired.isEmpty) return;
+
+    // Resolve the desired model against available models
+    Future(() async {
+      try {
+        // Prefer already-loaded models to avoid unnecessary fetches
+        List<Model> models;
+        final modelsAsync = ref.read(modelsProvider);
+        if (modelsAsync.hasValue) {
+          models = modelsAsync.value!;
+        } else {
+          models = await ref.read(modelsProvider.future);
+        }
+        Model? selected;
+        try {
+          selected = models.firstWhere(
+            (model) =>
+                model.id == desired ||
+                model.name == desired ||
+                model.id.contains(desired) ||
+                model.name.contains(desired),
+          );
+        } catch (_) {}
+
+        // Fallback: keep current selection or pick first available
+        selected ??= ref.read(selectedModelProvider) ??
+            (models.isNotEmpty ? models.first : null);
+
+        if (selected != null) {
+          ref.read(selectedModelProvider.notifier).state = selected;
+          foundation.debugPrint(
+            'DEBUG: Auto-applied default model from settings: ${selected.name}',
+          );
+        }
+      } catch (e) {
+        foundation.debugPrint(
+          'DEBUG: defaultModel auto-selection listener failed: $e',
+        );
+      }
+    });
+  });
+});
+
 // Cache timestamp for conversations to prevent rapid re-fetches
 final _conversationsCacheTimestamp = StateProvider<DateTime?>((ref) => null);
 
