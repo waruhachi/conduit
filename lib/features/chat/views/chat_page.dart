@@ -1998,15 +1998,10 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
     );
 
     try {
-      // Ensure service is initialized (local STT will request permissions itself)
+      // Ensure service is initialized
       final ok = await _voiceService.initialize();
       if (!ok) {
         throw Exception('Voice service unavailable');
-      }
-      // Only check mic permission when falling back to recording
-      if (!_voiceService.hasLocalStt) {
-        final mic = await _voiceService.checkPermissions();
-        if (!mic) throw Exception('Microphone permission not granted');
       }
 
       // Start elapsed timer for UX
@@ -2019,7 +2014,8 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
         setState(() => _elapsedSeconds += 1);
       });
 
-      final stream = _voiceService.startListening();
+      // Centralized permission + start
+      final stream = await _voiceService.beginListening();
       _intensitySub = _voiceService.intensityStream.listen((value) {
         if (!mounted) return;
         setState(() => _intensity = value);

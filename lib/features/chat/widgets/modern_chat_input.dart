@@ -1150,22 +1150,12 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         );
         return;
       }
-      if (!_voiceService.hasLocalStt) {
-        final mic = await _voiceService.checkPermissions();
-        if (!mic) {
-          _showVoiceUnavailable(
-            AppLocalizations.of(context)?.errorMessage ??
-                'Microphone permission required',
-          );
-          return;
-        }
-      }
+      // Centralized permission + start
+      final stream = await _voiceService.beginListening();
       setState(() {
         _isRecording = true;
         _baseTextAtStart = _controller.text;
       });
-
-      final stream = _voiceService.startListening();
       _intensitySub?.cancel();
       _intensitySub = _voiceService.intensityStream.listen((value) {
         if (!mounted) return;

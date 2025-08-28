@@ -250,6 +250,20 @@ class VoiceInputService {
     return _textStreamController!.stream;
   }
 
+  /// Centralized entry point to begin voice recognition.
+  /// Ensures initialization and microphone permission before starting.
+  Future<Stream<String>> beginListening() async {
+    // Ensure service is ready
+    await initialize();
+    // Ensure microphone permission (triggers OS prompt if needed)
+    final hasMic = await checkPermissions();
+    if (!hasMic) {
+      throw Exception('Microphone permission not granted');
+    }
+    // Start listening and return the transcript stream
+    return startListening();
+  }
+
   Future<void> stopListening() async {
     await _stopListening();
   }
