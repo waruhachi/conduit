@@ -326,25 +326,21 @@ class PlatformService {
           statusBarIconBrightness: isDarkContent
               ? Brightness.dark
               : Brightness.light,
+          // iOS: it's safe to pass a color; leave behavior unchanged
           statusBarColor: backgroundColor,
         ),
       );
     } else {
-      // For Android 15+, use edge-to-edge approach
-      // Avoid deprecated setStatusBarColor, setNavigationBarColor, setNavigationBarDividerColor
+      // Android: Avoid passing any bar colors to prevent invoking
+      // deprecated Window.setStatusBarColor / setNavigationBarColor / setNavigationBarDividerColor
+      // on Android 15+. Only control icon brightness; colors come from theme + EdgeToEdge.
       SystemChrome.setSystemUIOverlayStyle(
         SystemUiOverlayStyle(
-          // Only set icon brightness for edge-to-edge compatibility
-          statusBarIconBrightness: isDarkContent
-              ? Brightness.dark
-              : Brightness.light,
-          systemNavigationBarIconBrightness: isDarkContent
-              ? Brightness.dark
-              : Brightness.light,
-          // Use transparent colors for proper edge-to-edge display
-          statusBarColor: Colors.transparent,
-          systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarDividerColor: Colors.transparent,
+          statusBarIconBrightness:
+              isDarkContent ? Brightness.dark : Brightness.light,
+          systemNavigationBarIconBrightness:
+              isDarkContent ? Brightness.dark : Brightness.light,
+          // Do NOT set status/navigation bar colors on Android.
         ),
       );
     }

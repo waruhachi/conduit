@@ -28,12 +28,14 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        // Align with modern Android Gradle Plugin requirements
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        // Generate JVM bytecode targeting Java 17
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     signingConfigs {

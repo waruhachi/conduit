@@ -10,8 +10,7 @@
         <!-- Android 15+ edge-to-edge configuration -->
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:windowLayoutInDisplayCutoutMode">always</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- Do not set status/navigation bar colors on API 35+ -->
         <item name="android:enforceNavigationBarContrast">false</item>
         <item name="android:enforceStatusBarContrast">false</item>
     </style>
@@ -25,8 +24,7 @@
         <item name="android:windowBackground">?android:colorBackground</item>
         <!-- Android 15+ edge-to-edge configuration -->
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- Do not set status/navigation bar colors on API 35+ -->
         <item name="android:enforceNavigationBarContrast">false</item>
         <item name="android:enforceStatusBarContrast">false</item>
     </style>

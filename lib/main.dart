@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/services/navigation_service.dart';
 import 'core/widgets/error_boundary.dart';
@@ -22,6 +23,10 @@ import 'core/services/share_receiver_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Enable edge-to-edge globally (back-compat on pre-Android 15)
+  // Pairs with Activity's EdgeToEdge.enable and our SafeArea usage.
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   final sharedPrefs = await SharedPreferences.getInstance();
   const secureStorage = FlutterSecureStorage();
