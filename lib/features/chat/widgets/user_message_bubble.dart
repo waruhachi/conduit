@@ -486,6 +486,13 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
                                 color: context.conduitTheme.chatBubbleUserText,
                               ),
                               softWrap: true,
+                              textAlign: TextAlign.left,
+                              textHeightBehavior: const TextHeightBehavior(
+                                applyHeightToFirstAscent: false,
+                                applyHeightToLastDescent: false,
+                                leadingDistribution:
+                                    TextLeadingDistribution.even,
+                              ),
                             ),
                           ),
                         ),

@@ -113,11 +113,11 @@ class ConduitMarkdownConfig {
           ),
         ),
 
-        // Paragraph config
+        // Paragraphs — improve readability and spacing on mobile
         PConfig(
           textStyle: AppTypography.chatMessageStyle.copyWith(
             color: theme.textPrimary,
-            height: 1.3,
+            height: 1.45,
           ),
         ),
 
@@ -125,20 +125,23 @@ class ConduitMarkdownConfig {
         H1Config(
           style: AppTypography.headlineLargeStyle.copyWith(
             color: theme.textPrimary,
+            height: 1.25,
           ),
         ),
         H2Config(
           style: AppTypography.headlineMediumStyle.copyWith(
             color: theme.textPrimary,
+            height: 1.25,
           ),
         ),
         H3Config(
           style: AppTypography.headlineSmallStyle.copyWith(
             color: theme.textPrimary,
+            height: 1.3,
           ),
         ),
 
-        // Blockquote
+        // Blockquote — keep default rendering for compatibility
         BlockquoteConfig(),
 
         // Code inline

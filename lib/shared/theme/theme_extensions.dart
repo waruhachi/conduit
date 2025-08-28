@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+// Using system fonts; no GoogleFonts dependency required
 import 'app_theme.dart';
 
 /// Extended theme data for consistent styling across the app
@@ -1366,7 +1366,8 @@ class ConduitShadows {
 
 /// Typography scale following Conduit design tokens - Enhanced for production
 class AppTypography {
-  static const String fontFamily = 'Inter';
+  // Primary UI font now uses the platform default system font
+  static const String fontFamily = '';
   static const String monospaceFontFamily = 'SF Mono';
 
   // Letter spacing values - Enhanced for better readability
@@ -1390,157 +1391,138 @@ class AppTypography {
   static const double labelSmall = 12;
 
   // Text styles following Conduit design - Enhanced for production
-  static final TextStyle displayLargeStyle = GoogleFonts.inter(
-    fontSize: displayLarge,
+  static final TextStyle displayLargeStyle = const TextStyle(
     fontWeight: FontWeight.w700,
     letterSpacing: -0.8,
     height: 1.1,
-  );
+  ).copyWith(fontSize: displayLarge);
 
-  static final TextStyle displayMediumStyle = GoogleFonts.inter(
-    fontSize: displayMedium,
+  static final TextStyle displayMediumStyle = const TextStyle(
     fontWeight: FontWeight.w700,
     letterSpacing: -0.6,
     height: 1.2,
-  );
+  ).copyWith(fontSize: displayMedium);
 
-  static final TextStyle bodyLargeStyle = GoogleFonts.inter(
-    fontSize: bodyLarge,
+  static final TextStyle bodyLargeStyle = const TextStyle(
     fontWeight: FontWeight.w400,
     letterSpacing: 0,
     height: 1.6,
-  );
+  ).copyWith(fontSize: bodyLarge);
 
-  static final TextStyle bodyMediumStyle = GoogleFonts.inter(
-    fontSize: bodyMedium,
+  static final TextStyle bodyMediumStyle = const TextStyle(
     fontWeight: FontWeight.w400,
     letterSpacing: 0,
     height: 1.6,
-  );
+  ).copyWith(fontSize: bodyMedium);
 
-  static final TextStyle codeStyle = GoogleFonts.sourceCodePro(
-    fontSize: bodySmall,
+  static final TextStyle codeStyle = const TextStyle(
     fontWeight: FontWeight.w400,
     letterSpacing: 0,
     height: 1.5,
-  );
+    fontFamily: monospaceFontFamily,
+  ).copyWith(fontSize: bodySmall);
 
   // Additional styled text getters for convenience - Enhanced
-  static TextStyle get headlineLargeStyle => GoogleFonts.inter(
-    fontSize: headlineLarge,
+  static TextStyle get headlineLargeStyle => const TextStyle(
     fontWeight: FontWeight.w700,
     letterSpacing: -0.4,
     height: 1.3,
-  );
+  ).copyWith(fontSize: headlineLarge);
 
-  static TextStyle get headlineMediumStyle => GoogleFonts.inter(
-    fontSize: headlineMedium,
+  static TextStyle get headlineMediumStyle => const TextStyle(
     fontWeight: FontWeight.w600,
     letterSpacing: -0.2,
     height: 1.3,
-  );
+  ).copyWith(fontSize: headlineMedium);
 
-  static TextStyle get headlineSmallStyle => GoogleFonts.inter(
-    fontSize: headlineSmall,
+  static TextStyle get headlineSmallStyle => const TextStyle(
     fontWeight: FontWeight.w600,
     letterSpacing: 0,
     height: 1.4,
-  );
+  ).copyWith(fontSize: headlineSmall);
 
-  static TextStyle get bodySmallStyle => GoogleFonts.inter(
-    fontSize: bodySmall,
+  static TextStyle get bodySmallStyle => const TextStyle(
     fontWeight: FontWeight.w400,
     letterSpacing: 0,
     height: 1.5,
-  );
+  ).copyWith(fontSize: bodySmall);
 
   // Enhanced text styles for chat messages
-  static TextStyle get chatMessageStyle => GoogleFonts.inter(
-    fontSize: bodyMedium,
+  static TextStyle get chatMessageStyle => const TextStyle(
     fontWeight: FontWeight.w400,
-    letterSpacing: 0.1,
-    height: 1.6,
-  );
+    letterSpacing: 0.0,
+    height: 1.4,
+  ).copyWith(fontSize: bodyMedium);
 
-  static TextStyle get chatCodeStyle => GoogleFonts.sourceCodePro(
-    fontSize: bodySmall,
+  static TextStyle get chatCodeStyle => const TextStyle(
     fontWeight: FontWeight.w400,
     letterSpacing: 0,
     height: 1.5,
-  );
+    fontFamily: monospaceFontFamily,
+  ).copyWith(fontSize: bodySmall);
 
   // Enhanced label styles
-  static TextStyle get labelStyle => GoogleFonts.inter(
-    fontSize: labelMedium,
+  static TextStyle get labelStyle => const TextStyle(
     fontWeight: FontWeight.w500,
     letterSpacing: 0.2,
     height: 1.4,
-  );
+  ).copyWith(fontSize: labelMedium);
 
   // Enhanced caption styles
-  static TextStyle get captionStyle => GoogleFonts.inter(
-    fontSize: labelSmall,
+  static TextStyle get captionStyle => const TextStyle(
     fontWeight: FontWeight.w500,
     letterSpacing: 0.5,
     height: 1.3,
-  );
+  ).copyWith(fontSize: labelSmall);
 
   // Enhanced typography for better hierarchy
-  static TextStyle get micro => GoogleFonts.inter(
-    fontSize: 10,
+  static TextStyle get micro => const TextStyle(
     fontWeight: FontWeight.w400,
     letterSpacing: 0.1,
     height: 1.4,
-  );
+  ).copyWith(fontSize: 10);
 
-  static TextStyle get tiny => GoogleFonts.inter(
-    fontSize: 12,
+  static TextStyle get tiny => const TextStyle(
     fontWeight: FontWeight.w400,
     letterSpacing: 0.1,
     height: 1.4,
-  );
+  ).copyWith(fontSize: 12);
 
-  static TextStyle get small => GoogleFonts.inter(
-    fontSize: 14,
+  static TextStyle get small => const TextStyle(
     fontWeight: FontWeight.w400,
     letterSpacing: 0,
     height: 1.5,
-  );
+  ).copyWith(fontSize: 14);
 
-  static TextStyle get standard => GoogleFonts.inter(
-    fontSize: 16,
+  static TextStyle get standard => const TextStyle(
     fontWeight: FontWeight.w400,
     letterSpacing: 0,
     height: 1.6,
-  );
+  ).copyWith(fontSize: 16);
 
-  static TextStyle get large => GoogleFonts.inter(
-    fontSize: 18,
+  static TextStyle get large => const TextStyle(
     fontWeight: FontWeight.w400,
     letterSpacing: 0,
     height: 1.6,
-  );
+  ).copyWith(fontSize: 18);
 
-  static TextStyle get extraLarge => GoogleFonts.inter(
-    fontSize: 20,
+  static TextStyle get extraLarge => const TextStyle(
     fontWeight: FontWeight.w400,
     letterSpacing: 0,
     height: 1.5,
-  );
+  ).copyWith(fontSize: 20);
 
-  static TextStyle get huge => GoogleFonts.inter(
-    fontSize: 24,
+  static TextStyle get huge => const TextStyle(
     fontWeight: FontWeight.w600,
     letterSpacing: -0.2,
     height: 1.3,
-  );
+  ).copyWith(fontSize: 24);
 
-  static TextStyle get massive => GoogleFonts.inter(
-    fontSize: 32,
+  static TextStyle get massive => const TextStyle(
     fontWeight: FontWeight.w700,
     letterSpacing: -0.4,
     height: 1.2,
-  );
+  ).copyWith(fontSize: 32);
 }
 
 /// Consistent icon sizes - Enhanced for production with better hierarchy

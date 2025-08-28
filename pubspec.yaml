@@ -53,7 +53,6 @@ dependencies:
   cupertino_icons: ^1.0.8
   json_annotation: ^4.9.0
   freezed_annotation: ^3.0.0
-  google_fonts: ^6.2.1
   wakelock_plus: ^1.2.10
   share_plus: ^11.1.0
   

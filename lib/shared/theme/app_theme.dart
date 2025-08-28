@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'theme_extensions.dart';
 
@@ -99,10 +98,9 @@ class AppTheme {
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: neutral900.withValues(alpha: 0.92),
-      contentTextStyle: GoogleFonts.inter(
+      contentTextStyle: const TextStyle(
         color: neutral50,
-        fontSize: AppTypography.bodyMedium,
-      ),
+      ).copyWith(fontSize: AppTypography.bodyMedium),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppBorderRadius.snackbar),
       ),
@@ -132,7 +130,8 @@ class AppTheme {
         vertical: Spacing.sm,
       ),
     ),
-    textTheme: GoogleFonts.interTextTheme(),
+    // Use platform default system font text theme
+    textTheme: ThemeData.light().textTheme,
     extensions: const [ConduitThemeExtension.auroraLight],
   );
 
@@ -197,10 +196,9 @@ class AppTheme {
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: neutral800.withValues(alpha: 0.92),
-      contentTextStyle: GoogleFonts.inter(
+      contentTextStyle: const TextStyle(
         color: neutral50,
-        fontSize: AppTypography.bodyMedium,
-      ),
+      ).copyWith(fontSize: AppTypography.bodyMedium),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppBorderRadius.snackbar),
       ),
@@ -230,7 +228,8 @@ class AppTheme {
         vertical: Spacing.sm,
       ),
     ),
-    textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+    // Use platform default system font text theme
+    textTheme: ThemeData.dark().textTheme,
     extensions: const [ConduitThemeExtension.dark],
   );
 

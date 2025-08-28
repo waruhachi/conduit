@@ -1092,7 +1092,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                         .copyWith(
                                           color:
                                               context.conduitTheme.textPrimary,
-                                          fontWeight: FontWeight.w400,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -1220,7 +1220,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                         .copyWith(
                                           color:
                                               context.conduitTheme.textPrimary,
-                                          fontWeight: FontWeight.w400,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
