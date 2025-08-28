@@ -469,6 +469,13 @@ class _ShimmerLoaderState extends State<ShimmerLoader>
   }
 
   @override
+  void deactivate() {
+    // Pause shimmer during deactivation to avoid rebuilds in wrong build scope
+    _shimmerController.stop();
+    super.deactivate();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = context.conduitTheme;
 

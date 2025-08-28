@@ -541,12 +541,10 @@ final loadConversationProvider = FutureProvider.family<Conversation, String>((
 
 // Provider to automatically load and set the default model from user settings or OpenWebUI
 final defaultModelProvider = FutureProvider<Model?>((ref) async {
-  // Initialize the settings watcher
-  ref.watch(_settingsWatcherProvider);
-  // Watch user settings to refresh when default model changes
-  ref.watch(appSettingsProvider);
-  // Handle reviewer mode first
-  final reviewerMode = ref.watch(reviewerModeProvider);
+  // Initialize the settings watcher (side-effect only)
+  ref.read(_settingsWatcherProvider);
+  // Read settings without subscribing to rebuilds to avoid watch/await hazards
+  final reviewerMode = ref.read(reviewerModeProvider);
   if (reviewerMode) {
     // Check if a model is manually selected
     final currentSelected = ref.read(selectedModelProvider);
@@ -563,20 +561,18 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
     final models = await ref.read(modelsProvider.future);
     if (models.isNotEmpty) {
       final defaultModel = models.first;
-      Future.microtask(() {
-        if (!ref.read(isManualModelSelectionProvider)) {
-          ref.read(selectedModelProvider.notifier).state = defaultModel;
-          foundation.debugPrint(
-            'DEBUG: Auto-selected demo model: ${defaultModel.name}',
-          );
-        }
-      });
+      if (!ref.read(isManualModelSelectionProvider)) {
+        ref.read(selectedModelProvider.notifier).state = defaultModel;
+        foundation.debugPrint(
+          'DEBUG: Auto-selected demo model: ${defaultModel.name}',
+        );
+      }
       return defaultModel;
     }
     return null;
   }
 
-  final api = ref.watch(apiServiceProvider);
+  final api = ref.read(apiServiceProvider);
   if (api == null) return null;
 
   try {
@@ -656,15 +652,11 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
       }
     }
 
-    // Defer the state update to avoid modifying providers during initialization
-    final modelToSet = selectedModel;
-    Future.microtask(() {
-      // Only update if this is not a manual selection
-      if (!ref.read(isManualModelSelectionProvider)) {
-        ref.read(selectedModelProvider.notifier).state = modelToSet;
-        foundation.debugPrint('DEBUG: Set default model: ${modelToSet.name}');
-      }
-    });
+    // Update selection immediately inside provider context
+    if (!ref.read(isManualModelSelectionProvider)) {
+      ref.read(selectedModelProvider.notifier).state = selectedModel;
+      foundation.debugPrint('DEBUG: Set default model: ${selectedModel.name}');
+    }
 
     return selectedModel;
   } catch (e) {
@@ -675,15 +667,12 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
       final models = await ref.read(modelsProvider.future);
       if (models.isNotEmpty) {
         final fallbackModel = models.first;
-        // Defer the state update
-        Future.microtask(() {
-          if (!ref.read(isManualModelSelectionProvider)) {
-            ref.read(selectedModelProvider.notifier).state = fallbackModel;
-            foundation.debugPrint(
-              'DEBUG: Fallback to first available model: ${fallbackModel.name}',
-            );
-          }
-        });
+        if (!ref.read(isManualModelSelectionProvider)) {
+          ref.read(selectedModelProvider.notifier).state = fallbackModel;
+          foundation.debugPrint(
+            'DEBUG: Fallback to first available model: ${fallbackModel.name}',
+          );
+        }
         return fallbackModel;
       }
     } catch (fallbackError) {

@@ -9,7 +9,8 @@ import '../../features/auth/providers/unified_auth_providers.dart';
 import '../../features/chat/providers/chat_providers.dart';
 import '../../features/chat/services/file_attachment_service.dart';
 import '../../core/providers/app_providers.dart';
-// No server chat creation here; follow chat flow on first send
+import 'navigation_service.dart';
+// Server chat creation/title generation occur on first send via chat providers
 
 /// Lightweight payload for a share event
 class SharedPayload {
@@ -26,20 +27,21 @@ final pendingSharedPayloadProvider = StateProvider<SharedPayload?>((_) => null);
 
 /// Initializes listening to OS share intents and handles them
 final shareReceiverInitializerProvider = Provider<void>((ref) {
-  // Do nothing on web/desktop
+  // Only mobile platforms handle OS share intents
   if (kIsWeb) return;
-
-  final sub = StreamController<SharedPayload>.broadcast();
+  if (!(Platform.isAndroid || Platform.isIOS)) return;
 
   // Listen for app readiness: authenticated and model available
   void maybeProcessPending() {
     final navState = ref.read(authNavigationStateProvider);
     final model = ref.read(selectedModelProvider);
     final pending = ref.read(pendingSharedPayloadProvider);
+    final isOnChatRoute = NavigationService.currentRoute == Routes.chat;
     if (pending != null &&
         pending.hasAnything &&
         navState == AuthNavigationState.authenticated &&
-        model != null) {
+        model != null &&
+        isOnChatRoute) {
       _processPayload(ref, pending);
       ref.read(pendingSharedPayloadProvider.notifier).state = null;
     }
@@ -51,6 +53,8 @@ final shareReceiverInitializerProvider = Provider<void>((ref) {
     (_, __) => maybeProcessPending(),
   );
   ref.listen(selectedModelProvider, (_, __) => maybeProcessPending());
+  // Also poll once shortly after navigation settles to ensure ChatPage is ready
+  Future.delayed(const Duration(milliseconds: 150), () => maybeProcessPending());
 
   // Hook into share_handler
   final handler = sh.ShareHandler.instance;
@@ -85,7 +89,6 @@ final shareReceiverInitializerProvider = Provider<void>((ref) {
   // Ensure cleanup
   ref.onDispose(() async {
     await streamSub.cancel();
-    await sub.close();
   });
 });
 
@@ -169,9 +172,8 @@ Future<void> _processPayload(Ref ref, SharedPayload payload) async {
       final current = ref.read(inputFocusTriggerProvider);
       ref.read(inputFocusTriggerProvider.notifier).state = current + 1;
     }
-    // Do NOT create a placeholder server chat here. The drawer will refresh
-    // when the user sends their first message, matching in-app behavior.
-    // This allows the user to add a caption before sending
+    // Do NOT create a server chat here. The chat is created on first send
+    // (with server syncing + title generation) in chat_providers.dart.
   } catch (e) {
     debugPrint('ShareReceiver: failed to process payload: $e');
   }

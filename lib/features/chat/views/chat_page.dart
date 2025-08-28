@@ -50,6 +50,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   bool _isSelectionMode = false;
   final Set<String> _selectedMessageIds = <String>{};
   Timer? _scrollDebounceTimer;
+  bool _isDeactivated = false;
 
   String _formatModelDisplayName(String name) {
     var display = name.trim();
@@ -251,6 +252,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     _scrollController.dispose();
     _scrollDebounceTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void deactivate() {
+    _isDeactivated = true;
+    _scrollDebounceTimer?.cancel();
+    super.deactivate();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _isDeactivated = false;
   }
 
   void _handleMessageSend(String text, dynamic selectedModel) async {
@@ -460,7 +474,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     if (_scrollDebounceTimer?.isActive == true) return;
 
     _scrollDebounceTimer = Timer(const Duration(milliseconds: 80), () {
-      if (!mounted || !_scrollController.hasClients) return;
+      if (!mounted || _isDeactivated || !_scrollController.hasClients) return;
 
       final maxScroll = _scrollController.position.maxScrollExtent;
       final currentScroll = _scrollController.position.pixels;
@@ -483,7 +497,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         showButton = farFromBottom && maxScroll > showThreshold;
       }
 
-      if (showButton != _showScrollToBottom && mounted) {
+      if (showButton != _showScrollToBottom && mounted && !_isDeactivated) {
         setState(() {
           _showScrollToBottom = showButton;
         });

@@ -56,6 +56,13 @@ class _SkeletonLoaderState extends State<SkeletonLoader>
   }
 
   @override
+  void deactivate() {
+    // Pause shimmer during deactivation to avoid rebuilds in wrong build scope
+    _controller.stop();
+    super.deactivate();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _animation,

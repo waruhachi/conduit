@@ -376,6 +376,13 @@ class _AnimatedThemeWrapperState extends State<AnimatedThemeWrapper>
   }
 
   @override
+  void deactivate() {
+    // Pause animations during deactivation to avoid rebuilds in wrong build scope
+    _controller.stop();
+    super.deactivate();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _animation,

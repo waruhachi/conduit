@@ -169,6 +169,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   StreamSubscription<String>? _textSub;
   int _intensity = 0; // 0..10 from service
   String _baseTextAtStart = '';
+  bool _isDeactivated = false;
 
   @override
   void initState() {
@@ -185,26 +186,26 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       vsync: this,
     );
 
-    // Listen for prefilled text updates (e.g., from share intent)
+    // Apply any prefilled text on first frame (focus/expand handled via inputFocusTrigger)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || _isDeactivated) return;
       final text = ref.read(prefilledInputTextProvider);
       if (text != null && text.isNotEmpty) {
         _controller.text = text;
         _controller.selection = TextSelection.collapsed(offset: text.length);
         // Clear after applying so it doesn't re-apply on rebuilds
         ref.read(prefilledInputTextProvider.notifier).state = null;
-        _ensureFocusedIfEnabled();
-        if (!_isExpanded) _setExpanded(true);
       }
     });
+
+    // Removed ref.listen here; it must be used from build in this Riverpod version
 
     // Listen for text changes and update only when emptiness flips
     _controller.addListener(() {
       final has = _controller.text.trim().isNotEmpty;
       if (has != _hasText) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
+          if (!mounted || _isDeactivated) return;
           setState(() => _hasText = has);
           // Intelligent expansion: expand when user starts typing
           if (has && !_isExpanded) {
@@ -220,14 +221,14 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       _blurCollapseTimer?.cancel();
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+        if (!mounted || _isDeactivated) return;
         final hasFocus = _focusNode.hasFocus;
         if (hasFocus) {
           if (!_isExpanded) _setExpanded(true);
         } else {
           // Defer collapse slightly to avoid IME show/hide race conditions
           _blurCollapseTimer = Timer(const Duration(milliseconds: 160), () {
-            if (!mounted) return;
+            if (!mounted || _isDeactivated) return;
             if (_focusNode.hasFocus) return; // focus came back
             // Collapse only when keyboard is fully hidden to avoid flicker
             final keyboardVisible =
@@ -246,7 +247,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     // The TextField's autofocus: true should handle focus and keyboard automatically
     // Additionally, request focus after first frame to ensure reliability across platforms
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || _isDeactivated) return;
       if (!_hasAutoFocusedOnce && widget.enabled) {
         _ensureFocusedIfEnabled();
         _hasAutoFocusedOnce = true;
@@ -271,8 +272,24 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   void _ensureFocusedIfEnabled() {
     if (!widget.enabled) return;
     if (!_focusNode.hasFocus) {
-      FocusScope.of(context).requestFocus(_focusNode);
+      // Use FocusNode directly to avoid depending on Inherited widgets
+      _focusNode.requestFocus();
     }
+  }
+
+  @override
+  void deactivate() {
+    _isDeactivated = true;
+    _blurCollapseTimer?.cancel();
+    _expandController.stop();
+    _pulseController.stop();
+    super.deactivate();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _isDeactivated = false;
   }
 
   @override
@@ -281,7 +298,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     if (widget.enabled && !oldWidget.enabled && !_hasAutoFocusedOnce) {
       // Became enabled (e.g., after selecting a model) → focus the input
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+        if (!mounted || _isDeactivated) return;
         _ensureFocusedIfEnabled();
         _hasAutoFocusedOnce = true;
       });
@@ -289,7 +306,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     if (!widget.enabled && oldWidget.enabled) {
       // Became disabled → collapse and hide keyboard
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+        if (!mounted || _isDeactivated) return;
         if (_isExpanded) _setExpanded(false);
         if (_focusNode.hasFocus) {
           _focusNode.unfocus();
@@ -312,7 +329,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   }
 
   void _setExpanded(bool expanded) {
-    if (_isExpanded == expanded) return;
+    if (!mounted || _isDeactivated || _isExpanded == expanded) return;
     setState(() {
       _isExpanded = expanded;
     });
@@ -325,6 +342,21 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
   @override
   Widget build(BuildContext context) {
+    // Listen for prefilled text changes safely from build
+    ref.listen<String?>(prefilledInputTextProvider, (previous, next) {
+      final incoming = next?.trim();
+      if (incoming == null || incoming.isEmpty) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _isDeactivated) return;
+        _controller.text = incoming;
+        _controller.selection =
+            TextSelection.collapsed(offset: incoming.length);
+        try {
+          ref.read(prefilledInputTextProvider.notifier).state = null;
+        } catch (_) {}
+      });
+    });
+
     // Check if assistant is currently generating by checking last assistant message streaming
     final messages = ref.watch(chatMessagesProvider);
     final isGenerating =
@@ -345,7 +377,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     // React to external focus requests (e.g., from share prefill)
     final focusTick = ref.watch(inputFocusTriggerProvider);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || _isDeactivated) return;
       if (focusTick > 0) {
         _ensureFocusedIfEnabled();
         if (!_isExpanded) _setExpanded(true);
