@@ -178,19 +178,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get password => 'Password';
 
   @override
-  String get usernameOrEmailHint => 'Enter your username or email';
-
-  @override
-  String get passwordHint => 'Enter your password';
-
-  @override
   String get signInWithApiKey => 'Sign in with API Key';
-
-  @override
-  String get enterApiKey => 'Enter your API key';
-  
-  @override
-  String get signingIn => 'Signing in...';
 
   @override
   String get connectToServer => 'Connect to Server';
@@ -224,51 +212,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get removeHeader => 'Remove header';
-
-  @override
-  String get advancedSettings => 'Advanced Settings';
-
-  @override
-  String get customHeaders => 'Custom Headers';
-
-  @override
-  String get customHeadersDescription =>
-      'Add custom HTTP headers for authentication, API keys, or special server requirements.';
-
-  @override
-  String get headerNameEmpty => 'Header name cannot be empty';
-
-  @override
-  String get headerNameTooLong => 'Header name too long (max 64 characters)';
-
-  @override
-  String get headerNameInvalidChars =>
-      'Invalid header name. Use only letters, numbers, and these symbols: !#\$&-^_`|~';
-
-  @override
-  String headerNameReserved(String key) => 'Cannot override reserved header "$key"';
-
-  @override
-  String get headerValueEmpty => 'Header value cannot be empty';
-
-  @override
-  String get headerValueTooLong => 'Header value too long (max 1024 characters)';
-
-  @override
-  String get headerValueInvalidChars =>
-      'Header value contains invalid characters. Use only printable ASCII.';
-
-  @override
-  String get headerValueUnsafe =>
-      'Header value appears to contain potentially unsafe content';
-
-  @override
-  String headerAlreadyExists(String key) =>
-      'Header "$key" already exists. Remove it first to update.';
-
-  @override
-  String get maxHeadersReachedDetail =>
-      'Maximum of 10 custom headers allowed. Remove some to add more.';
 
   @override
   String get connecting => 'Connecting...';
@@ -669,4 +612,108 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get imageGenerationDescription => 'Create images from your prompts.';
+
+  @override
+  String get copy => 'Copy';
+
+  @override
+  String get edit => 'Edit';
+
+  @override
+  String get regenerate => 'Regenerate';
+
+  @override
+  String get noConversationsYet => 'No conversations yet';
+
+  @override
+  String get usernameOrEmailHint => 'Enter your username or email';
+
+  @override
+  String get passwordHint => 'Enter your password';
+
+  @override
+  String get enterApiKey => 'Enter your API key';
+
+  @override
+  String get signingIn => 'Signing in...';
+
+  @override
+  String get advancedSettings => 'Advanced Settings';
+
+  @override
+  String get customHeaders => 'Custom Headers';
+
+  @override
+  String get customHeadersDescription => 'Add custom HTTP headers for authentication, API keys, or special server requirements.';
+
+  @override
+  String get headerNameEmpty => 'Header name cannot be empty';
+
+  @override
+  String get headerNameTooLong => 'Header name too long (max 64 characters)';
+
+  @override
+  String get headerNameInvalidChars => 'Invalid header name. Use only letters, numbers, and these symbols: !#\$&-^_`|~';
+
+  @override
+  String headerNameReserved(String key) {
+    return 'Cannot override reserved header \"$key\"';
+  }
+
+  @override
+  String get headerValueEmpty => 'Header value cannot be empty';
+
+  @override
+  String get headerValueTooLong => 'Header value too long (max 1024 characters)';
+
+  @override
+  String get headerValueInvalidChars => 'Header value contains invalid characters. Use only printable ASCII.';
+
+  @override
+  String get headerValueUnsafe => 'Header value appears to contain potentially unsafe content';
+
+  @override
+  String headerAlreadyExists(String key) {
+    return 'Header \"$key\" already exists. Remove it first to update.';
+  }
+
+  @override
+  String get maxHeadersReachedDetail => 'Maximum of 10 custom headers allowed. Remove some to add more.';
+
+  @override
+  String get editMessage => 'Edit Message';
+
+  @override
+  String get noModelsAvailable => 'No models available';
+
+  @override
+  String followingSystem(String theme) {
+    return 'Following system: $theme';
+  }
+
+  @override
+  String get themeDark => 'Dark';
+
+  @override
+  String get themeLight => 'Light';
+
+  @override
+  String get currentlyUsingDarkTheme => 'Currently using Dark theme';
+
+  @override
+  String get currentlyUsingLightTheme => 'Currently using Light theme';
+
+  @override
+  String get aboutConduit => 'About Conduit';
+
+  @override
+  String versionLabel(String version, String build) {
+    return 'Version: $version ($build)';
+  }
+
+  @override
+  String get githubRepository => 'GitHub Repository';
+
+  @override
+  String get unableToLoadAppInfo => 'Unable to load app info';
 }

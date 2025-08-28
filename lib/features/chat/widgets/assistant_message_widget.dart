@@ -551,7 +551,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
           icon: Platform.isIOS
               ? CupertinoIcons.doc_on_clipboard
               : Icons.content_copy,
-          label: 'Copy',
+          label: AppLocalizations.of(context)!.copy,
           onTap: widget.onCopy,
         ),
         if (isErrorMessage) ...[
@@ -565,7 +565,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
         ] else ...[
           _buildActionButton(
             icon: Platform.isIOS ? CupertinoIcons.refresh : Icons.refresh,
-            label: 'Regenerate',
+            label: AppLocalizations.of(context)!.regenerate,
             onTap: widget.onRegenerate,
           ),
         ],

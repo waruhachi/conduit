@@ -178,19 +178,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get password => 'Mot de passe';
 
   @override
-  String get usernameOrEmailHint => 'Entrez votre nom d\'utilisateur ou e‑mail';
-
-  @override
-  String get passwordHint => 'Entrez votre mot de passe';
-
-  @override
   String get signInWithApiKey => 'Se connecter avec une clé API';
-
-  @override
-  String get enterApiKey => 'Entrez votre clé API';
-  
-  @override
-  String get signingIn => 'Connexion en cours...';
 
   @override
   String get connectToServer => 'Se connecter au serveur';
@@ -224,53 +212,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get removeHeader => 'Supprimer l\'en-tête';
-
-  @override
-  String get advancedSettings => 'Paramètres avancés';
-
-  @override
-  String get customHeaders => 'En-têtes personnalisés';
-
-  @override
-  String get customHeadersDescription =>
-      'Ajoutez des en-têtes HTTP personnalisés pour l\'authentification, les clés API ou des exigences spécifiques du serveur.';
-
-  @override
-  String get headerNameEmpty => 'Le nom de l\'en-tête ne peut pas être vide';
-
-  @override
-  String get headerNameTooLong => 'Nom d\'en-tête trop long (max 64 caractères)';
-
-  @override
-  String get headerNameInvalidChars =>
-      'Nom d\'en-tête invalide. Utilisez uniquement des lettres, des chiffres et ces symboles : !#\$&-^_`|~';
-
-  @override
-  String headerNameReserved(String key) =>
-      'Impossible d\'écraser l\'en-tête réservé « $key »';
-
-  @override
-  String get headerValueEmpty => 'La valeur de l\'en-tête ne peut pas être vide';
-
-  @override
-  String get headerValueTooLong =>
-      'Valeur d\'en-tête trop longue (max 1024 caractères)';
-
-  @override
-  String get headerValueInvalidChars =>
-      'La valeur de l\'en-tête contient des caractères invalides. Utilisez uniquement des caractères ASCII imprimables.';
-
-  @override
-  String get headerValueUnsafe =>
-      'La valeur de l\'en-tête semble contenir du contenu potentiellement dangereux';
-
-  @override
-  String headerAlreadyExists(String key) =>
-      'L\'en-tête « $key » existe déjà. Supprimez-le d\'abord pour le modifier.';
-
-  @override
-  String get maxHeadersReachedDetail =>
-      'Maximum 10 en-têtes personnalisés. Supprimez-en pour en ajouter.';
 
   @override
   String get connecting => 'Connexion en cours...';
@@ -671,4 +612,108 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get imageGenerationDescription => 'Créez des images à partir de vos prompts.';
+
+  @override
+  String get copy => 'Copier';
+
+  @override
+  String get edit => 'Modifier';
+
+  @override
+  String get regenerate => 'Régénérer';
+
+  @override
+  String get noConversationsYet => 'Aucune conversation pour l\'instant';
+
+  @override
+  String get usernameOrEmailHint => 'Entrez votre nom d\'utilisateur ou e‑mail';
+
+  @override
+  String get passwordHint => 'Entrez votre mot de passe';
+
+  @override
+  String get enterApiKey => 'Entrez votre clé API';
+
+  @override
+  String get signingIn => 'Connexion en cours...';
+
+  @override
+  String get advancedSettings => 'Paramètres avancés';
+
+  @override
+  String get customHeaders => 'En-têtes personnalisés';
+
+  @override
+  String get customHeadersDescription => 'Ajoutez des en-têtes HTTP personnalisés pour l\'authentification, les clés API ou des exigences spécifiques du serveur.';
+
+  @override
+  String get headerNameEmpty => 'Le nom de l\'en-tête ne peut pas être vide';
+
+  @override
+  String get headerNameTooLong => 'Nom d\'en-tête trop long (max 64 caractères)';
+
+  @override
+  String get headerNameInvalidChars => 'Nom d\'en-tête invalide. Utilisez uniquement des lettres, des chiffres et ces symboles : !#\$&-^_`|~';
+
+  @override
+  String headerNameReserved(String key) {
+    return 'Impossible d\'écraser l\'en-tête réservé « $key »';
+  }
+
+  @override
+  String get headerValueEmpty => 'La valeur de l\'en-tête ne peut pas être vide';
+
+  @override
+  String get headerValueTooLong => 'Valeur d\'en-tête trop longue (max 1024 caractères)';
+
+  @override
+  String get headerValueInvalidChars => 'La valeur de l\'en-tête contient des caractères invalides. Utilisez uniquement des caractères ASCII imprimables.';
+
+  @override
+  String get headerValueUnsafe => 'La valeur de l\'en-tête semble contenir du contenu potentiellement dangereux';
+
+  @override
+  String headerAlreadyExists(String key) {
+    return 'L\'en-tête « $key » existe déjà. Supprimez-le d\'abord pour le modifier.';
+  }
+
+  @override
+  String get maxHeadersReachedDetail => 'Maximum 10 en-têtes personnalisés. Supprimez-en pour en ajouter.';
+
+  @override
+  String get editMessage => 'Modifier le message';
+
+  @override
+  String get noModelsAvailable => 'Aucun modèle disponible';
+
+  @override
+  String followingSystem(String theme) {
+    return 'Selon le système : $theme';
+  }
+
+  @override
+  String get themeDark => 'Sombre';
+
+  @override
+  String get themeLight => 'Clair';
+
+  @override
+  String get currentlyUsingDarkTheme => 'Thème sombre actuellement utilisé';
+
+  @override
+  String get currentlyUsingLightTheme => 'Thème clair actuellement utilisé';
+
+  @override
+  String get aboutConduit => 'À propos de Conduit';
+
+  @override
+  String versionLabel(String version, String build) {
+    return 'Version : $version ($build)';
+  }
+
+  @override
+  String get githubRepository => 'Dépôt GitHub';
+
+  @override
+  String get unableToLoadAppInfo => 'Impossible de charger les informations de l\'application';
 }

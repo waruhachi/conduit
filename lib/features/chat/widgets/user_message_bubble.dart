@@ -7,6 +7,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io' show Platform;
+import 'package:conduit/l10n/app_localizations.dart';
 
 class UserMessageBubble extends ConsumerStatefulWidget {
   final dynamic message;
@@ -581,14 +582,14 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
       children: [
         _buildActionButton(
           icon: Platform.isIOS ? CupertinoIcons.pencil : Icons.edit_outlined,
-          label: 'Edit',
+          label: AppLocalizations.of(context)!.edit,
           onTap: widget.onEdit,
         ),
         _buildActionButton(
           icon: Platform.isIOS
               ? CupertinoIcons.doc_on_clipboard
               : Icons.content_copy,
-          label: 'Copy',
+          label: AppLocalizations.of(context)!.copy,
           onTap: widget.onCopy,
         ),
       ],

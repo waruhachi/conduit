@@ -320,7 +320,7 @@ class ProfilePage extends ConsumerWidget {
           (m) => m.id == settings.defaultModel,
           orElse: () => models.isNotEmpty
               ? models.first
-              : const Model(id: 'none', name: 'No models available'),
+              : Model(id: 'none', name: AppLocalizations.of(context)!.noModelsAvailable),
         );
 
         return ListTile(
@@ -611,11 +611,14 @@ class ProfilePage extends ConsumerWidget {
       ),
       subtitle: Text(
         themeMode == ThemeMode.system
-            ? 'Following system: '
-                  '${platformBrightness == Brightness.dark ? 'Dark' : 'Light'}'
+            ? AppLocalizations.of(context)!.followingSystem(
+                platformBrightness == Brightness.dark
+                    ? AppLocalizations.of(context)!.themeDark
+                    : AppLocalizations.of(context)!.themeLight,
+              )
             : (isDarkEffective
-                  ? 'Currently using Dark theme'
-                  : 'Currently using Light theme'),
+                  ? AppLocalizations.of(context)!.currentlyUsingDarkTheme
+                  : AppLocalizations.of(context)!.currentlyUsingLightTheme),
         style: context.conduitTheme.bodySmall?.copyWith(
           color: context.conduitTheme.textSecondary,
         ),
@@ -663,7 +666,7 @@ class ProfilePage extends ConsumerWidget {
           return AlertDialog(
             backgroundColor: ctx.conduitTheme.surfaceBackground,
             title: Text(
-              'About Conduit',
+              AppLocalizations.of(ctx)!.aboutConduit,
               style: ctx.conduitTheme.headingSmall?.copyWith(
                 color: ctx.conduitTheme.textPrimary,
               ),
@@ -673,7 +676,7 @@ class ProfilePage extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Version: ${info.version} (${info.buildNumber})',
+                  AppLocalizations.of(ctx)!.versionLabel(info.version, info.buildNumber),
                   style: ctx.conduitTheme.bodyMedium?.copyWith(
                     color: ctx.conduitTheme.textSecondary,
                   ),
@@ -697,7 +700,7 @@ class ProfilePage extends ConsumerWidget {
                       ),
                       const SizedBox(width: Spacing.xs),
                       Text(
-                        'GitHub Repository',
+                        AppLocalizations.of(ctx)!.githubRepository,
                         style: ctx.conduitTheme.bodyMedium?.copyWith(
                           color: ctx.conduitTheme.buttonPrimary,
                           fontWeight: FontWeight.w600,
@@ -719,7 +722,7 @@ class ProfilePage extends ConsumerWidget {
       );
     } catch (e) {
       if (!context.mounted) return;
-      UiUtils.showMessage(context, 'Unable to load app info');
+      UiUtils.showMessage(context, AppLocalizations.of(context)!.unableToLoadAppInfo);
     }
   }
 

@@ -178,19 +178,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get password => 'Password';
 
   @override
-  String get usernameOrEmailHint => 'Inserisci il tuo username o e‑mail';
-
-  @override
-  String get passwordHint => 'Inserisci la password';
-
-  @override
   String get signInWithApiKey => 'Accedi con chiave API';
-
-  @override
-  String get enterApiKey => 'Inserisci la tua chiave API';
-  
-  @override
-  String get signingIn => 'Accesso in corso...';
 
   @override
   String get connectToServer => 'Connetti al server';
@@ -224,52 +212,6 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get removeHeader => 'Rimuovi header';
-
-  @override
-  String get advancedSettings => 'Impostazioni avanzate';
-
-  @override
-  String get customHeaders => 'Header personalizzati';
-
-  @override
-  String get customHeadersDescription =>
-      'Aggiungi header HTTP personalizzati per autenticazione, chiavi API o requisiti speciali del server.';
-
-  @override
-  String get headerNameEmpty => 'Il nome header non può essere vuoto';
-
-  @override
-  String get headerNameTooLong => 'Nome header troppo lungo (max 64 caratteri)';
-
-  @override
-  String get headerNameInvalidChars =>
-      'Nome header non valido. Usa solo lettere, numeri e questi simboli: !#\$&-^_`|~';
-
-  @override
-  String headerNameReserved(String key) =>
-      'Impossibile sovrascrivere l\'header riservato "$key"';
-
-  @override
-  String get headerValueEmpty => 'Il valore header non può essere vuoto';
-
-  @override
-  String get headerValueTooLong => 'Valore header troppo lungo (max 1024 caratteri)';
-
-  @override
-  String get headerValueInvalidChars =>
-      'Il valore header contiene caratteri non validi. Usa solo ASCII stampabile.';
-
-  @override
-  String get headerValueUnsafe =>
-      'Il valore header sembra contenere contenuto potenzialmente non sicuro';
-
-  @override
-  String headerAlreadyExists(String key) =>
-      'L\'header "$key" esiste già. Rimuovilo prima per aggiornarlo.';
-
-  @override
-  String get maxHeadersReachedDetail =>
-      'Massimo 10 header personalizzati consentiti. Rimuovine alcuni per aggiungerne altri.';
 
   @override
   String get connecting => 'Connessione in corso...';
@@ -670,4 +612,108 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get imageGenerationDescription => 'Crea immagini dai tuoi prompt.';
+
+  @override
+  String get copy => 'Copia';
+
+  @override
+  String get edit => 'Modifica';
+
+  @override
+  String get regenerate => 'Rigenera';
+
+  @override
+  String get noConversationsYet => 'Ancora nessuna conversazione';
+
+  @override
+  String get usernameOrEmailHint => 'Inserisci il tuo username o e‑mail';
+
+  @override
+  String get passwordHint => 'Inserisci la password';
+
+  @override
+  String get enterApiKey => 'Inserisci la tua chiave API';
+
+  @override
+  String get signingIn => 'Accesso in corso...';
+
+  @override
+  String get advancedSettings => 'Impostazioni avanzate';
+
+  @override
+  String get customHeaders => 'Header personalizzati';
+
+  @override
+  String get customHeadersDescription => 'Aggiungi header HTTP personalizzati per autenticazione, chiavi API o requisiti speciali del server.';
+
+  @override
+  String get headerNameEmpty => 'Il nome header non può essere vuoto';
+
+  @override
+  String get headerNameTooLong => 'Nome header troppo lungo (max 64 caratteri)';
+
+  @override
+  String get headerNameInvalidChars => 'Nome header non valido. Usa solo lettere, numeri e questi simboli: !#\$&-^_`|~';
+
+  @override
+  String headerNameReserved(String key) {
+    return 'Impossibile sovrascrivere l\'header riservato \"$key\"';
+  }
+
+  @override
+  String get headerValueEmpty => 'Il valore dell\'header non può essere vuoto';
+
+  @override
+  String get headerValueTooLong => 'Valore header troppo lungo (max 1024 caratteri)';
+
+  @override
+  String get headerValueInvalidChars => 'Il valore dell\'header contiene caratteri non validi. Usa solo ASCII stampabile.';
+
+  @override
+  String get headerValueUnsafe => 'Il valore dell\'header sembra contenere contenuti potenzialmente non sicuri';
+
+  @override
+  String headerAlreadyExists(String key) {
+    return 'L\'header \"$key\" esiste già. Rimuovilo prima per aggiornarlo.';
+  }
+
+  @override
+  String get maxHeadersReachedDetail => 'Massimo 10 header personalizzati consentiti. Rimuovine alcuni per aggiungerne altri.';
+
+  @override
+  String get editMessage => 'Modifica messaggio';
+
+  @override
+  String get noModelsAvailable => 'Nessun modello disponibile';
+
+  @override
+  String followingSystem(String theme) {
+    return 'Segue il sistema: $theme';
+  }
+
+  @override
+  String get themeDark => 'Scuro';
+
+  @override
+  String get themeLight => 'Chiaro';
+
+  @override
+  String get currentlyUsingDarkTheme => 'Attualmente tema scuro';
+
+  @override
+  String get currentlyUsingLightTheme => 'Attualmente tema chiaro';
+
+  @override
+  String get aboutConduit => 'Informazioni su Conduit';
+
+  @override
+  String versionLabel(String version, String build) {
+    return 'Versione: $version ($build)';
+  }
+
+  @override
+  String get githubRepository => 'Repository GitHub';
+
+  @override
+  String get unableToLoadAppInfo => 'Impossibile caricare le informazioni dell\'app';
 }

@@ -802,7 +802,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           borderRadius: BorderRadius.circular(AppBorderRadius.dialog),
         ),
         title: Text(
-          'Edit Message',
+          AppLocalizations.of(context)!.editMessage,
           style: TextStyle(color: context.conduitTheme.textPrimary),
         ),
         content: TextField(

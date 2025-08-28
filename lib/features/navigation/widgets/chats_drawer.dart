@@ -255,7 +255,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
               child: Padding(
                 padding: const EdgeInsets.all(Spacing.lg),
                 child: Text(
-                  'No conversations yet',
+                  AppLocalizations.of(context)!.noConversationsYet,
                   style: AppTypography.bodyMediumStyle.copyWith(
                     color: theme.textSecondary,
                   ),
