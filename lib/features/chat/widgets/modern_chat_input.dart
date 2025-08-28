@@ -170,6 +170,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   int _intensity = 0; // 0..10 from service
   String _baseTextAtStart = '';
   bool _isDeactivated = false;
+  int _lastHandledFocusTick = 0;
 
   @override
   void initState() {
@@ -376,13 +377,19 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
     // React to external focus requests (e.g., from share prefill)
     final focusTick = ref.watch(inputFocusTriggerProvider);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _isDeactivated) return;
-      if (focusTick > 0) {
-        _ensureFocusedIfEnabled();
-        if (!_isExpanded) _setExpanded(true);
-      }
-    });
+    if (focusTick != _lastHandledFocusTick) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _isDeactivated) return;
+        // Do not steal focus if another input currently has primary focus
+        final currentFocus = FocusManager.instance.primaryFocus;
+        final anotherHasFocus = currentFocus != null && currentFocus != _focusNode;
+        if (!anotherHasFocus) {
+          _ensureFocusedIfEnabled();
+          if (!_isExpanded) _setExpanded(true);
+        }
+        _lastHandledFocusTick = focusTick;
+      });
+    }
 
     return Container(
       // Transparent wrapper so rounded corners are visible against page background
