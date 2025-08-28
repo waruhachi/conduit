@@ -7,10 +7,10 @@
 
 
 <a href="https://groups.google.com/g/conduit">
-<img src="https://github.com/pioug/google-play-badges/raw/refs/heads/main/svg/English.svg" alt="Get it on Google Play" style="height:56px;"/>
+<img src="store-badges/google.webp" alt="Get it on Google Play" style="height:56px;"/>
 </a>
 <a href="https://apps.apple.com/us/app/conduit-open-webui-client/id6749840287">
-<img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" style="height:56px;"/>
+<img src="store-badges/apple.webp" alt="Download on the App Store" style="height:56px;"/>
 </a>
 
 </div>
