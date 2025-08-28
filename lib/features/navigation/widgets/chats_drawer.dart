@@ -41,6 +41,74 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     (ref) => {},
   );
 
+  Future<void> _refreshChats() async {
+    try {
+      // Always refresh folders
+      ref.invalidate(foldersProvider);
+
+      if (_query.trim().isEmpty) {
+        // Refresh main conversations list
+        ref.invalidate(conversationsProvider);
+        try {
+          await ref.read(conversationsProvider.future);
+        } catch (_) {}
+      } else {
+        // Refresh server-side search results
+        ref.invalidate(serverSearchProvider(_query));
+        try {
+          await ref.read(serverSearchProvider(_query).future);
+        } catch (_) {}
+      }
+
+      // Await folders as well so the list stabilizes
+      try {
+        await ref.read(foldersProvider.future);
+      } catch (_) {}
+    } catch (_) {}
+  }
+
+  Widget _buildRefreshableScrollable({required List<Widget> children}) {
+    // Common padding used in both scrollable variants
+    const padding = EdgeInsets.fromLTRB(
+      Spacing.md,
+      Spacing.sm,
+      Spacing.md,
+      Spacing.md,
+    );
+
+    if (Platform.isIOS) {
+      // Use Cupertino-style pull-to-refresh on iOS
+      final scroll = CustomScrollView(
+        controller: _listController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          const CupertinoSliverRefreshControl(),
+          SliverPadding(
+            padding: padding,
+            sliver: SliverList(
+              delegate: SliverChildListDelegate(children),
+            ),
+          ),
+        ],
+      );
+      return CupertinoScrollbar(controller: _listController, child: scroll);
+    }
+
+    // Material pull-to-refresh elsewhere
+    return RefreshIndicator(
+      onRefresh: _refreshChats,
+      child: Scrollbar(
+        controller: _listController,
+        child: ListView(
+          controller: _listController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: padding,
+          children: children,
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _debounce?.cancel();
@@ -226,95 +294,84 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
 
           final archived = list.where((c) => c.archived == true).toList();
 
-          return Scrollbar(
-            controller: _listController,
-            child: ListView(
-              controller: _listController,
-              padding: const EdgeInsets.fromLTRB(
-                Spacing.md,
-                Spacing.sm,
-                Spacing.md,
-                Spacing.md,
+          final children = <Widget>[
+            if (pinned.isNotEmpty) ...[
+              _buildSectionHeader(
+                AppLocalizations.of(context)!.pinned,
+                pinned.length,
               ),
-              children: [
-                if (pinned.isNotEmpty) ...[
-                  _buildSectionHeader(
-                    AppLocalizations.of(context)!.pinned,
-                    pinned.length,
-                  ),
-                  const SizedBox(height: Spacing.xs),
-                  ...pinned.map((conv) => _buildTileFor(conv)),
-                  const SizedBox(height: Spacing.md),
-                ],
+              const SizedBox(height: Spacing.xs),
+              ...pinned.map((conv) => _buildTileFor(conv)),
+              const SizedBox(height: Spacing.md),
+            ],
 
-                // Folders section (shown even if empty)
-                _buildFoldersSectionHeader(),
-                const SizedBox(height: Spacing.xs),
-                if (_isDragging && _draggingHasFolder) ...[
-                  _buildUnfileDropTarget(),
-                  const SizedBox(height: Spacing.sm),
-                ],
-                ...ref
-                    .watch(foldersProvider)
-                    .when(
-                      data: (folders) {
-                        final grouped = <String, List<dynamic>>{};
-                        for (final c in foldered) {
-                          final id = c.folderId!;
-                          grouped.putIfAbsent(id, () => []).add(c);
-                        }
+            // Folders section (shown even if empty)
+            _buildFoldersSectionHeader(),
+            const SizedBox(height: Spacing.xs),
+            if (_isDragging && _draggingHasFolder) ...[
+              _buildUnfileDropTarget(),
+              const SizedBox(height: Spacing.sm),
+            ],
+            ...ref
+                .watch(foldersProvider)
+                .when(
+                  data: (folders) {
+                    final grouped = <String, List<dynamic>>{};
+                    for (final c in foldered) {
+                      final id = c.folderId!;
+                      grouped.putIfAbsent(id, () => []).add(c);
+                    }
 
-                        // Show all folders (including empty)
-                        final sections = folders.map((folder) {
-                          final expandedMap = ref.watch(
-                            _expandedFoldersProvider,
-                          );
-                          final isExpanded = expandedMap[folder.id] ?? false;
-                          final convs = grouped[folder.id] ?? const <dynamic>[];
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildFolderHeader(
-                                folder.id,
-                                folder.name,
-                                convs.length,
-                              ),
-                              if (isExpanded && convs.isNotEmpty) ...[
-                                const SizedBox(height: Spacing.xs),
-                                ...convs.map(
-                                  (c) => _buildTileFor(c, inFolder: true),
-                                ),
-                                const SizedBox(height: Spacing.xs),
-                              ],
-                              const SizedBox(height: Spacing.xs),
-                            ],
-                          );
-                        }).toList();
-                        return sections.isEmpty
-                            ? [const SizedBox.shrink()]
-                            : sections;
-                      },
-                      loading: () => [const SizedBox.shrink()],
-                      error: (e, st) => [const SizedBox.shrink()],
-                    ),
-                const SizedBox(height: Spacing.md),
+                    // Show all folders (including empty)
+                    final sections = folders.map((folder) {
+                      final expandedMap = ref.watch(
+                        _expandedFoldersProvider,
+                      );
+                      final isExpanded = expandedMap[folder.id] ?? false;
+                      final convs = grouped[folder.id] ?? const <dynamic>[];
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildFolderHeader(
+                            folder.id,
+                            folder.name,
+                            convs.length,
+                          ),
+                          if (isExpanded && convs.isNotEmpty) ...[
+                            const SizedBox(height: Spacing.xs),
+                            ...convs.map(
+                              (c) => _buildTileFor(c, inFolder: true),
+                            ),
+                            const SizedBox(height: Spacing.xs),
+                          ],
+                          const SizedBox(height: Spacing.xs),
+                        ],
+                      );
+                    }).toList();
+                    return sections.isEmpty
+                        ? [const SizedBox.shrink()]
+                        : sections;
+                  },
+                  loading: () => [const SizedBox.shrink()],
+                  error: (e, st) => [const SizedBox.shrink()],
+                ),
+            const SizedBox(height: Spacing.md),
 
-                if (regular.isNotEmpty) ...[
-                  _buildSectionHeader(
-                    AppLocalizations.of(context)!.recent,
-                    regular.length,
-                  ),
-                  const SizedBox(height: Spacing.xs),
-                  ...regular.map(_buildTileFor),
-                ],
+            if (regular.isNotEmpty) ...[
+              _buildSectionHeader(
+                AppLocalizations.of(context)!.recent,
+                regular.length,
+              ),
+              const SizedBox(height: Spacing.xs),
+              ...regular.map(_buildTileFor),
+            ],
 
-                if (archived.isNotEmpty) ...[
-                  const SizedBox(height: Spacing.md),
-                  _buildArchivedSection(archived),
-                ],
-              ],
-            ),
-          );
+            if (archived.isNotEmpty) ...[
+              const SizedBox(height: Spacing.md),
+              _buildArchivedSection(archived),
+            ],
+          ];
+          return _buildRefreshableScrollable(children: children);
         },
         loading: () =>
             const Center(child: CircularProgressIndicator(strokeWidth: 2.0)),
@@ -377,90 +434,79 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
 
         final archived = list.where((c) => c.archived == true).toList();
 
-        return Scrollbar(
-          controller: _listController,
-          child: ListView(
-            controller: _listController,
-            padding: const EdgeInsets.fromLTRB(
-              Spacing.md,
-              Spacing.sm,
-              Spacing.md,
-              Spacing.md,
+        final children = <Widget>[
+          _buildSectionHeader('Results', list.length),
+          const SizedBox(height: Spacing.xs),
+          if (pinned.isNotEmpty) ...[
+            _buildSectionHeader(
+              AppLocalizations.of(context)!.pinned,
+              pinned.length,
             ),
-            children: [
-              _buildSectionHeader('Results', list.length),
-              const SizedBox(height: Spacing.xs),
-              if (pinned.isNotEmpty) ...[
-                _buildSectionHeader(
-                  AppLocalizations.of(context)!.pinned,
-                  pinned.length,
-                ),
-                const SizedBox(height: Spacing.xs),
-                ...pinned.map((conv) => _buildTileFor(conv)),
-                const SizedBox(height: Spacing.md),
-              ],
-              // Folders section (shown even if empty)
-              _buildFoldersSectionHeader(),
-              const SizedBox(height: Spacing.xs),
-              if (_isDragging && _draggingHasFolder) ...[
-                _buildUnfileDropTarget(),
-                const SizedBox(height: Spacing.sm),
-              ],
-              ...ref
-                  .watch(foldersProvider)
-                  .when(
-                    data: (folders) {
-                      final grouped = <String, List<dynamic>>{};
-                      for (final c in foldered) {
-                        final id = c.folderId!;
-                        grouped.putIfAbsent(id, () => []).add(c);
-                      }
+            const SizedBox(height: Spacing.xs),
+            ...pinned.map((conv) => _buildTileFor(conv)),
+            const SizedBox(height: Spacing.md),
+          ],
+          // Folders section (shown even if empty)
+          _buildFoldersSectionHeader(),
+          const SizedBox(height: Spacing.xs),
+          if (_isDragging && _draggingHasFolder) ...[
+            _buildUnfileDropTarget(),
+            const SizedBox(height: Spacing.sm),
+          ],
+          ...ref
+              .watch(foldersProvider)
+              .when(
+                data: (folders) {
+                  final grouped = <String, List<dynamic>>{};
+                  for (final c in foldered) {
+                    final id = c.folderId!;
+                    grouped.putIfAbsent(id, () => []).add(c);
+                  }
 
-                      final sections = folders.map((folder) {
-                        final expandedMap = ref.watch(_expandedFoldersProvider);
-                        final isExpanded = expandedMap[folder.id] ?? false;
-                        final convs = grouped[folder.id] ?? const <dynamic>[];
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildFolderHeader(
-                              folder.id,
-                              folder.name,
-                              convs.length,
-                            ),
-                            if (isExpanded && convs.isNotEmpty) ...[
-                              const SizedBox(height: Spacing.xs),
-                              ...convs.map(
-                                (c) => _buildTileFor(c, inFolder: true),
-                              ),
-                              const SizedBox(height: Spacing.sm),
-                            ],
-                          ],
-                        );
-                      }).toList();
-                      return sections.isEmpty
-                          ? [const SizedBox.shrink()]
-                          : sections;
-                    },
-                    loading: () => [const SizedBox.shrink()],
-                    error: (e, st) => [const SizedBox.shrink()],
-                  ),
-              const SizedBox(height: Spacing.md),
-              if (regular.isNotEmpty) ...[
-                _buildSectionHeader(
-                  AppLocalizations.of(context)!.recent,
-                  regular.length,
-                ),
-                const SizedBox(height: Spacing.xs),
-                ...regular.map(_buildTileFor),
-              ],
-              if (archived.isNotEmpty) ...[
-                const SizedBox(height: Spacing.md),
-                _buildArchivedSection(archived),
-              ],
-            ],
-          ),
-        );
+                  final sections = folders.map((folder) {
+                    final expandedMap = ref.watch(_expandedFoldersProvider);
+                    final isExpanded = expandedMap[folder.id] ?? false;
+                    final convs = grouped[folder.id] ?? const <dynamic>[];
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildFolderHeader(
+                          folder.id,
+                          folder.name,
+                          convs.length,
+                        ),
+                        if (isExpanded && convs.isNotEmpty) ...[
+                          const SizedBox(height: Spacing.xs),
+                          ...convs.map(
+                            (c) => _buildTileFor(c, inFolder: true),
+                          ),
+                          const SizedBox(height: Spacing.sm),
+                        ],
+                      ],
+                    );
+                  }).toList();
+                  return sections.isEmpty
+                      ? [const SizedBox.shrink()]
+                      : sections;
+                },
+                loading: () => [const SizedBox.shrink()],
+                error: (e, st) => [const SizedBox.shrink()],
+              ),
+          const SizedBox(height: Spacing.md),
+          if (regular.isNotEmpty) ...[
+            _buildSectionHeader(
+              AppLocalizations.of(context)!.recent,
+              regular.length,
+            ),
+            const SizedBox(height: Spacing.xs),
+            ...regular.map(_buildTileFor),
+          ],
+          if (archived.isNotEmpty) ...[
+            const SizedBox(height: Spacing.md),
+            _buildArchivedSection(archived),
+          ],
+        ];
+        return _buildRefreshableScrollable(children: children);
       },
       loading: () =>
           const Center(child: CircularProgressIndicator(strokeWidth: 2.0)),
