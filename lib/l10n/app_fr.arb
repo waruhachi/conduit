@@ -251,5 +251,12 @@
   "versionLabel": "Version : {version} ({build})",
   "@versionLabel": {"placeholders": {"version": {"type": "String"}, "build": {"type": "String"}}},
   "githubRepository": "Dépôt GitHub",
-  "unableToLoadAppInfo": "Impossible de charger les informations de l'application"
+  "unableToLoadAppInfo": "Impossible de charger les informations de l'application",
+  "thinking": "Réflexion…",
+  "thoughts": "Réflexions",
+  "thoughtForDuration": "A réfléchi pendant {duration}",
+  "@thoughtForDuration": {
+    "description": "Indique la durée de réflexion de l'assistant.",
+    "placeholders": {"duration": {"type": "String", "example": "3 s"}}
+  }
 }

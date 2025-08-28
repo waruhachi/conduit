@@ -228,20 +228,21 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                         const SizedBox(width: Spacing.xs),
                         Text(
                           () {
+                            final l10n = AppLocalizations.of(context)!;
                             final rc = _reasoningContent!;
                             final hasSummary = rc.summary.isNotEmpty;
                             final isThinkingSummary = rc.summary.trim().toLowerCase() == 'thinking…' || rc.summary.trim().toLowerCase() == 'thinking...';
                             if (widget.isStreaming) {
                               // During streaming, prefer showing Thinking…
-                              return hasSummary ? rc.summary : 'Thinking…';
+                              return hasSummary ? rc.summary : l10n.thinking;
                             }
                             // After streaming ends:
                             if (rc.duration > 0) {
-                              return 'Thought for ${rc.formattedDuration}';
+                              return l10n.thoughtForDuration(rc.formattedDuration);
                             }
                             // If summary was just the placeholder 'Thinking…', replace with a neutral title
                             if (!hasSummary || isThinkingSummary) {
-                              return 'Thoughts';
+                              return l10n.thoughts;
                             }
                             return rc.summary;
                           }(),
@@ -514,7 +515,8 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: Spacing.xs),
+            // Increase spacing between assistant name and typing indicator
+            const SizedBox(height: Spacing.md),
             Row(
               children: [
                 _buildTypingDot(0),

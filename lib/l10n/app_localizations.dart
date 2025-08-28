@@ -1454,6 +1454,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to load app info'**
   String get unableToLoadAppInfo;
+
+  /// No description provided for @thinking.
+  ///
+  /// In en, this message translates to:
+  /// **'Thinking…'**
+  String get thinking;
+
+  /// No description provided for @thoughts.
+  ///
+  /// In en, this message translates to:
+  /// **'Thoughts'**
+  String get thoughts;
+
+  /// Shows how long the assistant thought before replying.
+  ///
+  /// In en, this message translates to:
+  /// **'Thought for {duration}'**
+  String thoughtForDuration(String duration);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

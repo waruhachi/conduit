@@ -716,4 +716,15 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get unableToLoadAppInfo => 'App-Informationen konnten nicht geladen werden';
+
+  @override
+  String get thinking => 'Denkt…';
+
+  @override
+  String get thoughts => 'Gedanken';
+
+  @override
+  String thoughtForDuration(String duration) {
+    return 'Gedacht für $duration';
+  }
 }

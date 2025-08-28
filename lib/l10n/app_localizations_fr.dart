@@ -716,4 +716,15 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get unableToLoadAppInfo => 'Impossible de charger les informations de l\'application';
+
+  @override
+  String get thinking => 'Réflexion…';
+
+  @override
+  String get thoughts => 'Réflexions';
+
+  @override
+  String thoughtForDuration(String duration) {
+    return 'A réfléchi pendant $duration';
+  }
 }
