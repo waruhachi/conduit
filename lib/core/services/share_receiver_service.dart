@@ -9,6 +9,7 @@ import '../../features/auth/providers/unified_auth_providers.dart';
 import '../../features/chat/providers/chat_providers.dart';
 import '../../features/chat/services/file_attachment_service.dart';
 import '../../core/providers/app_providers.dart';
+// No server chat creation here; follow chat flow on first send
 
 /// Lightweight payload for a share event
 class SharedPayload {
@@ -160,11 +161,16 @@ Future<void> _processPayload(Ref ref, SharedPayload payload) async {
       }
     }
 
-    // Prefill text in the composer (do not auto-send)
+    // Prefill text in the composer (do not auto-send) and request focus
     final text = payload.text?.trim();
     if (text != null && text.isNotEmpty) {
       ref.read(prefilledInputTextProvider.notifier).state = text;
+      // Bump focus trigger to ensure input focuses after navigation/build
+      final current = ref.read(inputFocusTriggerProvider);
+      ref.read(inputFocusTriggerProvider.notifier).state = current + 1;
     }
+    // Do NOT create a placeholder server chat here. The drawer will refresh
+    // when the user sends their first message, matching in-app behavior.
     // This allows the user to add a caption before sending
   } catch (e) {
     debugPrint('ShareReceiver: failed to process payload: $e');

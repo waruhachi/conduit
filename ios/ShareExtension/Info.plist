@@ -31,6 +31,8 @@
                 <integer>10</integer>
                 <key>NSExtensionActivationSupportsText</key>
                 <true/>
+                <key>NSExtensionActivationSupportsFileWithMaxCount</key>
+                <integer>20</integer>
             </dict>
 	    <key>PHSupportedMediaTypes</key>
 	    <array>

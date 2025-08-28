@@ -24,6 +24,9 @@ final isLoadingConversationProvider = StateProvider<bool>((ref) => false);
 // Prefilled input text (e.g., when sharing text from other apps)
 final prefilledInputTextProvider = StateProvider<String?>((ref) => null);
 
+// Trigger to request focus on the chat input (increment to signal)
+final inputFocusTriggerProvider = StateProvider<int>((ref) => 0);
+
 class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
   final Ref _ref;
   StreamSubscription? _messageStream;
@@ -533,7 +536,14 @@ Future<void> _sendMessageInternal(
         // Invalidate conversations provider to refresh the list
         // Adding a small delay to prevent rapid invalidations that could cause duplicates
         Future.delayed(const Duration(milliseconds: 100), () {
-          ref.invalidate(conversationsProvider);
+          try {
+            // Guard against using ref after widget disposal
+            if (ref.mounted == true) {
+              ref.invalidate(conversationsProvider);
+            }
+          } catch (_) {
+            // If ref doesn't support mounted or is disposed, skip
+          }
         });
       } catch (e) {
         // Still add the message locally
@@ -1742,7 +1752,11 @@ Future<void> _saveConversationToServer(dynamic ref) async {
     // Refresh conversations list to show the updated conversation
     // Adding a small delay to prevent rapid invalidations that could cause duplicates
     Future.delayed(const Duration(milliseconds: 100), () {
-      ref.invalidate(conversationsProvider);
+      try {
+        if (ref.mounted == true) {
+          ref.invalidate(conversationsProvider);
+        }
+      } catch (_) {}
     });
   } catch (e) {
     // Fallback to local storage

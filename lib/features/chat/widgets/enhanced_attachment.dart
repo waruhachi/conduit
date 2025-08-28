@@ -204,6 +204,18 @@ class _EnhancedAttachmentState extends ConsumerState<EnhancedAttachment> {
         .toString();
     final size = _fileInfo?['size'];
     final sizeLabel = size is num ? _formatSize(size.toInt()) : null;
+    final lowerName = filename.toLowerCase();
+    final fileExtension = lowerName.contains('.')
+        ? lowerName.split('.').last
+        : '';
+    final List<String> metaParts = [];
+    if (fileExtension.isNotEmpty) {
+      metaParts.add('.${fileExtension.toUpperCase()}');
+    }
+    if (sizeLabel != null) {
+      metaParts.add(sizeLabel);
+    }
+    final metaLabel = metaParts.join(' • ');
 
     final card = Container(
       constraints: widget.constraints,
@@ -217,15 +229,14 @@ class _EnhancedAttachmentState extends ConsumerState<EnhancedAttachment> {
         ),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: MainAxisSize.max,
         children: [
           Text(
             _fileIconFor(filename),
             style: const TextStyle(fontSize: AppTypography.headlineLarge),
           ),
           const SizedBox(width: Spacing.sm),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 220),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -240,9 +251,9 @@ class _EnhancedAttachmentState extends ConsumerState<EnhancedAttachment> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (sizeLabel != null)
+                if (metaLabel.isNotEmpty)
                   Text(
-                    sizeLabel,
+                    metaLabel,
                     style: TextStyle(
                       color: context.conduitTheme.textSecondary.withValues(
                         alpha: 0.7,

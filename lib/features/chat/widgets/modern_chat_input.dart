@@ -342,6 +342,16 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       orElse: () => false,
     );
 
+    // React to external focus requests (e.g., from share prefill)
+    final focusTick = ref.watch(inputFocusTriggerProvider);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (focusTick > 0) {
+        _ensureFocusedIfEnabled();
+        if (!_isExpanded) _setExpanded(true);
+      }
+    });
+
     return Container(
       // Transparent wrapper so rounded corners are visible against page background
       color: Colors.transparent,
