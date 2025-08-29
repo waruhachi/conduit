@@ -181,7 +181,7 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
                       hasSavedCredentialsProvider2.future,
                     );
                     if (hasCreds) {
-                      await ref.read(silentLoginActionProvider);
+                      await ref.read(silentLoginActionProvider)();
                     }
                   } catch (_) {
                     // Ignore errors, fallback to showing unified page

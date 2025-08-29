@@ -762,7 +762,7 @@ class ProfilePage extends ConsumerWidget {
     );
 
     if (confirm) {
-      await ref.read(logoutActionProvider);
+      await ref.read(logoutActionProvider)();
     }
   }
 }

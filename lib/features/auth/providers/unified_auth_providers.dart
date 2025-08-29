@@ -5,34 +5,34 @@ import '../../../core/providers/app_providers.dart';
 /// Unified auth providers using the new auth state manager
 /// These replace the old auth providers for better efficiency
 
-/// Login action provider
-final loginActionProvider = Provider.family<Future<bool>, Map<String, String>>((
-  ref,
-  credentials,
-) async {
+/// Login action provider (schedules side-effect outside provider build)
+final loginActionProvider = Provider.family<Future<bool>, Map<String, String>>(
+  (ref, credentials) async {
+    final authManager = ref.read(authStateManagerProvider.notifier);
+
+    final username = credentials['username']!;
+    final password = credentials['password']!;
+    final rememberCredentials = credentials['remember'] == 'true';
+
+    // Defer the mutation to avoid changing other providers during build
+    return Future(() => authManager.login(
+          username,
+          password,
+          rememberCredentials: rememberCredentials,
+        ));
+  },
+);
+
+/// Silent login action provider - returns a callback to run later
+final silentLoginActionProvider = Provider<Future<bool> Function()>((ref) {
   final authManager = ref.read(authStateManagerProvider.notifier);
-
-  final username = credentials['username']!;
-  final password = credentials['password']!;
-  final rememberCredentials = credentials['remember'] == 'true';
-
-  return await authManager.login(
-    username,
-    password,
-    rememberCredentials: rememberCredentials,
-  );
+  return () => authManager.silentLogin();
 });
 
-/// Silent login action provider
-final silentLoginActionProvider = Provider<Future<bool>>((ref) async {
+/// Logout action provider - returns a callback to run later
+final logoutActionProvider = Provider<Future<void> Function()>((ref) {
   final authManager = ref.read(authStateManagerProvider.notifier);
-  return await authManager.silentLogin();
-});
-
-/// Logout action provider
-final logoutActionProvider = Provider<Future<void>>((ref) async {
-  final authManager = ref.read(authStateManagerProvider.notifier);
-  await authManager.logout();
+  return () => authManager.logout();
 });
 
 /// Check if saved credentials exist
@@ -70,10 +70,10 @@ final authStatusProvider = Provider<AuthStatus>((ref) {
   return ref.watch(authStateManagerProvider.select((state) => state.status));
 });
 
-/// Helper provider to trigger auth refresh
-final refreshAuthProvider = Provider<Future<void>>((ref) async {
+/// Helper provider to trigger auth refresh - returns a callback
+final refreshAuthProvider = Provider<Future<void> Function()>((ref) {
   final authManager = ref.read(authStateManagerProvider.notifier);
-  await authManager.refresh();
+  return () => authManager.refresh();
 });
 
 /// Provider to watch for auth state changes and update API service
