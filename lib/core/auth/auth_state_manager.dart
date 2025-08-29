@@ -86,6 +86,8 @@ class AuthStateManager extends StateNotifier<AuthState> {
 
   final Ref _ref;
   final AuthCacheManager _cacheManager = AuthCacheManager();
+  // Prevent overlapping silent-login attempts from multiple triggers
+  Future<bool>? _silentLoginFuture;
 
   /// Initialize auth state from storage
   Future<void> _initialize() async {
@@ -330,6 +332,22 @@ class AuthStateManager extends StateNotifier<AuthState> {
 
   /// Perform silent auto-login with saved credentials
   Future<bool> silentLogin() async {
+    // Coalesce concurrent calls (e.g., UI + interceptor retry)
+    if (_silentLoginFuture != null) {
+      return await _silentLoginFuture!;
+    }
+    final thisAttempt = _performSilentLogin();
+    _silentLoginFuture = thisAttempt;
+    try {
+      return await thisAttempt;
+    } finally {
+      if (identical(_silentLoginFuture, thisAttempt)) {
+        _silentLoginFuture = null;
+      }
+    }
+  }
+
+  Future<bool> _performSilentLogin() async {
     state = state.copyWith(
       status: AuthStatus.loading,
       isLoading: true,
@@ -401,7 +419,11 @@ class AuthStateManager extends StateNotifier<AuthState> {
 
   /// Handle token invalidation (called by API service)
   Future<void> onTokenInvalidated() async {
-    DebugLogger.auth('Auth token invalidated');
+    // Avoid spamming logs if multiple requests invalidate at once
+    final reloginInProgress = _silentLoginFuture != null;
+    if (!reloginInProgress) {
+      DebugLogger.auth('Auth token invalidated');
+    }
 
     // Clear token from storage
     final storage = _ref.read(optimizedStorageServiceProvider);
@@ -418,7 +440,9 @@ class AuthStateManager extends StateNotifier<AuthState> {
     // Attempt silent re-login if credentials are available
     final hasCredentials = await storage.getSavedCredentials() != null;
     if (hasCredentials) {
-      DebugLogger.auth('Attempting silent re-login after token invalidation');
+      if (!reloginInProgress) {
+        DebugLogger.auth('Attempting silent re-login after token invalidation');
+      }
       await silentLogin();
     }
   }

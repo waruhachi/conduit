@@ -233,7 +233,7 @@ final currentUserProvider = FutureProvider<User?>((ref) async {
 // Helper provider to force refresh auth state - now using unified system
 final refreshAuthStateProvider = Provider<void>((ref) {
   // This provider can be invalidated to force refresh the unified auth system
-  ref.read(refreshAuthProvider)();
+  Future.microtask(() => ref.read(authActionsProvider).refresh());
   return;
 });
 

@@ -16,6 +16,7 @@ import '../../../shared/widgets/conduit_components.dart';
 import '../../../core/auth/auth_state_manager.dart';
 import '../../../core/utils/debug_logger.dart';
 import 'package:conduit/l10n/app_localizations.dart';
+import '../providers/unified_auth_providers.dart';
 
 class AuthenticationPage extends ConsumerStatefulWidget {
   final ServerConfig serverConfig;
@@ -71,16 +72,16 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
     });
 
     try {
-      final authManager = ref.read(authStateManagerProvider.notifier);
+      final actions = ref.read(authActionsProvider);
       bool success;
 
       if (_useApiKey) {
-        success = await authManager.loginWithApiKey(
+        success = await actions.loginWithApiKey(
           _apiKeyController.text.trim(),
           rememberCredentials: true, // Consistent with credentials method
         );
       } else {
-        success = await authManager.login(
+        success = await actions.login(
           _usernameController.text.trim(),
           _passwordController.text,
           rememberCredentials: true,
