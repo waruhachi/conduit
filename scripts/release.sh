@@ -1,7 +1,9 @@
 #!/bin/bash
 
-# LuCI Mobile Release Script (CI-driven)
-# Usage: ./scripts/release.sh [major|minor|patch]
+# Conduit Mobile Release Script (CI-driven)
+# Usage:
+#   ./scripts/release.sh [major|minor|patch]
+#   ./scripts/release.sh rebuild [vX.Y.Z]   # Rebuild existing tag, bump build number only, update same release assets
 
 set -e
 
@@ -30,6 +32,49 @@ if [ ! -f "pubspec.yaml" ]; then
     exit 1
 fi
 
+ACTION=${1:-patch}
+
+if [ "$ACTION" = "rebuild" ]; then
+  # Rebuild path: Update existing release assets without changing the tag/version name
+  # Optionally accepts a tag argument; defaults to latest tag.
+  TAG_ARG=$2
+  if [ -z "$TAG_ARG" ]; then
+    TAG_VERSION=$(git describe --tags --abbrev=0)
+  else
+    TAG_VERSION=$TAG_ARG
+  fi
+
+  if [ -z "$TAG_VERSION" ]; then
+    print_error "No tag found. Provide an explicit tag: ./scripts/release.sh rebuild vX.Y.Z"
+    exit 1
+  fi
+
+  print_status "Rebuilding existing release for tag: $TAG_VERSION"
+  echo
+  read -p "Proceed to rebuild $TAG_VERSION and update its assets? (y/N): " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      print_warning "Rebuild cancelled"
+      exit 0
+  fi
+
+  if command -v gh >/dev/null 2>&1; then
+    print_status "Dispatching GitHub Actions workflow (Release) via gh CLI..."
+    gh workflow run "Release" \
+      --ref main \
+      -f tag="$TAG_VERSION" \
+      -f remove_old_assets=true
+    print_status "Workflow dispatched. Track progress in GitHub Actions."
+  else
+    print_warning "GitHub CLI (gh) not found. Trigger the workflow manually:"
+    echo "- Go to: https://github.com/$(git config --get remote.origin.url | sed -E 's#(git@|https://)([^/:]+)[:/]([^/.]+/[^.]+)(\.git)?#\2/\3#')/actions/workflows/release.yml"
+    echo "- Click 'Run workflow', set tag to $TAG_VERSION, and run."
+  fi
+  exit 0
+fi
+
+# Standard release path (major/minor/patch)
+
 # Check if git is clean
 if [ -n "$(git status --porcelain)" ]; then
     print_error "Working directory is not clean. Please commit or stash your changes first."
@@ -47,7 +92,7 @@ MINOR=${VERSION_PARTS[1]}
 PATCH=${VERSION_PARTS[2]}
 
 # Determine release type
-RELEASE_TYPE=${1:-patch}
+RELEASE_TYPE=$ACTION
 
 case $RELEASE_TYPE in
     major)
@@ -66,7 +111,7 @@ case $RELEASE_TYPE in
         NEW_PATCH=$((PATCH + 1))
         ;;
     *)
-        print_error "Invalid release type. Use: major, minor, or patch"
+        print_error "Invalid command. Use: major | minor | patch | rebuild [vX.Y.Z]"
         exit 1
         ;;
 esac
@@ -109,4 +154,4 @@ print_status "Creating tag $TAG_VERSION..."
 git tag -a "$TAG_VERSION" -m "Release $TAG_VERSION"
 git push origin "$TAG_VERSION"
 
-print_status "Release $TAG_VERSION created and pushed! CI will handle the build and GitHub release." 
+print_status "Release $TAG_VERSION created and pushed! CI will handle the build and GitHub release."

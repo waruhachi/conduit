@@ -4,6 +4,17 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to update (e.g. v1.2.3)'
+        required: true
+        type: string
+      remove_old_assets:
+        description: 'Remove existing assets before uploading new ones'
+        required: false
+        default: true
+        type: boolean
 
 jobs:  
   build-android:      
@@ -35,6 +46,38 @@ jobs:
       - name: Generate Freezed Classes
         run: flutter pub run build_runner build --delete-conflicting-outputs
 
+      - name: Determine Release Tag and Version
+        id: meta
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            RELEASE_TAG="${{ inputs.tag }}"
+          else
+            RELEASE_TAG="${{ github.ref_name }}"
+          fi
+          echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_ENV
+          # Derive VERSION_NAME (strip leading v)
+          VERSION_NAME="${RELEASE_TAG#v}"
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+
+          # Extract current build number from pubspec.yaml if present, otherwise 1
+          CURRENT_VERSION_LINE=$(grep "^version:" pubspec.yaml || true)
+          CURRENT_BUILD=$(echo "$CURRENT_VERSION_LINE" | awk -F'+' '{print $2}')
+          if [[ -z "$CURRENT_BUILD" ]]; then CURRENT_BUILD=1; fi
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # Rebuild mode: compute a unique, monotonic build number without committing
+            # Use CI run number offset to avoid conflicts across multiple rebuilds
+            BASE_BUILD=$CURRENT_BUILD
+            RUN_NUM=${GITHUB_RUN_NUMBER:-1}
+            BUILD_NUMBER=$((BASE_BUILD + RUN_NUM))
+          else
+            # Tag build: honor the build number committed in pubspec, default to CURRENT_BUILD
+            BUILD_NUMBER="$CURRENT_BUILD"
+          fi
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
+          echo "Using tag=$RELEASE_TAG version=$VERSION_NAME build=$BUILD_NUMBER"
+
         #5 Setup Keystore
       - name: Create Keystore
         run: |
@@ -46,10 +89,10 @@ jobs:
         working-directory: android
       
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --build-name "$VERSION_NAME" --build-number "$BUILD_NUMBER"
 
       - name: Build appBundle
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release --build-name "$VERSION_NAME" --build-number "$BUILD_NUMBER"
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -79,12 +122,27 @@ jobs:
           echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
           cat release_notes.md >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+        if: github.event_name == 'push'
 
-      - name: Create Release
+      - name: Create or Update Release (tag push)
+        if: github.event_name == 'push'
         uses: ncipollo/release-action@v1
         with:
           artifacts: "build/app/outputs/flutter-apk/app-release.apk,build/app/outputs/bundle/release/app-release.aab"
-          tag: ${{ github.ref_name }}
+          tag: ${{ env.RELEASE_TAG }}
           token: ${{ secrets.GITHUB_TOKEN }}
           body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
           generateReleaseNotes: true
+          allowUpdates: true
+
+      - name: Update Existing Release (manual rebuild)
+        if: github.event_name == 'workflow_dispatch'
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "build/app/outputs/flutter-apk/app-release.apk,build/app/outputs/bundle/release/app-release.aab"
+          tag: ${{ env.RELEASE_TAG }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
+          removeArtifacts: ${{ inputs.remove_old_assets }}
+          makeLatest: true
+          omitBodyDuringUpdate: true
