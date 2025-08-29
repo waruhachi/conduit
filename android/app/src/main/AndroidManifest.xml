@@ -70,6 +70,21 @@
             </intent-filter>
         </activity>
         
+        <!-- Adds a text-selection action (Android) shown in the selection toolbar.
+             It forwards the selected text into our existing share flow so the
+             Dart share handler receives it just like a regular share. -->
+        <activity
+            android:name=".ProcessTextActivity"
+            android:exported="true"
+            android:label="Ask Conduit"
+            android:noHistory="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+        
         <!-- Background streaming service -->
         <service
             android:name=".BackgroundStreamingService"
