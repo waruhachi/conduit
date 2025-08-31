@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io' show Platform;
 import '../../../shared/theme/theme_extensions.dart';
 import '../../../shared/widgets/markdown/streaming_markdown_widget.dart';
@@ -47,6 +48,8 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   final Set<String> _expandedToolIds = {};
   Widget? _cachedAvatar;
   String _contentSansDetails = '';
+  bool _allowTypingIndicator = false;
+  Timer? _typingGateTimer;
 
   @override
   void initState() {
@@ -62,6 +65,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
 
     // Parse reasoning and tool-calls sections
     _reparseSections();
+    _updateTypingIndicatorGate();
   }
 
   @override
@@ -78,6 +82,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     // Re-parse sections when message content changes
     if (oldWidget.message.content != widget.message.content) {
       _reparseSections();
+      _updateTypingIndicatorGate();
     }
 
     // Rebuild cached avatar if model name changes
@@ -98,17 +103,91 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     if (raw.startsWith(searchBanner)) {
       raw = raw.substring(searchBanner.length);
     }
+    // Do not truncate content during streaming; segmented parser will skip
+    // incomplete details blocks and tiles will render once complete.
     final rc = ReasoningParser.parseReasoningContent(raw);
     String base = rc?.mainContent ?? raw;
 
     final tools = ToolCallsParser.parse(base);
-    final segments = ToolCallsParser.segments(base);
+    List<ToolCallsSegment>? segments = ToolCallsParser.segments(base);
+
+    // Fallback: if parser failed but content has tool_calls details, synthesize segments
+    if ((segments == null || segments.isEmpty) && base.contains('<details') && base.contains('type="tool_calls"')) {
+      final fallbackSegs = <ToolCallsSegment>[];
+      final detailsRegex = RegExp(r'<details[^>]*>([\s\S]*?)<\/details>', multiLine: true, dotAll: true);
+      final attrRegex = RegExp(r'(\w+)="([^"]*)"');
+      final matches = detailsRegex.allMatches(base).toList();
+      String textRemainder = base;
+      for (final m in matches) {
+        final full = m.group(0) ?? '';
+        final openTag = RegExp(r'<details[^>]*>').firstMatch(full)?.group(0) ?? '';
+        if (!openTag.contains('type="tool_calls"')) continue;
+        final attrs = <String, String>{};
+        for (final am in attrRegex.allMatches(openTag)) {
+          attrs[am.group(1)!] = am.group(2) ?? '';
+        }
+        final id = attrs['id'] ?? '';
+        final name = attrs['name'] ?? 'tool';
+        final done = (attrs['done'] == 'true');
+        final args = attrs['arguments'];
+        final result = attrs['result'];
+        final files = attrs['files'];
+
+        dynamic decodeMaybe(String? s) {
+          if (s == null || s.isEmpty) return null;
+          try {
+            return json.decode(s);
+          } catch (_) {
+            return s;
+          }
+        }
+
+        final entry = ToolCallEntry(
+          id: id.isNotEmpty ? id : '${name}_${m.start}',
+          name: name,
+          done: done,
+          arguments: decodeMaybe(args),
+          result: decodeMaybe(result),
+          files: (decodeMaybe(files) is List) ? decodeMaybe(files) as List : null,
+        );
+        fallbackSegs.add(ToolCallsSegment.entry(entry));
+        textRemainder = textRemainder.replaceFirst(full, '');
+      }
+      if (fallbackSegs.isNotEmpty) {
+        final remainder = textRemainder.trim();
+        if (remainder.isNotEmpty) {
+          fallbackSegs.add(ToolCallsSegment.text(remainder));
+        }
+        segments = fallbackSegs;
+      }
+    }
 
     setState(() {
       _reasoningContent = rc;
       _contentSansDetails = tools?.mainContent ?? base;
       _toolSegments = segments ?? [ToolCallsSegment.text(_contentSansDetails)];
     });
+    _updateTypingIndicatorGate();
+  }
+
+  void _updateTypingIndicatorGate() {
+    // Only show typing indicator if streaming and nothing renderable yet,
+    // and only after a short delay to avoid flicker when content arrives quickly.
+    _typingGateTimer?.cancel();
+    final hasRenderable = _hasRenderableSegments;
+    final contentEmpty = (widget.message.content ?? '').trim().isEmpty;
+    if (widget.isStreaming && !hasRenderable && contentEmpty) {
+      _allowTypingIndicator = false;
+      _typingGateTimer = Timer(const Duration(milliseconds: 150), () {
+        if (mounted) {
+          setState(() {
+            _allowTypingIndicator = true;
+          });
+        }
+      });
+    } else {
+      _allowTypingIndicator = false;
+    }
   }
 
   // No streaming-specific markdown fixes needed here; handled by Markdown widget
@@ -264,8 +343,14 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
 
   Widget _buildSegmentedContent() {
     final children = <Widget>[];
+    bool firstToolSpacerAdded = false;
     for (final seg in _toolSegments) {
       if (seg.isToolCall && seg.entry != null) {
+        // Add top spacing before the first tool block for clarity
+        if (!firstToolSpacerAdded) {
+          children.add(const SizedBox(height: Spacing.sm));
+          firstToolSpacerAdded = true;
+        }
         children.add(_buildToolCallTile(seg.entry!));
       } else if ((seg.text ?? '').trim().isNotEmpty) {
         children.add(
@@ -326,6 +411,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
 
   @override
   void dispose() {
+    _typingGateTimer?.cancel();
     _fadeController.dispose();
     _slideController.dispose();
     super.dispose();
@@ -470,17 +556,46 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                     ],
 
                     // Tool calls are rendered inline via segmented content
-
-                    // If there are any renderable segments (tool calls or text),
-                    // render them even during streaming to avoid showing the
-                    // typing indicator underneath.
-                    if (!_hasRenderableSegments &&
-                        widget.isStreaming &&
-                        (widget.message.content.trim().isEmpty ||
-                            widget.message.content == '[TYPING_INDICATOR]'))
-                      _buildTypingIndicator()
-                    else
-                      _buildSegmentedContent(),
+                    // Smoothly crossfade between typing indicator and content
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, anim) {
+                        final fade = CurvedAnimation(
+                          parent: anim,
+                          curve: Curves.easeOutCubic,
+                          reverseCurve: Curves.easeInCubic,
+                        );
+                        final size = CurvedAnimation(
+                          parent: anim,
+                          curve: Curves.easeOutCubic,
+                          reverseCurve: Curves.easeInCubic,
+                        );
+                        return FadeTransition(
+                          opacity: fade,
+                          child: SizeTransition(
+                            sizeFactor: size,
+                            axisAlignment: -1.0, // collapse/expand from top
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: (!_hasRenderableSegments &&
+                              _allowTypingIndicator &&
+                              widget.isStreaming &&
+                              (widget.message.content.trim().isEmpty ||
+                                  widget.message.content ==
+                                      '[TYPING_INDICATOR]'))
+                          ? KeyedSubtree(
+                              key: const ValueKey('typing'),
+                              child: _buildTypingIndicator(),
+                            )
+                          : KeyedSubtree(
+                              key: const ValueKey('content'),
+                              child: _buildSegmentedContent(),
+                            ),
+                    ),
                   ],
                 ),
               ),
@@ -508,9 +623,29 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
       return const SizedBox.shrink();
     }
 
-    // Sanitize tool-call <details> blocks and process images
-    final toolSanitized = ToolCallsParser.summarize(content);
-    final processedContent = _processContentForImages(toolSanitized);
+    // For streaming, hide any tool_calls <details> blocks that may be incomplete
+    // to avoid showing raw tag text; tiles will render once blocks complete.
+    String cleaned = content;
+    if (widget.isStreaming) {
+      cleaned = cleaned.replaceAll(
+        RegExp(
+          r'<details\s+type="tool_calls"[^>]*>[\s\S]*?<\/details>',
+          multiLine: true,
+          dotAll: true,
+        ),
+        '',
+      );
+      final lastOpen = cleaned.lastIndexOf('<details');
+      if (lastOpen >= 0) {
+        final tail = cleaned.substring(lastOpen);
+        if (!tail.contains('</details>')) {
+          cleaned = cleaned.substring(0, lastOpen);
+        }
+      }
+    }
+
+    // Process images in the remaining text
+    final processedContent = _processContentForImages(cleaned);
 
     return StreamingMarkdownWidget(
       staticContent: processedContent,

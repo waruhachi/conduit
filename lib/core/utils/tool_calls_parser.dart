@@ -39,112 +39,125 @@ class ToolCallsParser {
   static List<ToolCallsSegment>? segments(String content) {
     if (content.isEmpty || !content.contains('<details')) return null;
 
-    final detailsRegex = RegExp(
-      r'<details\b([^>]*)>\s*<summary>[^<]*<\/summary>\s*<\/details>',
-      multiLine: true,
-      dotAll: true,
-    );
-
-    final matches = detailsRegex.allMatches(content).toList();
-    if (matches.isEmpty) return null;
-
     final segs = <ToolCallsSegment>[];
-    int lastEnd = 0;
+    int index = 0;
 
-    for (final m in matches) {
-      // Text before this block
-      if (m.start > lastEnd) {
-        segs.add(ToolCallsSegment.text(content.substring(lastEnd, m.start)));
+    while (index < content.length) {
+      final start = content.indexOf('<details', index);
+      if (start == -1) {
+        if (index < content.length) {
+          segs.add(ToolCallsSegment.text(content.substring(index)));
+        }
+        break;
       }
 
-      final fullMatch = m.group(0) ?? '';
-      final attrs = m.group(1) ?? '';
+      // Text before the block
+      if (start > index) {
+        segs.add(ToolCallsSegment.text(content.substring(index, start)));
+      }
 
-      if (attrs.contains('type="tool_calls"')) {
-        String? _attr(String name) {
-          final r = RegExp('$name="([^"]*)"');
-          final mm = r.firstMatch(attrs);
-          return mm != null ? _unescapeHtml(mm.group(1) ?? '') : null;
+      // Find end of opening tag
+      final openEnd = content.indexOf('>', start);
+      if (openEnd == -1) {
+        // Malformed; append rest as text
+        segs.add(ToolCallsSegment.text(content.substring(start)));
+        break;
+      }
+      final openTag = content.substring(start, openEnd + 1);
+
+      // Find matching closing tag with nesting support
+      int depth = 1;
+      int i = openEnd + 1;
+      while (i < content.length && depth > 0) {
+        final nextOpen = content.indexOf('<details', i);
+        final nextClose = content.indexOf('</details>', i);
+        if (nextClose == -1 && nextOpen == -1) break;
+        if (nextOpen != -1 && (nextClose == -1 || nextOpen < nextClose)) {
+          depth++;
+          i = nextOpen + 8; // '<details'
+        } else {
+          depth--;
+          i = (nextClose != -1) ? nextClose + 10 : content.length; // '</details>'
+        }
+      }
+
+      if (depth != 0) {
+        // Unclosed details; append the rest as text
+        segs.add(ToolCallsSegment.text(content.substring(start)));
+        break;
+      }
+
+      final fullMatch = content.substring(start, i);
+
+      // Parse attributes from opening tag
+      final attrs = <String, String>{};
+      final attrRegex = RegExp(r'(\w+)="(.*?)"');
+      for (final m in attrRegex.allMatches(openTag)) {
+        attrs[m.group(1)!] = m.group(2) ?? '';
+      }
+
+      if ((attrs['type'] ?? '') == 'tool_calls') {
+        dynamic _decode(String? s) {
+          if (s == null || s.isEmpty) return null;
+          try {
+            return json.decode(s);
+          } catch (_) {
+            return s;
+          }
         }
 
-        final id = _attr('id') ?? '';
-        final name = _attr('name') ?? 'tool';
-        final done = (_attr('done') == 'true');
-        final args = _tryDecodeJson(_attr('arguments'));
-        final result = _tryDecodeJson(_attr('result'));
-        final files = _tryDecodeJson(_attr('files'));
+        final id = (attrs['id'] ?? '');
+        final name = (attrs['name'] ?? 'tool');
+        final done = (attrs['done'] == 'true');
+        final args = _decode(attrs['arguments']);
+        final result = _decode(attrs['result']);
+        final files = _decode(attrs['files']);
 
-        final entry = ToolCallEntry(
-          id: id.isNotEmpty ? id : '${name}_${m.start}',
-          name: name,
-          done: done,
-          arguments: args,
-          result: result,
-          files: (files is List) ? files : null,
+        segs.add(
+          ToolCallsSegment.entry(
+            ToolCallEntry(
+              id: id.isNotEmpty ? id : '${name}_$start',
+              name: name,
+              done: done,
+              arguments: args,
+              result: result,
+              files: (files is List) ? files as List : null,
+            ),
+          ),
         );
-        segs.add(ToolCallsSegment.entry(entry));
       } else {
-        // Not a tool_calls block: keep it as text
         segs.add(ToolCallsSegment.text(fullMatch));
       }
 
-      lastEnd = m.end;
+      index = i;
     }
 
-    // Tail text
-    if (lastEnd < content.length) {
-      segs.add(ToolCallsSegment.text(content.substring(lastEnd)));
-    }
-
-    return segs;
+    return segs.isEmpty ? null : segs;
   }
+
   /// Extracts tool call blocks and returns the remaining content with those blocks removed.
   static ToolCallsContent? parse(String content) {
     if (content.isEmpty || !content.contains('<details')) return null;
 
-    final detailsRegex = RegExp(
-      r'<details\b([^>]*)>\s*<summary>[^<]*<\/summary>\s*<\/details>',
-      multiLine: true,
-      dotAll: true,
-    );
-
-    final matches = detailsRegex.allMatches(content).toList();
-    if (matches.isEmpty) return null;
+    final segs = segments(content);
+    if (segs == null) return null;
 
     final calls = <ToolCallEntry>[];
-    for (final m in matches) {
-      final attrs = m.group(1) ?? '';
-      if (!attrs.contains('type="tool_calls"')) continue;
-
-      String? _attr(String name) {
-        final r = RegExp('$name="([^"]*)"');
-        final mm = r.firstMatch(attrs);
-        return mm != null ? _unescapeHtml(mm.group(1) ?? '') : null;
+    final buf = StringBuffer();
+    for (final seg in segs) {
+      if (seg.isToolCall && seg.entry != null) {
+        calls.add(seg.entry!);
+      } else if (seg.text != null && seg.text!.isNotEmpty) {
+        buf.write(seg.text);
       }
-
-      final id = _attr('id') ?? '';
-      final name = _attr('name') ?? 'tool';
-      final done = (_attr('done') == 'true');
-      final args = _tryDecodeJson(_attr('arguments'));
-      final result = _tryDecodeJson(_attr('result'));
-      final files = _tryDecodeJson(_attr('files'));
-
-      calls.add(
-        ToolCallEntry(
-          id: id.isNotEmpty ? id : '${name}_${m.start}',
-          name: name,
-          done: done,
-          arguments: args,
-          result: result,
-          files: (files is List) ? files : null,
-        ),
-      );
     }
 
     if (calls.isEmpty) return null;
-
-    final main = content.replaceAll(detailsRegex, '').trim();
-    return ToolCallsContent(toolCalls: calls, mainContent: main, originalContent: content);
+    return ToolCallsContent(
+      toolCalls: calls,
+      mainContent: buf.toString().trim(),
+      originalContent: content,
+    );
   }
 
   /// Legacy helper that summarizes tool blocks to text (kept for fallback)
@@ -172,24 +185,6 @@ class ToolCallsParser {
     return buf.toString().trim();
   }
 
-  static dynamic _tryDecodeJson(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return null;
-    try {
-      dynamic decoded = json.decode(raw);
-      if (decoded is String) {
-        final s = decoded.trim();
-        if ((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) {
-          try {
-            decoded = json.decode(s);
-          } catch (_) {}
-        }
-      }
-      return decoded;
-    } catch (_) {
-      return raw;
-    }
-  }
-
   static String _prettyMaybe(dynamic value, {int max = 600}) {
     if (value == null) return '';
     try {
@@ -199,17 +194,6 @@ class ToolCallsParser {
       final raw = value.toString();
       return raw.length > max ? raw.substring(0, max) + '…' : raw;
     }
-  }
-
-  static String _unescapeHtml(String input) {
-    return input
-        .replaceAll('&quot;', '"')
-        .replaceAll('&#34;', '"')
-        .replaceAll('&apos;', "'")
-        .replaceAll('&#39;', "'")
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&amp;', '&');
   }
 }
 
@@ -225,3 +209,4 @@ class ToolCallsSegment {
 
   bool get isToolCall => entry != null;
 }
+
