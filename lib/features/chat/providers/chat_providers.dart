@@ -188,6 +188,10 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
     if (lastMessage.role != 'assistant') {
       return;
     }
+    if (!lastMessage.isStreaming) {
+      // Ignore late chunks when streaming already finished
+      return;
+    }
 
     // Strip a leading typing indicator if present, then append delta
     const ti = '[TYPING_INDICATOR]';
@@ -397,7 +401,7 @@ Future<void> regenerateMessage(
     final assistantMessage = ChatMessage(
       id: const Uuid().v4(),
       role: 'assistant',
-      content: '[TYPING_INDICATOR]',
+      content: '',
       timestamp: DateTime.now(),
       model: selectedModel.name,
       isStreaming: true,
@@ -464,7 +468,7 @@ Future<void> regenerateMessage(
     final assistantMessage = ChatMessage(
       id: assistantMessageId,
       role: 'assistant',
-      content: '[TYPING_INDICATOR]',
+      content: '',
       timestamp: DateTime.now(),
       model: selectedModel.name,
       isStreaming: true,
@@ -636,7 +640,7 @@ Future<void> _sendMessageInternal(
     final assistantMessage = ChatMessage(
       id: const Uuid().v4(),
       role: 'assistant',
-      content: '[TYPING_INDICATOR]',
+      content: '',
       timestamp: DateTime.now(),
       model: selectedModel.name,
       isStreaming: true,
@@ -1050,7 +1054,7 @@ Future<void> _sendMessageInternal(
     final assistantMessage = ChatMessage(
       id: assistantMessageId,
       role: 'assistant',
-      content: '[TYPING_INDICATOR]', // Show typing indicator immediately
+      content: '',
       timestamp: DateTime.now(),
       model: selectedModel.name,
       isStreaming: true,
@@ -1058,6 +1062,9 @@ Future<void> _sendMessageInternal(
     ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
 
     // If socket is available, start listening for chat-events immediately
+    // For background-tools flow (when socket session is present), socket is the primary stream.
+    // In that case, do NOT suppress socket content.
+    bool suppressSocketContent = (socketSessionId == null); // only suppress when using SSE stream
     if (socketService != null) {
       void chatHandler(Map<String, dynamic> ev) {
         try {
@@ -1067,24 +1074,58 @@ Future<void> _sendMessageInternal(
           final payload = data['data'];
           if (type == 'chat:completion' && payload != null) {
             if (payload is Map<String, dynamic>) {
-              if (payload.containsKey('choices')) {
+              // Provider may emit tool_calls at the top level
+              if (!suppressSocketContent && payload.containsKey('tool_calls')) {
+                final tc = payload['tool_calls'];
+                if (tc is List) {
+                  for (final call in tc) {
+                    if (call is Map<String, dynamic>) {
+                      final fn = call['function'];
+                      final name = (fn is Map && fn['name'] is String) ? fn['name'] as String : null;
+                      if (name is String && name.isNotEmpty) {
+                        final status = '\n<details type="tool_calls" done="false" name="$name"><summary>Executing...</summary>\n</details>\n';
+                        ref.read(chatMessagesProvider.notifier).appendToLastMessage(status);
+                      }
+                    }
+                  }
+                }
+              }
+              if (!suppressSocketContent && payload.containsKey('choices')) {
                 final choices = payload['choices'];
                 if (choices is List && choices.isNotEmpty) {
                   final choice = choices.first;
                   final delta = choice is Map ? choice['delta'] : null;
-                  final content = (delta is Map) ? (delta['content']?.toString() ?? '') : '';
-                  if (content.isNotEmpty) {
-                    ref.read(chatMessagesProvider.notifier).appendToLastMessage(content);
+                  if (delta is Map) {
+                    // Surface tool_calls status like SSE path
+                    if (delta.containsKey('tool_calls')) {
+                      final tc = delta['tool_calls'];
+                      if (tc is List) {
+                        for (final call in tc) {
+                          if (call is Map<String, dynamic>) {
+                            final fn = call['function'];
+                            final name = (fn is Map && fn['name'] is String) ? fn['name'] as String : null;
+                            if (name is String && name.isNotEmpty) {
+                              final status = '\n<details type="tool_calls" done="false" name="$name"><summary>Executing...</summary>\n</details>\n';
+                              ref.read(chatMessagesProvider.notifier).appendToLastMessage(status);
+                            }
+                          }
+                        }
+                      }
+                    }
+                    final content = delta['content']?.toString() ?? '';
+                    if (content.isNotEmpty) {
+                      ref.read(chatMessagesProvider.notifier).appendToLastMessage(content);
+                    }
                   }
                 }
               }
-              if (payload.containsKey('content')) {
+              if (!suppressSocketContent && payload.containsKey('content')) {
                 final content = payload['content']?.toString() ?? '';
                 if (content.isNotEmpty) {
                   final msgs = ref.read(chatMessagesProvider);
                   if (msgs.isNotEmpty && msgs.last.role == 'assistant') {
                     final prev = msgs.last.content;
-                    if (prev == '[TYPING_INDICATOR]') {
+                    if (prev.isEmpty || prev == '[TYPING_INDICATOR]') {
                       ref
                           .read(chatMessagesProvider.notifier)
                           .replaceLastMessageContent(content);
@@ -1105,8 +1146,9 @@ Future<void> _sendMessageInternal(
                 }
               }
               if (payload['done'] == true) {
-                ref.read(chatMessagesProvider.notifier).finishStreaming();
-                socketService.offChatEvents();
+                // Do not force finish here to avoid cutting off active streams.
+                // Just stop listening to further socket events for this session.
+                try { socketService.offChatEvents(); } catch (_) {}
               }
             }
           }
@@ -1384,6 +1426,12 @@ Future<void> _sendMessageInternal(
       onDone: () async {
         // Unregister from persistent service
         persistentService.unregisterStream(streamId);
+        // Stop socket events now that streaming finished only for SSE-driven streams
+        if (socketService != null && suppressSocketContent == true) {
+          try { socketService.offChatEvents(); } catch (_) {}
+        }
+        // Allow socket content again for future sessions (harmless if already false)
+        suppressSocketContent = false;
         // Mark streaming as complete immediately for better UX
         ref.read(chatMessagesProvider.notifier).finishStreaming();
 
@@ -1425,17 +1473,24 @@ Future<void> _sendMessageInternal(
               }
 
               // Send chat completed notification to OpenWebUI first
+              // Fire-and-forget with a short timeout; non-critical endpoint
               try {
-                await api.sendChatCompleted(
-                  chatId: activeConversation.id,
-                  messageId: assistantMessageId, // Use message ID from response
-                  messages: formattedMessages,
-                  model: selectedModel.id,
-                  modelItem: modelItem, // Include model metadata
-                  sessionId: sessionId, // Include session ID
+                unawaited(
+                  api
+                      .sendChatCompleted(
+                        chatId: activeConversation.id,
+                        messageId:
+                            assistantMessageId, // Use message ID from response
+                        messages: formattedMessages,
+                        model: selectedModel.id,
+                        modelItem: modelItem, // Include model metadata
+                        sessionId: sessionId, // Include session ID
+                      )
+                      .timeout(const Duration(seconds: 3))
+                      .catchError((_) {}),
                 );
-              } catch (e) {
-                // Continue even if this fails - it's non-critical
+              } catch (_) {
+                // Ignore
               }
 
               // Fetch the latest conversation state
@@ -1452,71 +1507,6 @@ Future<void> _sendMessageInternal(
                     updatedConv.title != 'New Chat' &&
                     updatedConv.title.isNotEmpty;
 
-                // Always combine current local messages with updated server content
-                final currentMessages = ref.read(chatMessagesProvider);
-                final serverMessages = updatedConv.messages;
-
-                // Create a map of server messages by ID for quick lookup
-                final serverMessageMap = <String, ChatMessage>{};
-                for (final serverMsg in serverMessages) {
-                  serverMessageMap[serverMsg.id] = serverMsg;
-                }
-
-                // Update local messages with server content while preserving all messages
-                final updatedMessages = <ChatMessage>[];
-                final lastLocal = currentMessages.isNotEmpty ? currentMessages.last : null;
-                for (final localMsg in currentMessages) {
-                  final serverMsg = serverMessageMap[localMsg.id];
-
-                  if (serverMsg != null && serverMsg.content.isNotEmpty &&
-                      lastLocal != null && localMsg.id == lastLocal.id &&
-                      localMsg.role == 'assistant') {
-                    // Prefer non-disruptive merge to avoid flashing typing indicator
-                    final oldContent = localMsg.content;
-                    final newContent = serverMsg.content;
-
-                    if (oldContent.trim().isEmpty || oldContent == '[TYPING_INDICATOR]') {
-                      // Direct replacement without toggling streaming
-                      ref
-                          .read(chatMessagesProvider.notifier)
-                          .replaceLastMessageContent(newContent);
-                      ref.read(chatMessagesProvider.notifier).finishStreaming();
-                      updatedMessages.add(
-                        localMsg.copyWith(content: newContent, isStreaming: false),
-                      );
-                    } else if (newContent == oldContent) {
-                      // Already in sync
-                      updatedMessages.add(localMsg.copyWith(isStreaming: false));
-                    } else if (newContent.startsWith(oldContent)) {
-                      // Append only the delta
-                      final delta = newContent.substring(oldContent.length);
-                      if (delta.isNotEmpty) {
-                        ref.read(chatMessagesProvider.notifier).appendToLastMessage(delta);
-                      }
-                      ref.read(chatMessagesProvider.notifier).finishStreaming();
-                      updatedMessages.add(
-                        localMsg.copyWith(content: newContent, isStreaming: false),
-                      );
-                    } else {
-                      // Fallback: replace full content without re-streaming
-                      ref
-                          .read(chatMessagesProvider.notifier)
-                          .replaceLastMessageContent(newContent);
-                      ref.read(chatMessagesProvider.notifier).finishStreaming();
-                      updatedMessages.add(
-                        localMsg.copyWith(content: newContent, isStreaming: false),
-                      );
-                    }
-                  } else {
-                    // Keep local message as-is (strip typing indicator if it slipped through)
-                    if (localMsg.content == '[TYPING_INDICATOR]') {
-                      updatedMessages.add(localMsg.copyWith(content: '', isStreaming: false));
-                    } else {
-                      updatedMessages.add(localMsg);
-                    }
-                  }
-                }
-
                 if (shouldUpdateTitle) {
                   // Ensure the title is reasonable (not too long)
                   final cleanTitle = updatedConv.title.length > 100
@@ -1526,21 +1516,14 @@ Future<void> _sendMessageInternal(
                   // Update the conversation with title and combined messages
                   final updatedConversation = activeConversation.copyWith(
                     title: cleanTitle,
-                    messages: updatedMessages, // Use combined messages!
                     updatedAt: DateTime.now(),
                   );
 
                   ref.read(activeConversationProvider.notifier).state =
                       updatedConversation;
                 } else {
-                  // Update just the messages without changing title
-                  final updatedConversation = activeConversation.copyWith(
-                    messages: updatedMessages, // Use combined messages!
-                    updatedAt: DateTime.now(),
-                  );
-
-                  ref.read(activeConversationProvider.notifier).state =
-                      updatedConversation;
+                  // Keep local messages and only refresh conversations list
+                  ref.invalidate(conversationsProvider);
                 }
 
                 // Streaming already marked as complete when stream ended
@@ -1566,6 +1549,10 @@ Future<void> _sendMessageInternal(
       onError: (error) {
         // Mark streaming as complete on error
         ref.read(chatMessagesProvider.notifier).finishStreaming();
+        // Stop socket events to avoid duplicates after error (only for SSE-driven)
+        if (socketService != null && suppressSocketContent == true) {
+          try { socketService.offChatEvents(); } catch (_) {}
+        }
 
         // Special handling for Socket.IO streaming failures
         // These indicate the server generated a response but we couldn't stream it

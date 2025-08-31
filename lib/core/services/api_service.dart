@@ -572,6 +572,7 @@ class ApiService {
 
     // Try multiple locations for messages - prefer list format to avoid duplication
     List? messagesList;
+    Map<String, dynamic>? historyMessagesMap;
 
     if (chatObject != null) {
       // Check for messages in chat.messages (list format) - PREFERRED
@@ -580,11 +581,17 @@ class ApiService {
         debugPrint(
           'DEBUG: Found ${messagesList.length} messages in chat.messages',
         );
+        // Also capture history map for richer assistant entries (tool_calls, files)
+        final history = chatObject['history'] as Map<String, dynamic>?;
+        if (history != null && history['messages'] is Map<String, dynamic>) {
+          historyMessagesMap = history['messages'] as Map<String, dynamic>;
+        }
       } else {
         // Fallback: Check for messages in chat.history.messages (map format)
         final history = chatObject['history'] as Map<String, dynamic>?;
         if (history != null && history['messages'] != null) {
           final messagesMap = history['messages'] as Map<String, dynamic>;
+          historyMessagesMap = messagesMap;
           debugPrint(
             'DEBUG: Found ${messagesMap.length} messages in chat.history.messages (converting to list)',
           );
@@ -609,13 +616,67 @@ class ApiService {
 
     // Parse messages from list format only (avoiding duplication)
     if (messagesList != null) {
-      for (final msgData in messagesList) {
+      for (int idx = 0; idx < messagesList.length; idx++) {
+        final msgData = messagesList[idx] as Map<String, dynamic>;
         try {
           debugPrint(
             'DEBUG: Parsing message: ${msgData['id']} - role: ${msgData['role']} - content length: ${msgData['content']?.toString().length ?? 0}',
           );
-          // Convert OpenWebUI message format to our ChatMessage format
-          final message = _parseOpenWebUIMessage(msgData);
+
+          // If this assistant message includes tool_calls, merge following tool results
+          final historyMsg = historyMessagesMap != null
+              ? (historyMessagesMap![msgData['id']] as Map<String, dynamic>?)
+              : null;
+
+          final toolCalls = (msgData['tool_calls'] is List)
+              ? (msgData['tool_calls'] as List)
+              : (historyMsg != null && historyMsg['tool_calls'] is List)
+                  ? (historyMsg['tool_calls'] as List)
+                  : null;
+
+          if ((msgData['role']?.toString() == 'assistant') && toolCalls is List) {
+            // Collect subsequent tool results associated with this assistant turn
+            final List<Map<String, dynamic>> results = [];
+            int j = idx + 1;
+            while (j < messagesList.length) {
+              final next = messagesList[j] as Map<String, dynamic>;
+              if ((next['role']?.toString() ?? '') != 'tool') break;
+              final toolCallId = next['tool_call_id']?.toString();
+              final resContent = next['content'];
+              final resFiles = next['files'];
+              results.add({
+                'tool_call_id': toolCallId,
+                'content': resContent,
+                if (resFiles != null) 'files': resFiles,
+              });
+              j++;
+            }
+
+            // Synthesize content from tool_calls and results
+            final synthesized = _synthesizeToolDetailsFromToolCallsWithResults(
+              toolCalls,
+              results,
+            );
+
+            final mergedAssistant = Map<String, dynamic>.from(msgData);
+            mergedAssistant['content'] = synthesized;
+
+            final message = _parseOpenWebUIMessage(
+              mergedAssistant,
+              historyMsg: historyMsg,
+            );
+            messages.add(message);
+
+            // Skip the tool messages we just merged
+            idx = j - 1;
+            debugPrint(
+              'DEBUG: Successfully parsed tool_call assistant turn: ${message.id}',
+            );
+            continue;
+          }
+
+          // Default path: parse message as-is
+          final message = _parseOpenWebUIMessage(msgData, historyMsg: historyMsg);
           messages.add(message);
           debugPrint(
             'DEBUG: Successfully parsed message: ${message.id} - ${message.role}',
@@ -643,25 +704,52 @@ class ApiService {
   }
 
   // Parse OpenWebUI message format to our ChatMessage format
-  ChatMessage _parseOpenWebUIMessage(Map<String, dynamic> msgData) {
+  ChatMessage _parseOpenWebUIMessage(
+    Map<String, dynamic> msgData, {
+    Map<String, dynamic>? historyMsg,
+  }) {
     // OpenWebUI message format may vary, but typically:
     // { "role": "user|assistant", "content": "text", ... }
 
     // Create a single UUID instance to reuse
     const uuid = Uuid();
 
-    // Handle content that could be either String or List (for content arrays)
-    final content = msgData['content'];
+    // Prefer richer content from history entry if present
+    dynamic content = msgData['content'];
+    if ((content == null || (content is String && content.isEmpty)) &&
+        historyMsg != null && historyMsg['content'] != null) {
+      content = historyMsg['content'];
+    }
     String contentString;
     if (content is List) {
-      // For content arrays, extract the text content
+      // Extract text content from array; if none, build from tool-like items later
       final textContent = content.firstWhere(
         (item) => item is Map && item['type'] == 'text',
         orElse: () => {'text': ''},
       );
-      contentString = textContent['text'] as String? ?? '';
+      contentString = (textContent['text'] as String?) ?? '';
+      if (contentString.trim().isEmpty) {
+        // Fallback: look for tool-related entries in the array and synthesize details blocks
+        final synthesized = _synthesizeToolDetailsFromContentArray(content);
+        if (synthesized.isNotEmpty) {
+          contentString = synthesized;
+        }
+      }
     } else {
-      contentString = content as String? ?? '';
+      contentString = (content as String?) ?? '';
+    }
+
+    // Final fallback: some servers store tool calls under tool_calls instead of content
+    final toolCallsList = (msgData['tool_calls'] is List)
+        ? (msgData['tool_calls'] as List)
+        : (historyMsg != null && historyMsg['tool_calls'] is List)
+            ? (historyMsg['tool_calls'] as List)
+            : null;
+    if (contentString.trim().isEmpty && toolCallsList is List) {
+      final synthesized = _synthesizeToolDetailsFromToolCalls(toolCallsList);
+      if (synthesized.isNotEmpty) {
+        contentString = synthesized;
+      }
     }
 
     // Determine role based on available fields
@@ -680,8 +768,9 @@ class ApiService {
     List<String>? attachmentIds;
     List<Map<String, dynamic>>? files;
 
-    if (msgData['files'] != null) {
-      final filesList = msgData['files'] as List;
+    final effectiveFiles = msgData['files'] ?? historyMsg?['files'];
+    if (effectiveFiles != null) {
+      final filesList = effectiveFiles as List;
 
       // Separate user uploads (with file_id) from generated images (with type and url)
       final userAttachments = <String>[];
@@ -712,6 +801,137 @@ class ApiService {
       attachmentIds: attachmentIds,
       files: files,
     );
+  }
+
+  // ===== Helpers to synthesize tool-call details blocks for UI parsing =====
+  String _escapeHtmlAttr(String s) {
+    return s
+        .replaceAll('&', '&amp;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+  }
+
+  String _jsonStringify(dynamic v) {
+    try {
+      return jsonEncode(v);
+    } catch (_) {
+      return v?.toString() ?? '';
+    }
+  }
+
+  String _synthesizeToolDetailsFromToolCalls(List toolCalls) {
+    final buf = StringBuffer();
+    for (final c in toolCalls) {
+      if (c is! Map) continue;
+      final func = c['function'] as Map?;
+      final name = (func != null ? func['name'] : c['name'])?.toString() ?? 'tool';
+      final id = (c['id']?.toString() ?? 'call_${DateTime.now().millisecondsSinceEpoch}');
+      final done = (c['done']?.toString() ?? 'true');
+      final argsRaw = func != null ? func['arguments'] : c['arguments'];
+      final resRaw = c['result'] ?? c['output'] ?? (func != null ? func['result'] : null);
+      final argsStr = _jsonStringify(argsRaw);
+      final resStr = resRaw != null ? _jsonStringify(resRaw) : null;
+      final attrs = StringBuffer()
+        ..write('type="tool_calls"')
+        ..write(' done="${_escapeHtmlAttr(done)}"')
+        ..write(' id="${_escapeHtmlAttr(id)}"')
+        ..write(' name="${_escapeHtmlAttr(name)}"')
+        ..write(' arguments="${_escapeHtmlAttr(argsStr)}"');
+      if (resStr != null && resStr.isNotEmpty) {
+        attrs.write(' result="${_escapeHtmlAttr(resStr)}"');
+      }
+      buf.writeln('<details ${attrs.toString()}><summary>Tool Executed</summary>');
+      buf.writeln('</details>');
+    }
+    return buf.toString().trim();
+  }
+
+  String _synthesizeToolDetailsFromToolCallsWithResults(
+    List toolCalls,
+    List<Map<String, dynamic>> results,
+  ) {
+    final buf = StringBuffer();
+    Map<String, Map<String, dynamic>> resultsMap = {};
+    for (final r in results) {
+      final id = r['tool_call_id']?.toString();
+      if (id != null) resultsMap[id] = r;
+    }
+
+    for (final c in toolCalls) {
+      if (c is! Map) continue;
+      final func = c['function'] as Map?;
+      final name = (func != null ? func['name'] : c['name'])?.toString() ?? 'tool';
+      final id = (c['id']?.toString() ?? 'call_${DateTime.now().millisecondsSinceEpoch}');
+      final argsRaw = func != null ? func['arguments'] : c['arguments'];
+      final argsStr = _jsonStringify(argsRaw);
+      final resultEntry = resultsMap[id];
+      final resRaw = resultEntry != null ? resultEntry['content'] : null;
+      final filesRaw = resultEntry != null ? resultEntry['files'] : null;
+      final resStr = resRaw != null ? _jsonStringify(resRaw) : null;
+      final filesStr = filesRaw != null ? _jsonStringify(filesRaw) : null;
+
+      final attrs = StringBuffer()
+        ..write('type="tool_calls"')
+        ..write(' done="${_escapeHtmlAttr(resultEntry != null ? 'true' : 'false')}"')
+        ..write(' id="${_escapeHtmlAttr(id)}"')
+        ..write(' name="${_escapeHtmlAttr(name)}"')
+        ..write(' arguments="${_escapeHtmlAttr(argsStr)}"');
+      if (resStr != null && resStr.isNotEmpty) {
+        attrs.write(' result="${_escapeHtmlAttr(resStr)}"');
+      }
+      if (filesStr != null && filesStr.isNotEmpty) {
+        attrs.write(' files="${_escapeHtmlAttr(filesStr)}"');
+      }
+
+      buf.writeln('<details ${attrs.toString()}><summary>${resultEntry != null ? 'Tool Executed' : 'Executing...'}</summary>');
+      buf.writeln('</details>');
+    }
+    return buf.toString().trim();
+  }
+
+  String _synthesizeToolDetailsFromContentArray(List content) {
+    final buf = StringBuffer();
+    for (final item in content) {
+      if (item is! Map) continue;
+      final type = item['type']?.toString();
+      if (type == null) continue;
+      // OpenWebUI content-blocks shape: { type: 'tool_calls', content: [...], results: [...] }
+      if (type == 'tool_calls') {
+        final calls = (item['content'] is List) ? (item['content'] as List) : <dynamic>[];
+        final results = <Map<String, dynamic>>[];
+        if (item['results'] is List) {
+          for (final r in (item['results'] as List)) {
+            if (r is Map<String, dynamic>) results.add(r);
+          }
+        }
+        final synthesized = _synthesizeToolDetailsFromToolCallsWithResults(calls, results);
+        if (synthesized.isNotEmpty) buf.writeln(synthesized);
+        continue;
+      }
+
+      // Heuristics: handle other variants (single tool/function call entries)
+      if (type == 'tool_call' || type == 'function_call') {
+        final name = (item['name'] ?? item['tool'] ?? 'tool').toString();
+        final id = (item['id']?.toString() ?? 'call_${DateTime.now().millisecondsSinceEpoch}');
+        final argsStr = _jsonStringify(item['arguments'] ?? item['args']);
+        final resStr = item['result'] ?? item['output'] ?? item['response'];
+        final attrs = StringBuffer()
+          ..write('type="tool_calls"')
+          ..write(' done="${_escapeHtmlAttr(resStr != null ? 'true' : 'false')}"')
+          ..write(' id="${_escapeHtmlAttr(id)}"')
+          ..write(' name="${_escapeHtmlAttr(name)}"')
+          ..write(' arguments="${_escapeHtmlAttr(argsStr)}"');
+        if (resStr != null) {
+          final r = _jsonStringify(resStr);
+          if (r.isNotEmpty) attrs.write(' result="${_escapeHtmlAttr(r)}"');
+        }
+        buf.writeln('<details ${attrs.toString()}><summary>${resStr != null ? 'Tool Executed' : 'Executing...'}</summary>');
+        buf.writeln('</details>');
+      }
+    }
+    return buf.toString().trim();
   }
 
   // Create new conversation using OpenWebUI API
@@ -1565,6 +1785,10 @@ class ApiService {
       final response = await _dio.post(
         '/api/chat/completed',
         data: requestData,
+        options: Options(
+          sendTimeout: const Duration(seconds: 4),
+          receiveTimeout: const Duration(seconds: 4),
+        ),
       );
       debugPrint('DEBUG: Chat completed response: ${response.statusCode}');
     } catch (e) {
@@ -2568,6 +2792,7 @@ class ApiService {
     required StreamController<String> streamController,
   }) async {
     String last = '';
+    int stableCount = 0;
     final started = DateTime.now();
 
     bool containsDone(String s) =>
@@ -2727,12 +2952,23 @@ class ApiService {
             streamController.add(content);
           }
         }
-        last = content;
-
         // Stop when we detect done=true on tool_calls or when content stabilizes
         if (containsDone(content)) {
           break;
         }
+
+        // If content hasn't changed for a few polls, assume completion
+        final prev = last;
+        if (content == prev) {
+          stableCount++;
+        } else {
+          stableCount = 0;
+        }
+        if (stableCount >= 3) {
+          break;
+        }
+
+        last = content;
       } catch (e) {
         // Ignore transient errors and continue polling
       }
