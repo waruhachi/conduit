@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 import '../../../shared/theme/theme_extensions.dart';
 import '../../../shared/widgets/markdown/streaming_markdown_widget.dart';
 import '../../../core/utils/reasoning_parser.dart';
+import '../../../core/utils/tool_calls_parser.dart';
 import 'enhanced_image_attachment.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import 'enhanced_attachment.dart';
@@ -42,15 +43,14 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   late AnimationController _fadeController;
   late AnimationController _slideController;
   ReasoningContent? _reasoningContent;
-  String _renderedContent = '';
-  Timer? _throttleTimer;
-  String? _pendingContent;
+  List<ToolCallsSegment> _toolSegments = const [];
+  final Set<String> _expandedToolIds = {};
   Widget? _cachedAvatar;
+  String _contentSansDetails = '';
 
   @override
   void initState() {
     super.initState();
-    _renderedContent = widget.message.content ?? '';
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
@@ -60,8 +60,8 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
       vsync: this,
     );
 
-    // Parse reasoning content if present
-    _updateReasoningContent();
+    // Parse reasoning and tool-calls sections
+    _reparseSections();
   }
 
   @override
@@ -75,11 +75,9 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   void didUpdateWidget(AssistantMessageWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Re-parse reasoning content when message content changes
+    // Re-parse sections when message content changes
     if (oldWidget.message.content != widget.message.content) {
-      // Throttle markdown re-rendering for smoother streaming
-      _scheduleRenderUpdate(widget.message.content ?? '');
-      _updateReasoningContent();
+      _reparseSections();
     }
 
     // Rebuild cached avatar if model name changes
@@ -88,49 +86,209 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     }
   }
 
-  void _updateReasoningContent() {
-    if (widget.message.content != null) {
-      final newReasoningContent = ReasoningParser.parseReasoningContent(
-        widget.message.content!,
-      );
-      if (newReasoningContent != _reasoningContent) {
-        setState(() {
-          _reasoningContent = newReasoningContent;
-        });
-      }
+  void _reparseSections() {
+    final raw0 = widget.message.content ?? '';
+    // Strip any leftover placeholders from content before parsing
+    const ti = '[TYPING_INDICATOR]';
+    const searchBanner = '🔍 Searching the web...';
+    String raw = raw0;
+    if (raw.startsWith(ti)) {
+      raw = raw.substring(ti.length);
     }
-  }
+    if (raw.startsWith(searchBanner)) {
+      raw = raw.substring(searchBanner.length);
+    }
+    final rc = ReasoningParser.parseReasoningContent(raw);
+    String base = rc?.mainContent ?? raw;
 
-  void _scheduleRenderUpdate(String rawContent) {
-    final safe = _safeForStreaming(rawContent);
-    if (_throttleTimer != null && _throttleTimer!.isActive) {
-      _pendingContent = safe;
-      return;
-    }
-    if (mounted) {
-      setState(() => _renderedContent = safe);
-    } else {
-      _renderedContent = safe;
-    }
-    _throttleTimer = Timer(const Duration(milliseconds: 80), () {
-      if (!mounted) return;
-      if (_pendingContent != null) {
-        setState(() {
-          _renderedContent = _pendingContent!;
-          _pendingContent = null;
-        });
-      }
+    final tools = ToolCallsParser.parse(base);
+    final segments = ToolCallsParser.segments(base);
+
+    setState(() {
+      _reasoningContent = rc;
+      _contentSansDetails = tools?.mainContent ?? base;
+      _toolSegments = segments ?? [ToolCallsSegment.text(_contentSansDetails)];
     });
   }
 
-  String _safeForStreaming(String content) {
-    if (content.isEmpty) return content;
-    // Auto-close an unbalanced triple backtick fence during streaming so markdown stays valid
-    final fenceCount = '```'.allMatches(content).length;
-    if (fenceCount.isOdd) {
-      return '$content\n```';
+  // No streaming-specific markdown fixes needed here; handled by Markdown widget
+
+  Widget _buildToolCallTile(ToolCallEntry tc) {
+    final isExpanded = _expandedToolIds.contains(tc.id);
+    final theme = context.conduitTheme;
+
+    String _pretty(dynamic v, {int max = 1200}) {
+      try {
+        final pretty = const JsonEncoder.withIndent('  ').convert(v);
+        return pretty.length > max ? pretty.substring(0, max) + '\n…' : pretty;
+      } catch (_) {
+        final s = v?.toString() ?? '';
+        return s.length > max ? s.substring(0, max) + '…' : s;
+      }
     }
-    return content;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.xs),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            if (isExpanded) {
+              _expandedToolIds.remove(tc.id);
+            } else {
+              _expandedToolIds.add(tc.id);
+            }
+          });
+        },
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.sm,
+            vertical: Spacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: theme.surfaceContainer.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(AppBorderRadius.md),
+            border: Border.all(
+              color: theme.dividerColor,
+              width: BorderWidth.thin,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isExpanded
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    size: 16,
+                    color: theme.textSecondary,
+                  ),
+                  const SizedBox(width: Spacing.xs),
+                  Icon(
+                    tc.done ? Icons.build_circle_outlined : Icons.play_circle_outline,
+                    size: 14,
+                    color: theme.buttonPrimary,
+                  ),
+                  const SizedBox(width: Spacing.xs),
+                  Flexible(
+                    child: Text(
+                      tc.done
+                          ? 'Tool Executed: ${tc.name}'
+                          : 'Running tool: ${tc.name}…',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: AppTypography.bodySmall,
+                        color: theme.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              AnimatedCrossFade(
+                firstChild: const SizedBox.shrink(),
+                secondChild: Container(
+                  margin: const EdgeInsets.only(top: Spacing.sm),
+                  padding: const EdgeInsets.all(Spacing.sm),
+                  decoration: BoxDecoration(
+                    color: theme.surfaceContainer.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                    border: Border.all(
+                      color: theme.dividerColor,
+                      width: BorderWidth.thin,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (tc.arguments != null) ...[
+                        Text(
+                          'Arguments',
+                          style: TextStyle(
+                            fontSize: AppTypography.bodySmall,
+                            color: theme.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: Spacing.xxs),
+                        SelectableText(
+                          _pretty(tc.arguments),
+                          style: TextStyle(
+                            fontSize: AppTypography.bodySmall,
+                            color: theme.textSecondary,
+                            fontFamily: 'monospace',
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: Spacing.sm),
+                      ],
+
+                      if (tc.result != null) ...[
+                        Text(
+                          'Result',
+                          style: TextStyle(
+                            fontSize: AppTypography.bodySmall,
+                            color: theme.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: Spacing.xxs),
+                        SelectableText(
+                          _pretty(tc.result),
+                          style: TextStyle(
+                            fontSize: AppTypography.bodySmall,
+                            color: theme.textSecondary,
+                            fontFamily: 'monospace',
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                crossFadeState:
+                    isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 200),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSegmentedContent() {
+    final children = <Widget>[];
+    for (final seg in _toolSegments) {
+      if (seg.isToolCall && seg.entry != null) {
+        children.add(_buildToolCallTile(seg.entry!));
+      } else if ((seg.text ?? '').trim().isNotEmpty) {
+        children.add(
+          _buildEnhancedMarkdownContent(seg.text!),
+        );
+      }
+    }
+
+    if (children.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
+  }
+
+  bool get _hasRenderableSegments {
+    for (final seg in _toolSegments) {
+      if ((seg.isToolCall && seg.entry != null) ||
+          ((seg.text ?? '').trim().isNotEmpty)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   void _buildCachedAvatar() {
@@ -170,7 +328,6 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   void dispose() {
     _fadeController.dispose();
     _slideController.dispose();
-    _throttleTimer?.cancel();
     super.dispose();
   }
 
@@ -312,23 +469,18 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                       const SizedBox(height: Spacing.md),
                     ],
 
-                    if (widget.isStreaming &&
+                    // Tool calls are rendered inline via segmented content
+
+                    // If there are any renderable segments (tool calls or text),
+                    // render them even during streaming to avoid showing the
+                    // typing indicator underneath.
+                    if (!_hasRenderableSegments &&
+                        widget.isStreaming &&
                         (widget.message.content.trim().isEmpty ||
                             widget.message.content == '[TYPING_INDICATOR]'))
                       _buildTypingIndicator()
-                    else if (widget.isStreaming &&
-                        widget.message.content.isNotEmpty &&
-                        widget.message.content != '[TYPING_INDICATOR]')
-                      // While streaming, render only main content (strip reasoning details to avoid flashing tags)
-                      _buildEnhancedMarkdownContent(
-                        _reasoningContent?.mainContent ?? _renderedContent,
-                      )
                     else
-                      // After streaming finishes (or static content), render full markdown
-                      _buildEnhancedMarkdownContent(
-                        _reasoningContent?.mainContent ??
-                            widget.message.content,
-                      ),
+                      _buildSegmentedContent(),
                   ],
                 ),
               ),
@@ -356,8 +508,9 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
       return const SizedBox.shrink();
     }
 
-    // Process content to ensure proper image rendering
-    final processedContent = _processContentForImages(content);
+    // Sanitize tool-call <details> blocks and process images
+    final toolSanitized = ToolCallsParser.summarize(content);
+    final processedContent = _processContentForImages(toolSanitized);
 
     return StreamingMarkdownWidget(
       staticContent: processedContent,

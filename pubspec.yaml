@@ -28,6 +28,8 @@ dependencies:
   markdown_widget: ^2.3.2+8
   flutter_highlight: ^0.7.0
   cached_network_image: ^3.3.1
+  socket_io_client: ^2.0.3
+  yaml: ^3.1.2
   
   
   

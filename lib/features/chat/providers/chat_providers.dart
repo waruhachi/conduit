@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:yaml/yaml.dart' as yaml;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -148,9 +149,22 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
     final lastMessage = state.last;
     if (lastMessage.role != 'assistant') return;
 
+    // Ensure we never keep the typing placeholder in persisted content
+    String sanitized(String s) {
+      const ti = '[TYPING_INDICATOR]';
+      const searchBanner = '🔍 Searching the web...';
+      if (s.startsWith(ti)) {
+        s = s.substring(ti.length);
+      }
+      if (s.startsWith(searchBanner)) {
+        s = s.substring(searchBanner.length);
+      }
+      return s;
+    }
+
     state = [
       ...state.sublist(0, state.length - 1),
-      lastMessage.copyWith(content: content),
+      lastMessage.copyWith(content: sanitized(content)),
     ];
   }
 
@@ -175,10 +189,17 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
       return;
     }
 
-    // If the current content is just the typing indicator, replace it instead of appending
-    final newContent = lastMessage.content == '[TYPING_INDICATOR]'
-        ? content
-        : lastMessage.content + content;
+    // Strip a leading typing indicator if present, then append delta
+    const ti = '[TYPING_INDICATOR]';
+    const searchBanner = '🔍 Searching the web...';
+    String current = lastMessage.content;
+    if (current.startsWith(ti)) {
+      current = current.substring(ti.length);
+    }
+    if (current.startsWith(searchBanner)) {
+      current = current.substring(searchBanner.length);
+    }
+    final newContent = current.isEmpty ? content : current + content;
 
     state = [
       ...state.sublist(0, state.length - 1),
@@ -196,9 +217,19 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
       return;
     }
 
+    // Remove typing indicator if present in the replacement
+    String sanitized = content;
+    const ti = '[TYPING_INDICATOR]';
+    const searchBanner = '🔍 Searching the web...';
+    if (sanitized.startsWith(ti)) {
+      sanitized = sanitized.substring(ti.length);
+    }
+    if (sanitized.startsWith(searchBanner)) {
+      sanitized = sanitized.substring(searchBanner.length);
+    }
     state = [
       ...state.sublist(0, state.length - 1),
-      lastMessage.copyWith(content: content),
+      lastMessage.copyWith(content: sanitized),
     ];
   }
 
@@ -208,9 +239,20 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
     final lastMessage = state.last;
     if (lastMessage.role != 'assistant' || !lastMessage.isStreaming) return;
 
+    // Also strip any leftover typing indicator before finalizing
+    const ti = '[TYPING_INDICATOR]';
+    const searchBanner = '🔍 Searching the web...';
+    String cleaned = lastMessage.content;
+    if (cleaned.startsWith(ti)) {
+      cleaned = cleaned.substring(ti.length);
+    }
+    if (cleaned.startsWith(searchBanner)) {
+      cleaned = cleaned.substring(searchBanner.length);
+    }
+
     state = [
       ...state.sublist(0, state.length - 1),
-      lastMessage.copyWith(isStreaming: false),
+      lastMessage.copyWith(isStreaming: false, content: cleaned),
     ];
   }
 
@@ -429,7 +471,7 @@ Future<void> regenerateMessage(
     );
     ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
 
-    // Handle streaming response
+    // Handle streaming response (basic chunking for this path)
     final chunkedStream = StreamChunker.chunkStream(
       stream,
       enableChunking: true,
@@ -963,6 +1005,28 @@ Future<void> _sendMessageInternal(
     }
 
     // Stream response using SSE
+    // Resolve Socket session for background tasks parity
+    final socketService = ref.read(socketServiceProvider);
+    final socketSessionId = socketService?.sessionId;
+
+    // Resolve tool servers from user settings (if any)
+    List<Map<String, dynamic>>? toolServers;
+    try {
+      final userSettings = await api.getUserSettings();
+      final ui = userSettings['ui'] as Map<String, dynamic>?;
+      final rawServers = ui != null ? (ui['toolServers'] as List?) : null;
+      if (rawServers != null && rawServers.isNotEmpty) {
+        toolServers = await _resolveToolServers(rawServers, api);
+      }
+    } catch (_) {}
+
+    // Background tasks parity with Web client (safe defaults)
+    final bgTasks = <String, dynamic>{
+      'title_generation': true,
+      'tags_generation': true,
+      'follow_up_generation': true,
+    };
+
     final response = await api.sendMessage(
       messages: conversationMessages,
       model: selectedModel.id,
@@ -973,6 +1037,9 @@ Future<void> _sendMessageInternal(
       // handled via pre-stream client-side request above
       enableImageGeneration: false,
       modelItem: modelItem,
+      sessionIdOverride: socketSessionId,
+      toolServers: toolServers,
+      backgroundTasks: bgTasks,
     );
 
     final stream = response.stream;
@@ -989,6 +1056,70 @@ Future<void> _sendMessageInternal(
       isStreaming: true,
     );
     ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
+
+    // If socket is available, start listening for chat-events immediately
+    if (socketService != null) {
+      void chatHandler(Map<String, dynamic> ev) {
+        try {
+          final data = ev['data'];
+          if (data == null) return;
+          final type = data['type'];
+          final payload = data['data'];
+          if (type == 'chat:completion' && payload != null) {
+            if (payload is Map<String, dynamic>) {
+              if (payload.containsKey('choices')) {
+                final choices = payload['choices'];
+                if (choices is List && choices.isNotEmpty) {
+                  final choice = choices.first;
+                  final delta = choice is Map ? choice['delta'] : null;
+                  final content = (delta is Map) ? (delta['content']?.toString() ?? '') : '';
+                  if (content.isNotEmpty) {
+                    ref.read(chatMessagesProvider.notifier).appendToLastMessage(content);
+                  }
+                }
+              }
+              if (payload.containsKey('content')) {
+                final content = payload['content']?.toString() ?? '';
+                if (content.isNotEmpty) {
+                  final msgs = ref.read(chatMessagesProvider);
+                  if (msgs.isNotEmpty && msgs.last.role == 'assistant') {
+                    final prev = msgs.last.content;
+                    if (prev == '[TYPING_INDICATOR]') {
+                      ref
+                          .read(chatMessagesProvider.notifier)
+                          .replaceLastMessageContent(content);
+                    } else if (content.startsWith(prev)) {
+                      ref
+                          .read(chatMessagesProvider.notifier)
+                          .appendToLastMessage(content.substring(prev.length));
+                    } else {
+                      ref
+                          .read(chatMessagesProvider.notifier)
+                          .replaceLastMessageContent(content);
+                    }
+                  } else {
+                    ref
+                        .read(chatMessagesProvider.notifier)
+                        .appendToLastMessage(content);
+                  }
+                }
+              }
+              if (payload['done'] == true) {
+                ref.read(chatMessagesProvider.notifier).finishStreaming();
+                socketService.offChatEvents();
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      socketService.onChatEvents(chatHandler);
+      Future.delayed(const Duration(seconds: 90), () {
+        try {
+          socketService.offChatEvents();
+        } catch (_) {}
+      });
+    }
 
     // Prepare streaming and background handling BEFORE image generation
     final chunkedStream = StreamChunker.chunkStream(
@@ -1164,9 +1295,25 @@ Future<void> _sendMessageInternal(
           debugPrint(
             'DEBUG: No images found in generation response (pre-stream)',
           );
+          // Do not block streaming if no images are produced
+          imagesAttached = true;
+          if (deferUntilImagesAttached && prebuffer.isNotEmpty) {
+            ref
+                .read(chatMessagesProvider.notifier)
+                .appendToLastMessage(prebuffer.toString());
+            prebuffer.clear();
+          }
         }
       } catch (e) {
         debugPrint('DEBUG: Image generation failed (pre-stream): $e');
+        // Fail open: allow text streaming to continue
+        imagesAttached = true;
+        if (deferUntilImagesAttached && prebuffer.isNotEmpty) {
+          ref
+              .read(chatMessagesProvider.notifier)
+              .appendToLastMessage(prebuffer.toString());
+          prebuffer.clear();
+        }
       }
     }
 
@@ -1180,6 +1327,7 @@ Future<void> _sendMessageInternal(
 
     final streamSubscription = persistentController.stream.listen(
       (chunk) {
+        var effectiveChunk = chunk;
         // Check for web search indicators in the stream
         if (webSearchEnabled && !isSearching) {
           // Check if this is the start of web search
@@ -1205,16 +1353,18 @@ Future<void> _sendMessageInternal(
             (chunk.contains('[/SEARCHING]') ||
                 chunk.contains('Search complete'))) {
           isSearching = false;
-          // Clear the search status message
+          // Only update metadata; keep content to avoid flicker/indicator reappearing
           ref
               .read(chatMessagesProvider.notifier)
               .updateLastMessageWithFunction(
                 (message) => message.copyWith(
-                  content: '',
                   metadata: {'webSearchActive': false},
                 ),
               );
-          return; // Don't append this chunk
+          // Strip markers from this chunk and continue processing
+          effectiveChunk = effectiveChunk
+              .replaceAll('[SEARCHING]', '')
+              .replaceAll('[/SEARCHING]', '');
         }
 
         // If we buffered chunks before images attached, flush once
@@ -1223,9 +1373,11 @@ Future<void> _sendMessageInternal(
           return;
         }
 
-        // Regular content - append to message
-        if (!chunk.contains('[SEARCHING]') && !chunk.contains('[/SEARCHING]')) {
-          ref.read(chatMessagesProvider.notifier).appendToLastMessage(chunk);
+        // Regular content - append to message (markers removed above)
+        if (effectiveChunk.trim().isNotEmpty) {
+          ref
+              .read(chatMessagesProvider.notifier)
+              .appendToLastMessage(effectiveChunk);
         }
       },
 
@@ -1312,84 +1464,54 @@ Future<void> _sendMessageInternal(
 
                 // Update local messages with server content while preserving all messages
                 final updatedMessages = <ChatMessage>[];
+                final lastLocal = currentMessages.isNotEmpty ? currentMessages.last : null;
                 for (final localMsg in currentMessages) {
                   final serverMsg = serverMessageMap[localMsg.id];
 
-                  if (serverMsg != null && serverMsg.content.isNotEmpty) {
-                    // Use server content if available and non-empty
-                    // This replaces any temporary progress indicators with real content
+                  if (serverMsg != null && serverMsg.content.isNotEmpty &&
+                      lastLocal != null && localMsg.id == lastLocal.id &&
+                      localMsg.role == 'assistant') {
+                    // Prefer non-disruptive merge to avoid flashing typing indicator
+                    final oldContent = localMsg.content;
+                    final newContent = serverMsg.content;
 
-                    // Stream the server content through StreamChunker for word-by-word effect
-
-                    // Clear only the last message content in-place to avoid list reset flicker
-                    final currentList = [...currentMessages];
-                    final lastIndex = currentList.lastIndexWhere(
-                      (m) => m.id == localMsg.id,
-                    );
-                    if (lastIndex != -1) {
-                      currentList[lastIndex] = currentList[lastIndex].copyWith(
-                        content: '',
-                        isStreaming: true,
-                      );
+                    if (oldContent.trim().isEmpty || oldContent == '[TYPING_INDICATOR]') {
+                      // Direct replacement without toggling streaming
                       ref
                           .read(chatMessagesProvider.notifier)
-                          .setMessages(currentList);
-                    }
-
-                    // Create a stream from the server content and chunk it
-                    final serverContentStream = Stream.fromIterable([
-                      serverMsg.content,
-                    ]);
-                    final chunkedStream = StreamChunker.chunkStream(
-                      serverContentStream,
-                      enableChunking: true,
-                      minChunkSize: 5,
-                      maxChunkLength: 3,
-                      delayBetweenChunks: const Duration(milliseconds: 25),
-                    );
-
-                    // Process chunks
-                    chunkedStream.listen(
-                      (chunk) {
-                        ref
-                            .read(chatMessagesProvider.notifier)
-                            .appendToLastMessage(chunk);
-                      },
-                      onDone: () {
-                        // Mark streaming as complete
-                        ref
-                            .read(chatMessagesProvider.notifier)
-                            .finishStreaming();
-                      },
-                      onError: (error) {
-                        // Fall back to direct replacement
-                        final currentMessages = ref.read(chatMessagesProvider);
-                        if (currentMessages.isNotEmpty) {
-                          final fallbackMessages = [...currentMessages];
-                          final lastIndex = fallbackMessages.length - 1;
-                          fallbackMessages[lastIndex] =
-                              fallbackMessages[lastIndex].copyWith(
-                                content: serverMsg.content,
-                                isStreaming: false,
-                              );
-                          ref
-                              .read(chatMessagesProvider.notifier)
-                              .setMessages(fallbackMessages);
-                        }
-                      },
-                    );
-
-                    // Don't add to updatedMessages here since we're streaming
-                    continue;
-                  } else {
-                    // Handle case where streaming failed and we still have typing indicator
-                    if (localMsg.content == '[TYPING_INDICATOR]') {
-                      // Replace typing indicator with empty content so UI can show loading state
+                          .replaceLastMessageContent(newContent);
+                      ref.read(chatMessagesProvider.notifier).finishStreaming();
                       updatedMessages.add(
-                        localMsg.copyWith(content: '', isStreaming: false),
+                        localMsg.copyWith(content: newContent, isStreaming: false),
+                      );
+                    } else if (newContent == oldContent) {
+                      // Already in sync
+                      updatedMessages.add(localMsg.copyWith(isStreaming: false));
+                    } else if (newContent.startsWith(oldContent)) {
+                      // Append only the delta
+                      final delta = newContent.substring(oldContent.length);
+                      if (delta.isNotEmpty) {
+                        ref.read(chatMessagesProvider.notifier).appendToLastMessage(delta);
+                      }
+                      ref.read(chatMessagesProvider.notifier).finishStreaming();
+                      updatedMessages.add(
+                        localMsg.copyWith(content: newContent, isStreaming: false),
                       );
                     } else {
-                      // Keep local message as-is
+                      // Fallback: replace full content without re-streaming
+                      ref
+                          .read(chatMessagesProvider.notifier)
+                          .replaceLastMessageContent(newContent);
+                      ref.read(chatMessagesProvider.notifier).finishStreaming();
+                      updatedMessages.add(
+                        localMsg.copyWith(content: newContent, isStreaming: false),
+                      );
+                    }
+                  } else {
+                    // Keep local message as-is (strip typing indicator if it slipped through)
+                    if (localMsg.content == '[TYPING_INDICATOR]') {
+                      updatedMessages.add(localMsg.copyWith(content: '', isStreaming: false));
+                    } else {
                       updatedMessages.add(localMsg);
                     }
                   }
@@ -2113,3 +2235,178 @@ final stopGenerationProvider = Provider<void Function()>((ref) {
     ref.read(chatMessagesProvider.notifier).finishStreaming();
   };
 });
+
+// ========== Tool Servers (OpenAPI) Helpers ==========
+
+Future<List<Map<String, dynamic>>> _resolveToolServers(
+  List rawServers,
+  dynamic api,
+) async {
+  final List<Map<String, dynamic>> resolved = [];
+  for (final s in rawServers) {
+    try {
+      if (s is! Map) continue;
+      final cfg = s['config'];
+      if (cfg is Map && cfg['enable'] != true) continue;
+
+      final url = (s['url'] ?? '').toString();
+      final path = (s['path'] ?? '').toString();
+      if (url.isEmpty || path.isEmpty) continue;
+      final fullUrl = path.contains('://')
+          ? path
+          : '$url${path.startsWith('/') ? '' : '/'}$path';
+
+      // Fetch OpenAPI spec (supports YAML/JSON)
+      Map<String, dynamic>? openapi;
+      try {
+        final resp = await api.dio.get(fullUrl);
+        final ct = resp.headers.map['content-type']?.join(',') ?? '';
+        if (fullUrl.toLowerCase().endsWith('.yaml') ||
+            fullUrl.toLowerCase().endsWith('.yml') ||
+            ct.contains('yaml')) {
+          final doc = yaml.loadYaml(resp.data);
+          openapi = json.decode(json.encode(doc)) as Map<String, dynamic>;
+        } else {
+          final data = resp.data;
+          if (data is Map<String, dynamic>) {
+            openapi = data;
+          } else if (data is String) {
+            openapi = json.decode(data) as Map<String, dynamic>;
+          }
+        }
+      } catch (_) {
+        continue;
+      }
+      if (openapi == null) continue;
+
+      // Convert OpenAPI to tool specs
+      final specs = _convertOpenApiToToolPayload(openapi);
+      resolved.add({
+        'url': url,
+        'openapi': openapi,
+        'info': openapi['info'],
+        'specs': specs,
+      });
+    } catch (_) {
+      continue;
+    }
+  }
+  return resolved;
+}
+
+Map<String, dynamic>? _resolveRef(String ref, Map<String, dynamic>? components) {
+  // e.g., #/components/schemas/MySchema
+  if (!ref.startsWith('#/')) return null;
+  final parts = ref.split('/');
+  if (parts.length < 4) return null;
+  final type = parts[2]; // schemas
+  final name = parts[3];
+  final section = components?[type];
+  if (section is Map<String, dynamic>) {
+    final schema = section[name];
+    if (schema is Map<String, dynamic>) return Map<String, dynamic>.from(schema);
+  }
+  return null;
+}
+
+Map<String, dynamic> _resolveSchemaSimple(
+  dynamic schema,
+  Map<String, dynamic>? components,
+) {
+  if (schema is Map<String, dynamic>) {
+    if (schema.containsKey(r'$ref')) {
+      final ref = schema[r'$ref'] as String;
+      final resolved = _resolveRef(ref, components);
+      if (resolved != null) return _resolveSchemaSimple(resolved, components);
+    }
+    final type = schema['type'];
+    final out = <String, dynamic>{};
+    if (type is String) {
+      out['type'] = type;
+      if (schema['description'] != null) out['description'] = schema['description'];
+      if (type == 'object') {
+        out['properties'] = <String, dynamic>{};
+        if (schema['required'] is List) out['required'] = List.from(schema['required']);
+        final props = schema['properties'];
+        if (props is Map<String, dynamic>) {
+          props.forEach((k, v) {
+            out['properties'][k] = _resolveSchemaSimple(v, components);
+          });
+        }
+      } else if (type == 'array') {
+        out['items'] = _resolveSchemaSimple(schema['items'], components);
+      }
+    }
+    return out;
+  }
+  return <String, dynamic>{};
+}
+
+List<Map<String, dynamic>> _convertOpenApiToToolPayload(Map<String, dynamic> openApi) {
+  final tools = <Map<String, dynamic>>[];
+  final paths = openApi['paths'];
+  if (paths is! Map) return tools;
+  paths.forEach((path, methods) {
+    if (methods is! Map) return;
+    methods.forEach((method, operation) {
+      if (operation is Map && operation['operationId'] != null) {
+        final tool = <String, dynamic>{
+          'name': operation['operationId'],
+          'description': operation['description'] ?? operation['summary'] ?? 'No description available.',
+          'parameters': {
+            'type': 'object',
+            'properties': <String, dynamic>{},
+            'required': <dynamic>[],
+          },
+        };
+        // Parameters
+        final params = operation['parameters'];
+        if (params is List) {
+          for (final p in params) {
+            if (p is Map) {
+              final name = p['name'];
+              final schema = p['schema'] as Map?;
+              if (name != null && schema != null) {
+                String desc = (schema['description'] ?? p['description'] ?? '').toString();
+                if (schema['enum'] is List) {
+                  desc = '$desc. Possible values: ${(schema['enum'] as List).join(', ')}';
+                }
+                tool['parameters']['properties'][name] = {
+                  'type': schema['type'],
+                  'description': desc,
+                };
+                if (p['required'] == true) {
+                  (tool['parameters']['required'] as List).add(name);
+                }
+              }
+            }
+          }
+        }
+        // requestBody
+        final reqBody = operation['requestBody'];
+        if (reqBody is Map) {
+          final content = reqBody['content'];
+          if (content is Map && content['application/json'] is Map) {
+            final schema = content['application/json']['schema'];
+            final resolved = _resolveSchemaSimple(schema, openApi['components'] as Map<String, dynamic>?);
+            if (resolved['properties'] is Map) {
+              tool['parameters']['properties'] = {
+                ...tool['parameters']['properties'],
+                ...resolved['properties'] as Map<String, dynamic>,
+              };
+              if (resolved['required'] is List) {
+                final req = Set.from(tool['parameters']['required'] as List)
+                  ..addAll(resolved['required'] as List);
+                tool['parameters']['required'] = req.toList();
+              }
+            } else if (resolved['type'] == 'array') {
+              tool['parameters'] = resolved;
+            }
+          }
+        }
+        tools.add(tool);
+      }
+    });
+  });
+  return tools;
+}

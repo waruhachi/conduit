@@ -20,6 +20,7 @@ import '../models/file_info.dart';
 import '../models/knowledge_base.dart';
 import '../services/settings_service.dart';
 import '../services/optimized_storage_service.dart';
+import '../services/socket_service.dart';
 import '../utils/debug_logger.dart';
 
 // Storage providers
@@ -183,6 +184,27 @@ final apiServiceProvider = Provider<ApiService?>((ref) {
       }
 
       return apiService;
+    },
+    orElse: () => null,
+  );
+});
+
+// Socket.IO service provider
+final socketServiceProvider = Provider<SocketService?>((ref) {
+  final reviewerMode = ref.watch(reviewerModeProvider);
+  if (reviewerMode) return null;
+
+  final activeServer = ref.watch(activeServerProvider);
+  final token = ref.watch(authTokenProvider3);
+
+  return activeServer.maybeWhen(
+    data: (server) {
+      if (server == null) return null;
+      final s = SocketService(serverConfig: server, authToken: token);
+      // best-effort connect; errors handled internally
+      // ignore unawaited_futures
+      s.connect();
+      return s;
     },
     orElse: () => null,
   );

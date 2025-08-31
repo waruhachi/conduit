@@ -15,6 +15,7 @@ import '../auth/api_auth_interceptor.dart';
 import '../validation/validation_interceptor.dart';
 import '../error/api_error_interceptor.dart';
 import 'sse_parser.dart';
+// Tool-call details are parsed in the UI layer to render collapsible blocks
 import 'stream_recovery_service.dart';
 import 'persistent_streaming_service.dart';
 import '../utils/debug_logger.dart';
@@ -2355,12 +2356,17 @@ class ApiService {
     bool enableWebSearch = false,
     bool enableImageGeneration = false,
     Map<String, dynamic>? modelItem,
+    String? sessionIdOverride,
+    List<Map<String, dynamic>>? toolServers,
+    Map<String, dynamic>? backgroundTasks,
   }) {
     final streamController = StreamController<String>();
 
     // Generate unique IDs
     final messageId = const Uuid().v4();
-    final sessionId = const Uuid().v4().substring(0, 20);
+    final sessionId = (sessionIdOverride != null && sessionIdOverride.isNotEmpty)
+        ? sessionIdOverride
+        : const Uuid().v4().substring(0, 20);
 
     // NOTE: Previously used to branch for Gemini-specific handling; not needed now.
 
@@ -2455,6 +2461,23 @@ class ApiService {
     if (toolIds != null && toolIds.isNotEmpty) {
       data['tool_ids'] = toolIds;
       debugPrint('DEBUG: Including tool_ids in SSE request: $toolIds');
+
+      // Hint server to use native function calling when tools are selected
+      // This enables provider-native tool execution paths and consistent UI events
+      try {
+        final params = (data['params'] as Map<String, dynamic>? ) ?? <String, dynamic>{};
+        params['function_calling'] = 'native';
+        data['params'] = params;
+        debugPrint('DEBUG: Set params.function_calling = native');
+      } catch (_) {
+        // Non-fatal; continue without forcing native mode
+      }
+    }
+
+    // Include tool_servers if provided (for native function calling with OpenAPI servers)
+    if (toolServers != null && toolServers.isNotEmpty) {
+      data['tool_servers'] = toolServers;
+      debugPrint('DEBUG: Including tool_servers in request (${toolServers.length})');
     }
 
     // Include non-image files at the top level as expected by Open WebUI
@@ -2482,14 +2505,242 @@ class ApiService {
     debugPrint('DEBUG: session_id value: ${data['session_id']}');
     debugPrint('DEBUG: id value: ${data['id']}');
 
-    // Use SSE streaming with proper parser
-    _streamSSE(data, streamController, messageId);
+    // If tools are requested, use background task flow to allow server-side execution.
+    // Open WebUI executes tools and continues the response outside of the
+    // provider SSE. That path requires background task mode (session_id + id + chat_id).
+    if (conversationId != null) {
+      // Attach identifiers to trigger background task processing on the server
+      data['session_id'] = sessionId;
+      data['id'] = messageId;
+      data['chat_id'] = conversationId;
+
+      // Attach background_tasks if provided
+      if (backgroundTasks != null && backgroundTasks.isNotEmpty) {
+        data['background_tasks'] = backgroundTasks;
+      }
+
+      debugPrint('DEBUG: Initiating background tools flow (task-based)');
+      debugPrint('DEBUG: Posting to /api/chat/completions (no SSE)');
+
+      // Fire in background; poll chat for updates and stream deltas to UI
+      () async {
+        try {
+          final resp = await _dio.post('/api/chat/completions', data: data);
+          final respData = resp.data;
+          final taskId = (respData is Map) ? (respData['task_id']?.toString()) : null;
+          debugPrint('DEBUG: Background task created: $taskId');
+
+          // If no session/socket provided, fall back to polling for updates.
+          if (sessionIdOverride == null || sessionIdOverride.isEmpty) {
+            await _pollChatForMessageUpdates(
+              chatId: conversationId!,
+              messageId: messageId,
+              streamController: streamController,
+            );
+          } else {
+            // Close the controller so listeners don't hang waiting for chunks
+            if (!streamController.isClosed) {
+              streamController.close();
+            }
+          }
+        } catch (e) {
+          debugPrint('DEBUG: Background tools flow failed: $e');
+          if (!streamController.isClosed) streamController.close();
+        }
+      }();
+    } else {
+      // Use SSE streaming with proper parser
+      _streamSSE(data, streamController, messageId);
+    }
 
     return (
       stream: streamController.stream,
       messageId: messageId,
       sessionId: sessionId,
     );
+  }
+
+  // Poll the server chat until the assistant message is populated with tool results,
+  // then stream deltas to the UI and close.
+  Future<void> _pollChatForMessageUpdates({
+    required String chatId,
+    required String messageId,
+    required StreamController<String> streamController,
+  }) async {
+    String last = '';
+    final started = DateTime.now();
+
+    bool containsDone(String s) =>
+        s.contains('<details type="tool_calls"') && s.contains('done="true"');
+
+    while (DateTime.now().difference(started).inSeconds < 60) {
+      try {
+        // Small delay between polls
+        await Future.delayed(const Duration(milliseconds: 900));
+
+        final resp = await _dio.get('/api/v1/chats/$chatId');
+        final data = resp.data as Map<String, dynamic>;
+
+        // Locate assistant content from multiple shapes
+        String content = '';
+
+        Map<String, dynamic>? chatObj =
+            (data['chat'] is Map<String, dynamic>) ? data['chat'] as Map<String, dynamic> : null;
+
+        // 1) Preferred: chat.messages (list) – try exact id first
+        if (chatObj != null && chatObj['messages'] is List) {
+          final List messagesList = chatObj['messages'] as List;
+          final target = messagesList.firstWhere(
+            (m) => (m is Map && (m['id']?.toString() == messageId)),
+            orElse: () => null,
+          );
+          if (target != null) {
+            final rawContent = (target as Map)['content'];
+            if (rawContent is List) {
+              final textItem = rawContent.firstWhere(
+                (i) => i is Map && i['type'] == 'text',
+                orElse: () => null,
+              );
+              if (textItem != null) {
+                content = textItem['text']?.toString() ?? '';
+              }
+            } else if (rawContent is String) {
+              content = rawContent;
+            }
+          }
+        }
+
+        // 2) Fallback: chat.history.messages (map) – try exact id
+        if (content.isEmpty && chatObj != null) {
+          final history = chatObj['history'];
+          if (history is Map && history['messages'] is Map) {
+            final Map<String, dynamic> messagesMap =
+                (history['messages'] as Map).cast<String, dynamic>();
+            final msg = messagesMap[messageId];
+            if (msg is Map) {
+              final rawContent = msg['content'];
+              if (rawContent is String) {
+                content = rawContent;
+              } else if (rawContent is List) {
+                final textItem = rawContent.firstWhere(
+                  (i) => i is Map && i['type'] == 'text',
+                  orElse: () => null,
+                );
+                if (textItem != null) {
+                  content = textItem['text']?.toString() ?? '';
+                }
+              }
+            }
+          }
+        }
+
+        // 3) Last resort: top-level messages (list) – try exact id
+        if (content.isEmpty && data['messages'] is List) {
+          final List topMessages = data['messages'] as List;
+          final target = topMessages.firstWhere(
+            (m) => (m is Map && (m['id']?.toString() == messageId)),
+            orElse: () => null,
+          );
+          if (target != null) {
+            final rawContent = (target as Map)['content'];
+            if (rawContent is String) {
+              content = rawContent;
+            } else if (rawContent is List) {
+              final textItem = rawContent.firstWhere(
+                (i) => i is Map && i['type'] == 'text',
+                orElse: () => null,
+              );
+              if (textItem != null) {
+                content = textItem['text']?.toString() ?? '';
+              }
+            }
+          }
+        }
+
+        // 4) If nothing found by id, fall back to the latest assistant message
+        if (content.isEmpty) {
+          // Prefer chat.messages list
+          if (chatObj != null && chatObj['messages'] is List) {
+            final List messagesList = chatObj['messages'] as List;
+            // Find last assistant
+            for (int i = messagesList.length - 1; i >= 0; i--) {
+              final m = messagesList[i];
+              if (m is Map && (m['role']?.toString() == 'assistant')) {
+                final rawContent = m['content'];
+                if (rawContent is String) {
+                  content = rawContent;
+                } else if (rawContent is List) {
+                  final textItem = rawContent.firstWhere(
+                    (i) => i is Map && i['type'] == 'text',
+                    orElse: () => null,
+                  );
+                  if (textItem != null) {
+                    content = textItem['text']?.toString() ?? '';
+                  }
+                }
+                if (content.isNotEmpty) break;
+              }
+            }
+          }
+
+          // Try history map if still empty
+          if (content.isEmpty && chatObj != null) {
+            final history = chatObj['history'];
+            if (history is Map && history['messages'] is Map) {
+              final Map<dynamic, dynamic> msgMapDyn = history['messages'] as Map;
+              // Iterate by values; no guaranteed ordering, but often sufficient
+              for (final entry in msgMapDyn.values) {
+                if (entry is Map && (entry['role']?.toString() == 'assistant')) {
+                  final rawContent = entry['content'];
+                  if (rawContent is String) {
+                    content = rawContent;
+                  } else if (rawContent is List) {
+                    final textItem = rawContent.firstWhere(
+                      (i) => i is Map && i['type'] == 'text',
+                      orElse: () => null,
+                    );
+                    if (textItem != null) {
+                      content = textItem['text']?.toString() ?? '';
+                    }
+                  }
+                  if (content.isNotEmpty) break;
+                }
+              }
+            }
+          }
+        }
+
+        if (content.isEmpty) {
+          continue;
+        }
+
+        // Stream only the delta when content grows monotonically
+        if (content.startsWith(last)) {
+          final delta = content.substring(last.length);
+          if (delta.isNotEmpty && !streamController.isClosed) {
+            streamController.add(delta);
+          }
+        } else {
+          // Fallback: replace entire content by emitting a separator + full content
+          if (!streamController.isClosed) {
+            streamController.add('\n');
+            streamController.add(content);
+          }
+        }
+        last = content;
+
+        // Stop when we detect done=true on tool_calls or when content stabilizes
+        if (containsDone(content)) {
+          break;
+        }
+      } catch (e) {
+        // Ignore transient errors and continue polling
+      }
+    }
+
+    if (!streamController.isClosed) {
+      streamController.close();
+    }
   }
 
   // SSE streaming with persistent background support - Main Implementation
@@ -2873,6 +3124,26 @@ class ApiService {
               // We do NOT return here; model can send content alongside reasoning later
             }
 
+            // 1a) Surface tool call deltas as lightweight status updates
+            // Some providers stream tool_calls without content; show a hint so UI isn't stuck
+            if (delta.containsKey('tool_calls')) {
+              final tc = delta['tool_calls'];
+              if (tc is List) {
+                for (final call in tc) {
+                  if (call is Map<String, dynamic>) {
+                    final fn = call['function'];
+                    final name = (fn is Map && fn['name'] is String) ? fn['name'] as String : null;
+                    if (name is String && name.isNotEmpty) {
+                      final status = '\n<details type="tool_calls" done="false" name="$name"><summary>Executing...</summary>\n</details>\n';
+                      if (!streamController.isClosed) {
+                        streamController.add(status);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
             // Extract content
             if (delta.containsKey('content')) {
               final content = delta['content'] as String?;
@@ -2904,17 +3175,19 @@ class ApiService {
               debugPrint(
                 'Persistent: Stream finished with reason: $finishReason',
               );
-              // Ensure reasoning block is closed when finishing
-              _closeReasoningBlockIfOpen(streamController, persistentStreamId);
-              if (!streamController.isClosed) {
-                streamController.close();
+              // Do NOT close on tool_calls; server will continue with tool execution updates
+              if (finishReason != 'tool_calls') {
+                _closeReasoningBlockIfOpen(streamController, persistentStreamId);
+                if (!streamController.isClosed) {
+                  streamController.close();
+                }
+                return;
               }
-              return;
             }
           } else if (choice.containsKey('finish_reason')) {
             // Check for completion at choice level
             final finishReason = choice['finish_reason'];
-            if (finishReason != null) {
+            if (finishReason != null && finishReason != 'tool_calls') {
               debugPrint(
                 'Persistent: Stream finished with reason: $finishReason',
               );
@@ -2969,14 +3242,103 @@ class ApiService {
 
             _closeReasoningBlockIfOpen(streamController, persistentStreamId);
 
-            if (!streamController.isClosed) {
-              streamController.add(content);
+            // Emit only the delta when server sends cumulative content
+            try {
+              final meta =
+                  persistentService.getStreamMetadata(persistentStreamId);
+              final last = (meta != null && meta['lastContent'] is String)
+                  ? (meta['lastContent'] as String)
+                  : '';
+
+              String toEmit;
+              if (content.startsWith(last)) {
+                toEmit = content.substring(last.length);
+              } else {
+                // Fallback: emit suffix after longest common prefix
+                int i = 0;
+                final minLen = last.length < content.length
+                    ? last.length
+                    : content.length;
+                while (i < minLen && last.codeUnitAt(i) == content.codeUnitAt(i)) {
+                  i++;
+                }
+                toEmit = content.substring(i);
+              }
+
+              if (toEmit.isNotEmpty && !streamController.isClosed) {
+                streamController.add(toEmit);
+              }
+
+              // Update persistent progress with the full content snapshot
+              persistentService.updateStreamProgress(
+                persistentStreamId,
+                chunkSequence: chunkSequence,
+                content: content,
+              );
+            } catch (_) {
+              // Best-effort fallback: append as-is
+              if (!streamController.isClosed) {
+                streamController.add(content);
+              }
+              persistentService.updateStreamProgress(
+                persistentStreamId,
+                chunkSequence: chunkSequence,
+                content: content,
+              );
+            }
+          }
+        }
+      }
+
+      // Handle Open WebUI aggregated content blocks
+      // Server emits top-level { content: "...serialized blocks..." } updates
+      if (json.containsKey('content')) {
+        final contentVal = json['content'];
+        if (contentVal is String && contentVal.isNotEmpty) {
+          // Close reasoning section before appending rich content
+          _closeReasoningBlockIfOpen(streamController, persistentStreamId);
+
+          // Emit only the delta when server sends cumulative content
+          try {
+            final meta =
+                persistentService.getStreamMetadata(persistentStreamId);
+            final last = (meta != null && meta['lastContent'] is String)
+                ? (meta['lastContent'] as String)
+                : '';
+
+            String toEmit;
+            if ((contentVal as String).startsWith(last)) {
+              toEmit = contentVal.substring(last.length);
+            } else {
+              // Fallback: emit suffix after longest common prefix
+              int i = 0;
+              final s = contentVal as String;
+              final minLen = last.length < s.length ? last.length : s.length;
+              while (i < minLen && last.codeUnitAt(i) == s.codeUnitAt(i)) {
+                i++;
+              }
+              toEmit = s.substring(i);
             }
 
+            if (toEmit.isNotEmpty && !streamController.isClosed) {
+              streamController.add(toEmit);
+            }
+
+            // Update persistent progress with the full content snapshot
             persistentService.updateStreamProgress(
               persistentStreamId,
               chunkSequence: chunkSequence,
-              content: content, // Full content, not appended
+              content: contentVal,
+            );
+          } catch (_) {
+            // Best-effort fallback: append as-is
+            if (!streamController.isClosed) {
+              streamController.add(contentVal);
+            }
+            persistentService.updateStreamProgress(
+              persistentStreamId,
+              chunkSequence: chunkSequence,
+              content: contentVal,
             );
           }
         }
