@@ -1069,16 +1069,13 @@ Future<void> _sendMessageInternal(
     ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
 
     // If socket is available, start listening for chat-events immediately
-    // For background-tools flow (when socket session is present), socket is the primary stream.
-    // In that case, do NOT suppress socket content.
-    // Suppress socket TEXT content when we already have a stream (SSE or polling)
-    // but DO allow tool_call status via socket to surface tiles immediately.
-    // By default we already have an SSE/polling stream for content,
-    // so suppress socket TEXT chunks to avoid duplicates. We'll still
-    // surface tool_calls status via socket immediately. If the server
-    // switches us to a dynamic channel (request:chat:completion), we
-    // keep suppressing chat-events text but stream from that channel.
-    bool suppressSocketContent = true; // text-only suppression by default
+    // Background-tools flow (tools/tool servers) relies on socket/dynamic channel for
+    // streaming content. Allow socket TEXT in that mode. For pure SSE flows, suppress
+    // socket TEXT to avoid duplicates (still surface tool_call status).
+    final bool isBackgroundToolsFlow =
+        (toolIdsForApi != null && toolIdsForApi.isNotEmpty) ||
+        (toolServers != null && toolServers.isNotEmpty);
+    bool suppressSocketContent = !isBackgroundToolsFlow; // allow socket text for tools
     bool usingDynamicChannel = false; // set true when server provides a channel
     if (socketService != null) {
       void chatHandler(Map<String, dynamic> ev) {
@@ -1287,6 +1284,7 @@ Future<void> _sendMessageInternal(
             if (channel is String && channel.isNotEmpty) {
               // Prefer dynamic channel for streaming content; suppress chat-events text to avoid duplicates
               suppressSocketContent = true;
+              usingDynamicChannel = true;
               usingDynamicChannel = true;
               if (kSocketVerboseLogging) {
                 DebugLogger.stream('Socket request:chat:completion channel=$channel');
@@ -1725,10 +1723,9 @@ Future<void> _sendMessageInternal(
         }
         // Allow socket content again for future sessions (harmless if already false)
         suppressSocketContent = false;
-        // If this path was SSE-driven (no background socket), finish now.
+        // If this path was SSE-driven (no background tools/dynamic channel), finish now.
         // Otherwise keep streaming state until socket/dynamic channel signals done.
-        // We can safely finish on SSE completion when not using a dynamic channel.
-        if (!usingDynamicChannel) {
+        if (!usingDynamicChannel && !isBackgroundToolsFlow) {
           ref.read(chatMessagesProvider.notifier).finishStreaming();
         }
 
@@ -1769,29 +1766,31 @@ Future<void> _sendMessageInternal(
                 formattedMessages.add(messageMap);
               }
 
-              // Send chat completed notification to OpenWebUI first
-              // Fire-and-forget with a short timeout; non-critical endpoint
-              try {
-                unawaited(
-                  api
-                      .sendChatCompleted(
-                        chatId: activeConversation.id,
-                        messageId:
-                            assistantMessageId, // Use message ID from response
-                        messages: formattedMessages,
-                        model: selectedModel.id,
-                        modelItem: modelItem, // Include model metadata
-                        sessionId: sessionId, // Include session ID
-                      )
-                      .timeout(const Duration(seconds: 3))
-                      .catchError((_) {}),
-                );
-              } catch (_) {
-                // Ignore
+              // Only notify completion immediately for non-background SSE flows.
+              // For background tools/dynamic-channel flows, defer completion
+              // until the socket/dynamic channel signals done.
+              if (!isBackgroundToolsFlow && !usingDynamicChannel) {
+                try {
+                  unawaited(
+                    api
+                        .sendChatCompleted(
+                          chatId: activeConversation.id,
+                          messageId:
+                              assistantMessageId, // Use message ID from response
+                          messages: formattedMessages,
+                          model: selectedModel.id,
+                          modelItem: modelItem, // Include model metadata
+                          sessionId: sessionId, // Include session ID
+                        )
+                        .timeout(const Duration(seconds: 3))
+                        .catchError((_) {}),
+                  );
+                } catch (_) {
+                  // Ignore
+                }
               }
 
               // Fetch the latest conversation state
-
               try {
                 // Quick fetch to get the current state - no waiting for title generation
                 final updatedConv = await api.getConversation(
