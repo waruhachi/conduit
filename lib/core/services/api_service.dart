@@ -2569,6 +2569,9 @@ class ApiService {
   }
 
   // Chat streaming with conversation context
+  // Track cancellable streaming requests by messageId for stop parity
+  final Map<String, CancelToken> _streamCancelTokens = {};
+  final Map<String, String> _messagePersistentStreamIds = {};
 
   // Send message with SSE streaming
   // Returns a record with (stream, messageId, sessionId)
@@ -2801,6 +2804,28 @@ class ApiService {
     );
   }
 
+  // === Tasks control (parity with Web client) ===
+  Future<void> stopTask(String taskId) async {
+    try {
+      await _dio.post('/api/tasks/stop/$taskId');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<String>> getTaskIdsByChat(String chatId) async {
+    try {
+      final resp = await _dio.get('/api/tasks/chat/$chatId');
+      final data = resp.data;
+      if (data is Map && data['task_ids'] is List) {
+        return (data['task_ids'] as List).map((e) => e.toString()).toList();
+      }
+      return const [];
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   // Poll the server chat until the assistant message is populated with tool results,
   // then stream deltas to the UI and close.
   Future<void> _pollChatForMessageUpdates({
@@ -2996,6 +3021,23 @@ class ApiService {
     }
   }
 
+  // Cancel an active streaming message by its messageId (client-side abort)
+  void cancelStreamingMessage(String messageId) {
+    try {
+      final token = _streamCancelTokens.remove(messageId);
+      if (token != null && !token.isCancelled) {
+        token.cancel('User cancelled');
+      }
+    } catch (_) {}
+
+    try {
+      final pid = _messagePersistentStreamIds.remove(messageId);
+      if (pid != null) {
+        PersistentStreamingService().unregisterStream(pid);
+      }
+    } catch (_) {}
+  }
+
   // SSE streaming with persistent background support - Main Implementation
   void _streamSSE(
     Map<String, dynamic> data,
@@ -3005,6 +3047,9 @@ class ApiService {
     final persistentService = PersistentStreamingService();
     final recoveryService = StreamRecoveryService();
     final streamId = DateTime.now().millisecondsSinceEpoch.toString();
+    // Create a cancel token for this SSE request and store it by message
+    final cancelToken = CancelToken();
+    _streamCancelTokens[messageId] = cancelToken;
 
     // Extract metadata for recovery
     final conversationId = data['conversation_id'] ?? data['chat_id'] ?? '';
@@ -3072,6 +3117,7 @@ class ApiService {
           responseType: ResponseType.stream,
           receiveTimeout: null,
         ),
+        cancelToken: cancelToken,
       );
 
       debugPrint('DEBUG: SSE response status: ${response.statusCode}');
@@ -3245,12 +3291,27 @@ class ApiService {
             persistentService.unregisterStream(persistentStreamId);
           }
           recoveryService.unregisterStream(streamId);
+          _streamCancelTokens.remove(messageId);
+          _messagePersistentStreamIds.remove(messageId);
           if (!streamController.isClosed) {
             streamController.close();
           }
         },
         onError: (error) async {
           debugPrint('Persistent: SSE stream error: $error');
+          // If this was a user cancellation, close quietly
+          if (error is DioException && error.type == DioExceptionType.cancel) {
+            if (persistentStreamId != null) {
+              persistentService.unregisterStream(persistentStreamId);
+            }
+            recoveryService.unregisterStream(streamId);
+            _streamCancelTokens.remove(messageId);
+            _messagePersistentStreamIds.remove(messageId);
+            if (!streamController.isClosed) {
+              streamController.close();
+            }
+            return;
+          }
 
           // Try recovery through recovery service first
           final recoveredStream = await recoveryService.recoverStream(streamId);
@@ -3303,12 +3364,16 @@ class ApiService {
           'requestData': data,
         },
       );
+      // Track the persistent stream id by message for cancellation
+      _messagePersistentStreamIds[messageId] = persistentStreamId;
     } catch (e) {
       debugPrint('Persistent: Failed to create SSE stream: $e');
       if (persistentStreamId != null) {
         persistentService.unregisterStream(persistentStreamId);
       }
       recoveryService.unregisterStream(streamId);
+      _streamCancelTokens.remove(messageId);
+      _messagePersistentStreamIds.remove(messageId);
 
       if (e is DioException && e.response?.statusCode == 401) {
         // Auth error - don't retry

@@ -85,6 +85,11 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
     _messageStream = null;
   }
 
+  // Public wrapper to cancel the currently active stream (used by Stop)
+  void cancelActiveMessageStream() {
+    _cancelMessageStream();
+  }
+
   Future<void> _updateModelForConversation(Conversation conversation) async {
     // Check if conversation has a model specified
     if (conversation.model == null || conversation.model!.isEmpty) {
@@ -2514,8 +2519,46 @@ final regenerateLastMessageProvider = Provider<Future<void> Function()>((ref) {
 // Stop generation provider
 final stopGenerationProvider = Provider<void Function()>((ref) {
   return () {
-    // This would need to be implemented with proper cancellation support
-    // For now, just mark streaming as complete
+    try {
+      final messages = ref.read(chatMessagesProvider);
+      if (messages.isNotEmpty &&
+          messages.last.role == 'assistant' &&
+          messages.last.isStreaming) {
+        final lastId = messages.last.id;
+
+        // Cancel the network stream (SSE) if active
+        final api = ref.read(apiServiceProvider);
+        api?.cancelStreamingMessage(lastId);
+
+        // Stop any active socket listeners for chat/channel events
+        try {
+          final socketService = ref.read(socketServiceProvider);
+          socketService?.offChatEvents();
+          socketService?.offChannelEvents();
+        } catch (_) {}
+
+        // Cancel local stream subscription to stop propagating further chunks
+        ref.read(chatMessagesProvider.notifier).cancelActiveMessageStream();
+      }
+    } catch (_) {}
+
+    // Best-effort: stop any background tasks associated with this chat (parity with web)
+    try {
+      final api = ref.read(apiServiceProvider);
+      final activeConv = ref.read(activeConversationProvider);
+      if (api != null && activeConv != null) {
+        unawaited(() async {
+          try {
+            final ids = await api.getTaskIdsByChat(activeConv.id);
+            for (final t in ids) {
+              try { await api.stopTask(t); } catch (_) {}
+            }
+          } catch (_) {}
+        }());
+      }
+    } catch (_) {}
+
+    // Ensure UI transitions out of streaming state
     ref.read(chatMessagesProvider.notifier).finishStreaming();
   };
 });
