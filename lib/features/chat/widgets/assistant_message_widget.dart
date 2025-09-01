@@ -198,10 +198,10 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     String _pretty(dynamic v, {int max = 1200}) {
       try {
         final pretty = const JsonEncoder.withIndent('  ').convert(v);
-        return pretty.length > max ? pretty.substring(0, max) + '\n…' : pretty;
+        return pretty.length > max ? '${pretty.substring(0, max)}\n…' : pretty;
       } catch (_) {
         final s = v?.toString() ?? '';
-        return s.length > max ? s.substring(0, max) + '…' : s;
+        return s.length > max ? '${s.substring(0, max)}…' : s;
       }
     }
 

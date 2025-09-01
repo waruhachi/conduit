@@ -1164,11 +1164,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       _textSub?.cancel();
       _textSub = stream.listen(
         (text) async {
-          final updated =
-              (_baseTextAtStart.isEmpty
-                  ? ''
-                  : (_baseTextAtStart.trimRight() + ' ')) +
-              text;
+          final updated = _baseTextAtStart.isEmpty
+              ? text
+              : '${_baseTextAtStart.trimRight()} $text';
           _controller.value = TextEditingValue(
             text: updated,
             selection: TextSelection.collapsed(offset: updated.length),

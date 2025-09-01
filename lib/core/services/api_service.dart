@@ -14,9 +14,7 @@ import '../models/chat_message.dart';
 import '../auth/api_auth_interceptor.dart';
 import '../validation/validation_interceptor.dart';
 import '../error/api_error_interceptor.dart';
-import 'sse_parser.dart';
 // Tool-call details are parsed in the UI layer to render collapsible blocks
-import 'stream_recovery_service.dart';
 import 'persistent_streaming_service.dart';
 import '../utils/debug_logger.dart';
 
@@ -2784,12 +2782,6 @@ class ApiService {
           if (!streamController.isClosed) streamController.close();
         }
       }();
-    } else {
-      // Ensure we do not leak background-only identifiers into SSE path
-      data.remove('session_id');
-      data.remove('id');
-      // Use SSE streaming with proper parser (chat_id allowed)
-      _streamSSE(data, streamController, messageId);
     }
 
     return (
@@ -3032,9 +3024,8 @@ class ApiService {
       }
     } catch (_) {}
   }
-
-  // SSE streaming with persistent background support - Main Implementation
-  void _streamSSE(
+  // SSE helpers removed: background task flow is the only path now.
+  /* void _streamSSE(
     Map<String, dynamic> data,
     StreamController<String> streamController,
     String messageId,
@@ -3690,6 +3681,7 @@ class ApiService {
     }
   }
 
+  */
   // Legacy Socket.IO and older SSE methods removed
 
   // File upload for RAG

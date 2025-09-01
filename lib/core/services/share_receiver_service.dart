@@ -50,9 +50,9 @@ final shareReceiverInitializerProvider = Provider<void>((ref) {
   // React when auth/model changes to process a queued share
   ref.listen<AuthNavigationState>(
     authNavigationStateProvider,
-    (_, __) => maybeProcessPending(),
+    (prev, next) => maybeProcessPending(),
   );
-  ref.listen(selectedModelProvider, (_, __) => maybeProcessPending());
+  ref.listen(selectedModelProvider, (prev, next) => maybeProcessPending());
   // Also poll once shortly after navigation settles to ensure ChatPage is ready
   Future.delayed(const Duration(milliseconds: 150), () => maybeProcessPending());
 

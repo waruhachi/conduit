@@ -1219,7 +1219,7 @@ Future<void> _sendMessageInternal(
                     if (apiSvc != null && chatId != null && chatId.isNotEmpty) {
                       Future.microtask(() async {
                         try {
-                          final resp = await apiSvc.dio.get('/api/v1/chats/' + chatId);
+                          final resp = await apiSvc.dio.get('/api/v1/chats/$chatId');
                           final data = resp.data as Map<String, dynamic>;
                           String content = '';
                           final chatObj = data['chat'] as Map<String, dynamic>?;
@@ -1305,7 +1305,7 @@ Future<void> _sendMessageInternal(
                 try {
                   if (line is String) {
                     final s = line.trim();
-                    DebugLogger.stream('Socket [' + channel + '] line=' + (s.length > 160 ? s.substring(0, 160) + '…' : s));
+                    DebugLogger.stream('Socket [$channel] line=${s.length > 160 ? '${s.substring(0, 160)}…' : s}');
                     if (s == '[DONE]' || s == 'DONE') {
                       socketService.offEvent(channel);
                       // Channel completed
@@ -1350,13 +1350,13 @@ Future<void> _sendMessageInternal(
                             if (delta.containsKey('content')) {
                               final c = delta['content']?.toString() ?? '';
                               if (c.isNotEmpty) {
-                                DebugLogger.stream('Socket [' + channel + '] delta.content len=' + c.length.toString());
+                                DebugLogger.stream('Socket [$channel] delta.content len=${c.length}');
                               }
                             }
                             // Surface tool_calls status
                             if (delta.containsKey('tool_calls')) {
                               if (kSocketVerboseLogging) {
-                                DebugLogger.stream('Socket [' + channel + '] delta.tool_calls detected');
+                                DebugLogger.stream('Socket [$channel] delta.tool_calls detected');
                               }
                               final tc = delta['tool_calls'];
                               if (tc is List) {
@@ -1431,7 +1431,7 @@ Future<void> _sendMessageInternal(
             // Show an executing tile immediately using provided tool info
             try {
               final name = payload['name']?.toString() ?? 'tool';
-              DebugLogger.stream('Socket execute:tool name=' + name);
+              DebugLogger.stream('Socket execute:tool name=$name');
               final status = '\n<details type="tool_calls" done="false" name="$name"><summary>Executing...</summary>\n</details>\n';
               ref.read(chatMessagesProvider.notifier).appendToLastMessage(status);
             } catch (_) {}
@@ -1447,7 +1447,7 @@ Future<void> _sendMessageInternal(
           if (data == null) return;
           final type = data['type'];
           final payload = data['data'];
-          DebugLogger.stream('Socket channel-events: type=' + type.toString());
+          DebugLogger.stream('Socket channel-events: type=$type');
           // Handle generic channel progress messages if needed
           if (type == 'message' && payload is Map) {
             final content = payload['content']?.toString() ?? '';

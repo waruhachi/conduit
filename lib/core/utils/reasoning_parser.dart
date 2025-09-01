@@ -1,7 +1,7 @@
-/// Utility class for parsing and extracting reasoning/thinking content from messages
+/// Utility class for parsing and extracting reasoning/thinking content from messages.
 class ReasoningParser {
-  /// Default tag pairs to detect raw reasoning blocks when providers don't emit <details>
-  /// This mirrors Open WebUI defaults: <think>...</think>, <reasoning>...</reasoning>
+  /// Default tag pairs to detect raw reasoning blocks when providers don't emit `<details>`.
+  /// This mirrors Open WebUI defaults: `<think>...</think>`, `<reasoning>...</reasoning>`.
   static const List<List<String>> defaultReasoningTagPairs = <List<String>>[
     ['<think>', '</think>'],
     ['<reasoning>', '</reasoning>'],
@@ -9,8 +9,8 @@ class ReasoningParser {
 
   /// Parses a message and extracts reasoning content
   /// Supports:
-  /// - <details type="reasoning" ...> blocks (server-emitted)
-  /// - Raw tag pairs like <think>...</think> or <reasoning>...</reasoning>
+  /// - `<details type="reasoning" ...>` blocks (server-emitted)
+  /// - Raw tag pairs like `<think>...</think>` or `<reasoning>...</reasoning>`
   /// - Optional custom tag pair override
   static ReasoningContent? parseReasoningContent(
     String content, {
@@ -19,7 +19,7 @@ class ReasoningParser {
   }) {
     if (content.isEmpty) return null;
 
-    // 1) Prefer server-emitted <details type="reasoning"> blocks
+    // 1) Prefer server-emitted `<details type="reasoning">` blocks
     final detailsRegex = RegExp(
       r'<details\s+type="reasoning"(?:\s+done="(true|false)")?(?:\s+duration="(\d+)")?[^>]*>\s*<summary>([^<]*)<\/summary>\s*([\s\S]*?)<\/details>',
       multiLine: true,
@@ -44,7 +44,7 @@ class ReasoningParser {
       );
     }
 
-    // 2) Handle partially streamed <details> (opening present, no closing yet)
+    // 2) Handle partially streamed `<details>` (opening present, no closing yet)
     final openingIdx = content.indexOf('<details type="reasoning"');
     if (openingIdx >= 0 && !content.contains('</details>')) {
       final after = content.substring(openingIdx);
@@ -80,7 +80,7 @@ class ReasoningParser {
     for (final pair in tagPairs) {
       final start = RegExp.escape(pair[0]);
       final end = RegExp.escape(pair[1]);
-      final tagRegex = RegExp('($start)([\n\r\s\S]*?)($end)', multiLine: true, dotAll: true);
+      final tagRegex = RegExp('($start)([\s\S]*?)($end)', multiLine: true, dotAll: true);
       final match = tagRegex.firstMatch(content);
       if (match != null) {
         final reasoning = (match.group(2) ?? '').trim();

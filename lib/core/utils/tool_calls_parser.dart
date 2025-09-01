@@ -32,7 +32,7 @@ class ToolCallsContent {
   });
 }
 
-/// Utility to parse <details type="tool_calls"> blocks from content
+/// Utility to parse `<details type="tool_calls">` blocks from content.
 class ToolCallsParser {
   static String _unescapeHtml(String s) {
     return s
@@ -135,7 +135,7 @@ class ToolCallsParser {
               done: done,
               arguments: args,
               result: result,
-              files: (files is List) ? files as List : null,
+              files: (files is List) ? files : null,
             ),
           ),
         );
@@ -230,10 +230,10 @@ class ToolCallsParser {
     if (value == null) return '';
     try {
       final pretty = const JsonEncoder.withIndent('  ').convert(value);
-      return pretty.length > max ? pretty.substring(0, max) + '\n…' : pretty;
+      return pretty.length > max ? '${pretty.substring(0, max)}\n…' : pretty;
     } catch (_) {
       final raw = value.toString();
-      return raw.length > max ? raw.substring(0, max) + '…' : raw;
+      return raw.length > max ? '${raw.substring(0, max)}…' : raw;
     }
   }
 }

@@ -25,7 +25,7 @@ class TaskQueueNotifier extends StateNotifier<List<OutboundTask>> {
 
   bool _processing = false;
   final Set<String> _activeThreads = <String>{};
-  int _maxParallel = 2; // bounded parallelism across conversations
+  final int _maxParallel = 2; // bounded parallelism across conversations
 
   Future<void> _load() async {
     try {
