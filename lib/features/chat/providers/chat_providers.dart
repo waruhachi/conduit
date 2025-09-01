@@ -13,6 +13,7 @@ import '../../../core/utils/stream_chunker.dart';
 import '../../../core/services/persistent_streaming_service.dart';
 import '../../../core/utils/debug_logger.dart';
 import '../services/reviewer_mode_service.dart';
+import '../../../shared/services/tasks/task_queue.dart';
 
 const bool kSocketVerboseLogging = false;
 
@@ -1044,6 +1045,11 @@ Future<void> _sendMessageInternal(
       'follow_up_generation': true,
     };
 
+    // Determine if we need background task flow (tools/tool servers)
+    final bool isBackgroundToolsFlowPre =
+        (toolIdsForApi != null && toolIdsForApi.isNotEmpty) ||
+        (toolServers != null && toolServers.isNotEmpty);
+
     final response = await api.sendMessage(
       messages: conversationMessages,
       model: selectedModel.id,
@@ -1054,7 +1060,9 @@ Future<void> _sendMessageInternal(
       // handled via pre-stream client-side request above
       enableImageGeneration: false,
       modelItem: modelItem,
-      sessionIdOverride: socketSessionId,
+      // Only pass a session when we truly want task-based dynamic-channel
+      // behavior; for pure text flows prefer polling (if background mode).
+      sessionIdOverride: isBackgroundToolsFlowPre ? socketSessionId : null,
       toolServers: toolServers,
       backgroundTasks: bgTasks,
     );
@@ -1078,9 +1086,7 @@ Future<void> _sendMessageInternal(
     // Background-tools flow (tools/tool servers) relies on socket/dynamic channel for
     // streaming content. Allow socket TEXT in that mode. For pure SSE flows, suppress
     // socket TEXT to avoid duplicates (still surface tool_call status).
-    final bool isBackgroundToolsFlow =
-        (toolIdsForApi != null && toolIdsForApi.isNotEmpty) ||
-        (toolServers != null && toolServers.isNotEmpty);
+    final bool isBackgroundToolsFlow = isBackgroundToolsFlowPre;
     bool suppressSocketContent = !isBackgroundToolsFlow; // allow socket text for tools
     bool usingDynamicChannel = false; // set true when server provides a channel
     if (socketService != null) {
@@ -2555,6 +2561,15 @@ final stopGenerationProvider = Provider<void Function()>((ref) {
             }
           } catch (_) {}
         }());
+
+        // Also cancel local queue tasks for this conversation
+        try {
+          // Fire-and-forget local queue cancellation
+          // ignore: unawaited_futures
+          ref
+              .read(taskQueueProvider.notifier)
+              .cancelByConversation(activeConv.id);
+        } catch (_) {}
       }
     } catch (_) {}
 

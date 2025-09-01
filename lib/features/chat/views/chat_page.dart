@@ -33,6 +33,7 @@ import '../../onboarding/views/onboarding_sheet.dart';
 import '../../../shared/widgets/sheet_handle.dart';
 import '../../../shared/widgets/conduit_components.dart';
 import '../../../core/services/settings_service.dart';
+import '../../../shared/services/tasks/task_queue.dart';
 // Removed unused PlatformUtils import
 import '../../../core/services/platform_service.dart' as ps;
 import 'package:flutter/gestures.dart' show DragStartBehavior;
@@ -280,33 +281,30 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
 
     try {
-      // Get attached files and use uploadedFileIds when sendMessage is updated to accept file IDs
+      // Get attached files and collect uploaded file IDs (including data URLs for images)
       final attachedFiles = ref.read(attachedFilesProvider);
-
       final uploadedFileIds = attachedFiles
-          .where(
-            (file) =>
-                file.status == FileUploadStatus.completed &&
-                file.fileId != null,
-          )
+          .where((file) =>
+              file.status == FileUploadStatus.completed && file.fileId != null)
           .map((file) => file.fileId!)
           .toList();
 
       // Get selected tools
       final toolIds = ref.read(selectedToolIdsProvider);
 
-      // Send message with file attachments and tools using existing provider logic
-      await sendMessage(
-        ref,
-        text,
-        uploadedFileIds.isNotEmpty ? uploadedFileIds : null,
-        toolIds.isNotEmpty ? toolIds : null,
-      );
+      // Enqueue task-based send to unify flow across text, images, and tools
+      final activeConv = ref.read(activeConversationProvider);
+      await ref.read(taskQueueProvider.notifier).enqueueSendText(
+            conversationId: activeConv?.id,
+            text: text,
+            attachments: uploadedFileIds.isNotEmpty ? uploadedFileIds : null,
+            toolIds: toolIds.isNotEmpty ? toolIds : null,
+          );
 
       // Clear attachments after successful send
       ref.read(attachedFilesProvider.notifier).clearAll();
 
-      // Scroll to bottom after sending message (only if user was near bottom)
+      // Scroll to bottom after enqueuing (only if user was near bottom)
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
           final maxScroll = _scrollController.position.maxScrollExtent;
@@ -879,7 +877,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           // Send the edited message
           final selectedModel = ref.read(selectedModelProvider);
           if (selectedModel != null) {
-            await sendMessage(ref, result, null);
+            final activeConv = ref.read(activeConversationProvider);
+            await ref.read(taskQueueProvider.notifier).enqueueSendText(
+                  conversationId: activeConv?.id,
+                  text: result,
+                );
 
             if (mounted) {}
           }

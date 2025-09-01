@@ -625,7 +625,7 @@ class ApiService {
 
           // If this assistant message includes tool_calls, merge following tool results
           final historyMsg = historyMessagesMap != null
-              ? (historyMessagesMap![msgData['id']] as Map<String, dynamic>?)
+              ? (historyMessagesMap[msgData['id']] as Map<String, dynamic>?)
               : null;
 
           final toolCalls = (msgData['tool_calls'] is List)
@@ -2652,9 +2652,7 @@ class ApiService {
 
     // Add only essential parameters
     if (conversationId != null) {
-      if (conversationId != null) {
-        data['chat_id'] = conversationId;
-      }
+      data['chat_id'] = conversationId;
     }
 
     // Add feature flags if enabled
@@ -2737,13 +2735,10 @@ class ApiService {
     // Decide whether to use background task flow.
     // Only enable background task mode when we actually need socket/dynamic-channel
     // behavior (e.g., provider-native tools or explicit background tasks with a session).
-    final bool useBackgroundTasks = (
-      // Use background flow only for provider-native tools or explicit tool servers.
-      // Pure text generation should prefer SSE even if a socket session exists,
-      // and background_tasks can still be honored at the end of SSE.
-      (toolIds != null && toolIds.isNotEmpty) ||
-      (toolServers != null && toolServers.isNotEmpty)
-    );
+    // Always use task-based background flow for unified pipeline.
+    // When a dynamic channel (session_id) is not provided, this method falls
+    // back to polling and streams deltas to the UI.
+    final bool useBackgroundTasks = true;
 
     // Use background flow only when required; otherwise prefer SSE even with chat_id.
     // SSE must not include session_id/id to avoid server falling back to task mode.
@@ -3625,12 +3620,12 @@ class ApiService {
                 : '';
 
             String toEmit;
-            if ((contentVal as String).startsWith(last)) {
+            if (contentVal.startsWith(last)) {
               toEmit = contentVal.substring(last.length);
             } else {
               // Fallback: emit suffix after longest common prefix
               int i = 0;
-              final s = contentVal as String;
+              final s = contentVal;
               final minLen = last.length < s.length ? last.length : s.length;
               while (i < minLen && last.codeUnitAt(i) == s.codeUnitAt(i)) {
                 i++;
