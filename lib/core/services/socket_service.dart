@@ -69,10 +69,35 @@ class SocketService {
     });
   }
 
+  // Subscribe to general channel events (server-broadcasted channel updates)
+  void onChannelEvents(void Function(Map<String, dynamic> event) handler) {
+    _socket?.on('channel-events', (data) {
+      try {
+        if (data is Map<String, dynamic>) {
+          handler(data);
+        } else if (data is Map) {
+          handler(Map<String, dynamic>.from(data));
+        }
+      } catch (_) {}
+    });
+  }
+
   void offChatEvents() {
     _socket?.off('chat-events');
   }
 
+  void offChannelEvents() {
+    _socket?.off('channel-events');
+  }
+
+  // Subscribe to an arbitrary socket.io event (used for dynamic tool channels)
+  void onEvent(String eventName, void Function(dynamic data) handler) {
+    _socket?.on(eventName, handler);
+  }
+
+  void offEvent(String eventName) {
+    _socket?.off(eventName);
+  }
   void dispose() {
     try {
       _socket?.dispose();

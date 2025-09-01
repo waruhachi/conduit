@@ -171,12 +171,11 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   }
 
   void _updateTypingIndicatorGate() {
-    // Only show typing indicator if streaming and nothing renderable yet,
-    // and only after a short delay to avoid flicker when content arrives quickly.
+    // Show typing indicator while streaming until we have any renderable segments
+    // (tool tiles or actual text). Use a short delay to avoid flicker.
     _typingGateTimer?.cancel();
     final hasRenderable = _hasRenderableSegments;
-    final contentEmpty = (widget.message.content ?? '').trim().isEmpty;
-    if (widget.isStreaming && !hasRenderable && contentEmpty) {
+    if (widget.isStreaming && !hasRenderable) {
       _allowTypingIndicator = false;
       _typingGateTimer = Timer(const Duration(milliseconds: 150), () {
         if (mounted) {
@@ -367,11 +366,32 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   }
 
   bool get _hasRenderableSegments {
-    for (final seg in _toolSegments) {
-      if ((seg.isToolCall && seg.entry != null) ||
-          ((seg.text ?? '').trim().isNotEmpty)) {
-        return true;
+    bool _textRenderable(String t) {
+      String cleaned = t;
+      // Hide tool_calls blocks entirely
+      cleaned = cleaned.replaceAll(
+        RegExp(
+          r'<details\s+type="tool_calls"[^>]*>[\s\S]*?<\/details>',
+          multiLine: true,
+          dotAll: true,
+        ),
+        '',
+      );
+      // If last <details> is unclosed, drop tail to avoid rendering raw tag
+      final lastOpen = cleaned.lastIndexOf('<details');
+      if (lastOpen >= 0) {
+        final tail = cleaned.substring(lastOpen);
+        if (!tail.contains('</details>')) {
+          cleaned = cleaned.substring(0, lastOpen);
+        }
       }
+      return cleaned.trim().isNotEmpty;
+    }
+
+    for (final seg in _toolSegments) {
+      if (seg.isToolCall && seg.entry != null) return true;
+      final text = seg.text ?? '';
+      if (_textRenderable(text)) return true;
     }
     return false;
   }
@@ -623,24 +643,22 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
       return const SizedBox.shrink();
     }
 
-    // For streaming, hide any tool_calls <details> blocks that may be incomplete
-    // to avoid showing raw tag text; tiles will render once blocks complete.
-    String cleaned = content;
-    if (widget.isStreaming) {
-      cleaned = cleaned.replaceAll(
-        RegExp(
-          r'<details\s+type="tool_calls"[^>]*>[\s\S]*?<\/details>',
-          multiLine: true,
-          dotAll: true,
-        ),
-        '',
-      );
-      final lastOpen = cleaned.lastIndexOf('<details');
-      if (lastOpen >= 0) {
-        final tail = cleaned.substring(lastOpen);
-        if (!tail.contains('</details>')) {
-          cleaned = cleaned.substring(0, lastOpen);
-        }
+    // Always hide tool_calls blocks; tiles render them separately.
+    String cleaned = content.replaceAll(
+      RegExp(
+        r'<details\s+type="tool_calls"[^>]*>[\s\S]*?<\/details>',
+        multiLine: true,
+        dotAll: true,
+      ),
+      '',
+    );
+
+    // If there's an unclosed <details>, drop the tail to avoid raw tags.
+    final lastOpen = cleaned.lastIndexOf('<details');
+    if (lastOpen >= 0) {
+      final tail = cleaned.substring(lastOpen);
+      if (!tail.contains('</details>')) {
+        cleaned = cleaned.substring(0, lastOpen);
       }
     }
 
@@ -805,14 +823,22 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
           children: [
             // Increase spacing between assistant name and typing indicator
             const SizedBox(height: Spacing.md),
-            Row(
-              children: [
-                _buildTypingDot(0),
-                const SizedBox(width: Spacing.xs),
-                _buildTypingDot(200),
-                const SizedBox(width: Spacing.xs),
-                _buildTypingDot(400),
-              ],
+            // Give the dots breathing room to avoid any clip from transitions
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 4),
+              child: SizedBox(
+                height: 14,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildTypingDot(0),
+                    const SizedBox(width: Spacing.xs),
+                    _buildTypingDot(200),
+                    const SizedBox(width: Spacing.xs),
+                    _buildTypingDot(400),
+                  ],
+                ),
+              ),
             ),
           ],
         );
@@ -822,8 +848,8 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
 
   Widget _buildTypingDot(int delay) {
     return Container(
-          width: 8,
-          height: 8,
+          width: 10,
+          height: 10,
           decoration: BoxDecoration(
             color: context.conduitTheme.textSecondary.withValues(alpha: 0.6),
             borderRadius: BorderRadius.circular(AppBorderRadius.xs),
@@ -833,12 +859,12 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
         .scale(
           duration: const Duration(milliseconds: 1000),
           begin: const Offset(1, 1),
-          end: const Offset(1.3, 1.3),
+          end: const Offset(1.25, 1.25),
         )
         .then(delay: Duration(milliseconds: delay))
         .scale(
           duration: const Duration(milliseconds: 1000),
-          begin: const Offset(1.3, 1.3),
+          begin: const Offset(1.25, 1.25),
           end: const Offset(1, 1),
         );
   }

@@ -34,6 +34,19 @@ class ToolCallsContent {
 
 /// Utility to parse <details type="tool_calls"> blocks from content
 class ToolCallsParser {
+  static String _unescapeHtml(String s) {
+    return s
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#34;', '"')
+        .replaceAll('&apos;', "'")
+        .replaceAll('&#39;', "'")
+        .replaceAll('&lt;', '<')
+        .replaceAll('&#60;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&#62;', '>')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&#38;', '&');
+  }
   /// Represents a mixed stream of text and tool-call entries in original order
   /// as they appeared in the content.
   static List<ToolCallsSegment>? segments(String content) {
@@ -59,11 +72,18 @@ class ToolCallsParser {
       // Find end of opening tag
       final openEnd = content.indexOf('>', start);
       if (openEnd == -1) {
-        // Malformed; append rest as text
+        // Malformed opening tag; append the rest as text and stop
         segs.add(ToolCallsSegment.text(content.substring(start)));
         break;
       }
       final openTag = content.substring(start, openEnd + 1);
+
+      // Parse attributes from opening tag immediately (to support streaming)
+      final attrs = <String, String>{};
+      final attrRegex = RegExp(r'(\w+)="(.*?)"');
+      for (final m in attrRegex.allMatches(openTag)) {
+        attrs[m.group(1)!] = m.group(2) ?? '';
+      }
 
       // Find matching closing tag with nesting support
       int depth = 1;
@@ -81,28 +101,22 @@ class ToolCallsParser {
         }
       }
 
-      if (depth != 0) {
-        // Unclosed details; append the rest as text
-        segs.add(ToolCallsSegment.text(content.substring(start)));
-        break;
-      }
+      final isToolCalls = (attrs['type'] ?? '') == 'tool_calls';
 
-      final fullMatch = content.substring(start, i);
-
-      // Parse attributes from opening tag
-      final attrs = <String, String>{};
-      final attrRegex = RegExp(r'(\w+)="(.*?)"');
-      for (final m in attrRegex.allMatches(openTag)) {
-        attrs[m.group(1)!] = m.group(2) ?? '';
-      }
-
-      if ((attrs['type'] ?? '') == 'tool_calls') {
+      if (isToolCalls) {
+        // Decode attributes for tool call tile
         dynamic _decode(String? s) {
           if (s == null || s.isEmpty) return null;
           try {
-            return json.decode(s);
+            final unescaped = _unescapeHtml(s);
+            return json.decode(unescaped);
           } catch (_) {
-            return s;
+            // If JSON decode fails, return unescaped string for display
+            try {
+              return _unescapeHtml(s);
+            } catch (_) {
+              return s;
+            }
           }
         }
 
@@ -125,11 +139,26 @@ class ToolCallsParser {
             ),
           ),
         );
-      } else {
-        segs.add(ToolCallsSegment.text(fullMatch));
+
+        // If details not closed yet, stop scanning (wait for more stream)
+        if (depth != 0) {
+          break;
+        }
+
+        // If closed, advance index to the end of the block
+        index = i;
+        continue;
       }
 
-      index = i;
+      // Non-tool_calls: keep as text (full block) when closed; if not closed, append remainder and stop
+      if (depth != 0) {
+        segs.add(ToolCallsSegment.text(content.substring(start)));
+        break;
+      } else {
+        final fullMatch = content.substring(start, i);
+        segs.add(ToolCallsSegment.text(fullMatch));
+        index = i;
+      }
     }
 
     return segs.isEmpty ? null : segs;
@@ -139,6 +168,7 @@ class ToolCallsParser {
   static ToolCallsContent? parse(String content) {
     if (content.isEmpty || !content.contains('<details')) return null;
 
+    // We need mainContent that excludes tool_calls blocks even if unclosed (streaming)
     final segs = segments(content);
     if (segs == null) return null;
 
@@ -148,7 +178,18 @@ class ToolCallsParser {
       if (seg.isToolCall && seg.entry != null) {
         calls.add(seg.entry!);
       } else if (seg.text != null && seg.text!.isNotEmpty) {
-        buf.write(seg.text);
+        // Remove any embedded tool_calls blocks that may have slipped into text
+        final cleaned = seg.text!
+            .replaceAll(
+              RegExp(
+                r'<details\s+type=\"tool_calls\"[^>]*>[\s\S]*?<\/details>',
+                multiLine: true,
+                dotAll: true,
+              ),
+              '',
+            )
+            .trim();
+        if (cleaned.isNotEmpty) buf.write(cleaned);
       }
     }
 
@@ -209,4 +250,3 @@ class ToolCallsSegment {
 
   bool get isToolCall => entry != null;
 }
-
