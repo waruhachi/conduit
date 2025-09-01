@@ -688,6 +688,29 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
         final isSelected = _selectedMessageIds.contains(message.id);
 
+        // Resolve a friendly model display name for message headers
+        String? displayModelName;
+        final rawModel = message.model;
+        if (rawModel != null && rawModel.isNotEmpty) {
+          final modelsAsync = ref.watch(modelsProvider);
+          if (modelsAsync.hasValue) {
+            final models = modelsAsync.value!;
+            try {
+              // Prefer exact ID match; fall back to exact name match
+              final match = models.firstWhere(
+                (m) => m.id == rawModel || m.name == rawModel,
+              );
+              displayModelName = match.name;
+            } catch (_) {
+              // As a fallback, format the raw value to be more readable
+              displayModelName = _formatModelDisplayName(rawModel);
+            }
+          } else {
+            // Models not loaded yet; format raw value for readability
+            displayModelName = _formatModelDisplayName(rawModel);
+          }
+        }
+
         // Wrap message in selection container if in selection mode
         Widget messageWidget;
 
@@ -698,7 +721,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             message: message,
             isUser: isUser,
             isStreaming: isStreaming,
-            modelName: message.model,
+            modelName: displayModelName,
             onCopy: () => _copyMessage(message.content),
             onEdit: () => _editMessage(message),
             onRegenerate: () => _regenerateMessage(message),
@@ -710,7 +733,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             key: ValueKey('assistant-${message.id}'),
             message: message,
             isStreaming: isStreaming,
-            modelName: message.model,
+            modelName: displayModelName,
             onCopy: () => _copyMessage(message.content),
             onRegenerate: () => _regenerateMessage(message),
             onLike: () => _likeMessage(message),

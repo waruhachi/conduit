@@ -333,7 +333,7 @@ final defaultModelAutoSelectionProvider = Provider<void>((ref) {
     final desired = next.defaultModel;
     if (desired == null || desired.isEmpty) return;
 
-    // Resolve the desired model against available models
+    // Resolve the desired model against available models (by ID only)
     Future(() async {
       try {
         // Prefer already-loaded models to avoid unnecessary fetches
@@ -346,14 +346,10 @@ final defaultModelAutoSelectionProvider = Provider<void>((ref) {
         }
         Model? selected;
         try {
-          selected = models.firstWhere(
-            (model) =>
-                model.id == desired ||
-                model.name == desired ||
-                model.id.contains(desired) ||
-                model.name.contains(desired),
-          );
-        } catch (_) {}
+          selected = models.firstWhere((model) => model.id == desired);
+        } catch (_) {
+          selected = null;
+        }
 
         // Fallback: keep current selection or pick first available
         selected ??= ref.read(selectedModelProvider) ??
@@ -362,7 +358,7 @@ final defaultModelAutoSelectionProvider = Provider<void>((ref) {
         if (selected != null) {
           ref.read(selectedModelProvider.notifier).state = selected;
           foundation.debugPrint(
-            'DEBUG: Auto-applied default model from settings: ${selected.name}',
+            'DEBUG: Auto-applied default model (by ID): ${selected.name}',
           );
         }
       } catch (e) {
@@ -669,27 +665,41 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
 
     Model? selectedModel;
 
-    // First check user's preferred default model
+    // First check user's preferred default model (ID only). If an older
+    // name-based value is found, migrate it once to the correct ID.
     final userSettings = ref.read(appSettingsProvider);
     final userDefaultModelId = userSettings.defaultModel;
 
     if (userDefaultModelId != null && userDefaultModelId.isNotEmpty) {
       try {
-        selectedModel = models.firstWhere(
-          (model) =>
-              model.id == userDefaultModelId ||
-              model.name == userDefaultModelId ||
-              model.id.contains(userDefaultModelId) ||
-              model.name.contains(userDefaultModelId),
-        );
+        // Exact ID match only
+        selectedModel =
+            models.firstWhere((model) => model.id == userDefaultModelId);
         foundation.debugPrint(
-          'DEBUG: Found user default model: ${selectedModel.name}',
+          'DEBUG: Found user default model by ID: ${selectedModel.name}',
         );
       } catch (e) {
-        foundation.debugPrint(
-          'DEBUG: User default model "$userDefaultModelId" not found in available models',
-        );
-        selectedModel = null; // Will fall back to server default or first model
+        // Attempt a one-time migration if the stored value was a model name
+        // from older versions. Only migrate on exact, unique name match.
+        final nameMatches =
+            models.where((m) => m.name == userDefaultModelId).toList();
+        if (nameMatches.length == 1) {
+          selectedModel = nameMatches.first;
+          foundation.debugPrint(
+            'DEBUG: Migrating user default model name to ID: '
+            '${nameMatches.first.name} -> ${nameMatches.first.id}',
+          );
+          // Persist the migrated ID
+          await ref
+              .read(appSettingsProvider.notifier)
+              .setDefaultModel(nameMatches.first.id);
+        } else {
+          foundation.debugPrint(
+            'DEBUG: User default model "$userDefaultModelId" not found by ID and '
+            'no unique name match. Ignoring.',
+          );
+          selectedModel = null; // Will fall back to server default or first model
+        }
       }
     }
 
@@ -699,23 +709,29 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
         final defaultModelId = await api.getDefaultModel();
 
         if (defaultModelId != null && defaultModelId.isNotEmpty) {
-          // Find the model that matches the default model ID
+          // Find the model that matches the default model ID (ID only)
           try {
-            selectedModel = models.firstWhere(
-              (model) =>
-                  model.id == defaultModelId ||
-                  model.name == defaultModelId ||
-                  model.id.contains(defaultModelId) ||
-                  model.name.contains(defaultModelId),
-            );
+            selectedModel =
+                models.firstWhere((model) => model.id == defaultModelId);
             foundation.debugPrint(
-              'DEBUG: Found server default model: ${selectedModel.name}',
+              'DEBUG: Found server default model by ID: ${selectedModel.name}',
             );
           } catch (e) {
-            foundation.debugPrint(
-              'DEBUG: Server default model "$defaultModelId" not found in available models',
-            );
-            selectedModel = models.first;
+            // If server returned a name instead of ID, attempt exact name match.
+            final byName = models.where((m) => m.name == defaultModelId).toList();
+            if (byName.length == 1) {
+              selectedModel = byName.first;
+              foundation.debugPrint(
+                'DEBUG: Server default "$defaultModelId" matched by name; '
+                'selected ${selectedModel.name} (${selectedModel.id})',
+              );
+            } else {
+              foundation.debugPrint(
+                'DEBUG: Server default model "$defaultModelId" not found by ID; '
+                'falling back to first available',
+              );
+              selectedModel = models.first;
+            }
           }
         } else {
           // No server default, use first available model

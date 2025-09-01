@@ -406,7 +406,7 @@ Future<void> regenerateMessage(
       role: 'assistant',
       content: '',
       timestamp: DateTime.now(),
-      model: selectedModel.name,
+      model: selectedModel.id,
       isStreaming: true,
     );
     ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
@@ -477,7 +477,7 @@ Future<void> regenerateMessage(
       role: 'assistant',
       content: '',
       timestamp: DateTime.now(),
-      model: selectedModel.name,
+      model: selectedModel.id,
       isStreaming: true,
     );
     ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
@@ -547,6 +547,7 @@ Future<void> _sendMessageInternal(
     role: 'user',
     content: message,
     timestamp: DateTime.now(),
+    model: selectedModel.id,
     attachmentIds: attachments,
   );
 
@@ -649,7 +650,7 @@ Future<void> _sendMessageInternal(
       role: 'assistant',
       content: '',
       timestamp: DateTime.now(),
-      model: selectedModel.name,
+      model: selectedModel.id,
       isStreaming: true,
     );
     ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
@@ -883,7 +884,7 @@ Future<void> _sendMessageInternal(
         role: 'assistant',
         content: '',
         timestamp: DateTime.now(),
-        model: selectedModel.name,
+        model: selectedModel.id,
         isStreaming: true,
       );
       ref.read(chatMessagesProvider.notifier).addMessage(imageOnlyAssistant);
@@ -1063,7 +1064,7 @@ Future<void> _sendMessageInternal(
       role: 'assistant',
       content: '',
       timestamp: DateTime.now(),
-      model: selectedModel.name,
+      model: selectedModel.id,
       isStreaming: true,
     );
     ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
@@ -2378,7 +2379,7 @@ final regenerateLastMessageProvider = Provider<Future<void> Function()>((ref) {
         role: 'assistant',
         content: '',
         timestamp: DateTime.now(),
-        model: selectedModel.name,
+        model: selectedModel.id,
         isStreaming: true,
       );
       ref.read(chatMessagesProvider.notifier).addMessage(placeholder);
