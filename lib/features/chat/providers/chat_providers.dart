@@ -1279,7 +1279,11 @@ Future<void> _sendMessageInternal(
             // Mirror web client's execute path: listen on provided dynamic channel
             final channel = payload['channel'];
             if (channel is String && channel.isNotEmpty) {
-              DebugLogger.stream('Socket request:chat:completion channel=$channel');
+              // Prefer dynamic channel for streaming content; suppress chat-events text to avoid duplicates
+              suppressSocketContent = true;
+              if (kSocketVerboseLogging) {
+                DebugLogger.stream('Socket request:chat:completion channel=$channel');
+              }
               void channelLineHandler(dynamic line) {
                 try {
                   if (line is String) {
