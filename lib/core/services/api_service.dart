@@ -2649,7 +2649,9 @@ class ApiService {
 
     // Add only essential parameters
     if (conversationId != null) {
-      data['chat_id'] = conversationId;
+      if (conversationId != null) {
+        data['chat_id'] = conversationId;
+      }
     }
 
     // Add feature flags if enabled
@@ -2729,14 +2731,26 @@ class ApiService {
     debugPrint('DEBUG: session_id value: ${data['session_id']}');
     debugPrint('DEBUG: id value: ${data['id']}');
 
-    // If tools are requested, use background task flow to allow server-side execution.
-    // Open WebUI executes tools and continues the response outside of the
-    // provider SSE. That path requires background task mode (session_id + id + chat_id).
-    if (conversationId != null) {
+    // Decide whether to use background task flow.
+    // Only enable background task mode when we actually need socket/dynamic-channel
+    // behavior (e.g., provider-native tools or explicit background tasks with a session).
+    final bool useBackgroundTasks = (
+      // Use background flow only for provider-native tools or explicit tool servers.
+      // Pure text generation should prefer SSE even if a socket session exists,
+      // and background_tasks can still be honored at the end of SSE.
+      (toolIds != null && toolIds.isNotEmpty) ||
+      (toolServers != null && toolServers.isNotEmpty)
+    );
+
+    // Use background flow only when required; otherwise prefer SSE even with chat_id.
+    // SSE must not include session_id/id to avoid server falling back to task mode.
+    if (useBackgroundTasks) {
       // Attach identifiers to trigger background task processing on the server
       data['session_id'] = sessionId;
       data['id'] = messageId;
-      data['chat_id'] = conversationId;
+      if (conversationId != null) {
+        data['chat_id'] = conversationId;
+      }
 
       // Attach background_tasks if provided
       if (backgroundTasks != null && backgroundTasks.isNotEmpty) {
@@ -2773,7 +2787,10 @@ class ApiService {
         }
       }();
     } else {
-      // Use SSE streaming with proper parser
+      // Ensure we do not leak background-only identifiers into SSE path
+      data.remove('session_id');
+      data.remove('id');
+      // Use SSE streaming with proper parser (chat_id allowed)
       _streamSSE(data, streamController, messageId);
     }
 

@@ -1073,7 +1073,13 @@ Future<void> _sendMessageInternal(
     // In that case, do NOT suppress socket content.
     // Suppress socket TEXT content when we already have a stream (SSE or polling)
     // but DO allow tool_call status via socket to surface tiles immediately.
-    bool suppressSocketContent = (socketSessionId == null); // text-only suppression
+    // By default we already have an SSE/polling stream for content,
+    // so suppress socket TEXT chunks to avoid duplicates. We'll still
+    // surface tool_calls status via socket immediately. If the server
+    // switches us to a dynamic channel (request:chat:completion), we
+    // keep suppressing chat-events text but stream from that channel.
+    bool suppressSocketContent = true; // text-only suppression by default
+    bool usingDynamicChannel = false; // set true when server provides a channel
     if (socketService != null) {
       void chatHandler(Map<String, dynamic> ev) {
         try {
@@ -1281,6 +1287,7 @@ Future<void> _sendMessageInternal(
             if (channel is String && channel.isNotEmpty) {
               // Prefer dynamic channel for streaming content; suppress chat-events text to avoid duplicates
               suppressSocketContent = true;
+              usingDynamicChannel = true;
               if (kSocketVerboseLogging) {
                 DebugLogger.stream('Socket request:chat:completion channel=$channel');
               }
@@ -1720,7 +1727,8 @@ Future<void> _sendMessageInternal(
         suppressSocketContent = false;
         // If this path was SSE-driven (no background socket), finish now.
         // Otherwise keep streaming state until socket/dynamic channel signals done.
-        if (socketService == null) {
+        // We can safely finish on SSE completion when not using a dynamic channel.
+        if (!usingDynamicChannel) {
           ref.read(chatMessagesProvider.notifier).finishStreaming();
         }
 
