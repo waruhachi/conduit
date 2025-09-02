@@ -128,8 +128,9 @@ class VoiceInputService {
 
       // Test if speech recognition is available
       final supported = await _speech.isSupported();
-      if (!supported)
+      if (!supported) {
         return 'Speech recognition service is not available on this device';
+      }
 
       // Set language if available, then start and stop quickly
       if (_selectedLocaleId != null) {

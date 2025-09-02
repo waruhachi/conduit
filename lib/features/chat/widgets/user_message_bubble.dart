@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io' show Platform;
 import 'package:conduit/l10n/app_localizations.dart';
+import 'package:conduit/shared/widgets/chat_action_button.dart';
 
 class UserMessageBubble extends ConsumerStatefulWidget {
   final dynamic message;
@@ -42,6 +43,7 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
   bool _showActions = false;
   late AnimationController _fadeController;
   late AnimationController _slideController;
+  // press state handled by shared ChatActionButton
 
   @override
   void initState() {
@@ -532,47 +534,7 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
     required String label,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: Spacing.actionButtonPadding,
-          vertical: Spacing.xs,
-        ),
-        decoration: BoxDecoration(
-          color: context.conduitTheme.surfaceBackground.withValues(
-            alpha: Alpha.buttonHover,
-          ),
-          borderRadius: BorderRadius.circular(AppBorderRadius.actionButton),
-          border: Border.all(
-            color: context.conduitTheme.textPrimary.withValues(
-              alpha: Alpha.subtle,
-            ),
-            width: BorderWidth.regular,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: IconSize.small,
-              color: context.conduitTheme.iconSecondary,
-            ),
-            const SizedBox(width: Spacing.xs),
-            Text(
-              label,
-              style: AppTypography.labelStyle.copyWith(
-                color: context.conduitTheme.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ).animate().scale(
-      duration: AnimationDuration.buttonPress,
-      curve: AnimationCurves.buttonPress,
-    );
+    return ChatActionButton(icon: icon, label: label, onTap: onTap);
   }
 
   Widget _buildUserActionButtons() {

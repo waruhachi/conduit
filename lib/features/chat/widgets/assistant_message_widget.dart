@@ -12,6 +12,7 @@ import '../../../core/utils/tool_calls_parser.dart';
 import 'enhanced_image_attachment.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import 'enhanced_attachment.dart';
+import 'package:conduit/shared/widgets/chat_action_button.dart';
 
 class AssistantMessageWidget extends ConsumerStatefulWidget {
   final dynamic message;
@@ -50,6 +51,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   String _contentSansDetails = '';
   bool _allowTypingIndicator = false;
   Timer? _typingGateTimer;
+  // press state handled by shared ChatActionButton
 
   @override
   void initState() {
@@ -911,39 +913,6 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     required String label,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: context.conduitTheme.textPrimary.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-          border: Border.all(
-            color: context.conduitTheme.textPrimary.withValues(alpha: 0.08),
-            width: BorderWidth.regular,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: IconSize.sm,
-              color: context.conduitTheme.textPrimary.withValues(alpha: 0.8),
-            ),
-            const SizedBox(width: Spacing.xs),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: AppTypography.labelMedium,
-                color: context.conduitTheme.textPrimary.withValues(alpha: 0.8),
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return ChatActionButton(icon: icon, label: label, onTap: onTap);
   }
 }

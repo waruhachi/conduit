@@ -343,9 +343,13 @@ class TaskWorker {
       final b64 = base64Encode(bytes);
       final ext = path.extension(task.fileName).toLowerCase();
       String mime = 'image/png';
-      if (ext == '.jpg' || ext == '.jpeg') mime = 'image/jpeg';
-      else if (ext == '.gif') mime = 'image/gif';
-      else if (ext == '.webp') mime = 'image/webp';
+      if (ext == '.jpg' || ext == '.jpeg') {
+        mime = 'image/jpeg';
+      } else if (ext == '.gif') {
+        mime = 'image/gif';
+      } else if (ext == '.webp') {
+        mime = 'image/webp';
+      }
       final dataUrl = 'data:$mime;base64,$b64';
 
       // Mark as completed with data URL as fileId

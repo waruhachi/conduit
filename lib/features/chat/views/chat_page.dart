@@ -33,6 +33,7 @@ import 'chat_page_helpers.dart';
 import '../../../shared/widgets/themed_dialogs.dart';
 import '../../onboarding/views/onboarding_sheet.dart';
 import '../../../shared/widgets/sheet_handle.dart';
+import '../../../shared/widgets/measure_size.dart';
 import '../../../shared/widgets/conduit_components.dart';
 import '../../../core/services/settings_service.dart';
 // Removed unused PlatformUtils import
@@ -53,6 +54,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   final Set<String> _selectedMessageIds = <String>{};
   Timer? _scrollDebounceTimer;
   bool _isDeactivated = false;
+  double _inputHeight = 0; // dynamic input height to position scroll button
 
   String _formatModelDisplayName(String name) {
     var display = name.trim();
@@ -1028,7 +1030,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           drawerEnableOpenDragGesture: true,
           drawerDragStartBehavior: DragStartBehavior.down,
           drawerEdgeDragWidth: MediaQuery.of(context).size.width * 0.5,
-          drawerScrimColor: Colors.black.withOpacity(0.32),
+          drawerScrimColor: Colors.black.withValues(alpha: 0.32),
           drawer: Drawer(
             width: (MediaQuery.of(context).size.width * 0.88).clamp(
               280.0,
@@ -1409,17 +1411,26 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
                   // Modern Input (root matches input background including safe area)
                   RepaintBoundary(
-                    child: ModernChatInput(
-                      enabled:
-                          selectedModel != null &&
-                          (isOnline || ref.watch(reviewerModeProvider)),
-                      onSendMessage: (text) =>
-                          _handleMessageSend(text, selectedModel),
-                      onVoiceInput: null,
-                      onFileAttachment: _handleFileAttachment,
-                      onImageAttachment: _handleImageAttachment,
-                      onCameraCapture: () =>
-                          _handleImageAttachment(fromCamera: true),
+                    child: MeasureSize(
+                      onChange: (size) {
+                        if (mounted) {
+                          setState(() {
+                            _inputHeight = size.height;
+                          });
+                        }
+                      },
+                      child: ModernChatInput(
+                        enabled:
+                            selectedModel != null &&
+                            (isOnline || ref.watch(reviewerModeProvider)),
+                        onSendMessage: (text) =>
+                            _handleMessageSend(text, selectedModel),
+                        onVoiceInput: null,
+                        onFileAttachment: _handleFileAttachment,
+                        onImageAttachment: _handleImageAttachment,
+                        onCameraCapture: () =>
+                            _handleImageAttachment(fromCamera: true),
+                      ),
                     ),
                   ),
                 ],
@@ -1427,8 +1438,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
               // Floating Scroll to Bottom Button with smooth appear/disappear
               Positioned(
-                bottom: Spacing.xxl + Spacing.xxxl,
-                right: Spacing.lg,
+                bottom: ((_inputHeight > 0) ? _inputHeight : (Spacing.xxl + Spacing.xxxl)) + Spacing.sm,
+                left: 0,
+                right: 0,
                 child: AnimatedSwitcher(
                   duration: AnimationDuration.microInteraction,
                   switchInCurve: AnimationCurves.microInteraction,
@@ -1446,44 +1458,45 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       ),
                     );
                   },
-                  child:
-                      (_showScrollToBottom &&
+                  child: (_showScrollToBottom &&
                           !keyboardVisible &&
                           ref.watch(chatMessagesProvider).isNotEmpty)
-                      ? ClipRRect(
+                      ? Center(
                           key: const ValueKey('scroll_to_bottom_visible'),
-                          borderRadius: BorderRadius.circular(
-                            AppBorderRadius.floatingButton,
-                          ),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: context
-                                  .conduitTheme
-                                  .surfaceContainerHighest
-                                  .withValues(alpha: 0.75),
-                              border: Border.all(
-                                color: context.conduitTheme.cardBorder
-                                    .withValues(alpha: 0.3),
-                                width: BorderWidth.regular,
-                              ),
-                              borderRadius: BorderRadius.circular(
-                                AppBorderRadius.floatingButton,
-                              ),
-                              boxShadow: ConduitShadows.button,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(
+                              AppBorderRadius.floatingButton,
                             ),
-                            child: SizedBox(
-                              width: TouchTarget.button,
-                              height: TouchTarget.button,
-                              child: IconButton(
-                                onPressed: _scrollToBottom,
-                                splashRadius: 24,
-                                icon: Icon(
-                                  Platform.isIOS
-                                      ? CupertinoIcons.arrow_down
-                                      : Icons.keyboard_arrow_down,
-                                  size: IconSize.lg,
-                                  color: context.conduitTheme.iconPrimary
-                                      .withValues(alpha: 0.9),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: context
+                                    .conduitTheme
+                                    .surfaceContainerHighest
+                                    .withValues(alpha: 0.75),
+                                border: Border.all(
+                                  color: context.conduitTheme.cardBorder
+                                      .withValues(alpha: 0.3),
+                                  width: BorderWidth.regular,
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  AppBorderRadius.floatingButton,
+                                ),
+                                boxShadow: ConduitShadows.button,
+                              ),
+                              child: SizedBox(
+                                width: TouchTarget.button,
+                                height: TouchTarget.button,
+                                child: IconButton(
+                                  onPressed: _scrollToBottom,
+                                  splashRadius: 24,
+                                  icon: Icon(
+                                    Platform.isIOS
+                                        ? CupertinoIcons.arrow_down
+                                        : Icons.keyboard_arrow_down,
+                                    size: IconSize.lg,
+                                    color: context.conduitTheme.iconPrimary
+                                        .withValues(alpha: 0.9),
+                                  ),
                                 ),
                               ),
                             ),

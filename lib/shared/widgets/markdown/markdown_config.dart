@@ -43,7 +43,7 @@ class ConduitMarkdownConfig {
         LinkConfig(
           style: TextStyle(
             color: theme.buttonPrimary,
-            decoration: TextDecoration.underline,
+            decoration: TextDecoration.none,
           ),
           onTap: (url) async {
             if (await canLaunchUrlString(url)) {

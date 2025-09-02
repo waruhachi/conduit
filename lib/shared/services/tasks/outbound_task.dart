@@ -115,7 +115,19 @@ abstract class OutboundTask with _$OutboundTask {
   factory OutboundTask.fromJson(Map<String, dynamic> json) =>
       _$OutboundTaskFromJson(json);
 
-  String get threadKey => (conversationId == null || conversationId!.isEmpty)
-      ? 'new'
-      : conversationId!;
+  // Provide a unified nullable conversationId across variants
+  String? get maybeConversationId => map(
+        sendTextMessage: (t) => t.conversationId,
+        uploadMedia: (t) => t.conversationId,
+        executeToolCall: (t) => t.conversationId,
+        generateImage: (t) => t.conversationId,
+        saveConversation: (t) => t.conversationId,
+        generateTitle: (t) => t.conversationId,
+        imageToDataUrl: (t) => t.conversationId,
+      );
+
+  String get threadKey =>
+      (maybeConversationId == null || maybeConversationId!.isEmpty)
+          ? 'new'
+          : maybeConversationId!;
 }

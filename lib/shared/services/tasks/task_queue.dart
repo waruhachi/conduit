@@ -100,7 +100,7 @@ class TaskQueueNotifier extends StateNotifier<List<OutboundTask>> {
   Future<void> cancelByConversation(String conversationId) async {
     state = [
       for (final t in state)
-        if ((t.conversationId ?? '') == conversationId &&
+        if ((t.maybeConversationId ?? '') == conversationId &&
             (t.status == TaskStatus.queued || t.status == TaskStatus.running))
           t.copyWith(
             status: TaskStatus.cancelled,

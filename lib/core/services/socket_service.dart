@@ -1,16 +1,16 @@
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:flutter/foundation.dart';
 import '../models/server_config.dart';
 
 class SocketService {
   final ServerConfig serverConfig;
   final String? authToken;
-  IO.Socket? _socket;
+  io.Socket? _socket;
 
   SocketService({required this.serverConfig, required this.authToken});
 
   String? get sessionId => _socket?.id;
-  IO.Socket? get socket => _socket;
+  io.Socket? get socket => _socket;
 
   bool get isConnected => _socket?.connected == true;
 
@@ -24,9 +24,9 @@ class SocketService {
     final base = serverConfig.url.replaceFirst(RegExp(r'/+$'), '');
     final path = '/ws/socket.io';
 
-    _socket = IO.io(
+    _socket = io.io(
       base,
-      IO.OptionBuilder()
+      io.OptionBuilder()
           .setTransports(['websocket'])
           .setPath(path)
           .setExtraHeaders(
