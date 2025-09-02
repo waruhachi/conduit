@@ -130,6 +130,25 @@ class TaskQueueNotifier extends StateNotifier<List<OutboundTask>> {
     _process();
   }
 
+  Future<String> enqueueGenerateImage({
+    required String? conversationId,
+    required String prompt,
+    String? idempotencyKey,
+  }) async {
+    final id = _uuid.v4();
+    final task = OutboundTask.generateImage(
+      id: id,
+      conversationId: conversationId,
+      prompt: prompt,
+      idempotencyKey: idempotencyKey,
+      enqueuedAt: DateTime.now(),
+    );
+    state = [...state, task];
+    await _save();
+    _process();
+    return id;
+  }
+
   Future<void> _process() async {
     if (_processing) return;
     _processing = true;

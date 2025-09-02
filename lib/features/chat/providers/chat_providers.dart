@@ -2513,12 +2513,13 @@ final regenerateLastMessageProvider = Provider<Future<void> Function()>((ref) {
       return;
     }
 
-    // Resend the message via normal flow
-    await _sendMessageInternal(
-      ref,
-      lastUserMessage.content,
-      lastUserMessage.attachmentIds,
-    );
+    // Resend the message via task queue (unified flow)
+    final activeConv = ref.read(activeConversationProvider);
+    await ref.read(taskQueueProvider.notifier).enqueueSendText(
+          conversationId: activeConv?.id,
+          text: lastUserMessage.content,
+          attachments: lastUserMessage.attachmentIds,
+        );
   };
 });
 

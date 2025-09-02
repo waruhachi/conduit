@@ -61,6 +61,19 @@ abstract class OutboundTask with _$OutboundTask {
     String? error,
   }) = ExecuteToolCallTask;
 
+  const factory OutboundTask.generateImage({
+    required String id,
+    String? conversationId,
+    required String prompt,
+    @Default(TaskStatus.queued) TaskStatus status,
+    @Default(0) int attempt,
+    String? idempotencyKey,
+    DateTime? enqueuedAt,
+    DateTime? startedAt,
+    DateTime? completedAt,
+    String? error,
+  }) = GenerateImageTask;
+
   factory OutboundTask.fromJson(Map<String, dynamic> json) =>
       _$OutboundTaskFromJson(json);
 
