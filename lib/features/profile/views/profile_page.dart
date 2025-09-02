@@ -20,6 +20,7 @@ import '../../../core/models/model.dart';
 import 'dart:async';
 import 'dart:io';
 import '../../chat/views/chat_page_helpers.dart';
+import 'app_customization_page.dart';
 
 /// Profile page (You tab) showing user info and main actions
 /// Enhanced with production-grade design tokens for better cohesion
@@ -231,6 +232,22 @@ class ProfilePage extends ConsumerWidget {
               _buildThemeToggleTile(context, ref),
               Divider(color: context.conduitTheme.dividerColor, height: 1),
               _buildLanguageTile(context, ref),
+              Divider(color: context.conduitTheme.dividerColor, height: 1),
+              _buildAccountOption(
+                icon: UiUtils.platformIcon(
+                  ios: CupertinoIcons.slider_horizontal_3,
+                  android: Icons.tune,
+                ),
+                title: 'App Customization',
+                subtitle: 'Personalize how names and UI display',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const AppCustomizationPage(),
+                    ),
+                  );
+                },
+              ),
               Divider(color: context.conduitTheme.dividerColor, height: 1),
               _buildAboutTile(context),
               Divider(color: context.conduitTheme.dividerColor, height: 1),

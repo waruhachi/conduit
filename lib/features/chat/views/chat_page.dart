@@ -35,6 +35,7 @@ import '../../onboarding/views/onboarding_sheet.dart';
 import '../../../shared/widgets/sheet_handle.dart';
 import '../../../shared/widgets/measure_size.dart';
 import '../../../shared/widgets/conduit_components.dart';
+import '../../../shared/widgets/middle_ellipsis_text.dart';
 import '../../../core/services/settings_service.dart';
 // Removed unused PlatformUtils import
 import '../../../core/services/platform_service.dart' as ps;
@@ -56,16 +57,21 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   bool _isDeactivated = false;
   double _inputHeight = 0; // dynamic input height to position scroll button
 
-  String _formatModelDisplayName(String name) {
+  String _formatModelDisplayName(
+    String name, {
+    required bool omitProvider,
+  }) {
     var display = name.trim();
-    // Prefer the segment after the last '/'
-    if (display.contains('/')) {
-      display = display.split('/').last.trim();
-    }
-    // If an org prefix like 'OpenAI: gpt-4o' exists, use the part after ':'
-    if (display.contains(':')) {
-      final parts = display.split(':');
-      display = parts.last.trim();
+    if (omitProvider) {
+      // Prefer the segment after the last '/'
+      if (display.contains('/')) {
+        display = display.split('/').last.trim();
+      }
+      // If an org prefix like 'OpenAI: gpt-4o' exists, use the part after ':'
+      if (display.contains(':')) {
+        final parts = display.split(':');
+        display = parts.last.trim();
+      }
     }
     return display;
   }
@@ -698,6 +704,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         String? displayModelName;
         final rawModel = message.model;
         if (rawModel != null && rawModel.isNotEmpty) {
+          final omitProvider =
+              ref.watch(appSettingsProvider).omitProviderInModelName;
           final modelsAsync = ref.watch(modelsProvider);
           if (modelsAsync.hasValue) {
             final models = modelsAsync.value!;
@@ -706,14 +714,23 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               final match = models.firstWhere(
                 (m) => m.id == rawModel || m.name == rawModel,
               );
-              displayModelName = match.name;
+              displayModelName = _formatModelDisplayName(
+                match.name,
+                omitProvider: omitProvider,
+              );
             } catch (_) {
               // As a fallback, format the raw value to be more readable
-              displayModelName = _formatModelDisplayName(rawModel);
+              displayModelName = _formatModelDisplayName(
+                rawModel,
+                omitProvider: omitProvider,
+              );
             }
           } else {
             // Models not loaded yet; format raw value for readability
-            displayModelName = _formatModelDisplayName(rawModel);
+            displayModelName = _formatModelDisplayName(
+              rawModel,
+              omitProvider: omitProvider,
+            );
           }
         }
 
@@ -1133,17 +1150,27 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                 ),
                                 const SizedBox(width: Spacing.xs),
                                 Flexible(
-                                  child: Text(
-                                    _formatModelDisplayName(selectedModel.name),
-                                    style: AppTypography.headlineSmallStyle
-                                        .copyWith(
+                                  child: Builder(
+                                    builder: (context) {
+                                      final omitProvider = ref
+                                          .watch(appSettingsProvider)
+                                          .omitProviderInModelName;
+                                      final label = _formatModelDisplayName(
+                                        selectedModel.name,
+                                        omitProvider: omitProvider,
+                                      );
+                                      return MiddleEllipsisText(
+                                        label,
+                                        style: AppTypography.headlineSmallStyle
+                                            .copyWith(
                                           color:
                                               context.conduitTheme.textPrimary,
                                           fontWeight: FontWeight.w600,
                                         ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
+                                        textAlign: TextAlign.center,
+                                        semanticsLabel: label,
+                                      );
+                                    },
                                   ),
                                 ),
                                 const SizedBox(width: Spacing.xs),

@@ -589,7 +589,7 @@ class ApiService {
       }
 
       // Fallback to chat.messages (list format) if history is missing or empty
-      if ((messagesList == null || (messagesList is List && messagesList.isEmpty)) &&
+      if (((messagesList?.isEmpty ?? true)) &&
           chatObject['messages'] != null) {
         messagesList = chatObject['messages'] as List;
         debugPrint(

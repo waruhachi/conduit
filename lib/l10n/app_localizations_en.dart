@@ -596,10 +596,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get archived => 'Archived';
 
   @override
-  String get appLanguage => 'App language';
+  String get appLanguage => 'App Language';
 
   @override
-  String get darkMode => 'Dark mode';
+  String get darkMode => 'Dark Mode';
 
   @override
   String get webSearch => 'Web Search';
