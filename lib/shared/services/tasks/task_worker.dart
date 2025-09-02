@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -151,9 +150,67 @@ class TaskWorker {
   }
 
   Future<void> _performExecuteToolCall(ExecuteToolCallTask task) async {
-    // Placeholder: In this client, native tool execution is orchestrated server-side.
-    // We keep this task type for future local tools or MCP bridges.
-    debugPrint('ExecuteToolCallTask stub: ${task.toolName}');
+    // Resolve API + selected model
+    final api = _ref.read(apiServiceProvider);
+    final selectedModel = _ref.read(selectedModelProvider);
+    if (api == null || selectedModel == null) {
+      throw Exception('API or model not available');
+    }
+
+    // Optionally bring the target conversation to foreground
+    try {
+      final active = _ref.read(activeConversationProvider);
+      if (task.conversationId != null &&
+          task.conversationId!.isNotEmpty &&
+          (active == null || active.id != task.conversationId)) {
+        try {
+          final conv = await api.getConversation(task.conversationId!);
+          _ref.read(activeConversationProvider.notifier).state = conv;
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    // Lookup tool by name (or id fallback)
+    String? resolvedToolId;
+    try {
+      final tools = await api.getAvailableTools();
+      for (final t in tools) {
+        final id = (t['id'] ?? '').toString();
+        final name = (t['name'] ?? '').toString();
+        if (name.toLowerCase() == task.toolName.toLowerCase() ||
+            id.toLowerCase() == task.toolName.toLowerCase()) {
+          resolvedToolId = id;
+          break;
+        }
+      }
+    } catch (_) {}
+
+    // Build an explicit user instruction to run the tool with arguments.
+    // Passing the specific tool id hints the server/provider to execute it via native function calling.
+    final args = task.arguments;
+    String argsSnippet;
+    try {
+      argsSnippet = const JsonEncoder.withIndent('  ').convert(args);
+    } catch (_) {
+      argsSnippet = args.toString();
+    }
+    final instruction =
+        'Run the tool "${task.toolName}" with the following JSON arguments and return the result succinctly.\n'
+        'If the tool is not available, respond with a brief error.\n\n'
+        'Arguments:\n'
+        '```json\n$argsSnippet\n```';
+
+    // Send as a normal message but constrain tools to the resolved tool (if found)
+    final toolIds = (resolvedToolId != null && resolvedToolId.isNotEmpty)
+        ? <String>[resolvedToolId]
+        : null;
+
+    await chat.sendMessageFromService(
+      _ref,
+      instruction,
+      null,
+      toolIds,
+    );
   }
 
   Future<void> _performGenerateImage(GenerateImageTask task) async {

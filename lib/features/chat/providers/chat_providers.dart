@@ -1046,12 +1046,14 @@ Future<void> _sendMessageInternal(
       'title_generation': true,
       'tags_generation': true,
       'follow_up_generation': true,
+      if (webSearchEnabled) 'web_search': true, // enable bg workflow for web search
     };
 
-    // Determine if we need background task flow (tools/tool servers)
+    // Determine if we need background task flow (tools/tool servers or web search)
     final bool isBackgroundToolsFlowPre =
         (toolIdsForApi != null && toolIdsForApi.isNotEmpty) ||
         (toolServers != null && toolServers.isNotEmpty);
+    final bool isBackgroundWebSearchPre = webSearchEnabled;
 
     final response = await api.sendMessage(
       messages: conversationMessages,
@@ -1089,7 +1091,8 @@ Future<void> _sendMessageInternal(
     // Background-tools flow OR any session-bound flow relies on socket/dynamic channel for
     // streaming content. Allow socket TEXT in those modes. For pure SSE/polling flows, suppress
     // socket TEXT to avoid duplicates (still surface tool_call status).
-    final bool isBackgroundFlow = isBackgroundToolsFlowPre || wantSessionBinding;
+    final bool isBackgroundFlow =
+        isBackgroundToolsFlowPre || isBackgroundWebSearchPre || wantSessionBinding;
     bool suppressSocketContent = !isBackgroundFlow; // allow socket text when session-bound or tools
     bool usingDynamicChannel = false; // set true when server provides a channel
     if (socketService != null) {

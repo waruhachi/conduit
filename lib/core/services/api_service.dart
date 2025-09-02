@@ -568,42 +568,33 @@ class ApiService {
       }
     }
 
-    // Try multiple locations for messages - prefer list format to avoid duplication
+    // Try multiple locations for messages - prefer history-based ordering like Open‑WebUI
     List? messagesList;
     Map<String, dynamic>? historyMessagesMap;
 
     if (chatObject != null) {
-      // Check for messages in chat.messages (list format) - PREFERRED
-      if (chatObject['messages'] != null) {
+      // Prefer history.messages with currentId to reconstruct the selected branch
+      final history = chatObject['history'] as Map<String, dynamic>?;
+      if (history != null && history['messages'] is Map<String, dynamic>) {
+        historyMessagesMap = history['messages'] as Map<String, dynamic>;
+
+        // Reconstruct ordered list using parent chain up to currentId
+        final currentId = history['currentId']?.toString();
+        if (currentId != null && currentId.isNotEmpty) {
+          messagesList = _buildMessagesListFromHistory(history);
+          debugPrint(
+            'DEBUG: Built ${messagesList.length} messages from history chain to currentId=$currentId',
+          );
+        }
+      }
+
+      // Fallback to chat.messages (list format) if history is missing or empty
+      if ((messagesList == null || (messagesList is List && messagesList.isEmpty)) &&
+          chatObject['messages'] != null) {
         messagesList = chatObject['messages'] as List;
         debugPrint(
-          'DEBUG: Found ${messagesList.length} messages in chat.messages',
+          'DEBUG: Found ${messagesList.length} messages in chat.messages (fallback)',
         );
-        // Also capture history map for richer assistant entries (tool_calls, files)
-        final history = chatObject['history'] as Map<String, dynamic>?;
-        if (history != null && history['messages'] is Map<String, dynamic>) {
-          historyMessagesMap = history['messages'] as Map<String, dynamic>;
-        }
-      } else {
-        // Fallback: Check for messages in chat.history.messages (map format)
-        final history = chatObject['history'] as Map<String, dynamic>?;
-        if (history != null && history['messages'] != null) {
-          final messagesMap = history['messages'] as Map<String, dynamic>;
-          historyMessagesMap = messagesMap;
-          debugPrint(
-            'DEBUG: Found ${messagesMap.length} messages in chat.history.messages (converting to list)',
-          );
-
-          // Convert map to list format to use common parsing logic
-          messagesList = [];
-          for (final entry in messagesMap.entries) {
-            final msgData = Map<String, dynamic>.from(
-              entry.value as Map<String, dynamic>,
-            );
-            msgData['id'] = entry.key; // Use the key as the message ID
-            messagesList.add(msgData);
-          }
-        }
       }
     } else if (chatData['messages'] != null) {
       messagesList = chatData['messages'] as List;
@@ -725,12 +716,15 @@ class ApiService {
     }
     String contentString;
     if (content is List) {
-      // Extract text content from array; if none, build from tool-like items later
-      final textContent = content.firstWhere(
-        (item) => item is Map && item['type'] == 'text',
-        orElse: () => {'text': ''},
-      );
-      contentString = (textContent['text'] as String?) ?? '';
+      // Concatenate all text fragments in order (Open‑WebUI may split long text)
+      final buffer = StringBuffer();
+      for (final item in content) {
+        if (item is Map && item['type'] == 'text') {
+          final t = item['text']?.toString();
+          if (t != null && t.isNotEmpty) buffer.write(t);
+        }
+      }
+      contentString = buffer.toString();
       if (contentString.trim().isEmpty) {
         // Fallback: look for tool-related entries in the array and synthesize details blocks
         final synthesized = _synthesizeToolDetailsFromContentArray(content);
@@ -740,6 +734,26 @@ class ApiService {
       }
     } else {
       contentString = (content as String?) ?? '';
+    }
+
+    // Prefer longer content from history if available (guards against truncated previews)
+    if (historyMsg != null) {
+      final histContent = historyMsg['content'];
+      if (histContent is String && histContent.length > contentString.length) {
+        contentString = histContent;
+      } else if (histContent is List) {
+        final buf = StringBuffer();
+        for (final item in histContent) {
+          if (item is Map && item['type'] == 'text') {
+            final t = item['text']?.toString();
+            if (t != null && t.isNotEmpty) buf.write(t);
+          }
+        }
+        final combined = buf.toString();
+        if (combined.length > contentString.length) {
+          contentString = combined;
+        }
+      }
     }
 
     // Final fallback: some servers store tool calls under tool_calls instead of content
@@ -804,6 +818,31 @@ class ApiService {
       attachmentIds: attachmentIds,
       files: files,
     );
+  }
+
+  // Build ordered messages list from Open‑WebUI history using parent chain to currentId
+  List<Map<String, dynamic>> _buildMessagesListFromHistory(
+    Map<String, dynamic> history,
+  ) {
+    final messagesMap = history['messages'] as Map<String, dynamic>?;
+    final currentId = history['currentId']?.toString();
+
+    if (messagesMap == null || currentId == null) return [];
+
+    List<Map<String, dynamic>> buildChain(String? id) {
+      if (id == null) return [];
+      final raw = messagesMap[id];
+      if (raw == null) return [];
+      final msg = Map<String, dynamic>.from(raw as Map<String, dynamic>);
+      msg['id'] = id; // ensure id present
+      final parentId = msg['parentId']?.toString();
+      if (parentId != null && parentId.isNotEmpty) {
+        return [...buildChain(parentId), msg];
+      }
+      return [msg];
+    }
+
+    return buildChain(currentId);
   }
 
   // ===== Helpers to synthesize tool-call details blocks for UI parsing =====

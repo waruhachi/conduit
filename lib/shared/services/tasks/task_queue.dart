@@ -149,6 +149,27 @@ class TaskQueueNotifier extends StateNotifier<List<OutboundTask>> {
     return id;
   }
 
+  Future<String> enqueueExecuteToolCall({
+    required String? conversationId,
+    required String toolName,
+    Map<String, dynamic> arguments = const <String, dynamic>{},
+    String? idempotencyKey,
+  }) async {
+    final id = _uuid.v4();
+    final task = OutboundTask.executeToolCall(
+      id: id,
+      conversationId: conversationId,
+      toolName: toolName,
+      arguments: arguments,
+      idempotencyKey: idempotencyKey,
+      enqueuedAt: DateTime.now(),
+    );
+    state = [...state, task];
+    await _save();
+    _process();
+    return id;
+  }
+
   Future<void> _process() async {
     if (_processing) return;
     _processing = true;
