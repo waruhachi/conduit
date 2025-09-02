@@ -6,7 +6,7 @@
 ![GitHub all downloads](https://img.shields.io/github/downloads/cogwheel0/conduit/total?style=flat-square&label=Downloads&logo=github&color=0A84FF)
 
 
-<a href="https://groups.google.com/g/conduit">
+<a href="https://play.google.com/store/apps/details?id=app.cogwheel.conduit">
 <img src="store-badges/google.webp" alt="Get it on Google Play" style="height:56px;"/>
 </a>
 <a href="https://apps.apple.com/us/app/conduit-open-webui-client/id6749840287">
