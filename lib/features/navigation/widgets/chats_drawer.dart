@@ -82,7 +82,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         controller: _listController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          const CupertinoSliverRefreshControl(),
+          CupertinoSliverRefreshControl(onRefresh: _refreshChats),
           SliverPadding(
             padding: padding,
             sliver: SliverList(
