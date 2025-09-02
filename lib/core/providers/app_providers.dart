@@ -204,6 +204,9 @@ final socketServiceProvider = Provider<SocketService?>((ref) {
       // best-effort connect; errors handled internally
       // ignore unawaited_futures
       s.connect();
+      ref.onDispose(() {
+        try { s.dispose(); } catch (_) {}
+      });
       return s;
     },
     orElse: () => null,

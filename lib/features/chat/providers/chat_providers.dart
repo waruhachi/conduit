@@ -1022,10 +1022,13 @@ Future<void> _sendMessageInternal(
       return;
     }
 
-    // Stream response using SSE
+    // Stream response using server-push via Socket when available, otherwise fallback
     // Resolve Socket session for background tasks parity
     final socketService = ref.read(socketServiceProvider);
     final socketSessionId = socketService?.sessionId;
+    final bool wantSessionBinding =
+        (socketService?.isConnected == true) &&
+        (socketSessionId != null && socketSessionId.isNotEmpty);
 
     // Resolve tool servers from user settings (if any)
     List<Map<String, dynamic>>? toolServers;
@@ -1060,9 +1063,9 @@ Future<void> _sendMessageInternal(
       // handled via pre-stream client-side request above
       enableImageGeneration: false,
       modelItem: modelItem,
-      // Only pass a session when we truly want task-based dynamic-channel
-      // behavior; for pure text flows prefer polling (if background mode).
-      sessionIdOverride: isBackgroundToolsFlowPre ? socketSessionId : null,
+      // Bind to Socket session whenever available so the server can push
+      // streaming updates to this client (improves first-turn streaming).
+      sessionIdOverride: wantSessionBinding ? socketSessionId : null,
       toolServers: toolServers,
       backgroundTasks: bgTasks,
     );
@@ -1083,11 +1086,11 @@ Future<void> _sendMessageInternal(
     ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
 
     // If socket is available, start listening for chat-events immediately
-    // Background-tools flow (tools/tool servers) relies on socket/dynamic channel for
-    // streaming content. Allow socket TEXT in that mode. For pure SSE flows, suppress
+    // Background-tools flow OR any session-bound flow relies on socket/dynamic channel for
+    // streaming content. Allow socket TEXT in those modes. For pure SSE/polling flows, suppress
     // socket TEXT to avoid duplicates (still surface tool_call status).
-    final bool isBackgroundToolsFlow = isBackgroundToolsFlowPre;
-    bool suppressSocketContent = !isBackgroundToolsFlow; // allow socket text for tools
+    final bool isBackgroundFlow = isBackgroundToolsFlowPre || wantSessionBinding;
+    bool suppressSocketContent = !isBackgroundFlow; // allow socket text when session-bound or tools
     bool usingDynamicChannel = false; // set true when server provides a channel
     if (socketService != null) {
       void chatHandler(Map<String, dynamic> ev) {
@@ -1737,7 +1740,7 @@ Future<void> _sendMessageInternal(
         suppressSocketContent = false;
         // If this path was SSE-driven (no background tools/dynamic channel), finish now.
         // Otherwise keep streaming state until socket/dynamic channel signals done.
-        if (!usingDynamicChannel && !isBackgroundToolsFlow) {
+        if (!usingDynamicChannel && !isBackgroundFlow) {
           ref.read(chatMessagesProvider.notifier).finishStreaming();
         }
 
@@ -1781,7 +1784,7 @@ Future<void> _sendMessageInternal(
               // Only notify completion immediately for non-background SSE flows.
               // For background tools/dynamic-channel flows, defer completion
               // until the socket/dynamic channel signals done.
-              if (!isBackgroundToolsFlow && !usingDynamicChannel) {
+              if (!isBackgroundFlow && !usingDynamicChannel) {
                 try {
                   unawaited(
                     api

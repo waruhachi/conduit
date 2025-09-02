@@ -15,11 +15,11 @@ import 'features/auth/providers/unified_auth_providers.dart';
 import 'core/auth/auth_state_manager.dart';
 import 'core/utils/debug_logger.dart';
 
-import 'features/onboarding/views/onboarding_sheet.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import 'features/chat/views/chat_page.dart';
 import 'features/navigation/views/splash_launcher_page.dart';
 import 'core/services/share_receiver_service.dart';
+import 'core/providers/app_startup_providers.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -203,7 +203,8 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
             }
 
             // User is authenticated, navigate directly to chat page
-            _initializeBackgroundResources(ref);
+            // Kick off and keep app startup/background task flow alive
+            ref.watch(appStartupFlowProvider);
 
             // Set the current route for navigation tracking
             NavigationService.setCurrentRoute(Routes.chat);
@@ -222,76 +223,7 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
     );
   }
 
-  void _initializeBackgroundResources(WidgetRef ref) {
-    // Initialize resources in the background without blocking UI
-    Future.microtask(() async {
-      try {
-        // Get the API service
-        final api = ref.read(apiServiceProvider);
-        if (api == null) {
-          DebugLogger.warning(
-            'API service not available for background initialization',
-          );
-          return;
-        }
-
-        // Explicitly get the current auth token and set it on the API service
-        final authToken = ref.read(authTokenProvider3);
-        if (authToken != null && authToken.isNotEmpty) {
-          api.updateAuthToken(authToken);
-          DebugLogger.auth('Background: Set auth token on API service');
-        } else {
-          DebugLogger.warning('Background: No auth token available yet');
-          return;
-        }
-
-        // Initialize the token updater for future updates
-        ref.read(apiTokenUpdaterProvider);
-
-        // Load models and set default in background
-        await ref.read(defaultModelProvider.future);
-        DebugLogger.info('Background initialization completed');
-
-        // Onboarding: show once if not seen
-        final storage = ref.read(optimizedStorageServiceProvider);
-        final seen = await storage.getOnboardingSeen();
-
-        if (!seen && mounted) {
-          await Future.delayed(const Duration(milliseconds: 300));
-          if (!mounted) return;
-
-          WidgetsBinding.instance.addPostFrameCallback((_) async {
-            final navContext = NavigationService.navigatorKey.currentContext;
-            if (!mounted || navContext == null) return;
-
-            _showOnboarding(navContext);
-            await storage.setOnboardingSeen(true);
-          });
-        }
-      } catch (e) {
-        DebugLogger.error('Background initialization failed', e);
-        // Don't throw - this is background initialization
-      }
-    });
-  }
-
-  void _showOnboarding(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: context.conduitTheme.surfaceBackground,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(AppBorderRadius.modal),
-          ),
-          boxShadow: ConduitShadows.modal,
-        ),
-        child: const OnboardingSheet(),
-      ),
-    );
-  }
+  // Background initialization moved to app-based task flow provider
 
   Widget _buildErrorState(String error) {
     return Scaffold(
