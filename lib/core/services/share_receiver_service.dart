@@ -9,6 +9,8 @@ import '../../features/auth/providers/unified_auth_providers.dart';
 import '../../features/chat/providers/chat_providers.dart';
 import '../../features/chat/services/file_attachment_service.dart';
 import '../../core/providers/app_providers.dart';
+import '../../shared/services/tasks/task_queue.dart';
+import 'package:path/path.dart' as path;
 import 'navigation_service.dart';
 // Server chat creation/title generation occur on first send via chat providers
 
@@ -152,13 +154,17 @@ Future<void> _processPayload(Ref ref, SharedPayload payload) async {
         if (files.isNotEmpty) {
           ref.read(attachedFilesProvider.notifier).addFiles(files);
 
+          // Enqueue uploads via task queue to unify progress + retry
+          final activeConv = ref.read(activeConversationProvider);
           for (final file in files) {
-            final uploadStream = svc.uploadFile(file);
-            uploadStream.listen((state) {
-              ref
-                  .read(attachedFilesProvider.notifier)
-                  .updateFileState(file.path, state);
-            }, onError: (_) {});
+            try {
+              await ref.read(taskQueueProvider.notifier).enqueueUploadMedia(
+                    conversationId: activeConv?.id,
+                    filePath: file.path,
+                    fileName: path.basename(file.path),
+                    fileSize: await file.length(),
+                  );
+            } catch (_) {}
           }
         }
       }

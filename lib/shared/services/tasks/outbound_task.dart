@@ -74,6 +74,30 @@ abstract class OutboundTask with _$OutboundTask {
     String? error,
   }) = GenerateImageTask;
 
+  const factory OutboundTask.saveConversation({
+    required String id,
+    String? conversationId,
+    @Default(TaskStatus.queued) TaskStatus status,
+    @Default(0) int attempt,
+    String? idempotencyKey,
+    DateTime? enqueuedAt,
+    DateTime? startedAt,
+    DateTime? completedAt,
+    String? error,
+  }) = SaveConversationTask;
+
+  const factory OutboundTask.generateTitle({
+    required String id,
+    required String conversationId,
+    @Default(TaskStatus.queued) TaskStatus status,
+    @Default(0) int attempt,
+    String? idempotencyKey,
+    DateTime? enqueuedAt,
+    DateTime? startedAt,
+    DateTime? completedAt,
+    String? error,
+  }) = GenerateTitleTask;
+
   factory OutboundTask.fromJson(Map<String, dynamic> json) =>
       _$OutboundTaskFromJson(json);
 

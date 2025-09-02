@@ -226,4 +226,63 @@ class TaskQueueNotifier extends StateNotifier<List<OutboundTask>> {
       await _save();
     }
   }
+
+  Future<String> enqueueUploadMedia({
+    required String? conversationId,
+    required String filePath,
+    required String fileName,
+    int? fileSize,
+    String? mimeType,
+    String? checksum,
+  }) async {
+    final id = _uuid.v4();
+    final task = OutboundTask.uploadMedia(
+      id: id,
+      conversationId: conversationId,
+      filePath: filePath,
+      fileName: fileName,
+      fileSize: fileSize,
+      mimeType: mimeType,
+      checksum: checksum,
+      enqueuedAt: DateTime.now(),
+    );
+    state = [...state, task];
+    await _save();
+    _process();
+    return id;
+  }
+
+  Future<String> enqueueSaveConversation({
+    required String? conversationId,
+    String? idempotencyKey,
+  }) async {
+    final id = _uuid.v4();
+    final task = OutboundTask.saveConversation(
+      id: id,
+      conversationId: conversationId,
+      idempotencyKey: idempotencyKey,
+      enqueuedAt: DateTime.now(),
+    );
+    state = [...state, task];
+    await _save();
+    _process();
+    return id;
+  }
+
+  Future<String> enqueueGenerateTitle({
+    required String conversationId,
+    String? idempotencyKey,
+  }) async {
+    final id = _uuid.v4();
+    final task = OutboundTask.generateTitle(
+      id: id,
+      conversationId: conversationId,
+      idempotencyKey: idempotencyKey,
+      enqueuedAt: DateTime.now(),
+    );
+    state = [...state, task];
+    await _save();
+    _process();
+    return id;
+  }
 }

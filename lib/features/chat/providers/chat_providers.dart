@@ -2026,51 +2026,13 @@ Future<void> _triggerTitleGeneration(
   List<Map<String, dynamic>> messages,
   String model,
 ) async {
+  // Enqueue background title generation task
   try {
-    final api = ref.read(apiServiceProvider);
-    if (api == null) return;
-
-    // Call the title generation endpoint
-    final generatedTitle = await api.generateTitle(
-      conversationId: conversationId,
-      messages: messages,
-      model: model,
-    );
-
-    if (generatedTitle != null &&
-        generatedTitle.isNotEmpty &&
-        generatedTitle != 'New Chat') {
-      // Update the active conversation with the new title
-      final activeConversation = ref.read(activeConversationProvider);
-      if (activeConversation?.id == conversationId) {
-        final updated = activeConversation!.copyWith(
-          title: generatedTitle,
-          updatedAt: DateTime.now(),
-        );
-        ref.read(activeConversationProvider.notifier).state = updated;
-
-        // Save the updated title to the server
-        try {
-          final currentMessages = ref.read(chatMessagesProvider);
-          await api.updateConversationWithMessages(
-            conversationId,
-            currentMessages,
-            title: generatedTitle,
-            model: model,
-          );
-        } catch (e) {
-          // Handle title save errors silently
-        }
-
-        // Refresh the conversations list
-        ref.invalidate(conversationsProvider);
-      }
-    } else {
-      // Fall back to background checking
-      _checkForTitleInBackground(ref, conversationId);
-    }
-  } catch (e) {
-    // Fall back to background checking
+    await ref
+        .read(taskQueueProvider.notifier)
+        .enqueueGenerateTitle(conversationId: conversationId);
+  } catch (_) {
+    // Best effort background check remains
     _checkForTitleInBackground(ref, conversationId);
   }
 }
@@ -2124,59 +2086,13 @@ Future<void> _checkForTitleInBackground(
 
 // Save current conversation to OpenWebUI server
 Future<void> _saveConversationToServer(dynamic ref) async {
+  // Enqueue save task; local fallback remains if queue fails
   try {
-    final api = ref.read(apiServiceProvider);
-    final messages = ref.read(chatMessagesProvider);
     final activeConversation = ref.read(activeConversationProvider);
-    final selectedModel = ref.read(selectedModelProvider);
-
-    if (api == null || messages.isEmpty || activeConversation == null) {
-      return;
-    }
-
-    // Check if the last assistant message is truly empty (no text and no files)
-    final lastMessage = messages.last;
-    if (lastMessage.role == 'assistant' &&
-        lastMessage.content.trim().isEmpty &&
-        (lastMessage.files == null || lastMessage.files!.isEmpty) &&
-        (lastMessage.attachmentIds == null ||
-            lastMessage.attachmentIds!.isEmpty)) {
-      return;
-    }
-
-    // Update the existing conversation with all messages (including assistant response)
-
-    try {
-      await api.updateConversationWithMessages(
-        activeConversation.id,
-        messages,
-        model: selectedModel?.id,
-      );
-
-      // Update local state
-      final updatedConversation = activeConversation.copyWith(
-        messages: messages,
-        updatedAt: DateTime.now(),
-      );
-
-      ref.read(activeConversationProvider.notifier).state = updatedConversation;
-    } catch (e) {
-      // Fallback to local storage if server update fails
-      await _saveConversationLocally(ref);
-      return;
-    }
-
-    // Refresh conversations list to show the updated conversation
-    // Adding a small delay to prevent rapid invalidations that could cause duplicates
-    Future.delayed(const Duration(milliseconds: 100), () {
-      try {
-        if (ref.mounted == true) {
-          ref.invalidate(conversationsProvider);
-        }
-      } catch (_) {}
-    });
-  } catch (e) {
-    // Fallback to local storage
+    await ref
+        .read(taskQueueProvider.notifier)
+        .enqueueSaveConversation(conversationId: activeConversation?.id);
+  } catch (_) {
     await _saveConversationLocally(ref);
   }
 }

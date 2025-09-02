@@ -20,6 +20,8 @@ class TaskWorker {
       uploadMedia: _performUploadMedia,
       executeToolCall: _performExecuteToolCall,
       generateImage: _performGenerateImage,
+      saveConversation: _performSaveConversation,
+      generateTitle: _performGenerateTitle,
     );
   }
 
@@ -277,5 +279,79 @@ class TaskWorker {
     } catch (e) {
       _ref.read(chat.chatMessagesProvider.notifier).finishStreaming();
     }
+  }
+
+  Future<void> _performSaveConversation(SaveConversationTask task) async {
+    final api = _ref.read(apiServiceProvider);
+    final messages = _ref.read(chat.chatMessagesProvider);
+    final activeConv = _ref.read(activeConversationProvider);
+    final selectedModel = _ref.read(selectedModelProvider);
+    if (api == null || messages.isEmpty || activeConv == null) return;
+
+    // Skip if last assistant is empty placeholder
+    final last = messages.last;
+    if (last.role == 'assistant' &&
+        last.content.trim().isEmpty &&
+        (last.files?.isEmpty ?? true) &&
+        (last.attachmentIds?.isEmpty ?? true)) {
+      return;
+    }
+
+    try {
+      await api.updateConversationWithMessages(
+        activeConv.id,
+        messages,
+        model: selectedModel?.id,
+      );
+      final updated = activeConv.copyWith(
+        messages: messages,
+        updatedAt: DateTime.now(),
+      );
+      _ref.read(activeConversationProvider.notifier).state = updated;
+      _ref.invalidate(conversationsProvider);
+    } catch (_) {}
+  }
+
+  Future<void> _performGenerateTitle(GenerateTitleTask task) async {
+    final api = _ref.read(apiServiceProvider);
+    final activeConv = _ref.read(activeConversationProvider);
+    final selectedModel = _ref.read(selectedModelProvider);
+    if (api == null || selectedModel == null) return;
+    try {
+      final messages = _ref.read(chat.chatMessagesProvider);
+      final formatted = <Map<String, dynamic>>[];
+      for (final msg in messages) {
+        formatted.add({
+          'id': msg.id,
+          'role': msg.role,
+          'content': msg.content,
+          'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
+        });
+      }
+      final title = await api.generateTitle(
+        conversationId: task.conversationId,
+        messages: formatted,
+        model: selectedModel.id,
+      );
+      if (title != null && title.isNotEmpty && title != 'New Chat') {
+        if (activeConv != null && activeConv.id == task.conversationId) {
+          final updated = activeConv.copyWith(
+            title: title.length > 100 ? '${title.substring(0, 100)}...' : title,
+            updatedAt: DateTime.now(),
+          );
+          _ref.read(activeConversationProvider.notifier).state = updated;
+          try {
+            final cur = _ref.read(chat.chatMessagesProvider);
+            await api.updateConversationWithMessages(
+              updated.id,
+              cur,
+              title: updated.title,
+              model: selectedModel.id,
+            );
+          } catch (_) {}
+          _ref.invalidate(conversationsProvider);
+        }
+      }
+    } catch (_) {}
   }
 }
