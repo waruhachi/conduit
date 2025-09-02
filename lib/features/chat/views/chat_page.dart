@@ -20,6 +20,8 @@ import '../widgets/file_attachment_widget.dart';
 // import '../widgets/voice_input_sheet.dart'; // deprecated: replaced by inline voice input
 import '../services/voice_input_service.dart';
 import '../services/file_attachment_service.dart';
+import 'package:path/path.dart' as path;
+import '../../../shared/services/tasks/task_queue.dart';
 import '../../tools/providers/tools_providers.dart';
 import '../../navigation/widgets/chats_drawer.dart';
 import '../../../shared/widgets/offline_indicator.dart';
@@ -33,7 +35,6 @@ import '../../onboarding/views/onboarding_sheet.dart';
 import '../../../shared/widgets/sheet_handle.dart';
 import '../../../shared/widgets/conduit_components.dart';
 import '../../../core/services/settings_service.dart';
-import '../../../shared/services/tasks/task_queue.dart';
 // Removed unused PlatformUtils import
 import '../../../core/services/platform_service.dart' as ps;
 import 'package:flutter/gestures.dart' show DragStartBehavior;
@@ -358,20 +359,30 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       // Add files to the attachment list
       ref.read(attachedFilesProvider.notifier).addFiles(files);
 
-      // Start uploading files
+      // Enqueue uploads via task queue for unified retry/progress
+      final activeConv = ref.read(activeConversationProvider);
       for (final file in files) {
-        final uploadStream = fileService.uploadFile(file);
-        uploadStream.listen(
-          (state) {
-            ref
-                .read(attachedFilesProvider.notifier)
-                .updateFileState(file.path, state);
-          },
-          onError: (error) {
-            if (!mounted) return;
-            debugPrint('Upload failed: $error');
-          },
-        );
+        try {
+          final ext = path.extension(file.path).toLowerCase();
+          final isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext);
+          if (isImage) {
+            await ref.read(taskQueueProvider.notifier).enqueueImageToDataUrl(
+                  conversationId: activeConv?.id,
+                  filePath: file.path,
+                  fileName: path.basename(file.path),
+                );
+          } else {
+            await ref.read(taskQueueProvider.notifier).enqueueUploadMedia(
+                  conversationId: activeConv?.id,
+                  filePath: file.path,
+                  fileName: path.basename(file.path),
+                  fileSize: await file.length(),
+                );
+          }
+        } catch (e) {
+          if (!mounted) return;
+          debugPrint('Enqueue upload failed: $e');
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -428,23 +439,18 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       ref.read(attachedFilesProvider.notifier).addFiles([image]);
       debugPrint('DEBUG: Image added to attachment list');
 
-      // Start uploading image
-      debugPrint('DEBUG: Starting image upload...');
-      final uploadStream = fileService.uploadFile(image);
-      uploadStream.listen(
-        (state) {
-          debugPrint(
-            'DEBUG: Upload state update - Status: ${state.status}, Progress: ${state.progress}, FileId: ${state.fileId}',
-          );
-          ref
-              .read(attachedFilesProvider.notifier)
-              .updateFileState(image.path, state);
-        },
-        onError: (error) {
-          debugPrint('DEBUG: Image upload error: $error');
-          if (!mounted) return;
-        },
-      );
+      // Enqueue upload via task queue for unified retry/progress
+      debugPrint('DEBUG: Enqueueing image upload...');
+      final activeConv = ref.read(activeConversationProvider);
+      try {
+        await ref.read(taskQueueProvider.notifier).enqueueImageToDataUrl(
+              conversationId: activeConv?.id,
+              filePath: image.path,
+              fileName: path.basename(image.path),
+            );
+      } catch (e) {
+        debugPrint('DEBUG: Enqueue image upload failed: $e');
+      }
     } catch (e) {
       debugPrint('DEBUG: Image attachment error: $e');
       if (!mounted) return;

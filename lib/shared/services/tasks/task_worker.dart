@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
@@ -7,6 +9,8 @@ import '../../../core/services/attachment_upload_queue.dart';
 import '../../../core/utils/debug_logger.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../features/chat/providers/chat_providers.dart' as chat;
+import '../../../features/chat/services/file_attachment_service.dart';
+import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
 import 'outbound_task.dart';
 
@@ -20,6 +24,7 @@ class TaskWorker {
       uploadMedia: _performUploadMedia,
       executeToolCall: _performExecuteToolCall,
       generateImage: _performGenerateImage,
+      imageToDataUrl: _performImageToDataUrl,
       saveConversation: _performSaveConversation,
       generateTitle: _performGenerateTitle,
     );
@@ -96,6 +101,34 @@ class TaskWorker {
         entry = null;
       }
       if (entry == null) return;
+
+      // Reflect progress into UI attachment state if that file is present
+      try {
+        final current = _ref.read(attachedFilesProvider);
+        final idx = current.indexWhere((f) => f.file.path == task.filePath);
+        if (idx != -1) {
+          final existing = current[idx];
+          final status = switch (entry.status) {
+            QueuedAttachmentStatus.pending => FileUploadStatus.uploading,
+            QueuedAttachmentStatus.uploading => FileUploadStatus.uploading,
+            QueuedAttachmentStatus.completed => FileUploadStatus.completed,
+            QueuedAttachmentStatus.failed => FileUploadStatus.failed,
+            QueuedAttachmentStatus.cancelled => FileUploadStatus.failed,
+          };
+          final newState = FileUploadState(
+            file: File(task.filePath),
+            fileName: task.fileName,
+            fileSize: task.fileSize ?? existing.fileSize,
+            progress: status == FileUploadStatus.completed ? 1.0 : existing.progress,
+            status: status,
+            fileId: entry.fileId ?? existing.fileId,
+            error: entry.lastError,
+          );
+          _ref
+              .read(attachedFilesProvider.notifier)
+              .updateFileState(task.filePath, newState);
+        }
+      } catch (_) {}
       switch (entry.status) {
         case QueuedAttachmentStatus.completed:
         case QueuedAttachmentStatus.failed:
@@ -278,6 +311,84 @@ class TaskWorker {
       }
     } catch (e) {
       _ref.read(chat.chatMessagesProvider.notifier).finishStreaming();
+    }
+  }
+
+  Future<void> _performImageToDataUrl(ImageToDataUrlTask task) async {
+    try {
+      // Update UI to uploading state first
+      try {
+        final current = _ref.read(attachedFilesProvider);
+        final idx = current.indexWhere((f) => f.file.path == task.filePath);
+        if (idx != -1) {
+          final existing = current[idx];
+          final uploading = FileUploadState(
+            file: existing.file,
+            fileName: task.fileName,
+            fileSize: existing.fileSize,
+            progress: 0.5,
+            status: FileUploadStatus.uploading,
+            fileId: existing.fileId,
+          );
+          _ref.read(attachedFilesProvider.notifier).updateFileState(
+                task.filePath,
+                uploading,
+              );
+        }
+      } catch (_) {}
+
+      // Read file and convert to data URL
+      final file = File(task.filePath);
+      final bytes = await file.readAsBytes();
+      final b64 = base64Encode(bytes);
+      final ext = path.extension(task.fileName).toLowerCase();
+      String mime = 'image/png';
+      if (ext == '.jpg' || ext == '.jpeg') mime = 'image/jpeg';
+      else if (ext == '.gif') mime = 'image/gif';
+      else if (ext == '.webp') mime = 'image/webp';
+      final dataUrl = 'data:$mime;base64,$b64';
+
+      // Mark as completed with data URL as fileId
+      try {
+        final current = _ref.read(attachedFilesProvider);
+        final idx = current.indexWhere((f) => f.file.path == task.filePath);
+        if (idx != -1) {
+          final existing = current[idx];
+          final done = FileUploadState(
+            file: existing.file,
+            fileName: task.fileName,
+            fileSize: existing.fileSize,
+            progress: 1.0,
+            status: FileUploadStatus.completed,
+            fileId: dataUrl,
+          );
+          _ref.read(attachedFilesProvider.notifier).updateFileState(
+                task.filePath,
+                done,
+              );
+        }
+      } catch (_) {}
+    } catch (e) {
+      try {
+        final current = _ref.read(attachedFilesProvider);
+        final idx = current.indexWhere((f) => f.file.path == task.filePath);
+        if (idx != -1) {
+          final existing = current[idx];
+          final failed = FileUploadState(
+            file: existing.file,
+            fileName: task.fileName,
+            fileSize: existing.fileSize,
+            progress: 0.0,
+            status: FileUploadStatus.failed,
+            fileId: existing.fileId,
+            error: e.toString(),
+          );
+          _ref.read(attachedFilesProvider.notifier).updateFileState(
+                task.filePath,
+                failed,
+              );
+        }
+      } catch (_) {}
     }
   }
 

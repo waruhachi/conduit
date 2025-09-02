@@ -285,4 +285,25 @@ class TaskQueueNotifier extends StateNotifier<List<OutboundTask>> {
     _process();
     return id;
   }
+
+  Future<String> enqueueImageToDataUrl({
+    required String? conversationId,
+    required String filePath,
+    required String fileName,
+    String? idempotencyKey,
+  }) async {
+    final id = _uuid.v4();
+    final task = OutboundTask.imageToDataUrl(
+      id: id,
+      conversationId: conversationId,
+      filePath: filePath,
+      fileName: fileName,
+      idempotencyKey: idempotencyKey,
+      enqueuedAt: DateTime.now(),
+    );
+    state = [...state, task];
+    await _save();
+    _process();
+    return id;
+  }
 }

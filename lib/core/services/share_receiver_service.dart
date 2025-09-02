@@ -158,12 +158,22 @@ Future<void> _processPayload(Ref ref, SharedPayload payload) async {
           final activeConv = ref.read(activeConversationProvider);
           for (final file in files) {
             try {
-              await ref.read(taskQueueProvider.notifier).enqueueUploadMedia(
-                    conversationId: activeConv?.id,
-                    filePath: file.path,
-                    fileName: path.basename(file.path),
-                    fileSize: await file.length(),
-                  );
+              final ext = path.extension(file.path).toLowerCase();
+              final isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext);
+              if (isImage) {
+                await ref.read(taskQueueProvider.notifier).enqueueImageToDataUrl(
+                      conversationId: activeConv?.id,
+                      filePath: file.path,
+                      fileName: path.basename(file.path),
+                    );
+              } else {
+                await ref.read(taskQueueProvider.notifier).enqueueUploadMedia(
+                      conversationId: activeConv?.id,
+                      filePath: file.path,
+                      fileName: path.basename(file.path),
+                      fileSize: await file.length(),
+                    );
+              }
             } catch (_) {}
           }
         }

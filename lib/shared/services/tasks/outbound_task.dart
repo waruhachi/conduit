@@ -98,6 +98,20 @@ abstract class OutboundTask with _$OutboundTask {
     String? error,
   }) = GenerateTitleTask;
 
+  const factory OutboundTask.imageToDataUrl({
+    required String id,
+    String? conversationId,
+    required String filePath,
+    required String fileName,
+    @Default(TaskStatus.queued) TaskStatus status,
+    @Default(0) int attempt,
+    String? idempotencyKey,
+    DateTime? enqueuedAt,
+    DateTime? startedAt,
+    DateTime? completedAt,
+    String? error,
+  }) = ImageToDataUrlTask;
+
   factory OutboundTask.fromJson(Map<String, dynamic> json) =>
       _$OutboundTaskFromJson(json);
 
