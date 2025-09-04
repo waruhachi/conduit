@@ -6,11 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/services/attachment_upload_queue.dart';
 import '../../../core/utils/debug_logger.dart';
-import '../../../core/models/chat_message.dart';
 import '../../../features/chat/providers/chat_providers.dart' as chat;
 import '../../../features/chat/services/file_attachment_service.dart';
 import 'package:path/path.dart' as path;
-import 'package:uuid/uuid.dart';
 import 'outbound_task.dart';
 
 class TaskWorker {
@@ -216,158 +214,35 @@ class TaskWorker {
   Future<void> _performGenerateImage(GenerateImageTask task) async {
     final api = _ref.read(apiServiceProvider);
     final selectedModel = _ref.read(selectedModelProvider);
-    if (api == null) {
-      throw Exception('API not available');
+    if (api == null || selectedModel == null) {
+      throw Exception('API or model not available');
     }
 
-    // Add assistant placeholder to show progress
+    // Ensure the target conversation is active if provided
     try {
-      final placeholder = ChatMessage(
-        id: const Uuid().v4(),
-        role: 'assistant',
-        content: '',
-        timestamp: DateTime.now(),
-        model: selectedModel?.id,
-        isStreaming: true,
-      );
-      _ref.read(chat.chatMessagesProvider.notifier).addMessage(placeholder);
+      final active = _ref.read(activeConversationProvider);
+      if (task.conversationId != null &&
+          task.conversationId!.isNotEmpty &&
+          (active == null || active.id != task.conversationId)) {
+        try {
+          final conv = await api.getConversation(task.conversationId!);
+          _ref.read(activeConversationProvider.notifier).state = conv;
+        } catch (_) {}
+      }
     } catch (_) {}
 
-    // Generate images
-    List<Map<String, dynamic>> _extractGeneratedFiles(dynamic resp) {
-      final results = <Map<String, dynamic>>[];
-      if (resp is List) {
-        for (final item in resp) {
-          if (item is String && item.isNotEmpty) {
-            results.add({'type': 'image', 'url': item});
-          } else if (item is Map) {
-            final url = item['url'];
-            final b64 = item['b64_json'] ?? item['b64'];
-            if (url is String && url.isNotEmpty) {
-              results.add({'type': 'image', 'url': url});
-            } else if (b64 is String && b64.isNotEmpty) {
-              results.add({'type': 'image', 'url': 'data:image/png;base64,$b64'});
-            }
-          }
-        }
-        return results;
-      }
-      if (resp is! Map) return results;
-      final data = resp['data'];
-      if (data is List) {
-        for (final item in data) {
-          if (item is Map) {
-            final url = item['url'];
-            final b64 = item['b64_json'] ?? item['b64'];
-            if (url is String && url.isNotEmpty) {
-              results.add({'type': 'image', 'url': url});
-            } else if (b64 is String && b64.isNotEmpty) {
-              results.add({'type': 'image', 'url': 'data:image/png;base64,$b64'});
-            }
-          } else if (item is String && item.isNotEmpty) {
-            results.add({'type': 'image', 'url': item});
-          }
-        }
-      }
-      final images = resp['images'];
-      if (images is List) {
-        for (final item in images) {
-          if (item is String && item.isNotEmpty) {
-            results.add({'type': 'image', 'url': item});
-          } else if (item is Map) {
-            final url = item['url'];
-            final b64 = item['b64_json'] ?? item['b64'];
-            if (url is String && url.isNotEmpty) {
-              results.add({'type': 'image', 'url': url});
-            } else if (b64 is String && b64.isNotEmpty) {
-              results.add({'type': 'image', 'url': 'data:image/png;base64,$b64'});
-            }
-          }
-        }
-      }
-      final singleUrl = resp['url'];
-      if (singleUrl is String && singleUrl.isNotEmpty) {
-        results.add({'type': 'image', 'url': singleUrl});
-      }
-      final singleB64 = resp['b64_json'] ?? resp['b64'];
-      if (singleB64 is String && singleB64.isNotEmpty) {
-        results.add({'type': 'image', 'url': 'data:image/png;base64,$singleB64'});
-      }
-      return results;
-    }
-
+    // Temporarily enable image-generation background flow for this send
+    final prev = _ref.read(chat.imageGenerationEnabledProvider);
     try {
-      final imageResponse = await api.generateImage(prompt: task.prompt);
-      final generatedFiles = _extractGeneratedFiles(imageResponse);
-      if (generatedFiles.isNotEmpty) {
-        _ref.read(chat.chatMessagesProvider.notifier).updateLastMessageWithFunction(
-              (m) => m.copyWith(files: generatedFiles, isStreaming: false),
-            );
-
-        // Sync conversation to server
-        try {
-          final messages = _ref.read(chat.chatMessagesProvider);
-          final activeConv = _ref.read(activeConversationProvider);
-          if (activeConv != null && messages.isNotEmpty) {
-            await api.updateConversationWithMessages(
-              activeConv.id,
-              messages,
-              model: selectedModel?.id,
-            );
-            // Update local active conversation messages
-            final updated = activeConv.copyWith(
-              messages: messages,
-              updatedAt: DateTime.now(),
-            );
-            _ref.read(activeConversationProvider.notifier).state = updated;
-            _ref.invalidate(conversationsProvider);
-          }
-        } catch (_) {}
-
-        // Trigger title generation (best-effort)
-        try {
-          final activeConv = _ref.read(activeConversationProvider);
-          final messages = _ref.read(chat.chatMessagesProvider);
-          final modelId = selectedModel?.id;
-          if (activeConv != null && modelId != null) {
-            final formatted = <Map<String, dynamic>>[];
-            for (final msg in messages) {
-              formatted.add({
-                'id': msg.id,
-                'role': msg.role,
-                'content': msg.content,
-                'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
-              });
-            }
-            final title = await api.generateTitle(
-              conversationId: activeConv.id,
-              messages: formatted,
-              model: modelId,
-            );
-            if (title != null && title.isNotEmpty && title != 'New Chat') {
-              final updated = activeConv.copyWith(
-                title: title.length > 100 ? '${title.substring(0, 100)}...' : title,
-                updatedAt: DateTime.now(),
-              );
-              _ref.read(activeConversationProvider.notifier).state = updated;
-              try {
-                final cur = _ref.read(chat.chatMessagesProvider);
-                await api.updateConversationWithMessages(
-                  updated.id,
-                  cur,
-                  title: updated.title,
-                  model: modelId,
-                );
-              } catch (_) {}
-              _ref.invalidate(conversationsProvider);
-            }
-          }
-        } catch (_) {}
-      } else {
-        _ref.read(chat.chatMessagesProvider.notifier).finishStreaming();
-      }
-    } catch (e) {
-      _ref.read(chat.chatMessagesProvider.notifier).finishStreaming();
+      _ref.read(chat.imageGenerationEnabledProvider.notifier).state = true;
+      await chat.sendMessageFromService(
+        _ref,
+        task.prompt,
+        null,
+        null,
+      );
+    } finally {
+      _ref.read(chat.imageGenerationEnabledProvider.notifier).state = prev;
     }
   }
 
