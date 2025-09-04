@@ -5,6 +5,7 @@ import 'package:yaml/yaml.dart' as yaml;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/utils/tool_calls_parser.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/models/conversation.dart';
 import '../../../core/providers/app_providers.dart';
@@ -416,6 +417,8 @@ Future<void> regenerateMessage(
       isStreaming: true,
     );
     ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
+
+    // Helpers defined above
 
     // Reviewer mode: no immediate tool preview (no tool context)
 
@@ -881,145 +884,117 @@ Future<void> _sendMessageInternal(
       'tags': <dynamic>[],
     };
 
-    // If image generation is enabled and we want image-only, skip assistant SSE
-    if (imageGenerationEnabled) {
-      // Create assistant placeholder
-      final imageOnlyAssistantId = const Uuid().v4();
-      final imageOnlyAssistant = ChatMessage(
-        id: imageOnlyAssistantId,
-        role: 'assistant',
-        content: '',
-        timestamp: DateTime.now(),
-        model: selectedModel.id,
-        isStreaming: true,
-      );
-      ref.read(chatMessagesProvider.notifier).addMessage(imageOnlyAssistant);
+    // Image generation will be handled by server background tools; continue with unified flow
 
-      try {
-        final imageResponse = await api.generateImage(prompt: message);
-
-        // Extract image URLs or base64 data URIs from response
-        List<Map<String, dynamic>> extractGeneratedFiles(dynamic resp) {
-          final results = <Map<String, dynamic>>[];
-
-          if (resp is List) {
-            for (final item in resp) {
-              if (item is String && item.isNotEmpty) {
-                results.add({'type': 'image', 'url': item});
-              } else if (item is Map) {
-                final url = item['url'];
-                final b64 = item['b64_json'] ?? item['b64'];
-                if (url is String && url.isNotEmpty) {
-                  results.add({'type': 'image', 'url': url});
-                } else if (b64 is String && b64.isNotEmpty) {
-                  results.add({
-                    'type': 'image',
-                    'url': 'data:image/png;base64,$b64',
-                  });
-                }
-              }
-            }
-            return results;
-          }
-
-          if (resp is! Map) return results;
-
-          final data = resp['data'];
-          if (data is List) {
-            for (final item in data) {
-              if (item is Map) {
-                final url = item['url'];
-                final b64 = item['b64_json'] ?? item['b64'];
-                if (url is String && url.isNotEmpty) {
-                  results.add({'type': 'image', 'url': url});
-                } else if (b64 is String && b64.isNotEmpty) {
-                  results.add({
-                    'type': 'image',
-                    'url': 'data:image/png;base64,$b64',
-                  });
-                }
-              } else if (item is String && item.isNotEmpty) {
-                results.add({'type': 'image', 'url': item});
-              }
-            }
-          }
-
-          final images = resp['images'];
-          if (images is List) {
-            for (final item in images) {
-              if (item is String && item.isNotEmpty) {
-                results.add({'type': 'image', 'url': item});
-              } else if (item is Map) {
-                final url = item['url'];
-                final b64 = item['b64_json'] ?? item['b64'];
-                if (url is String && url.isNotEmpty) {
-                  results.add({'type': 'image', 'url': url});
-                } else if (b64 is String && b64.isNotEmpty) {
-                  results.add({
-                    'type': 'image',
-                    'url': 'data:image/png;base64,$b64',
-                  });
-                }
-              }
-            }
-          }
-
-          final singleUrl = resp['url'];
-          if (singleUrl is String && singleUrl.isNotEmpty) {
-            results.add({'type': 'image', 'url': singleUrl});
-          }
-          final singleB64 = resp['b64_json'] ?? resp['b64'];
-          if (singleB64 is String && singleB64.isNotEmpty) {
-            results.add({
-              'type': 'image',
-              'url': 'data:image/png;base64,$singleB64',
-            });
-          }
-
-          return results;
-        }
-
-        final generatedFiles = extractGeneratedFiles(imageResponse);
-        if (generatedFiles.isNotEmpty) {
-          ref
-              .read(chatMessagesProvider.notifier)
-              .updateLastMessageWithFunction(
-                (ChatMessage m) =>
-                    m.copyWith(files: generatedFiles, isStreaming: false),
-              );
-          await _saveConversationToServer(ref);
-
-          // Trigger title generation for image-only flow
-          final activeConv = ref.read(activeConversationProvider);
-          if (activeConv != null) {
-            // Build minimal formatted messages
-            final currentMessages = ref.read(chatMessagesProvider);
-            final List<Map<String, dynamic>> formattedMessages = [];
-            for (final msg in currentMessages) {
-              formattedMessages.add({
-                'id': msg.id,
-                'role': msg.role,
-                'content': msg.content,
-                'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
-              });
-            }
-            _triggerTitleGeneration(
-              ref,
-              activeConv.id,
-              formattedMessages,
-              selectedModel.id,
-            );
-          }
-        } else {
-          // No images; mark done
-          ref.read(chatMessagesProvider.notifier).finishStreaming();
-        }
-      } catch (e) {
-        ref.read(chatMessagesProvider.notifier).finishStreaming();
+    // Define helpers for extracting/attaching image files from tool deltas/content
+    List<Map<String, dynamic>> _extractFilesFromResult(dynamic resp) {
+      final results = <Map<String, dynamic>>[];
+      if (resp == null) return results;
+      dynamic r = resp;
+      if (r is String) {
+        try { r = jsonDecode(r); } catch (_) {}
       }
+      if (r is List) {
+        for (final item in r) {
+          if (item is String && item.isNotEmpty) {
+            results.add({'type': 'image', 'url': item});
+          } else if (item is Map) {
+            final url = item['url'];
+            final b64 = item['b64_json'] ?? item['b64'];
+            if (url is String && url.isNotEmpty) {
+              results.add({'type': 'image', 'url': url});
+            } else if (b64 is String && b64.isNotEmpty) {
+              results.add({'type': 'image', 'url': 'data:image/png;base64,$b64'});
+            }
+          }
+        }
+        return results;
+      }
+      if (r is! Map) return results;
+      final data = r['data'];
+      if (data is List) {
+        for (final item in data) {
+          if (item is Map) {
+            final url = item['url'];
+            final b64 = item['b64_json'] ?? item['b64'];
+            if (url is String && url.isNotEmpty) {
+              results.add({'type': 'image', 'url': url});
+            } else if (b64 is String && b64.isNotEmpty) {
+              results.add({'type': 'image', 'url': 'data:image/png;base64,$b64'});
+            }
+          } else if (item is String && item.isNotEmpty) {
+            results.add({'type': 'image', 'url': item});
+          }
+        }
+      }
+      final images = r['images'];
+      if (images is List) {
+        for (final item in images) {
+          if (item is String && item.isNotEmpty) {
+            results.add({'type': 'image', 'url': item});
+          } else if (item is Map) {
+            final url = item['url'];
+            final b64 = item['b64_json'] ?? item['b64'];
+            if (url is String && url.isNotEmpty) {
+              results.add({'type': 'image', 'url': url});
+            } else if (b64 is String && b64.isNotEmpty) {
+              results.add({'type': 'image', 'url': 'data:image/png;base64,$b64'});
+            }
+          }
+        }
+      }
+      final files = r['files'];
+      if (files is List) {
+        results.addAll(_extractFilesFromResult(files));
+      }
+      final singleUrl = r['url'];
+      if (singleUrl is String && singleUrl.isNotEmpty) {
+        results.add({'type': 'image', 'url': singleUrl});
+      }
+      final singleB64 = r['b64_json'] ?? r['b64'];
+      if (singleB64 is String && singleB64.isNotEmpty) {
+        results.add({'type': 'image', 'url': 'data:image/png;base64,$singleB64'});
+      }
+      return results;
+    }
 
-      // Image-only done; do not start SSE
-      return;
+    void _updateImagesFromCurrentContent() {
+      try {
+        final msgs = ref.read(chatMessagesProvider);
+        if (msgs.isEmpty || msgs.last.role != 'assistant') return;
+        final content = msgs.last.content;
+        if (content.isEmpty || !content.contains('<details')) return;
+        final parsed = ToolCallsParser.parse(content);
+        if (parsed == null) return;
+        final collected = <Map<String, dynamic>>[];
+        for (final entry in parsed.toolCalls) {
+          if (entry.files != null && entry.files!.isNotEmpty) {
+            collected.addAll(_extractFilesFromResult(entry.files));
+          }
+          if (entry.result != null) {
+            collected.addAll(_extractFilesFromResult(entry.result));
+          }
+        }
+        if (collected.isEmpty) return;
+        final existing = msgs.last.files ?? <Map<String, dynamic>>[];
+        final seen = <String>{
+          for (final f in existing)
+            if (f['url'] is String) (f['url'] as String) else '',
+        }..removeWhere((e) => e.isEmpty);
+        final merged = <Map<String, dynamic>>[...existing];
+        for (final f in collected) {
+          final url = f['url'] as String?;
+          if (url != null && url.isNotEmpty && !seen.contains(url)) {
+            merged.add({'type': 'image', 'url': url});
+            seen.add(url);
+          }
+        }
+        if (merged.length != existing.length) {
+          ref.read(chatMessagesProvider.notifier).updateLastMessageWithFunction(
+                (m) => m.copyWith(files: merged),
+              );
+        }
+      } catch (_) {}
     }
 
     // Stream response using server-push via Socket when available, otherwise fallback
@@ -1042,11 +1017,23 @@ Future<void> _sendMessageInternal(
     } catch (_) {}
 
     // Background tasks parity with Web client (safe defaults)
+    // Only enable title generation on the very first turn of a new chat.
+    bool shouldGenerateTitle = false;
+    try {
+      final conv = ref.read(activeConversationProvider);
+      final msgs = ref.read(chatMessagesProvider);
+      // After adding the user message above, first turn will have exactly 1 message
+      // and the conversation will still have the placeholder title.
+      shouldGenerateTitle = (conv == null) ||
+          (conv.title == 'New Chat' && msgs.length <= 1);
+    } catch (_) {}
+
     final bgTasks = <String, dynamic>{
-      'title_generation': true,
-      'tags_generation': true,
+      if (shouldGenerateTitle) 'title_generation': true,
+      if (shouldGenerateTitle) 'tags_generation': true,
       'follow_up_generation': true,
       if (webSearchEnabled) 'web_search': true, // enable bg workflow for web search
+      if (imageGenerationEnabled) 'image_generation': true, // enable bg image flow
     };
 
     // Determine if we need background task flow (tools/tool servers or web search)
@@ -1061,9 +1048,8 @@ Future<void> _sendMessageInternal(
       conversationId: activeConversation?.id,
       toolIds: toolIdsForApi,
       enableWebSearch: webSearchEnabled,
-      // Disable server-side image generation to avoid duplicate images;
-      // handled via pre-stream client-side request above
-      enableImageGeneration: false,
+      // Enable image generation on the server when requested
+      enableImageGeneration: imageGenerationEnabled,
       modelItem: modelItem,
       // Bind to Socket session whenever available so the server can push
       // streaming updates to this client (improves first-turn streaming).
@@ -1161,6 +1147,7 @@ Future<void> _sendMessageInternal(
                     final content = delta['content']?.toString() ?? '';
                     if (content.isNotEmpty) {
                       ref.read(chatMessagesProvider.notifier).appendToLastMessage(content);
+                      _updateImagesFromCurrentContent();
                     }
                   }
                 }
@@ -1184,10 +1171,12 @@ Future<void> _sendMessageInternal(
                           .read(chatMessagesProvider.notifier)
                           .replaceLastMessageContent(content);
                     }
+                    _updateImagesFromCurrentContent();
                   } else {
                     ref
                         .read(chatMessagesProvider.notifier)
                         .appendToLastMessage(content);
+                    _updateImagesFromCurrentContent();
                   }
                 }
               }
@@ -1391,6 +1380,7 @@ Future<void> _sendMessageInternal(
                             final content = delta['content']?.toString() ?? '';
                             if (content.isNotEmpty) {
                               ref.read(chatMessagesProvider.notifier).appendToLastMessage(content);
+                              _updateImagesFromCurrentContent();
                             }
                           }
                         }
@@ -1398,12 +1388,14 @@ Future<void> _sendMessageInternal(
                         // Non-JSON line: append as-is
                         if (s.isNotEmpty) {
                           ref.read(chatMessagesProvider.notifier).appendToLastMessage(s);
+                          _updateImagesFromCurrentContent();
                         }
                       }
                     } else {
                       // Plain text line
                       if (s.isNotEmpty) {
                         ref.read(chatMessagesProvider.notifier).appendToLastMessage(s);
+                        _updateImagesFromCurrentContent();
                       }
                     }
                   } else if (line is Map) {
@@ -1440,6 +1432,35 @@ Future<void> _sendMessageInternal(
               DebugLogger.stream('Socket execute:tool name=$name');
               final status = '\n<details type="tool_calls" done="false" name="$name"><summary>Executing...</summary>\n</details>\n';
               ref.read(chatMessagesProvider.notifier).appendToLastMessage(status);
+              // If tool payload already carries files/result, try to extract images for grid
+              try {
+                final files = _extractFilesFromResult(payload['files']);
+                final resultFiles = _extractFilesFromResult(payload['result']);
+                final all = [...files, ...resultFiles];
+                if (all.isNotEmpty) {
+                  final msgs = ref.read(chatMessagesProvider);
+                  if (msgs.isNotEmpty && msgs.last.role == 'assistant') {
+                    final existing = msgs.last.files ?? <Map<String, dynamic>>[];
+                    final seen = <String>{
+                      for (final f in existing)
+                        if (f['url'] is String) (f['url'] as String) else '',
+                    }..removeWhere((e) => e.isEmpty);
+                    final merged = <Map<String, dynamic>>[...existing];
+                    for (final f in all) {
+                      final url = f['url'] as String?;
+                      if (url != null && url.isNotEmpty && !seen.contains(url)) {
+                        merged.add({'type': 'image', 'url': url});
+                        seen.add(url);
+                      }
+                    }
+                    if (merged.length != existing.length) {
+                      ref.read(chatMessagesProvider.notifier).updateLastMessageWithFunction(
+                            (m) => m.copyWith(files: merged),
+                          );
+                    }
+                  }
+                }
+              } catch (_) {}
             } catch (_) {}
           }
         } catch (_) {}
@@ -1459,6 +1480,7 @@ Future<void> _sendMessageInternal(
             final content = payload['content']?.toString() ?? '';
             if (content.isNotEmpty) {
               ref.read(chatMessagesProvider.notifier).appendToLastMessage(content);
+              _updateImagesFromCurrentContent();
             }
           }
         } catch (_) {}
@@ -1472,7 +1494,7 @@ Future<void> _sendMessageInternal(
       });
     }
 
-    // Prepare streaming and background handling BEFORE image generation
+    // Prepare streaming and background handling
     final chunkedStream = StreamChunker.chunkStream(
       stream,
       enableChunking: true,
@@ -1487,19 +1509,9 @@ Future<void> _sendMessageInternal(
     // Register stream with persistent service for app lifecycle handling
     final persistentService = PersistentStreamingService();
 
-    // Defer UI updates until images attach if image generation is enabled
-    bool deferUntilImagesAttached = imageGenerationEnabled;
-    bool imagesAttached = !imageGenerationEnabled;
-    final StringBuffer prebuffer = StringBuffer();
-
     final streamId = persistentService.registerStream(
       subscription: chunkedStream.listen(
         (chunk) {
-          // Buffer chunks until images are attached
-          if (deferUntilImagesAttached && !imagesAttached) {
-            prebuffer.write(chunk);
-            return;
-          }
           persistentController.add(chunk);
         },
         onDone: () {
@@ -1522,151 +1534,7 @@ Future<void> _sendMessageInternal(
       },
     );
 
-    // If image generation is enabled, trigger it BEFORE starting the SSE stream
-    if (imageGenerationEnabled) {
-      try {
-        debugPrint(
-          'DEBUG: Image generation enabled - triggering request (pre-stream)',
-        );
-        final imageResponse = await api.generateImage(prompt: message);
-
-        // Extract image URLs or base64 data URIs from response
-        List<Map<String, dynamic>> extractGeneratedFiles(dynamic resp) {
-          final results = <Map<String, dynamic>>[];
-
-          // If it's already a list (e.g., list of URLs or file maps)
-          if (resp is List) {
-            for (final item in resp) {
-              if (item is String && item.isNotEmpty) {
-                results.add({'type': 'image', 'url': item});
-              } else if (item is Map) {
-                final url = item['url'];
-                final b64 = item['b64_json'] ?? item['b64'];
-                if (url is String && url.isNotEmpty) {
-                  results.add({'type': 'image', 'url': url});
-                } else if (b64 is String && b64.isNotEmpty) {
-                  results.add({
-                    'type': 'image',
-                    'url': 'data:image/png;base64,$b64',
-                  });
-                }
-              }
-            }
-            return results;
-          }
-
-          if (resp is! Map) return results;
-
-          // Common patterns: { data: [ { url }, { b64_json } ] }
-          final data = resp['data'];
-          if (data is List) {
-            for (final item in data) {
-              if (item is Map) {
-                final url = item['url'];
-                final b64 = item['b64_json'] ?? item['b64'];
-                if (url is String && url.isNotEmpty) {
-                  results.add({'type': 'image', 'url': url});
-                } else if (b64 is String && b64.isNotEmpty) {
-                  results.add({
-                    'type': 'image',
-                    'url': 'data:image/png;base64,$b64',
-                  });
-                }
-              } else if (item is String && item.isNotEmpty) {
-                // Some servers may return a list of URLs
-                results.add({'type': 'image', 'url': item});
-              }
-            }
-          }
-
-          // Alternative patterns
-          final images = resp['images'];
-          if (images is List) {
-            for (final item in images) {
-              if (item is String && item.isNotEmpty) {
-                results.add({'type': 'image', 'url': item});
-              } else if (item is Map) {
-                final url = item['url'];
-                final b64 = item['b64_json'] ?? item['b64'];
-                if (url is String && url.isNotEmpty) {
-                  results.add({'type': 'image', 'url': url});
-                } else if (b64 is String && b64.isNotEmpty) {
-                  results.add({
-                    'type': 'image',
-                    'url': 'data:image/png;base64,$b64',
-                  });
-                }
-              }
-            }
-          }
-
-          // Single fields
-          final singleUrl = resp['url'];
-          if (singleUrl is String && singleUrl.isNotEmpty) {
-            results.add({'type': 'image', 'url': singleUrl});
-          }
-          final singleB64 = resp['b64_json'] ?? resp['b64'];
-          if (singleB64 is String && singleB64.isNotEmpty) {
-            results.add({
-              'type': 'image',
-              'url': 'data:image/png;base64,$singleB64',
-            });
-          }
-
-          return results;
-        }
-
-        final generatedFiles = extractGeneratedFiles(imageResponse);
-        if (generatedFiles.isNotEmpty) {
-          debugPrint(
-            'DEBUG: Image generation returned ${generatedFiles.length} file(s) (pre-stream)',
-          );
-
-          // Attach images to the last assistant message (placeholder)
-          ref.read(chatMessagesProvider.notifier).updateLastMessageWithFunction(
-            (ChatMessage m) {
-              final currentFiles = m.files ?? <Map<String, dynamic>>[];
-              return m.copyWith(files: [...currentFiles, ...generatedFiles]);
-            },
-          );
-
-          // Save updated conversation with images before streaming content
-          await _saveConversationToServer(ref);
-
-          // Now that images are attached and persisted, allow streaming to flow
-          imagesAttached = true;
-          if (deferUntilImagesAttached && prebuffer.isNotEmpty) {
-            // Flush buffered chunks
-            ref
-                .read(chatMessagesProvider.notifier)
-                .appendToLastMessage(prebuffer.toString());
-            prebuffer.clear();
-          }
-        } else {
-          debugPrint(
-            'DEBUG: No images found in generation response (pre-stream)',
-          );
-          // Do not block streaming if no images are produced
-          imagesAttached = true;
-          if (deferUntilImagesAttached && prebuffer.isNotEmpty) {
-            ref
-                .read(chatMessagesProvider.notifier)
-                .appendToLastMessage(prebuffer.toString());
-            prebuffer.clear();
-          }
-        }
-      } catch (e) {
-        debugPrint('DEBUG: Image generation failed (pre-stream): $e');
-        // Fail open: allow text streaming to continue
-        imagesAttached = true;
-        if (deferUntilImagesAttached && prebuffer.isNotEmpty) {
-          ref
-              .read(chatMessagesProvider.notifier)
-              .appendToLastMessage(prebuffer.toString());
-          prebuffer.clear();
-        }
-      }
-    }
+    // Image generation handled server-side via tools; no client pre-request
 
     // For built-in web search, the status will be updated when function calls are detected
     // in the streaming response. Manual status update is not needed here.
@@ -1675,6 +1543,8 @@ Future<void> _sendMessageInternal(
 
     // Track web search status
     bool isSearching = false;
+
+    // Helpers were defined above
 
     final streamSubscription = persistentController.stream.listen(
       (chunk) {
@@ -1718,17 +1588,12 @@ Future<void> _sendMessageInternal(
               .replaceAll('[/SEARCHING]', '');
         }
 
-        // If we buffered chunks before images attached, flush once
-        if (deferUntilImagesAttached && !imagesAttached) {
-          // do nothing; still waiting
-          return;
-        }
-
         // Regular content - append to message (markers removed above)
         if (effectiveChunk.trim().isNotEmpty) {
           ref
               .read(chatMessagesProvider.notifier)
               .appendToLastMessage(effectiveChunk);
+          _updateImagesFromCurrentContent();
         }
       },
 
@@ -2302,135 +2167,18 @@ final regenerateLastMessageProvider = Provider<Future<void> Function()>((ref) {
 
     // If previous assistant was image-only or had images, regenerate images instead of text
     if (lastAssistantHadImages) {
-      final api = ref.read(apiServiceProvider);
-      final selectedModel = ref.read(selectedModelProvider);
-      if (api == null || selectedModel == null) return;
-
-      // Add assistant placeholder
-      final placeholder = ChatMessage(
-        id: const Uuid().v4(),
-        role: 'assistant',
-        content: '',
-        timestamp: DateTime.now(),
-        model: selectedModel.id,
-        isStreaming: true,
-      );
-      ref.read(chatMessagesProvider.notifier).addMessage(placeholder);
-
+      final prev = ref.read(imageGenerationEnabledProvider);
       try {
-        final imageResponse = await api.generateImage(
-          prompt: lastUserMessage.content,
-        );
-
-        List<Map<String, dynamic>> extractGeneratedFiles(dynamic resp) {
-          final results = <Map<String, dynamic>>[];
-          if (resp is List) {
-            for (final item in resp) {
-              if (item is String && item.isNotEmpty) {
-                results.add({'type': 'image', 'url': item});
-              } else if (item is Map) {
-                final url = item['url'];
-                final b64 = item['b64_json'] ?? item['b64'];
-                if (url is String && url.isNotEmpty) {
-                  results.add({'type': 'image', 'url': url});
-                } else if (b64 is String && b64.isNotEmpty) {
-                  results.add({
-                    'type': 'image',
-                    'url': 'data:image/png;base64,$b64',
-                  });
-                }
-              }
-            }
-            return results;
-          }
-          if (resp is! Map) return results;
-          final data = resp['data'];
-          if (data is List) {
-            for (final item in data) {
-              if (item is Map) {
-                final url = item['url'];
-                final b64 = item['b64_json'] ?? item['b64'];
-                if (url is String && url.isNotEmpty) {
-                  results.add({'type': 'image', 'url': url});
-                } else if (b64 is String && b64.isNotEmpty) {
-                  results.add({
-                    'type': 'image',
-                    'url': 'data:image/png;base64,$b64',
-                  });
-                }
-              } else if (item is String && item.isNotEmpty) {
-                results.add({'type': 'image', 'url': item});
-              }
-            }
-          }
-          final images = resp['images'];
-          if (images is List) {
-            for (final item in images) {
-              if (item is String && item.isNotEmpty) {
-                results.add({'type': 'image', 'url': item});
-              } else if (item is Map) {
-                final url = item['url'];
-                final b64 = item['b64_json'] ?? item['b64'];
-                if (url is String && url.isNotEmpty) {
-                  results.add({'type': 'image', 'url': url});
-                } else if (b64 is String && b64.isNotEmpty) {
-                  results.add({
-                    'type': 'image',
-                    'url': 'data:image/png;base64,$b64',
-                  });
-                }
-              }
-            }
-          }
-          final singleUrl = resp['url'];
-          if (singleUrl is String && singleUrl.isNotEmpty) {
-            results.add({'type': 'image', 'url': singleUrl});
-          }
-          final singleB64 = resp['b64_json'] ?? resp['b64'];
-          if (singleB64 is String && singleB64.isNotEmpty) {
-            results.add({
-              'type': 'image',
-              'url': 'data:image/png;base64,$singleB64',
-            });
-          }
-          return results;
-        }
-
-        final generatedFiles = extractGeneratedFiles(imageResponse);
-        if (generatedFiles.isNotEmpty) {
-          ref
-              .read(chatMessagesProvider.notifier)
-              .updateLastMessageWithFunction(
-                (ChatMessage m) =>
-                    m.copyWith(files: generatedFiles, isStreaming: false),
-              );
-          await _saveConversationToServer(ref);
-
-          // Trigger title generation after image-only regenerate
-          final activeConv = ref.read(activeConversationProvider);
-          if (activeConv != null) {
-            final currentMsgs = ref.read(chatMessagesProvider);
-            final List<Map<String, dynamic>> formatted = [];
-            for (final msg in currentMsgs) {
-              formatted.add({
-                'id': msg.id,
-                'role': msg.role,
-                'content': msg.content,
-                'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
-              });
-            }
-            _triggerTitleGeneration(
-              ref,
-              activeConv.id,
-              formatted,
-              selectedModel.id,
+        ref.read(imageGenerationEnabledProvider.notifier).state = true;
+        final activeConv = ref.read(activeConversationProvider);
+        await ref.read(taskQueueProvider.notifier).enqueueSendText(
+              conversationId: activeConv?.id,
+              text: lastUserMessage.content,
+              attachments: lastUserMessage.attachmentIds,
             );
-          }
-        } else {
-          ref.read(chatMessagesProvider.notifier).finishStreaming();
-        }
-      } catch (e) {
-        ref.read(chatMessagesProvider.notifier).finishStreaming();
+      } finally {
+        // restore previous state
+        ref.read(imageGenerationEnabledProvider.notifier).state = prev;
       }
       return;
     }
