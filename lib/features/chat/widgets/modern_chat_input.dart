@@ -323,10 +323,12 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     PlatformUtils.lightHaptic();
     widget.onSendMessage(text);
     _controller.clear();
-    // Keep tools and web search enabled for the conversation
-    // Keep input expanded and focused for better UX - don't dismiss keyboard
-    // KeyboardUtils.dismissKeyboard(context);
-    // _setExpanded(false);
+    // After sending, dismiss keyboard and collapse input
+    if (_focusNode.hasFocus) {
+      _focusNode.unfocus();
+    }
+    // Ensure UI reflects empty state and collapses
+    _setExpanded(false);
   }
 
   void _setExpanded(bool expanded) {

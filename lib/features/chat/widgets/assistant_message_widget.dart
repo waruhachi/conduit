@@ -825,21 +825,12 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
           children: [
             // Increase spacing between assistant name and typing indicator
             const SizedBox(height: Spacing.md),
-            // Give the dots breathing room to avoid any clip from transitions
+            // Give the indicator breathing room to avoid any clip from transitions
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 4),
               child: SizedBox(
                 height: 14,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildTypingDot(0),
-                    const SizedBox(width: Spacing.xs),
-                    _buildTypingDot(200),
-                    const SizedBox(width: Spacing.xs),
-                    _buildTypingDot(400),
-                  ],
-                ),
+                child: _buildTypingDot(),
               ),
             ),
           ],
@@ -848,26 +839,29 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     );
   }
 
-  Widget _buildTypingDot(int delay) {
+  Widget _buildTypingDot() {
+    final min = AnimationValues.typingIndicatorScale;
     return Container(
           width: 10,
           height: 10,
           decoration: BoxDecoration(
             color: context.conduitTheme.textSecondary.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(AppBorderRadius.xs),
+            shape: BoxShape.circle,
           ),
         )
         .animate(onPlay: (controller) => controller.repeat())
         .scale(
-          duration: const Duration(milliseconds: 1000),
-          begin: const Offset(1, 1),
-          end: const Offset(1.25, 1.25),
-        )
-        .then(delay: Duration(milliseconds: delay))
-        .scale(
-          duration: const Duration(milliseconds: 1000),
-          begin: const Offset(1.25, 1.25),
+          duration: AnimationDuration.typingIndicator,
+          curve: AnimationCurves.typingIndicator,
+          begin: Offset(min, min),
           end: const Offset(1, 1),
+        )
+        .then(delay: AnimationDelay.typingDelay)
+        .scale(
+          duration: AnimationDuration.typingIndicator,
+          curve: AnimationCurves.typingIndicator,
+          begin: const Offset(1, 1),
+          end: Offset(min, min),
         );
   }
 
