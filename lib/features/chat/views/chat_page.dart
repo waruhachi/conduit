@@ -1030,7 +1030,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             ref.read(chatMessagesProvider.notifier).finishStreaming();
           }
 
-          await _saveConversationBeforeLeaving(ref);
+          // Do not push conversation state back to server on exit.
+          // Server already maintains chat state from message sends.
+          // Keep any local persistence only.
 
           if (context.mounted) {
             final canPopNavigator = Navigator.of(context).canPop();

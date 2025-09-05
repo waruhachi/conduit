@@ -22,7 +22,7 @@ class TaskWorker {
       executeToolCall: _performExecuteToolCall,
       generateImage: _performGenerateImage,
       imageToDataUrl: _performImageToDataUrl,
-      saveConversation: _performSaveConversation,
+      // saveConversation removed — we no longer push chat state to server
       generateTitle: _performGenerateTitle,
     );
   }
@@ -328,36 +328,7 @@ class TaskWorker {
     }
   }
 
-  Future<void> _performSaveConversation(SaveConversationTask task) async {
-    final api = _ref.read(apiServiceProvider);
-    final messages = _ref.read(chat.chatMessagesProvider);
-    final activeConv = _ref.read(activeConversationProvider);
-    final selectedModel = _ref.read(selectedModelProvider);
-    if (api == null || messages.isEmpty || activeConv == null) return;
-
-    // Skip if last assistant is empty placeholder
-    final last = messages.last;
-    if (last.role == 'assistant' &&
-        last.content.trim().isEmpty &&
-        (last.files?.isEmpty ?? true) &&
-        (last.attachmentIds?.isEmpty ?? true)) {
-      return;
-    }
-
-    try {
-      await api.updateConversationWithMessages(
-        activeConv.id,
-        messages,
-        model: selectedModel?.id,
-      );
-      final updated = activeConv.copyWith(
-        messages: messages,
-        updatedAt: DateTime.now(),
-      );
-      _ref.read(activeConversationProvider.notifier).state = updated;
-      _ref.invalidate(conversationsProvider);
-    } catch (_) {}
-  }
+  // _performSaveConversation removed
 
   Future<void> _performGenerateTitle(GenerateTitleTask task) async {
     final api = _ref.read(apiServiceProvider);
@@ -387,15 +358,8 @@ class TaskWorker {
             updatedAt: DateTime.now(),
           );
           _ref.read(activeConversationProvider.notifier).state = updated;
-          try {
-            final cur = _ref.read(chat.chatMessagesProvider);
-            await api.updateConversationWithMessages(
-              updated.id,
-              cur,
-              title: updated.title,
-              model: selectedModel.id,
-            );
-          } catch (_) {}
+          // Do not push full messages to server; skip remote update.
+          // Optionally refresh list to reflect server-side title when it’s generated there.
           _ref.invalidate(conversationsProvider);
         }
       }

@@ -450,37 +450,31 @@ Future<void> regenerateMessage(
 
     for (final msg in messages) {
       if (msg.role.isNotEmpty && msg.content.isNotEmpty && !msg.isStreaming) {
+        // Clean up tool/details markup to match web client behavior
+        final cleaned = ToolCallsParser.sanitizeForApi(msg.content);
+
         // Handle messages with attachments
         if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty) {
           final List<Map<String, dynamic>> contentArray = [];
 
           // Add text content first
-          if (msg.content.isNotEmpty) {
-            contentArray.add({'type': 'text', 'text': msg.content});
+          if (cleaned.isNotEmpty) {
+            contentArray.add({'type': 'text', 'text': cleaned});
           }
 
           conversationMessages.add({
             'role': msg.role,
-            'content': contentArray.isNotEmpty ? contentArray : msg.content,
+            'content': contentArray.isNotEmpty ? contentArray : cleaned,
           });
         } else {
           // Regular text message
-          conversationMessages.add({'role': msg.role, 'content': msg.content});
+          conversationMessages.add({'role': msg.role, 'content': cleaned});
         }
       }
     }
 
-    // Stream response using SSE
-    final response = api!.sendMessage(
-      messages: conversationMessages,
-      model: selectedModel.id,
-      conversationId: activeConversation.id,
-    );
-
-    final stream = response.stream;
-    final assistantMessageId = response.messageId;
-
-    // Add assistant message placeholder
+    // Pre-seed assistant skeleton
+    final String assistantMessageId = const Uuid().v4();
     final assistantMessage = ChatMessage(
       id: assistantMessageId,
       role: 'assistant',
@@ -490,6 +484,24 @@ Future<void> regenerateMessage(
       isStreaming: true,
     );
     ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
+    try {
+      final msgsForSeed = ref.read(chatMessagesProvider);
+      await api!.updateConversationWithMessages(
+        activeConversation.id,
+        msgsForSeed,
+        model: selectedModel.id,
+      );
+    } catch (_) {}
+
+    // Stream response via background task (socket/dynamic channel or polling)
+    final response = api!.sendMessage(
+      messages: conversationMessages,
+      model: selectedModel.id,
+      conversationId: activeConversation.id,
+      responseMessageId: assistantMessageId,
+    );
+
+    final stream = response.stream;
 
     // Handle streaming response (basic chunking for this path)
     final chunkedStream = StreamChunker.chunkStream(
@@ -705,6 +717,9 @@ Future<void> _sendMessageInternal(
     // Skip only empty assistant message placeholders that are currently streaming
     // Include completed messages (both user and assistant) for conversation history
     if (msg.role.isNotEmpty && msg.content.isNotEmpty && !msg.isStreaming) {
+      // Prepare cleaned text content (strip tool details etc.)
+      final cleaned = ToolCallsParser.sanitizeForApi(msg.content);
+
       // Check if message has attachments (images and non-images)
       if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty) {
         // All models use the same content array format (OpenWebUI standard)
@@ -715,8 +730,8 @@ Future<void> _sendMessageInternal(
         final List<Map<String, dynamic>> nonImageFiles = [];
 
         // Add text content first
-        if (msg.content.isNotEmpty) {
-          contentArray.add({'type': 'text', 'text': msg.content});
+        if (cleaned.isNotEmpty) {
+          contentArray.add({'type': 'text', 'text': cleaned});
         }
 
         // Add image attachments with proper MIME type handling; collect non-image attachments
@@ -772,7 +787,7 @@ Future<void> _sendMessageInternal(
         conversationMessages.add(messageMap);
       } else {
         // Regular text-only message
-        conversationMessages.add({'role': msg.role, 'content': msg.content});
+        conversationMessages.add({'role': msg.role, 'content': cleaned});
       }
     }
   }
@@ -789,6 +804,33 @@ Future<void> _sendMessageInternal(
       : null;
 
   try {
+    // Pre-seed assistant skeleton on server to ensure correct chain
+    // Generate assistant message id now (must be consistent across client/server)
+    final String assistantMessageId = const Uuid().v4();
+
+    // Add assistant placeholder locally before sending
+    final assistantPlaceholder = ChatMessage(
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: DateTime.now(),
+      model: selectedModel.id,
+      isStreaming: true,
+    );
+    ref.read(chatMessagesProvider.notifier).addMessage(assistantPlaceholder);
+
+    // Persist skeleton chain to server so web can load correct history
+    try {
+      final activeConvForSeed = ref.read(activeConversationProvider);
+      if (activeConvForSeed != null) {
+        final msgsForSeed = ref.read(chatMessagesProvider);
+        await api.updateConversationWithMessages(
+          activeConvForSeed.id,
+          msgsForSeed,
+          model: selectedModel.id,
+        );
+      }
+    } catch (_) {}
     // Use the model's actual supported parameters if available
     final supportedParams =
         selectedModel.supportedParameters ??
@@ -1028,11 +1070,12 @@ Future<void> _sendMessageInternal(
           (conv.title == 'New Chat' && msgs.length <= 1);
     } catch (_) {}
 
+    // Match web client: request background follow-ups always; title/tags on first turn
     final bgTasks = <String, dynamic>{
       if (shouldGenerateTitle) 'title_generation': true,
       if (shouldGenerateTitle) 'tags_generation': true,
       'follow_up_generation': true,
-      if (webSearchEnabled) 'web_search': true, // enable bg workflow for web search
+      if (webSearchEnabled) 'web_search': true, // enable bg web search
       if (imageGenerationEnabled) 'image_generation': true, // enable bg image flow
     };
 
@@ -1056,22 +1099,11 @@ Future<void> _sendMessageInternal(
       sessionIdOverride: wantSessionBinding ? socketSessionId : null,
       toolServers: toolServers,
       backgroundTasks: bgTasks,
+      responseMessageId: assistantMessageId,
     );
 
     final stream = response.stream;
-    final assistantMessageId = response.messageId;
     final sessionId = response.sessionId;
-
-    // Add assistant message placeholder with the generated ID and immediate typing indicator
-    final assistantMessage = ChatMessage(
-      id: assistantMessageId,
-      role: 'assistant',
-      content: '',
-      timestamp: DateTime.now(),
-      model: selectedModel.id,
-      isStreaming: true,
-    );
-    ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
 
     // If socket is available, start listening for chat-events immediately
     // Background-tools flow OR any session-bound flow relies on socket/dynamic channel for
@@ -1718,10 +1750,10 @@ Future<void> _sendMessageInternal(
           }
         }
 
-        // Save conversation to OpenWebUI server only after streaming is complete
-        // Add a small delay to ensure the last message content is fully updated
-        await Future.delayed(const Duration(milliseconds: 100));
-        await _saveConversationToServer(ref);
+        // Do not persist conversation to server here. Server manages chat state.
+        // Keep local save only for quick resume.
+        await Future.delayed(const Duration(milliseconds: 50));
+        await _saveConversationLocally(ref);
 
         // Removed post-assistant image generation; images are handled immediately after user message
       },
@@ -1956,17 +1988,7 @@ Future<void> _checkForTitleInBackground(
 }
 
 // Save current conversation to OpenWebUI server
-Future<void> _saveConversationToServer(dynamic ref) async {
-  // Enqueue save task; local fallback remains if queue fails
-  try {
-    final activeConversation = ref.read(activeConversationProvider);
-    await ref
-        .read(taskQueueProvider.notifier)
-        .enqueueSaveConversation(conversationId: activeConversation?.id);
-  } catch (_) {
-    await _saveConversationLocally(ref);
-  }
-}
+// Removed server persistence; only local caching is used in mobile app.
 
 // Fallback: Save current conversation to local storage
 Future<void> _saveConversationLocally(dynamic ref) async {

@@ -1130,7 +1130,7 @@ class ApiService {
         if (msg.role == 'assistant' && msg.model != null)
           'modelName': msg.model,
         if (msg.role == 'assistant') 'modelIdx': 0,
-        if (msg.role == 'assistant') 'done': true,
+        if (msg.role == 'assistant') 'done': !msg.isStreaming,
         if (msg.role == 'user' && model != null) 'models': [model],
         if (combinedFilesMap.isNotEmpty) 'files': combinedFilesMap,
       };
@@ -1166,7 +1166,7 @@ class ApiService {
         if (msg.role == 'assistant' && msg.model != null)
           'modelName': msg.model,
         if (msg.role == 'assistant') 'modelIdx': 0,
-        if (msg.role == 'assistant') 'done': true,
+        if (msg.role == 'assistant') 'done': !msg.isStreaming,
         if (msg.role == 'user' && model != null) 'models': [model],
         if (combinedFilesArray.isNotEmpty) 'files': combinedFilesArray,
       });
@@ -2652,11 +2652,14 @@ class ApiService {
     String? sessionIdOverride,
     List<Map<String, dynamic>>? toolServers,
     Map<String, dynamic>? backgroundTasks,
+    String? responseMessageId,
   }) {
     final streamController = StreamController<String>();
 
     // Generate unique IDs
-    final messageId = const Uuid().v4();
+    final messageId = (responseMessageId != null && responseMessageId.isNotEmpty)
+        ? responseMessageId
+        : const Uuid().v4();
     final sessionId =
         (sessionIdOverride != null && sessionIdOverride.isNotEmpty)
         ? sessionIdOverride
@@ -2809,6 +2812,8 @@ class ApiService {
     // Always use task-based background flow for unified pipeline.
     // When a dynamic channel (session_id) is not provided, this method falls
     // back to polling and streams deltas to the UI.
+    // Always use background task flow (matches web client) to ensure
+    // server maintains correct history with pre-seeded assistant id.
     final bool useBackgroundTasks = true;
 
     // Use background flow only when required; otherwise prefer SSE even with chat_id.

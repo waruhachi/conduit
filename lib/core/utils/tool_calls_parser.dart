@@ -236,6 +236,71 @@ class ToolCallsParser {
       return raw.length > max ? '${raw.substring(0, max)}…' : raw;
     }
   }
+
+  /// Sanitize assistant/user content before sending to the API, mirroring
+  /// the web client's `processDetails` behavior:
+  /// - Remove <details type="reasoning"> and <details type="code_interpreter"> blocks
+  /// - Replace <details type="tool_calls" ...>...</details> blocks with the
+  ///   JSON-serialized `result` attribute (as a quoted string) when available;
+  ///   otherwise replace with an empty string.
+  static String sanitizeForApi(String content) {
+    if (content.isEmpty) return content;
+
+    // Remove blocks we never want to include in conversation context
+    final removeTypes = ['reasoning', 'code_interpreter'];
+    for (final t in removeTypes) {
+      content = content.replaceAll(
+        RegExp(
+          '<details\\s+type=\"${t}\"[^>]*>[\\s\\S]*?<\\/details>',
+          multiLine: true,
+          dotAll: true,
+        ),
+        '',
+      );
+    }
+
+    if (!content.contains('<details')) return content.trim();
+
+    // Replace tool_calls blocks in-order with their results
+    final segs = segments(content);
+    if (segs == null || segs.isEmpty) return content.trim();
+
+    final buf = StringBuffer();
+    for (final seg in segs) {
+      if (seg.isToolCall && seg.entry != null) {
+        final entry = seg.entry!;
+        dynamic res = entry.result;
+        String out;
+        if (res == null) {
+          out = '';
+        } else {
+          try {
+            out = json.encode(res);
+          } catch (_) {
+            out = res.toString();
+          }
+        }
+        // Match web behavior: wrap in quotes so it's clearly a string payload
+        if (out.isNotEmpty && !(out.startsWith('"') && out.endsWith('"'))) {
+          out = '"$out"';
+        }
+        buf.write(out);
+      } else {
+        // Keep the raw text, but also remove any stray non-tool_calls details blocks
+        final t = (seg.text ?? '').replaceAll(
+          RegExp(
+            r'<details(?!\s+type=\"tool_calls\")[^>]*>[\s\S]*?<\/details>',
+            multiLine: true,
+            dotAll: true,
+          ),
+          '',
+        );
+        if (t.isNotEmpty) buf.write(t);
+      }
+    }
+
+    return buf.toString().trim();
+  }
 }
 
 /// Ordered piece of content: either plain text or a tool-call entry
