@@ -247,22 +247,8 @@ class _EnhancedImageAttachmentState
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
 
-    // Use a single container with AnimatedSwitcher for smooth transitions
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      switchInCurve: Curves.easeInOut,
-      switchOutCurve: Curves.easeInOut,
-      layoutBuilder: (currentChild, previousChildren) {
-        return Stack(
-          alignment: Alignment.center,
-          children: <Widget>[
-            ...previousChildren,
-            if (currentChild != null) currentChild,
-          ],
-        );
-      },
-      child: _buildContent(),
-    );
+    // Directly return content without AnimatedSwitcher to prevent black flash during streaming
+    return _buildContent();
   }
 
   Widget _buildContent() {
@@ -286,11 +272,8 @@ class _EnhancedImageAttachmentState
       imageWidget = _buildBase64Image();
     }
 
-    // Apply fade animation only when first showing content
-    if (!widget.disableAnimation && _hasShownContent) {
-      return FadeTransition(opacity: _fadeAnimation, child: imageWidget);
-    }
-
+    // Always show the image without fade transitions during streaming to prevent black display
+    // The AutomaticKeepAliveClientMixin and global caching should preserve the image state
     return imageWidget;
   }
 

@@ -1047,24 +1047,87 @@ Future<void> _sendMessageInternal(
         final msgs = ref.read(chatMessagesProvider);
         if (msgs.isEmpty || msgs.last.role != 'assistant') return;
         final content = msgs.last.content;
-        if (content.isEmpty || !content.contains('<details')) return;
-        final parsed = ToolCallsParser.parse(content);
-        if (parsed == null) return;
+        if (content.isEmpty) return;
+        
         final collected = <Map<String, dynamic>>[];
-        for (final entry in parsed.toolCalls) {
-          if (entry.files != null && entry.files!.isNotEmpty) {
-            collected.addAll(_extractFilesFromResult(entry.files));
-          }
-          if (entry.result != null) {
-            collected.addAll(_extractFilesFromResult(entry.result));
+        
+        // First, try the complete parsing approach
+        if (content.contains('<details')) {
+          final parsed = ToolCallsParser.parse(content);
+          if (parsed != null) {
+            for (final entry in parsed.toolCalls) {
+              if (entry.files != null && entry.files!.isNotEmpty) {
+                collected.addAll(_extractFilesFromResult(entry.files));
+              }
+              if (entry.result != null) {
+                collected.addAll(_extractFilesFromResult(entry.result));
+              }
+            }
           }
         }
+        
+        // Streaming-friendly: Extract images from partial content
+        // Look for common image generation patterns even in incomplete blocks
+        if (collected.isEmpty) {
+          // Extract base64 images directly from content
+          final base64Pattern = RegExp(r'data:image/[^;\s]+;base64,[A-Za-z0-9+/]+=*');
+          final base64Matches = base64Pattern.allMatches(content);
+          for (final match in base64Matches) {
+            final url = match.group(0);
+            if (url != null && url.isNotEmpty) {
+              collected.add({'type': 'image', 'url': url});
+            }
+          }
+          
+          // Extract URLs from partial tool call content
+          final urlPattern = RegExp(r'https?://[^\s<>"]+\.(jpg|jpeg|png|gif|webp)', caseSensitive: false);
+          final urlMatches = urlPattern.allMatches(content);
+          for (final match in urlMatches) {
+            final url = match.group(0);
+            if (url != null && url.isNotEmpty) {
+              collected.add({'type': 'image', 'url': url});
+            }
+          }
+          
+          // Look for JSON-like structures in streaming content
+          final jsonPattern = RegExp(r'\{[^}]*"url"[^}]*:[^}]*"(data:image/[^"]+|https?://[^"]+\.(jpg|jpeg|png|gif|webp))"[^}]*\}', caseSensitive: false);
+          final jsonMatches = jsonPattern.allMatches(content);
+          for (final match in jsonMatches) {
+            final url = RegExp(r'"url"[^:]*:[^"]*"([^"]+)"').firstMatch(match.group(0) ?? '')?.group(1);
+            if (url != null && url.isNotEmpty) {
+              collected.add({'type': 'image', 'url': url});
+            }
+          }
+          
+          // Look for image generation results in partial results/files attributes
+          final partialResultsPattern = RegExp(r'(result|files)="([^"]*(?:data:image/[^"]*|https?://[^"]*\.(jpg|jpeg|png|gif|webp))[^"]*)"', caseSensitive: false);
+          final partialMatches = partialResultsPattern.allMatches(content);
+          for (final match in partialMatches) {
+            final attrValue = match.group(2);
+            if (attrValue != null) {
+              // Try to parse as JSON array or single value
+              try {
+                final decoded = json.decode(attrValue);
+                collected.addAll(_extractFilesFromResult(decoded));
+              } catch (_) {
+                // If not JSON, check if it's a direct URL
+                if (attrValue.startsWith('data:image/') ||
+                    RegExp(r'https?://[^\s]+\.(jpg|jpeg|png|gif|webp)$', caseSensitive: false).hasMatch(attrValue)) {
+                  collected.add({'type': 'image', 'url': attrValue});
+                }
+              }
+            }
+          }
+        }
+        
         if (collected.isEmpty) return;
+        
         final existing = msgs.last.files ?? <Map<String, dynamic>>[];
         final seen = <String>{
           for (final f in existing)
             if (f['url'] is String) (f['url'] as String) else '',
         }..removeWhere((e) => e.isEmpty);
+        
         final merged = <Map<String, dynamic>>[...existing];
         for (final f in collected) {
           final url = f['url'] as String?;
@@ -1073,6 +1136,7 @@ Future<void> _sendMessageInternal(
             seen.add(url);
           }
         }
+        
         if (merged.length != existing.length) {
           ref.read(chatMessagesProvider.notifier).updateLastMessageWithFunction(
                 (m) => m.copyWith(files: merged),
@@ -1537,6 +1601,40 @@ Future<void> _sendMessageInternal(
                 }
               } catch (_) {}
             } catch (_) {}
+          } else if (type == 'files' && payload != null) {
+            // Handle files event from socket (image generation results)
+            try {
+              DebugLogger.stream('Socket files event received: ${payload.toString()}');
+              final files = _extractFilesFromResult(payload);
+              if (files.isNotEmpty) {
+                final msgs = ref.read(chatMessagesProvider);
+                if (msgs.isNotEmpty && msgs.last.role == 'assistant') {
+                  final existing = msgs.last.files ?? <Map<String, dynamic>>[];
+                  final seen = <String>{
+                    for (final f in existing)
+                      if (f['url'] is String) (f['url'] as String) else '',
+                  }..removeWhere((e) => e.isEmpty);
+                  final merged = <Map<String, dynamic>>[...existing];
+                  for (final f in files) {
+                    final url = f['url'] as String?;
+                    if (url != null && url.isNotEmpty && !seen.contains(url)) {
+                      merged.add({'type': 'image', 'url': url});
+                      seen.add(url);
+                    }
+                  }
+                  if (merged.length != existing.length) {
+                    DebugLogger.stream('Socket files: Adding ${merged.length - existing.length} new images');
+                    final updatedMessage = ref.read(chatMessagesProvider).last.copyWith(files: merged);
+                    DebugLogger.stream('Socket files: Updated message files count: ${updatedMessage.files?.length}');
+                    ref.read(chatMessagesProvider.notifier).updateLastMessageWithFunction(
+                          (ChatMessage m) => m.copyWith(files: merged),
+                        );
+                  }
+                }
+              }
+            } catch (e) {
+              DebugLogger.stream('Socket files event error: $e');
+            }
           }
         } catch (_) {}
       }

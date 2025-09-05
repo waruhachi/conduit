@@ -570,7 +570,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                       const SizedBox(height: Spacing.md),
                     ],
 
-                    // Display generated images from files property
+                    // Display generated images from files property - OUTSIDE AnimatedSwitcher to prevent fade issues
                     if (widget.message.files != null &&
                         widget.message.files!.isNotEmpty) ...[
                       _buildGeneratedImages(),
@@ -785,8 +785,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                       maxWidth: 500,
                       maxHeight: 400,
                     ),
-                    disableAnimation: widget
-                        .isStreaming, // Disable animation during streaming
+                    disableAnimation: false, // Keep animations enabled to prevent black display
                   );
                 },
               ),
@@ -809,8 +808,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                     maxWidth: imageCount == 2 ? 245 : 160,
                     maxHeight: imageCount == 2 ? 245 : 160,
                   ),
-                  disableAnimation:
-                      widget.isStreaming, // Disable animation during streaming
+                  disableAnimation: false, // Keep animations enabled to prevent black display
                 );
               }).toList(),
             ),
