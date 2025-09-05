@@ -8,6 +8,7 @@ import 'dart:io' show Platform;
 import '../../../shared/theme/theme_extensions.dart';
 import '../../../shared/widgets/markdown/streaming_markdown_widget.dart';
 import '../../../core/utils/reasoning_parser.dart';
+import '../../../core/utils/message_segments.dart';
 import '../../../core/utils/tool_calls_parser.dart';
 import 'enhanced_image_attachment.dart';
 import 'package:conduit/l10n/app_localizations.dart';
@@ -41,14 +42,13 @@ class AssistantMessageWidget extends ConsumerStatefulWidget {
 
 class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     with TickerProviderStateMixin {
-  bool _showReasoning = false;
   late AnimationController _fadeController;
   late AnimationController _slideController;
-  ReasoningContent? _reasoningContent;
-  List<ToolCallsSegment> _toolSegments = const [];
+  // Unified content segments (text, tool-calls, reasoning)
+  List<MessageSegment> _segments = const [];
   final Set<String> _expandedToolIds = {};
+  final Set<int> _expandedReasoning = {};
   Widget? _cachedAvatar;
-  String _contentSansDetails = '';
   bool _allowTypingIndicator = false;
   Timer? _typingGateTimer;
   // press state handled by shared ChatActionButton
@@ -105,69 +105,53 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     if (raw.startsWith(searchBanner)) {
       raw = raw.substring(searchBanner.length);
     }
-    // Do not truncate content during streaming; segmented parser will skip
+    // Do not truncate content during streaming; segmented parser skips
     // incomplete details blocks and tiles will render once complete.
-    final rc = ReasoningParser.parseReasoningContent(raw);
-    String base = rc?.mainContent ?? raw;
+    final rSegs = ReasoningParser.segments(raw);
 
-    final tools = ToolCallsParser.parse(base);
-    List<ToolCallsSegment>? segments = ToolCallsParser.segments(base);
-
-    // Fallback: if parser failed but content has tool_calls details, synthesize segments
-    if ((segments == null || segments.isEmpty) && base.contains('<details') && base.contains('type="tool_calls"')) {
-      final fallbackSegs = <ToolCallsSegment>[];
-      final detailsRegex = RegExp(r'<details[^>]*>([\s\S]*?)<\/details>', multiLine: true, dotAll: true);
-      final attrRegex = RegExp(r'(\w+)="([^"]*)"');
-      final matches = detailsRegex.allMatches(base).toList();
-      String textRemainder = base;
-      for (final m in matches) {
-        final full = m.group(0) ?? '';
-        final openTag = RegExp(r'<details[^>]*>').firstMatch(full)?.group(0) ?? '';
-        if (!openTag.contains('type="tool_calls"')) continue;
-        final attrs = <String, String>{};
-        for (final am in attrRegex.allMatches(openTag)) {
-          attrs[am.group(1)!] = am.group(2) ?? '';
-        }
-        final id = attrs['id'] ?? '';
-        final name = attrs['name'] ?? 'tool';
-        final done = (attrs['done'] == 'true');
-        final args = attrs['arguments'];
-        final result = attrs['result'];
-        final files = attrs['files'];
-
-        dynamic decodeMaybe(String? s) {
-          if (s == null || s.isEmpty) return null;
-          try {
-            return json.decode(s);
-          } catch (_) {
-            return s;
+    final out = <MessageSegment>[];
+    final textBuf = StringBuffer();
+    if (rSegs == null || rSegs.isEmpty) {
+      final tSegs = ToolCallsParser.segments(raw);
+      if (tSegs == null || tSegs.isEmpty) {
+        out.add(MessageSegment.text(raw));
+        textBuf.write(raw);
+      } else {
+        for (final s in tSegs) {
+          if (s.isToolCall && s.entry != null) {
+            out.add(MessageSegment.tool(s.entry!));
+          } else if ((s.text ?? '').isNotEmpty) {
+            out.add(MessageSegment.text(s.text!));
+            textBuf.write(s.text);
           }
         }
-
-        final entry = ToolCallEntry(
-          id: id.isNotEmpty ? id : '${name}_${m.start}',
-          name: name,
-          done: done,
-          arguments: decodeMaybe(args),
-          result: decodeMaybe(result),
-          files: (decodeMaybe(files) is List) ? decodeMaybe(files) as List : null,
-        );
-        fallbackSegs.add(ToolCallsSegment.entry(entry));
-        textRemainder = textRemainder.replaceFirst(full, '');
       }
-      if (fallbackSegs.isNotEmpty) {
-        final remainder = textRemainder.trim();
-        if (remainder.isNotEmpty) {
-          fallbackSegs.add(ToolCallsSegment.text(remainder));
+    } else {
+      for (final rs in rSegs) {
+        if (rs.isReasoning && rs.entry != null) {
+          out.add(MessageSegment.reason(rs.entry!));
+        } else if ((rs.text ?? '').isNotEmpty) {
+          final t = rs.text!;
+          final tSegs = ToolCallsParser.segments(t);
+          if (tSegs == null || tSegs.isEmpty) {
+            out.add(MessageSegment.text(t));
+            textBuf.write(t);
+          } else {
+            for (final s in tSegs) {
+              if (s.isToolCall && s.entry != null) {
+                out.add(MessageSegment.tool(s.entry!));
+              } else if ((s.text ?? '').isNotEmpty) {
+                out.add(MessageSegment.text(s.text!));
+                textBuf.write(s.text);
+              }
+            }
+          }
         }
-        segments = fallbackSegs;
       }
     }
 
     setState(() {
-      _reasoningContent = rc;
-      _contentSansDetails = tools?.mainContent ?? base;
-      _toolSegments = segments ?? [ToolCallsSegment.text(_contentSansDetails)];
+      _segments = out.isEmpty ? [MessageSegment.text(raw)] : out;
     });
     _updateTypingIndicatorGate();
   }
@@ -345,19 +329,21 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   Widget _buildSegmentedContent() {
     final children = <Widget>[];
     bool firstToolSpacerAdded = false;
-    for (final seg in _toolSegments) {
-      if (seg.isToolCall && seg.entry != null) {
+    int idx = 0;
+    for (final seg in _segments) {
+      if (seg.isTool && seg.toolCall != null) {
         // Add top spacing before the first tool block for clarity
         if (!firstToolSpacerAdded) {
           children.add(const SizedBox(height: Spacing.sm));
           firstToolSpacerAdded = true;
         }
-        children.add(_buildToolCallTile(seg.entry!));
+        children.add(_buildToolCallTile(seg.toolCall!));
+      } else if (seg.isReasoning && seg.reasoning != null) {
+        children.add(_buildReasoningTile(seg.reasoning!, idx));
       } else if ((seg.text ?? '').trim().isNotEmpty) {
-        children.add(
-          _buildEnhancedMarkdownContent(seg.text!),
-        );
+        children.add(_buildEnhancedMarkdownContent(seg.text!));
       }
+      idx++;
     }
 
     if (children.isEmpty) return const SizedBox.shrink();
@@ -379,6 +365,15 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
         ),
         '',
       );
+      // Hide reasoning blocks as well in text check
+      cleaned = cleaned.replaceAll(
+        RegExp(
+          r'<details\s+type="reasoning"[^>]*>[\s\S]*?<\/details>',
+          multiLine: true,
+          dotAll: true,
+        ),
+        '',
+      );
       // If last <details> is unclosed, drop tail to avoid rendering raw tag
       final lastOpen = cleaned.lastIndexOf('<details');
       if (lastOpen >= 0) {
@@ -390,8 +385,9 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
       return cleaned.trim().isNotEmpty;
     }
 
-    for (final seg in _toolSegments) {
-      if (seg.isToolCall && seg.entry != null) return true;
+    for (final seg in _segments) {
+      if (seg.isTool && seg.toolCall != null) return true;
+      if (seg.isReasoning && seg.reasoning != null) return true;
       final text = seg.text ?? '';
       if (_textRenderable(text)) return true;
     }
@@ -454,108 +450,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
               // Cached AI Name and Avatar to prevent flashing
               _cachedAvatar ?? const SizedBox.shrink(),
 
-              // Reasoning Section (if present)
-              if (_reasoningContent != null) ...[
-                InkWell(
-                  onTap: () => setState(() => _showReasoning = !_showReasoning),
-                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.sm,
-                      vertical: Spacing.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: context.conduitTheme.surfaceContainer.withValues(
-                        alpha: 0.5,
-                      ),
-                      borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                      border: Border.all(
-                        color: context.conduitTheme.dividerColor,
-                        width: BorderWidth.thin,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _showReasoning
-                              ? Icons.expand_less_rounded
-                              : Icons.expand_more_rounded,
-                          size: 16,
-                          color: context.conduitTheme.textSecondary,
-                        ),
-                        const SizedBox(width: Spacing.xs),
-                        Icon(
-                          Icons.psychology_outlined,
-                          size: 14,
-                          color: context.conduitTheme.buttonPrimary,
-                        ),
-                        const SizedBox(width: Spacing.xs),
-                        Text(
-                          () {
-                            final l10n = AppLocalizations.of(context)!;
-                            final rc = _reasoningContent!;
-                            final hasSummary = rc.summary.isNotEmpty;
-                            final isThinkingSummary = rc.summary.trim().toLowerCase() == 'thinking…' || rc.summary.trim().toLowerCase() == 'thinking...';
-                            if (widget.isStreaming) {
-                              // During streaming, prefer showing Thinking…
-                              return hasSummary ? rc.summary : l10n.thinking;
-                            }
-                            // After streaming ends:
-                            if (rc.duration > 0) {
-                              return l10n.thoughtForDuration(rc.formattedDuration);
-                            }
-                            // If summary was just the placeholder 'Thinking…', replace with a neutral title
-                            if (!hasSummary || isThinkingSummary) {
-                              return l10n.thoughts;
-                            }
-                            return rc.summary;
-                          }(),
-                          style: TextStyle(
-                            fontSize: AppTypography.bodySmall,
-                            color: context.conduitTheme.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Expandable reasoning content
-                AnimatedCrossFade(
-                  firstChild: const SizedBox.shrink(),
-                  secondChild: Container(
-                    margin: const EdgeInsets.only(top: Spacing.sm),
-                    padding: const EdgeInsets.all(Spacing.sm),
-                    decoration: BoxDecoration(
-                      color: context.conduitTheme.surfaceContainer.withValues(
-                        alpha: 0.3,
-                      ),
-                      borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                      border: Border.all(
-                        color: context.conduitTheme.dividerColor,
-                        width: BorderWidth.thin,
-                      ),
-                    ),
-                    child: SelectableText(
-                      _reasoningContent!.cleanedReasoning,
-                      style: TextStyle(
-                        fontSize: AppTypography.bodySmall,
-                        color: context.conduitTheme.textSecondary,
-                        fontFamily: 'monospace',
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                  crossFadeState: _showReasoning
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-                  duration: const Duration(milliseconds: 200),
-                ),
-
-                const SizedBox(height: 0),
-              ],
+              // Reasoning blocks are now rendered inline where they appear
 
               // Documentation-style content without heavy bubble; premium markdown
               SizedBox(
@@ -603,12 +498,9 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                           ),
                         );
                       },
-                      child: (!_hasRenderableSegments &&
-                              _allowTypingIndicator &&
-                              widget.isStreaming &&
-                              (widget.message.content.trim().isEmpty ||
-                                  widget.message.content ==
-                                      '[TYPING_INDICATOR]'))
+                      child: (widget.isStreaming &&
+                              !_hasRenderableSegments &&
+                              _allowTypingIndicator)
                           ? KeyedSubtree(
                               key: const ValueKey('typing'),
                               child: _buildTypingIndicator(),
@@ -654,6 +546,19 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
       ),
       '',
     );
+    // Also hide reasoning details blocks if any slipped into text
+    cleaned = cleaned.replaceAll(
+      RegExp(
+        r'<details\s+type="reasoning"[^>]*>[\s\S]*?<\/details>',
+        multiLine: true,
+        dotAll: true,
+      ),
+      '',
+    );
+    // Remove raw <think>...</think> or <reasoning>...</reasoning> tags in text
+    cleaned = cleaned
+        .replaceAll(RegExp(r'<think>[\s\S]*?<\/think>', multiLine: true, dotAll: true), '')
+        .replaceAll(RegExp(r'<reasoning>[\s\S]*?<\/reasoning>', multiLine: true, dotAll: true), '');
 
     // If there's an unclosed <details>, drop the tail to avoid raw tags.
     final lastOpen = cleaned.lastIndexOf('<details');
@@ -906,5 +811,122 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     VoidCallback? onTap,
   }) {
     return ChatActionButton(icon: icon, label: label, onTap: onTap);
+  }
+
+  // Reasoning tile rendered inline at the position it appears
+  Widget _buildReasoningTile(ReasoningEntry rc, int index) {
+    final isExpanded = _expandedReasoning.contains(index);
+    final theme = context.conduitTheme;
+
+    String headerText() {
+      final l10n = AppLocalizations.of(context)!;
+      final hasSummary = rc.summary.isNotEmpty;
+      final isThinkingSummary = rc.summary.trim().toLowerCase() == 'thinking…' ||
+          rc.summary.trim().toLowerCase() == 'thinking...';
+      if (widget.isStreaming) {
+        return hasSummary ? rc.summary : l10n.thinking;
+      }
+      if (rc.duration > 0) {
+        return l10n.thoughtForDuration(rc.formattedDuration);
+      }
+      if (!hasSummary || isThinkingSummary) {
+        return l10n.thoughts;
+      }
+      return rc.summary;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.xs),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            if (isExpanded) {
+              _expandedReasoning.remove(index);
+            } else {
+              _expandedReasoning.add(index);
+            }
+          });
+        },
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.sm,
+            vertical: Spacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: theme.surfaceContainer.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(AppBorderRadius.md),
+            border: Border.all(
+              color: theme.dividerColor,
+              width: BorderWidth.thin,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isExpanded
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    size: 16,
+                    color: theme.textSecondary,
+                  ),
+                  const SizedBox(width: Spacing.xs),
+                  Icon(
+                    Icons.psychology_outlined,
+                    size: 14,
+                    color: theme.buttonPrimary,
+                  ),
+                  const SizedBox(width: Spacing.xs),
+                  Flexible(
+                    child: Text(
+                      headerText(),
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: AppTypography.bodySmall,
+                        color: theme.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              AnimatedCrossFade(
+                firstChild: const SizedBox.shrink(),
+                secondChild: Container(
+                  margin: const EdgeInsets.only(top: Spacing.sm),
+                  padding: const EdgeInsets.all(Spacing.sm),
+                  decoration: BoxDecoration(
+                    color: theme.surfaceContainer.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                    border: Border.all(
+                      color: theme.dividerColor,
+                      width: BorderWidth.thin,
+                    ),
+                  ),
+                  child: SelectableText(
+                    rc.cleanedReasoning,
+                    style: TextStyle(
+                      fontSize: AppTypography.bodySmall,
+                      color: theme.textSecondary,
+                      fontFamily: 'monospace',
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+                crossFadeState:
+                    isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 200),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
