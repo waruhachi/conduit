@@ -328,6 +328,10 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
 
   Widget _buildSegmentedContent() {
     final children = <Widget>[];
+    // Determine if media (attachments or generated images) is rendered above.
+    final hasMediaAbove =
+        (widget.message.attachmentIds?.isNotEmpty ?? false) ||
+            (widget.message.files?.isNotEmpty ?? false);
     bool firstToolSpacerAdded = false;
     int idx = 0;
     for (final seg in _segments) {
@@ -339,6 +343,11 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
         }
         children.add(_buildToolCallTile(seg.toolCall!));
       } else if (seg.isReasoning && seg.reasoning != null) {
+        // If a reasoning tile is the very first content and sits at the top,
+        // add a small spacer above it for breathing room.
+        if (children.isEmpty && !hasMediaAbove) {
+          children.add(const SizedBox(height: Spacing.sm));
+        }
         children.add(_buildReasoningTile(seg.reasoning!, idx));
       } else if ((seg.text ?? '').trim().isNotEmpty) {
         children.add(_buildEnhancedMarkdownContent(seg.text!));
@@ -732,7 +741,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 4),
               child: SizedBox(
-                height: 14,
+                height: 18,
                 child: _buildTypingDot(),
               ),
             ),
@@ -745,8 +754,8 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   Widget _buildTypingDot() {
     final min = AnimationValues.typingIndicatorScale;
     return Container(
-          width: 10,
-          height: 10,
+          width: 14,
+          height: 14,
           decoration: BoxDecoration(
             color: context.conduitTheme.textSecondary.withValues(alpha: 0.6),
             shape: BoxShape.circle,
