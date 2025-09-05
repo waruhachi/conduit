@@ -1544,42 +1544,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     ); // ErrorBoundary
   }
 
-  Future<void> _saveConversationBeforeLeaving(WidgetRef ref) async {
-    try {
-      final api = ref.read(apiServiceProvider);
-      final messages = ref.read(chatMessagesProvider);
-      final activeConversation = ref.read(activeConversationProvider);
-      final selectedModel = ref.read(selectedModelProvider);
-
-      if (api == null || messages.isEmpty || activeConversation == null) {
-        return;
-      }
-
-      // Remove trailing assistant message only if it has no text and no files
-      final lastMessage = messages.isNotEmpty ? messages.last : null;
-      if (lastMessage != null &&
-          lastMessage.role == 'assistant' &&
-          lastMessage.content.trim().isEmpty &&
-          (lastMessage.files == null || lastMessage.files!.isEmpty) &&
-          (lastMessage.attachmentIds == null ||
-              lastMessage.attachmentIds!.isEmpty)) {
-        messages.removeLast();
-        if (messages.isEmpty) return;
-      }
-
-      // Update the existing conversation with all messages
-      await api.updateConversationWithMessages(
-        activeConversation.id,
-        messages,
-        model: selectedModel?.id,
-      );
-
-      debugPrint('DEBUG: Conversation saved before leaving');
-    } catch (e) {
-      debugPrint('DEBUG: Failed to save conversation before leaving: $e');
-      // Don't block navigation even if save fails
-    }
-  }
+  // Removed legacy save-before-leave hook; server manages chat state via background pipeline.
 
   void _showModelDropdown(
     BuildContext context,

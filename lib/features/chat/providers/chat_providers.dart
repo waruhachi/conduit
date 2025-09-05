@@ -293,6 +293,62 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
   }
 }
 
+// Pre-seed an assistant skeleton message (with a given id or a new one),
+// persist it to the server to keep the chain correct, and return the id.
+Future<String> _preseedAssistantAndPersist(
+  dynamic ref, {
+  String? existingAssistantId,
+  required String modelId,
+}) async {
+  final api = ref.read(apiServiceProvider);
+  final activeConv = ref.read(activeConversationProvider);
+
+  // Choose id: reuse existing if provided, else create new
+  final String assistantMessageId =
+      (existingAssistantId != null && existingAssistantId.isNotEmpty)
+          ? existingAssistantId
+          : const Uuid().v4();
+
+  // If the message with this id doesn't exist locally, add a placeholder
+  final msgs = ref.read(chatMessagesProvider);
+  final exists = msgs.any((m) => m.id == assistantMessageId);
+  if (!exists) {
+    final placeholder = ChatMessage(
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: DateTime.now(),
+      model: modelId,
+      isStreaming: true,
+    );
+    ref.read(chatMessagesProvider.notifier).addMessage(placeholder);
+  } else {
+    // If it exists and is the last assistant, ensure we mark it streaming
+    try {
+      final last = msgs.isNotEmpty ? msgs.last : null;
+      if (last != null && last.id == assistantMessageId && last.role == 'assistant' && !last.isStreaming) {
+        ref.read(chatMessagesProvider.notifier).updateLastMessageWithFunction(
+              (m) => m.copyWith(isStreaming: true),
+            );
+      }
+    } catch (_) {}
+  }
+
+  // Persist the skeleton to the server so the web client sees a correct chain
+  try {
+    if (api != null && activeConv != null) {
+      final current = ref.read(chatMessagesProvider);
+      await api.updateConversationWithMessages(
+        activeConv.id,
+        current,
+        model: modelId,
+      );
+    }
+  } catch (_) {}
+
+  return assistantMessageId;
+}
+
 // Start a new chat (unified function for both "New Chat" button and home screen)
 void startNewChat(dynamic ref) {
   // Clear active conversation
@@ -473,25 +529,11 @@ Future<void> regenerateMessage(
       }
     }
 
-    // Pre-seed assistant skeleton
-    final String assistantMessageId = const Uuid().v4();
-    final assistantMessage = ChatMessage(
-      id: assistantMessageId,
-      role: 'assistant',
-      content: '',
-      timestamp: DateTime.now(),
-      model: selectedModel.id,
-      isStreaming: true,
+    // Pre-seed assistant skeleton and persist chain
+    final String assistantMessageId = await _preseedAssistantAndPersist(
+      ref,
+      modelId: selectedModel.id,
     );
-    ref.read(chatMessagesProvider.notifier).addMessage(assistantMessage);
-    try {
-      final msgsForSeed = ref.read(chatMessagesProvider);
-      await api!.updateConversationWithMessages(
-        activeConversation.id,
-        msgsForSeed,
-        model: selectedModel.id,
-      );
-    } catch (_) {}
 
     // Stream response via background task (socket/dynamic channel or polling)
     final response = api!.sendMessage(
