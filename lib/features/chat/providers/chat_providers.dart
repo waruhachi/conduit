@@ -1059,15 +1059,16 @@ Future<void> _sendMessageInternal(
     } catch (_) {}
 
     // Background tasks parity with Web client (safe defaults)
-    // Only enable title generation on the very first turn of a new chat.
+    // Enable title/tags generation on the very first user turn of a new chat.
     bool shouldGenerateTitle = false;
     try {
       final conv = ref.read(activeConversationProvider);
-      final msgs = ref.read(chatMessagesProvider);
-      // After adding the user message above, first turn will have exactly 1 message
-      // and the conversation will still have the placeholder title.
+      // Use the outbound conversationMessages we just built (excludes streaming placeholders)
+      final nonSystemCount = conversationMessages
+          .where((m) => (m['role']?.toString() ?? '') != 'system')
+          .length;
       shouldGenerateTitle = (conv == null) ||
-          (conv.title == 'New Chat' && msgs.length <= 1);
+          ((conv.title == 'New Chat' || (conv.title.isEmpty)) && nonSystemCount == 1);
     } catch (_) {}
 
     // Match web client: request background follow-ups always; title/tags on first turn
