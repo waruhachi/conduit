@@ -886,10 +886,21 @@ Future<void> regenerateMessage(
 
     // Socket binding for background flows
     final socketService = ref.read(socketServiceProvider);
-    final socketSessionId = socketService?.sessionId;
-    final bool wantSessionBinding =
+    String? socketSessionId = socketService?.sessionId;
+    bool wantSessionBinding =
         (socketService?.isConnected == true) &&
         (socketSessionId != null && socketSessionId.isNotEmpty);
+    // When regenerating with tools, make a best-effort to ensure a live socket.
+    if (!wantSessionBinding && socketService != null) {
+      try {
+        final ok = await socketService.ensureConnected();
+        if (ok) {
+          socketSessionId = socketService.sessionId;
+          wantSessionBinding =
+              socketSessionId != null && socketSessionId.isNotEmpty;
+        }
+      } catch (_) {}
+    }
 
     // Resolve tool servers from user settings (if any)
     List<Map<String, dynamic>>? toolServers;

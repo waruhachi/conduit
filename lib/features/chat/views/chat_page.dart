@@ -746,7 +746,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             isStreaming: isStreaming,
             modelName: displayModelName,
             onCopy: () => _copyMessage(message.content),
-            onEdit: () => _editMessage(message),
             onRegenerate: () => _regenerateMessage(message),
             onLike: () => _likeMessage(message),
             onDislike: () => _dislikeMessage(message),
@@ -834,90 +833,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
   }
 
-  void _editMessage(dynamic message) async {
-    if (message.role != 'user') {
-      return;
-    }
-
-    final controller = TextEditingController(text: message.content);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: context.conduitTheme.surfaceBackground,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppBorderRadius.dialog),
-        ),
-        title: Text(
-          AppLocalizations.of(context)!.editMessage,
-          style: TextStyle(color: context.conduitTheme.textPrimary),
-        ),
-        content: TextField(
-          controller: controller,
-          style: TextStyle(color: context.conduitTheme.textPrimary),
-          maxLines: null,
-          decoration: InputDecoration(
-            hintText: AppLocalizations.of(context)!.messageHintText,
-            hintStyle: TextStyle(color: context.conduitTheme.inputPlaceholder),
-            border: OutlineInputBorder(
-              borderSide: BorderSide(color: context.conduitTheme.inputBorder),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: context.conduitTheme.inputBorder),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: context.conduitTheme.buttonPrimary),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: context.conduitTheme.textSecondary),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            style: TextButton.styleFrom(
-              foregroundColor: context.conduitTheme.buttonPrimary,
-            ),
-            child: Text(AppLocalizations.of(context)!.save),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null && result.isNotEmpty && result != message.content) {
-      try {
-        // Find the message index and remove all messages after it
-        final messages = ref.read(chatMessagesProvider);
-        final messageIndex = messages.indexOf(message);
-
-        if (messageIndex >= 0) {
-          // Remove messages from this point onwards
-          final messagesToKeep = messages.take(messageIndex).toList();
-          ref.read(chatMessagesProvider.notifier).setMessages(messagesToKeep);
-
-          // Send the edited message
-          final selectedModel = ref.read(selectedModelProvider);
-          if (selectedModel != null) {
-            final activeConv = ref.read(activeConversationProvider);
-            await ref.read(taskQueueProvider.notifier).enqueueSendText(
-                  conversationId: activeConv?.id,
-                  text: result,
-                );
-
-            if (mounted) {}
-          }
-        }
-      } catch (e) {
-        if (mounted) {}
-      }
-    }
-
-    controller.dispose();
-  }
+  // Inline editing handled by UserMessageBubble. Dialog flow removed.
 
   void _likeMessage(dynamic message) {
     // TODO: Implement message liking

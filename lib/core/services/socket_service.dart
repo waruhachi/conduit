@@ -143,4 +143,18 @@ class SocketService {
     } catch (_) {}
     _socket = null;
   }
+
+  // Best-effort: ensure there is an active connection and wait briefly.
+  // Returns true if connected by the end of the timeout.
+  Future<bool> ensureConnected({Duration timeout = const Duration(seconds: 2)}) async {
+    if (isConnected) return true;
+    try {
+      await connect();
+    } catch (_) {}
+    final start = DateTime.now();
+    while (!isConnected && DateTime.now().difference(start) < timeout) {
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+    return isConnected;
+  }
 }

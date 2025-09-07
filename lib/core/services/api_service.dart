@@ -2797,14 +2797,14 @@ class ApiService {
     debugPrint('DEBUG: Message count: ${processedMessages.length}');
 
     // Debug the data being sent
-    debugPrint('DEBUG: SSE request data keys: ${data.keys.toList()}');
+    debugPrint('DEBUG: SSE request data keys (pre-bg): ${data.keys.toList()}');
     debugPrint(
-      'DEBUG: Has background_tasks: ${data.containsKey('background_tasks')}',
+      'DEBUG: Has background_tasks (pre-bg): ${data.containsKey('background_tasks')}',
     );
-    debugPrint('DEBUG: Has session_id: ${data.containsKey('session_id')}');
-    debugPrint('DEBUG: background_tasks value: ${data['background_tasks']}');
-    debugPrint('DEBUG: session_id value: ${data['session_id']}');
-    debugPrint('DEBUG: id value: ${data['id']}');
+    debugPrint('DEBUG: Has session_id (pre-bg): ${data.containsKey('session_id')}');
+    debugPrint('DEBUG: background_tasks value (pre-bg): ${data['background_tasks']}');
+    debugPrint('DEBUG: session_id value (pre-bg): ${data['session_id']}');
+    debugPrint('DEBUG: id value (pre-bg): ${data['id']}');
 
     // Decide whether to use background task flow.
     // Only enable background task mode when we actually need socket/dynamic-channel
@@ -2830,6 +2830,13 @@ class ApiService {
       if (backgroundTasks != null && backgroundTasks.isNotEmpty) {
         data['background_tasks'] = backgroundTasks;
       }
+
+      // Extra diagnostics to confirm dynamic-channel payload
+      debugPrint('DEBUG: Background flow payload keys: ${data.keys.toList()}');
+      debugPrint('DEBUG: Using session_id: $sessionId');
+      debugPrint('DEBUG: Using message id: $messageId');
+      debugPrint('DEBUG: Has tool_ids: ${data.containsKey('tool_ids')} -> ${data['tool_ids']}');
+      debugPrint('DEBUG: Has background_tasks: ${data.containsKey('background_tasks')}');
 
       debugPrint('DEBUG: Initiating background tools flow (task-based)');
       debugPrint('DEBUG: Posting to /api/chat/completions (no SSE)');

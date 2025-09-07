@@ -9,6 +9,10 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io' show Platform;
 import 'package:conduit/l10n/app_localizations.dart';
 import 'package:conduit/shared/widgets/chat_action_button.dart';
+import '../../../core/providers/app_providers.dart';
+import '../providers/chat_providers.dart';
+import '../../../shared/services/tasks/task_queue.dart';
+import '../../tools/providers/tools_providers.dart';
 
 class UserMessageBubble extends ConsumerStatefulWidget {
   final dynamic message;
@@ -45,6 +49,10 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
   late AnimationController _slideController;
   // press state handled by shared ChatActionButton
 
+  bool _isEditing = false;
+  late final TextEditingController _editController;
+  final FocusNode _editFocusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +64,7 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
       duration: AnimationDuration.messageSlide,
       vsync: this,
     );
+    _editController = TextEditingController(text: widget.message?.content ?? '');
   }
 
   Widget _buildUserAttachmentImages() {
@@ -391,6 +400,8 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
   void dispose() {
     _fadeController.dispose();
     _slideController.dispose();
+    _editController.dispose();
+    _editFocusNode.dispose();
     super.dispose();
   }
 
@@ -423,6 +434,9 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
         (widget.message.files as List).any(
           (f) => f is Map && f['type'] == 'image' && f['url'] != null,
         );
+    // Prefer input/textPrimary colors during inline editing to avoid low contrast
+    final inlineEditTextColor = context.conduitTheme.textPrimary;
+    final inlineEditFill = context.conduitTheme.surfaceContainer.withValues(alpha: 0.92);
 
     return GestureDetector(
           onLongPress: () => _toggleActions(),
@@ -483,20 +497,80 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
                                 ),
                               ],
                             ),
-                            child: Text(
-                              widget.message.content,
-                              style: AppTypography.chatMessageStyle.copyWith(
-                                color: context.conduitTheme.chatBubbleUserText,
-                              ),
-                              softWrap: true,
-                              textAlign: TextAlign.left,
-                              textHeightBehavior: const TextHeightBehavior(
-                                applyHeightToFirstAscent: false,
-                                applyHeightToLastDescent: false,
-                                leadingDistribution:
-                                    TextLeadingDistribution.even,
-                              ),
-                            ),
+                            child: _isEditing
+                                ? Focus(
+                                    focusNode: _editFocusNode,
+                                    autofocus: true,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: inlineEditFill,
+                                        borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+                                        border: Border.all(
+                                          color: context.conduitTheme.inputBorderFocused.withValues(alpha: 0.6),
+                                          width: BorderWidth.thin,
+                                        ),
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: Spacing.xs,
+                                          vertical: Spacing.xxs,
+                                        ),
+                                        child: Platform.isIOS
+                                            ? CupertinoTextField(
+                                                controller: _editController,
+                                                maxLines: null,
+                                                padding: EdgeInsets.zero,
+                                                style: AppTypography
+                                                    .chatMessageStyle
+                                                    .copyWith(
+                                                  color: inlineEditTextColor,
+                                                ),
+                                                decoration: const BoxDecoration(),
+                                                cursorColor: context
+                                                    .conduitTheme.buttonPrimary,
+                                                onSubmitted: (_) =>
+                                                    _saveInlineEdit(),
+                                              )
+                                            : TextField(
+                                                controller: _editController,
+                                                maxLines: null,
+                                                style: AppTypography
+                                                    .chatMessageStyle
+                                                    .copyWith(
+                                                  color: inlineEditTextColor,
+                                                ),
+                                                decoration:
+                                                    const InputDecoration(
+                                                  isCollapsed: true,
+                                                  border: InputBorder.none,
+                                                  contentPadding:
+                                                      EdgeInsets.zero,
+                                                ),
+                                                cursorColor: context
+                                                    .conduitTheme.buttonPrimary,
+                                                onSubmitted: (_) =>
+                                                    _saveInlineEdit(),
+                                              ),
+                                      ),
+                                    ),
+                                  )
+                                : Text(
+                                    widget.message.content,
+                                    style: AppTypography.chatMessageStyle
+                                        .copyWith(
+                                      color: context
+                                          .conduitTheme.chatBubbleUserText,
+                                    ),
+                                    softWrap: true,
+                                    textAlign: TextAlign.left,
+                                    textHeightBehavior:
+                                        const TextHeightBehavior(
+                                      applyHeightToFirstAscent: false,
+                                      applyHeightToLastDescent: false,
+                                      leadingDistribution:
+                                          TextLeadingDistribution.even,
+                                    ),
+                                  ),
                           ),
                         ),
                       ),
@@ -542,19 +616,102 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
       spacing: Spacing.sm,
       runSpacing: Spacing.sm,
       children: [
-        _buildActionButton(
-          icon: Platform.isIOS ? CupertinoIcons.pencil : Icons.edit_outlined,
-          label: AppLocalizations.of(context)!.edit,
-          onTap: widget.onEdit,
-        ),
-        _buildActionButton(
-          icon: Platform.isIOS
-              ? CupertinoIcons.doc_on_clipboard
-              : Icons.content_copy,
-          label: AppLocalizations.of(context)!.copy,
-          onTap: widget.onCopy,
-        ),
+        if (_isEditing) ...[
+          _buildActionButton(
+            icon: Platform.isIOS ? CupertinoIcons.check_mark : Icons.check,
+            label: AppLocalizations.of(context)!.save,
+            onTap: _saveInlineEdit,
+          ),
+          _buildActionButton(
+            icon: Platform.isIOS ? CupertinoIcons.xmark : Icons.close,
+            label: AppLocalizations.of(context)!.cancel,
+            onTap: _cancelInlineEdit,
+          ),
+        ] else ...[
+          _buildActionButton(
+            icon:
+                Platform.isIOS ? CupertinoIcons.pencil : Icons.edit_outlined,
+            label: AppLocalizations.of(context)!.edit,
+            onTap: widget.onEdit ?? _startInlineEdit,
+          ),
+          _buildActionButton(
+            icon: Platform.isIOS
+                ? CupertinoIcons.doc_on_clipboard
+                : Icons.content_copy,
+            label: AppLocalizations.of(context)!.copy,
+            onTap: widget.onCopy,
+          ),
+        ],
       ],
     );
+  }
+
+  void _startInlineEdit() {
+    if (_isEditing) return;
+    setState(() {
+      _isEditing = true;
+      _showActions = true; // ensure actions visible for Save/Cancel
+      _editController.text = widget.message.content ?? '';
+    });
+    // Request focus after frame to show keyboard
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _editFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _cancelInlineEdit() {
+    if (!_isEditing) return;
+    setState(() {
+      _isEditing = false;
+      // keep actions panel open; user can close with long-press
+      _editController.text = widget.message.content ?? '';
+    });
+    _editFocusNode.unfocus();
+  }
+
+  Future<void> _saveInlineEdit() async {
+    final newText = _editController.text.trim();
+    final oldText = (widget.message.content ?? '').toString();
+    if (newText.isEmpty || newText == oldText) {
+      _cancelInlineEdit();
+      return;
+    }
+
+    try {
+      // Remove messages after this one
+      final messages = ref.read(chatMessagesProvider);
+      final idx = messages.indexOf(widget.message);
+      if (idx >= 0) {
+        final keep = messages.take(idx).toList(growable: false);
+        ref.read(chatMessagesProvider.notifier).setMessages(keep);
+
+        // Enqueue edited text as a new message
+        final activeConv = ref.read(activeConversationProvider);
+        final List<String>? attachments = (widget.message.attachmentIds != null &&
+                (widget.message.attachmentIds as List).isNotEmpty)
+            ? List<String>.from(widget.message.attachmentIds as List)
+            : null;
+        final toolIds = ref.read(selectedToolIdsProvider);
+        await ref
+            .read(taskQueueProvider.notifier)
+            .enqueueSendText(
+              conversationId: activeConv?.id,
+              text: newText,
+              attachments: attachments,
+              toolIds: toolIds.isNotEmpty ? toolIds : null,
+            );
+      }
+    } catch (_) {
+      // Swallow errors; upstream error handling will surface if needed
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isEditing = false;
+        });
+        _editFocusNode.unfocus();
+      }
+    }
   }
 }
