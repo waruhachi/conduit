@@ -199,7 +199,7 @@ class SettingsService {
   /// Transport mode: 'auto' (polling+websocket) or 'ws' (websocket only)
   static Future<String> getSocketTransportMode() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_socketTransportModeKey) ?? 'auto';
+    return prefs.getString(_socketTransportModeKey) ?? 'ws';
   }
 
   static Future<void> setSocketTransportMode(String mode) async {
@@ -291,7 +291,7 @@ class AppSettings {
     this.voiceLocaleId,
     this.voiceHoldToTalk = false,
     this.voiceAutoSendFinal = false,
-    this.socketTransportMode = 'auto',
+    this.socketTransportMode = 'ws',
     this.quickPills = const [],
   });
 

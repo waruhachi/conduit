@@ -682,7 +682,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                                 if (t.id == id) { tool = t; break; }
                                               }
                                               if (tool != null) {
-                                                final lbl = tool!.name;
+                                                final lbl = tool.name;
                                                 final tp = TextPainter(
                                                   text: TextSpan(text: lbl, style: textStyle),
                                                   maxLines: 1,
