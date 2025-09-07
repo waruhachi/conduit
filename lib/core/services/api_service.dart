@@ -12,7 +12,6 @@ import '../models/model.dart';
 import '../models/conversation.dart';
 import '../models/chat_message.dart';
 import '../auth/api_auth_interceptor.dart';
-import '../validation/validation_interceptor.dart';
 import '../error/api_error_interceptor.dart';
 // Tool-call details are parsed in the UI layer to render collapsible blocks
 import 'persistent_streaming_service.dart';
@@ -66,16 +65,7 @@ class ApiService {
     // 1. Auth interceptor (must be first to add auth headers)
     _dio.interceptors.add(_authInterceptor);
 
-    // 2. Validation interceptor (validates requests/responses against OpenAPI schema)
-    // Disable for now to ensure parameters aren't being filtered
-    final validationInterceptor = ValidationInterceptor(
-      enableRequestValidation: false, // Disabled to preserve all parameters
-      enableResponseValidation: false, // Disabled for SSE streams
-      throwOnValidationError: false,
-      logValidationResults: kDebugMode,
-    );
-    // Comment out to disable completely
-    // _dio.interceptors.add(validationInterceptor);
+    // 2. Validation interceptor removed (no schema loading/logging)
 
     // 3. Error handling interceptor (transforms errors to standardized format)
     _dio.interceptors.add(
@@ -99,10 +89,7 @@ class ApiService {
       // We now use custom interceptors with secure logging via DebugLogger
     }
 
-    // Initialize validation interceptor asynchronously
-    validationInterceptor.initialize().catchError((error) {
-      // Handle validation initialization errors silently
-    });
+    // Validation interceptor fully removed
   }
 
   void updateAuthToken(String token) {

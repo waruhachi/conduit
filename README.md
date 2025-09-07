@@ -147,7 +147,7 @@ See the dedicated documentation: [docs/localization.md](docs/localization.md)
 
 | Conduit App | Open‑WebUI | Notes |
 | --- | --- | --- |
-| 1.x | 0.3.x+ | Uses OpenAPI schema at `assets/openapi.json` |
+| 1.x | 0.3.x+ | OpenAPI validation removed in 1.1+ (no bundled schema) |
 
 ## Docs
 

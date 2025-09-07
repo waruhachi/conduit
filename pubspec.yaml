@@ -80,7 +80,6 @@ flutter:
   
   assets:
     - assets/icons/
-    - assets/openapi.json
 
 flutter_native_splash:
   # Background color (Conduit dark theme)
