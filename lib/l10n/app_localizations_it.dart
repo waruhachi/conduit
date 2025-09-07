@@ -606,11 +606,10 @@ class AppLocalizationsIt extends AppLocalizations {
       'Questa cartella e le sue associazioni verranno rimosse.';
 
   @override
-  String get failedToDeleteFolder =>
-      'Impossibile eliminare la cartella';
+  String get failedToDeleteFolder => 'Impossibile eliminare la cartella';
 
   @override
-  String get aboutApp => 'Informazioni sull\'app';
+  String get aboutApp => 'Informazioni sull’app';
 
   @override
   String get aboutAppSubtitle => 'Informazioni e link di Conduit';

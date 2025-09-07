@@ -741,8 +741,10 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 4),
               child: SizedBox(
-                height: 18,
-                child: _buildTypingDot(),
+                height: 22,
+                child: Platform.isIOS
+                    ? _buildTypingPillBubble()
+                    : _buildTypingEllipsis(),
               ),
             ),
           ],
@@ -751,31 +753,113 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     );
   }
 
-  Widget _buildTypingDot() {
+  Widget _buildTypingEllipsis() {
     final min = AnimationValues.typingIndicatorScale;
-    return Container(
-          width: 14,
-          height: 14,
-          decoration: BoxDecoration(
-            color: context.conduitTheme.textSecondary.withValues(alpha: 0.6),
-            shape: BoxShape.circle,
-          ),
-        )
-        .animate(onPlay: (controller) => controller.repeat())
-        .scale(
-          duration: AnimationDuration.typingIndicator,
-          curve: AnimationCurves.typingIndicator,
-          begin: Offset(min, min),
-          end: const Offset(1, 1),
-        )
-        .then(delay: AnimationDelay.typingDelay)
-        .scale(
-          duration: AnimationDuration.typingIndicator,
-          curve: AnimationCurves.typingIndicator,
-          begin: const Offset(1, 1),
-          end: Offset(min, min),
-        );
+    final dotColor = context.conduitTheme.textSecondary.withValues(alpha: 0.75);
+
+    const double dotSize = 6.0;
+    const double gap = Spacing.xs; // 4.0
+    final d = AnimationDelay.typingDelay;
+    final d2 = Duration(milliseconds: d.inMilliseconds * 2);
+
+    Widget dot(Duration delay) {
+      return Container(
+        width: dotSize,
+        height: dotSize,
+        decoration: BoxDecoration(
+          color: dotColor,
+          shape: BoxShape.circle,
+        ),
+      )
+          .animate(onPlay: (controller) => controller.repeat())
+          .then(delay: delay)
+          .scale(
+            duration: AnimationDuration.typingIndicator,
+            curve: AnimationCurves.typingIndicator,
+            begin: Offset(min, min),
+            end: const Offset(1, 1),
+          )
+          .then(delay: AnimationDelay.typingDelay)
+          .scale(
+            duration: AnimationDuration.typingIndicator,
+            curve: AnimationCurves.typingIndicator,
+            begin: const Offset(1, 1),
+            end: Offset(min, min),
+          );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        dot(Duration.zero),
+        const SizedBox(width: gap),
+        dot(d),
+        const SizedBox(width: gap),
+        dot(d2),
+      ],
+    );
   }
+
+  Widget _buildTypingPillBubble() {
+    final min = AnimationValues.typingIndicatorScale;
+
+    final bubbleColor = context.conduitTheme.surfaceContainerHighest;
+    final dotColor = context.conduitTheme.textSecondary.withValues(alpha: 0.75);
+
+    const double dotSize = 6.0;
+    const double gap = Spacing.xs; // 4.0
+    const double padV = 6.0;
+    const double padH = 10.0;
+
+    final d = AnimationDelay.typingDelay;
+    final d2 = Duration(milliseconds: d.inMilliseconds * 2);
+
+    Widget dot(Duration delay) {
+      return Container(
+        width: dotSize,
+        height: dotSize,
+        decoration: BoxDecoration(
+          color: dotColor,
+          shape: BoxShape.circle,
+        ),
+      )
+          .animate(onPlay: (controller) => controller.repeat())
+          .then(delay: delay)
+          .scale(
+            duration: AnimationDuration.typingIndicator,
+            curve: AnimationCurves.typingIndicator,
+            begin: Offset(min, min),
+            end: const Offset(1, 1),
+          )
+          .then(delay: AnimationDelay.typingDelay)
+          .scale(
+            duration: AnimationDuration.typingIndicator,
+            curve: AnimationCurves.typingIndicator,
+            begin: const Offset(1, 1),
+            end: Offset(min, min),
+          );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: padH, vertical: padV),
+      decoration: BoxDecoration(
+        color: bubbleColor,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          dot(Duration.zero),
+          const SizedBox(width: gap),
+          dot(d),
+          const SizedBox(width: gap),
+          dot(d2),
+        ],
+      ),
+    );
+  }
+
+  
 
   Widget _buildActionButtons() {
     final isErrorMessage =

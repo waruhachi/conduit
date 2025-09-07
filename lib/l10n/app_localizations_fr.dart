@@ -613,11 +613,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Ce dossier et ses associations seront supprimés.';
 
   @override
-  String get failedToDeleteFolder =>
-      'Échec de la suppression du dossier';
+  String get failedToDeleteFolder => 'Échec de la suppression du dossier';
 
   @override
-  String get aboutApp => 'À propos de l\'application';
+  String get aboutApp => 'À propos de l’application';
 
   @override
   String get aboutAppSubtitle => 'Informations et liens Conduit';
