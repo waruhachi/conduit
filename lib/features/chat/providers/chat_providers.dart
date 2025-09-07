@@ -425,6 +425,13 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
       lastMessage.copyWith(isStreaming: false, content: cleaned),
     ];
     _cancelTypingGuard();
+
+    // Trigger a refresh of the conversations list so UI like the Chats Drawer
+    // can pick up updated titles and ordering once streaming completes.
+    // Best-effort: ignore if ref lifecycle/context prevents invalidation.
+    try {
+      _ref.invalidate(conversationsProvider);
+    } catch (_) {}
   }
 
   @override
