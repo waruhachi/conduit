@@ -43,13 +43,11 @@ class EnhancedImageAttachment extends ConsumerStatefulWidget {
 
 class _EnhancedImageAttachmentState
     extends ConsumerState<EnhancedImageAttachment>
-    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
+    with AutomaticKeepAliveClientMixin {
   String? _cachedImageData;
   bool _isLoading = true;
   String? _errorMessage;
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  bool _hasShownContent = false;
+  // Removed unused animation and state flags
 
   @override
   bool get wantKeepAlive => true;
@@ -57,14 +55,6 @@ class _EnhancedImageAttachmentState
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    );
     // Defer loading until after first frame to avoid accessing inherited widgets
     // (e.g., Localizations) during initState
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -75,7 +65,6 @@ class _EnhancedImageAttachmentState
 
   @override
   void dispose() {
-    _animationController.dispose();
     super.dispose();
   }
 
@@ -87,11 +76,7 @@ class _EnhancedImageAttachmentState
         setState(() {
           _cachedImageData = _globalImageCache[widget.attachmentId];
           _isLoading = false;
-          _hasShownContent = true;
         });
-        if (!widget.disableAnimation) {
-          _animationController.forward();
-        }
       }
       return;
     }
@@ -119,11 +104,7 @@ class _EnhancedImageAttachmentState
         setState(() {
           _cachedImageData = widget.attachmentId;
           _isLoading = false;
-          _hasShownContent = true;
         });
-        if (!widget.disableAnimation) {
-          _animationController.forward();
-        }
       }
       return;
     }
@@ -140,11 +121,7 @@ class _EnhancedImageAttachmentState
           setState(() {
             _cachedImageData = fullUrl;
             _isLoading = false;
-            _hasShownContent = true;
           });
-          if (!widget.disableAnimation) {
-            _animationController.forward();
-          }
         }
         return;
       } else {
@@ -214,11 +191,7 @@ class _EnhancedImageAttachmentState
         setState(() {
           _cachedImageData = fileContent;
           _isLoading = false;
-          _hasShownContent = true;
         });
-        if (!widget.disableAnimation) {
-          _animationController.forward();
-        }
       }
     } catch (e) {
       final error = l10n.failedToLoadImage(e.toString());

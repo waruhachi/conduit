@@ -1230,13 +1230,13 @@ abstract class AppLocalizations {
   /// No description provided for @appLanguage.
   ///
   /// In en, this message translates to:
-  /// **'App language'**
+  /// **'App Language'**
   String get appLanguage;
 
   /// No description provided for @darkMode.
   ///
   /// In en, this message translates to:
-  /// **'Dark mode'**
+  /// **'Dark Mode'**
   String get darkMode;
 
   /// No description provided for @webSearch.
@@ -1472,6 +1472,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Thought for {duration}'**
   String thoughtForDuration(String duration);
+
+  /// No description provided for @appCustomization.
+  ///
+  /// In en, this message translates to:
+  /// **'App Customization'**
+  String get appCustomization;
+
+  /// No description provided for @appCustomizationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Personalize how names and UI display'**
+  String get appCustomizationSubtitle;
+
+  /// No description provided for @display.
+  ///
+  /// In en, this message translates to:
+  /// **'Display'**
+  String get display;
+
+  /// No description provided for @realtime.
+  ///
+  /// In en, this message translates to:
+  /// **'Realtime'**
+  String get realtime;
+
+  /// No description provided for @hideProviderInModelNames.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide provider in model names'**
+  String get hideProviderInModelNames;
+
+  /// No description provided for @hideProviderInModelNamesDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Show names like \"gpt-4o\" instead of \"openai/gpt-4o\".'**
+  String get hideProviderInModelNamesDescription;
+
+  /// No description provided for @transportMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Transport mode'**
+  String get transportMode;
+
+  /// No description provided for @transportModeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how the app connects for realtime updates.'**
+  String get transportModeDescription;
+
+  /// No description provided for @mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Mode'**
+  String get mode;
+
+  /// No description provided for @transportModeAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto (Polling + WebSocket)'**
+  String get transportModeAuto;
+
+  /// No description provided for @transportModeWs.
+  ///
+  /// In en, this message translates to:
+  /// **'WebSocket only'**
+  String get transportModeWs;
+
+  /// No description provided for @transportModeAutoInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'More robust on restrictive networks. Upgrades to WebSocket when possible.'**
+  String get transportModeAutoInfo;
+
+  /// No description provided for @transportModeWsInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Lower overhead, but may fail behind strict proxies/firewalls.'**
+  String get transportModeWsInfo;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -727,4 +727,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String thoughtForDuration(String duration) {
     return 'Thought for $duration';
   }
+
+  @override
+  String get appCustomization => 'App Customization';
+
+  @override
+  String get appCustomizationSubtitle => 'Personalize how names and UI display';
+
+  @override
+  String get display => 'Display';
+
+  @override
+  String get realtime => 'Realtime';
+
+  @override
+  String get hideProviderInModelNames => 'Hide provider in model names';
+
+  @override
+  String get hideProviderInModelNamesDescription => 'Show names like \"gpt-4o\" instead of \"openai/gpt-4o\".';
+
+  @override
+  String get transportMode => 'Transport mode';
+
+  @override
+  String get transportModeDescription => 'Choose how the app connects for realtime updates.';
+
+  @override
+  String get mode => 'Mode';
+
+  @override
+  String get transportModeAuto => 'Auto (Polling + WebSocket)';
+
+  @override
+  String get transportModeWs => 'WebSocket only';
+
+  @override
+  String get transportModeAutoInfo => 'More robust on restrictive networks. Upgrades to WebSocket when possible.';
+
+  @override
+  String get transportModeWsInfo => 'Lower overhead, but may fail behind strict proxies/firewalls.';
 }

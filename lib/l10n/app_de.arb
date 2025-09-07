@@ -259,4 +259,18 @@
     "description": "Zeigt an, wie lange der Assistent nachgedacht hat.",
     "placeholders": {"duration": {"type": "String", "example": "3 s"}}
   }
+  ,
+  "appCustomization": "App-Anpassung",
+  "appCustomizationSubtitle": "Personalisieren, wie Namen und UI angezeigt werden",
+  "display": "Anzeige",
+  "realtime": "Echtzeit",
+  "hideProviderInModelNames": "Anbieter in Modellnamen ausblenden",
+  "hideProviderInModelNamesDescription": "Zeige Namen wie \"gpt-4o\" statt \"openai/gpt-4o\".",
+  "transportMode": "Transportmodus",
+  "transportModeDescription": "Wähle, wie die App für Echtzeit-Updates verbindet.",
+  "mode": "Modus",
+  "transportModeAuto": "Auto (Polling + WebSocket)",
+  "transportModeWs": "Nur WebSocket",
+  "transportModeAutoInfo": "Robuster in restriktiven Netzwerken. Wechselt nach Möglichkeit zu WebSocket.",
+  "transportModeWsInfo": "Geringerer Overhead, kann jedoch hinter strikten Proxys/Firewalls fehlschlagen."
 }

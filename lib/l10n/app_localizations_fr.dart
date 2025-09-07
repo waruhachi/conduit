@@ -727,4 +727,43 @@ class AppLocalizationsFr extends AppLocalizations {
   String thoughtForDuration(String duration) {
     return 'A réfléchi pendant $duration';
   }
+
+  @override
+  String get appCustomization => 'Personnalisation de l\'app';
+
+  @override
+  String get appCustomizationSubtitle => 'Personnalisez l\'affichage des noms et de l\'UI';
+
+  @override
+  String get display => 'Affichage';
+
+  @override
+  String get realtime => 'Temps réel';
+
+  @override
+  String get hideProviderInModelNames => 'Masquer le fournisseur dans les noms de modèles';
+
+  @override
+  String get hideProviderInModelNamesDescription => 'Afficher des noms comme \"gpt-4o\" au lieu de \"openai/gpt-4o\".';
+
+  @override
+  String get transportMode => 'Mode de transport';
+
+  @override
+  String get transportModeDescription => 'Choisissez comment l\'app se connecte pour les mises à jour en temps réel.';
+
+  @override
+  String get mode => 'Mode';
+
+  @override
+  String get transportModeAuto => 'Auto (Polling + WebSocket)';
+
+  @override
+  String get transportModeWs => 'WebSocket uniquement';
+
+  @override
+  String get transportModeAutoInfo => 'Plus robuste sur les réseaux restrictifs. Passe à WebSocket lorsque possible.';
+
+  @override
+  String get transportModeWsInfo => 'Moins de surcharge, mais peut échouer derrière des proxys/firewalls stricts.';
 }

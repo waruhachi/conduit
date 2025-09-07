@@ -259,4 +259,18 @@
     "description": "Indique la durée de réflexion de l'assistant.",
     "placeholders": {"duration": {"type": "String", "example": "3 s"}}
   }
+  ,
+  "appCustomization": "Personnalisation de l'app",
+  "appCustomizationSubtitle": "Personnalisez l'affichage des noms et de l'UI",
+  "display": "Affichage",
+  "realtime": "Temps réel",
+  "hideProviderInModelNames": "Masquer le fournisseur dans les noms de modèles",
+  "hideProviderInModelNamesDescription": "Afficher des noms comme \"gpt-4o\" au lieu de \"openai/gpt-4o\".",
+  "transportMode": "Mode de transport",
+  "transportModeDescription": "Choisissez comment l'app se connecte pour les mises à jour en temps réel.",
+  "mode": "Mode",
+  "transportModeAuto": "Auto (Polling + WebSocket)",
+  "transportModeWs": "WebSocket uniquement",
+  "transportModeAutoInfo": "Plus robuste sur les réseaux restrictifs. Passe à WebSocket lorsque possible.",
+  "transportModeWsInfo": "Moins de surcharge, mais peut échouer derrière des proxys/firewalls stricts."
 }

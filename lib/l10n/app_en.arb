@@ -283,4 +283,18 @@
     "description": "Shows how long the assistant thought before replying.",
     "placeholders": {"duration": {"type": "String", "example": "3s"}}
   }
+  ,
+  "appCustomization": "App Customization",
+  "appCustomizationSubtitle": "Personalize how names and UI display",
+  "display": "Display",
+  "realtime": "Realtime",
+  "hideProviderInModelNames": "Hide provider in model names",
+  "hideProviderInModelNamesDescription": "Show names like \"gpt-4o\" instead of \"openai/gpt-4o\".",
+  "transportMode": "Transport mode",
+  "transportModeDescription": "Choose how the app connects for realtime updates.",
+  "mode": "Mode",
+  "transportModeAuto": "Auto (Polling + WebSocket)",
+  "transportModeWs": "WebSocket only",
+  "transportModeAutoInfo": "More robust on restrictive networks. Upgrades to WebSocket when possible.",
+  "transportModeWsInfo": "Lower overhead, but may fail behind strict proxies/firewalls."
 }

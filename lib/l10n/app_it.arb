@@ -259,4 +259,18 @@
     "description": "Mostra per quanto tempo ha pensato l'assistente.",
     "placeholders": {"duration": {"type": "String", "example": "3 s"}}
   }
+  ,
+  "appCustomization": "Personalizzazione app",
+  "appCustomizationSubtitle": "Personalizza la visualizzazione dei nomi e dell'UI",
+  "display": "Schermo",
+  "realtime": "Tempo reale",
+  "hideProviderInModelNames": "Nascondi provider nei nomi dei modelli",
+  "hideProviderInModelNamesDescription": "Mostra nomi come \"gpt-4o\" invece di \"openai/gpt-4o\".",
+  "transportMode": "Modalità di trasporto",
+  "transportModeDescription": "Scegli come l'app si connette per gli aggiornamenti in tempo reale.",
+  "mode": "Modalità",
+  "transportModeAuto": "Auto (Polling + WebSocket)",
+  "transportModeWs": "Solo WebSocket",
+  "transportModeAutoInfo": "Più robusto nelle reti restrittive. Passa a WebSocket quando possibile.",
+  "transportModeWsInfo": "Minore overhead, ma può fallire dietro proxy/firewall restrittivi."
 }
