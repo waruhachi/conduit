@@ -4,7 +4,10 @@ projects:
     components:
       - name: Mobile App
         slug: app
-        # Weblate will use the repository connected via the UI.
+        # Repository configuration
+        repository: https://github.com/cogwheel0/conduit.git
+        push: git@github.com:cogwheel0/conduit.git
+        branch: main
         # Configure file discovery for Flutter ARB localization files.
         filemask: lib/l10n/app_*.arb
         template: lib/l10n/app_en.arb
@@ -14,6 +17,15 @@ projects:
         monolingual: true
         # Prefer PRs from Weblate instead of direct pushes
         pull_request: true
+        pull_request_title: "chore(l10n): {component} ({language_code})"
+        pull_request_body: |
+          Automated translation updates via Weblate for {component} ({language}).
+          
+          - Source: {project}
+          - Component: {component}
+          - Language: {language} ({language_code})
+          
+          This PR was generated automatically by Weblate.
+        commit_message: "chore(l10n): {component} ({language_code})"
         # Optional: auto-add new languages when enabled in Weblate
         add_new_languages: true
-

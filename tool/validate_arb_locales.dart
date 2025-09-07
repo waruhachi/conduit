@@ -6,7 +6,7 @@ import 'dart:io';
 /// - Ensures each non-meta key in EN exists in other locales.
 /// - Ensures placeholder names match between EN and other locales.
 /// - Reports unused keys (best-effort) by scanning lib/ for usages of
-///   AppLocalizations.of(context)!.<key>. Unused keys are WARNINGS by default.
+///   AppLocalizations.of(context)!.someKey. Unused keys are WARNINGS by default.
 ///
 /// Exit codes:
 ///   0 = success (no hard errors; warnings may be printed)
