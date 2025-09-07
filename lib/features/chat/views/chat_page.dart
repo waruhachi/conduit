@@ -925,6 +925,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     // Keyboard visibility
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    // Whether the messages list can actually scroll (avoids showing button when not needed)
+    final canScroll = _scrollController.hasClients &&
+        _scrollController.position.maxScrollExtent > 0;
 
     // Auto-select model when in reviewer mode with no selection
     if (isReviewerMode && selectedModel == null) {
@@ -1410,6 +1413,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   },
                   child: (_showScrollToBottom &&
                           !keyboardVisible &&
+                          canScroll &&
                           ref.watch(chatMessagesProvider).isNotEmpty)
                       ? Center(
                           key: const ValueKey('scroll_to_bottom_visible'),
