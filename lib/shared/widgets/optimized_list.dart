@@ -28,6 +28,7 @@ class OptimizedList<T> extends ConsumerStatefulWidget {
   final bool addRepaintBoundaries;
   final bool enablePagination;
   final double paginationThreshold;
+  final ScrollViewKeyboardDismissBehavior keyboardDismissBehavior;
 
   const OptimizedList({
     super.key,
@@ -53,6 +54,7 @@ class OptimizedList<T> extends ConsumerStatefulWidget {
     this.addRepaintBoundaries = true,
     this.enablePagination = false,
     this.paginationThreshold = 0.8,
+    this.keyboardDismissBehavior = ScrollViewKeyboardDismissBehavior.onDrag,
   });
 
   @override
@@ -142,6 +144,7 @@ class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
         controller: _scrollController,
         padding: widget.padding,
         physics: widget.physics ?? const AlwaysScrollableScrollPhysics(),
+        keyboardDismissBehavior: widget.keyboardDismissBehavior,
         shrinkWrap: widget.shrinkWrap,
         scrollDirection: widget.scrollDirection,
         reverse: widget.reverse,
@@ -163,6 +166,7 @@ class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
         controller: _scrollController,
         padding: widget.padding,
         physics: widget.physics ?? const AlwaysScrollableScrollPhysics(),
+        keyboardDismissBehavior: widget.keyboardDismissBehavior,
         shrinkWrap: widget.shrinkWrap,
         scrollDirection: widget.scrollDirection,
         reverse: widget.reverse,

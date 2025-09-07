@@ -21,6 +21,14 @@ import '../../chat/services/voice_input_service.dart';
 import '../../../shared/utils/platform_utils.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 
+class _SendMessageIntent extends Intent {
+  const _SendMessageIntent();
+}
+
+class _InsertNewlineIntent extends Intent {
+  const _InsertNewlineIntent();
+}
+
 class ModernChatInput extends ConsumerStatefulWidget {
   final Function(String) onSendMessage;
   final bool enabled;
@@ -166,7 +174,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   late AnimationController _expandController;
   late AnimationController _pulseController;
   Timer? _blurCollapseTimer;
-  bool _hasAutoFocusedOnce = false;
+  bool _pendingFocusAfterExpand = false;
   late VoiceInputService _voiceService;
   StreamSubscription<int>? _intensitySub;
   StreamSubscription<String>? _textSub;
@@ -185,6 +193,21 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       vsync: this,
       value: 1.0, // Start expanded
     );
+    _expandController.addStatusListener((status) {
+      if (!mounted || _isDeactivated) return;
+      if (_pendingFocusAfterExpand && status == AnimationStatus.completed) {
+        _pendingFocusAfterExpand = false;
+        // Focus and ensure IME shows reliably after expansion finishes
+        _ensureFocusedIfEnabled();
+        Future.microtask(() {
+          try {
+            if (_focusNode.hasFocus) {
+              SystemChannels.textInput.invokeMethod('TextInput.show');
+            }
+          } catch (_) {}
+        });
+      }
+    });
     _pulseController = AnimationController(
       duration: AnimationDuration.slow,
       vsync: this,
@@ -230,6 +253,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         if (hasFocus) {
           if (!_isExpanded) _setExpanded(true);
         } else {
+          // A blur occurred: ensure no pending auto-focus remains
+          _pendingFocusAfterExpand = false;
           // Defer collapse slightly to avoid IME show/hide race conditions
           _blurCollapseTimer = Timer(const Duration(milliseconds: 160), () {
             if (!mounted || _isDeactivated) return;
@@ -247,16 +272,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       });
     });
 
-    // Let autofocus handle the focus - no manual intervention
-    // The TextField's autofocus: true should handle focus and keyboard automatically
-    // Additionally, request focus after first frame to ensure reliability across platforms
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _isDeactivated) return;
-      if (!_hasAutoFocusedOnce && widget.enabled) {
-        _ensureFocusedIfEnabled();
-        _hasAutoFocusedOnce = true;
-      }
-    });
+    // Do not auto-focus on mount; only focus on explicit user intent
   }
 
   @override
@@ -299,14 +315,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   @override
   void didUpdateWidget(covariant ModernChatInput oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.enabled && !oldWidget.enabled && !_hasAutoFocusedOnce) {
-      // Became enabled (e.g., after selecting a model) → focus the input
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _isDeactivated) return;
-        _ensureFocusedIfEnabled();
-        _hasAutoFocusedOnce = true;
-      });
-    }
+    // Avoid auto-focusing when becoming enabled; wait for user intent
     if (!widget.enabled && oldWidget.enabled) {
       // Became disabled → collapse and hide keyboard
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -326,12 +335,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     PlatformUtils.lightHaptic();
     widget.onSendMessage(text);
     _controller.clear();
-    // After sending, dismiss keyboard and collapse input
-    if (_focusNode.hasFocus) {
-      _focusNode.unfocus();
-    }
-    // Ensure UI reflects empty state and collapses
-    _setExpanded(false);
+    // Keep focus and keyboard open; do not collapse automatically
   }
 
   void _setExpanded(bool expanded) {
@@ -344,6 +348,23 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     } else {
       _expandController.reverse();
     }
+  }
+
+  void _insertNewline() {
+    final text = _controller.text;
+    TextSelection sel = _controller.selection;
+    final int start = sel.isValid ? sel.start : text.length;
+    final int end = sel.isValid ? sel.end : text.length;
+    final String before = text.substring(0, start);
+    final String after = text.substring(end);
+    final String updated = '$before\n$after';
+    _controller.value = TextEditingValue(
+      text: updated,
+      selection: TextSelection.collapsed(offset: before.length + 1),
+      composing: TextRange.empty,
+    );
+    // Ensure field stays focused
+    _ensureFocusedIfEnabled();
   }
 
   @override
@@ -376,6 +397,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     final imageGenAvailable = ref.watch(imageGenerationAvailableProvider);
     final selectedQuickPills =
         ref.watch(appSettingsProvider.select((s) => s.quickPills));
+    final sendOnEnter = ref.watch(appSettingsProvider.select((s) => s.sendOnEnter));
     final toolsAsync = ref.watch(toolsListProvider);
     final List<Tool> availableTools = toolsAsync.maybeWhen<List<Tool>>(
       data: (t) => t,
@@ -389,18 +411,22 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       orElse: () => false,
     );
 
-    // React to external focus requests (e.g., from share prefill)
+    // React to external focus requests (e.g., from share prefill or startup)
     final focusTick = ref.watch(inputFocusTriggerProvider);
     if (focusTick != _lastHandledFocusTick) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _isDeactivated) return;
-        // Do not steal focus if another input currently has primary focus
-        final currentFocus = FocusManager.instance.primaryFocus;
-        final anotherHasFocus = currentFocus != null && currentFocus != _focusNode;
-        if (!anotherHasFocus) {
-          _ensureFocusedIfEnabled();
-          if (!_isExpanded) _setExpanded(true);
-        }
+        // Explicit request: always try to focus and show the keyboard
+        _ensureFocusedIfEnabled();
+        if (!_isExpanded) _setExpanded(true);
+        // Nudge the platform text input to show reliably on iOS/Android
+        Future.microtask(() {
+          try {
+            if (_focusNode.hasFocus) {
+              SystemChannels.textInput.invokeMethod('TextInput.show');
+            }
+          } catch (_) {}
+        });
         _lastHandledFocusTick = focusTick;
       });
     }
@@ -468,12 +494,31 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                               top: Spacing.inputPadding,
                               bottom: Spacing.inputPadding,
                             ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                if (!_isExpanded) ...[
-                                  _buildRoundButton(
-                                    icon: Icons.add,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () {
+                                if (!_isExpanded && widget.enabled) {
+                                  _pendingFocusAfterExpand = true;
+                                  _setExpanded(true);
+                                  WidgetsBinding.instance
+                                      .addPostFrameCallback((_) {
+                                    if (!mounted) return;
+                                    if (_pendingFocusAfterExpand) {
+                                      _ensureFocusedIfEnabled();
+                                      try {
+                                        SystemChannels.textInput
+                                            .invokeMethod('TextInput.show');
+                                      } catch (_) {}
+                                    }
+                                  });
+                                }
+                              },
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  if (!_isExpanded) ...[
+                                    _buildRoundButton(
+                                      icon: Icons.add,
                                     onTap: widget.enabled
                                         ? _showAttachmentOptions
                                         : null,
@@ -497,78 +542,125 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                     hint: AppLocalizations.of(
                                       context,
                                     )!.messageInputHint,
-                                    child: TextField(
-                                      controller: _controller,
-                                      focusNode: _focusNode,
-                                      enabled: widget.enabled,
-                                      autofocus: false,
-                                      maxLines: _isExpanded ? null : 1,
-                                      keyboardType: TextInputType.multiline,
-                                      textCapitalization:
-                                          TextCapitalization.sentences,
-                                      textInputAction: TextInputAction.newline,
-                                      showCursor: true,
-                                      cursorColor:
-                                          context.conduitTheme.inputText,
-                                      style: AppTypography.chatMessageStyle
-                                          .copyWith(
-                                            color: _isRecording
-                                                ? context
-                                                      .conduitTheme
-                                                      .inputPlaceholder
-                                                : context
-                                                      .conduitTheme
-                                                      .inputText,
-                                            fontStyle: _isRecording
-                                                ? FontStyle.italic
-                                                : FontStyle.normal,
-                                            fontWeight: _isRecording
-                                                ? FontWeight.w500
-                                                : FontWeight.w400,
+                                    child: Shortcuts(
+                                      shortcuts: () {
+                                        final map = <LogicalKeySet, Intent>{
+                                          LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.enter): const _SendMessageIntent(),
+                                          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.enter): const _SendMessageIntent(),
+                                        };
+                                        if (sendOnEnter) {
+                                          map[LogicalKeySet(LogicalKeyboardKey.enter)] = const _SendMessageIntent();
+                                          map[LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.enter)] = const _InsertNewlineIntent();
+                                        }
+                                        return map;
+                                      }(),
+                                      child: Actions(
+                                        actions: <Type, Action<Intent>>{
+                                          _SendMessageIntent: CallbackAction<_SendMessageIntent>(
+                                            onInvoke: (intent) {
+                                              _sendMessage();
+                                              return null;
+                                            },
                                           ),
-                                      decoration: InputDecoration(
-                                        hintText: AppLocalizations.of(
-                                          context,
-                                        )!.messageHintText,
-                                        hintStyle: TextStyle(
-                                          color: context
-                                              .conduitTheme
-                                              .inputPlaceholder,
-                                          fontSize: AppTypography.bodyLarge,
-                                          fontWeight: _isRecording
-                                              ? FontWeight.w500
-                                              : FontWeight.w400,
-                                          fontStyle: _isRecording
-                                              ? FontStyle.italic
-                                              : FontStyle.normal,
-                                        ),
-                                        // Ensure the text field background matches its parent container
-                                        // and does not use the global InputDecorationTheme fill
-                                        filled: false,
-                                        border: InputBorder.none,
-                                        enabledBorder: InputBorder.none,
-                                        focusedBorder: InputBorder.none,
-                                        errorBorder: InputBorder.none,
-                                        disabledBorder: InputBorder.none,
-                                        contentPadding: EdgeInsets.zero,
-                                        isDense: true,
-                                        alignLabelWithHint: true,
-                                      ),
-                                      // Removed onChanged setState to reduce rebuilds
-                                      onSubmitted: (_) => _sendMessage(),
+                                          _InsertNewlineIntent: CallbackAction<_InsertNewlineIntent>(
+                                            onInvoke: (intent) {
+                                              _insertNewline();
+                                              return null;
+                                            },
+                                          ),
+                                        },
+                                        child: TextField(
+                                          controller: _controller,
+                                          focusNode: _focusNode,
+                                          enabled: widget.enabled,
+                                          autofocus: false,
+                                          maxLines: _isExpanded ? null : 1,
+                                          keyboardType: TextInputType.multiline,
+                                          textCapitalization:
+                                              TextCapitalization.sentences,
+                                          textInputAction: sendOnEnter
+                                              ? TextInputAction.send
+                                              : TextInputAction.newline,
+                                          showCursor: true,
+                                          scrollPadding: const EdgeInsets.only(bottom: 80),
+                                          keyboardAppearance: Theme.of(context).brightness,
+                                          cursorColor:
+                                              context.conduitTheme.inputText,
+                                          style: AppTypography.chatMessageStyle
+                                              .copyWith(
+                                                color: _isRecording
+                                                    ? context
+                                                          .conduitTheme
+                                                          .inputPlaceholder
+                                                    : context
+                                                          .conduitTheme
+                                                          .inputText,
+                                                fontStyle: _isRecording
+                                                    ? FontStyle.italic
+                                                    : FontStyle.normal,
+                                                fontWeight: _isRecording
+                                                    ? FontWeight.w500
+                                                    : FontWeight.w400,
+                                              ),
+                                          decoration: InputDecoration(
+                                            hintText: AppLocalizations.of(
+                                              context,
+                                            )!.messageHintText,
+                                            hintStyle: TextStyle(
+                                              color: context
+                                                  .conduitTheme
+                                                  .inputPlaceholder,
+                                              fontSize: AppTypography.bodyLarge,
+                                              fontWeight: _isRecording
+                                                  ? FontWeight.w500
+                                                  : FontWeight.w400,
+                                              fontStyle: _isRecording
+                                                  ? FontStyle.italic
+                                                  : FontStyle.normal,
+                                            ),
+                                            // Ensure the text field background matches its parent container
+                                            // and does not use the global InputDecorationTheme fill
+                                            filled: false,
+                                            border: InputBorder.none,
+                                            enabledBorder: InputBorder.none,
+                                            focusedBorder: InputBorder.none,
+                                            errorBorder: InputBorder.none,
+                                            disabledBorder: InputBorder.none,
+                                            contentPadding: EdgeInsets.zero,
+                                            isDense: true,
+                                            alignLabelWithHint: true,
+                                          ),
+                                          // Send on Enter when enabled; otherwise keep newline behavior
+                                          onSubmitted: (_) {
+                                            if (sendOnEnter) _sendMessage();
+                                          },
                                       onTap: () {
                                         if (!widget.enabled) return;
                                         if (!_isExpanded) {
+                                          _pendingFocusAfterExpand = true;
                                           _setExpanded(true);
+                                          // Fallback in case animation is skipped
                                           WidgetsBinding.instance
                                               .addPostFrameCallback((_) {
-                                                if (!mounted) return;
-                                                _ensureFocusedIfEnabled();
-                                              });
+                                            if (!mounted) return;
+                                            if (_pendingFocusAfterExpand) {
+                                              _ensureFocusedIfEnabled();
+                                              try {
+                                                SystemChannels.textInput
+                                                    .invokeMethod('TextInput.show');
+                                              } catch (_) {}
+                                            }
+                                          });
                                         } else {
                                           _ensureFocusedIfEnabled();
+                                          try {
+                                            SystemChannels.textInput
+                                                .invokeMethod('TextInput.show');
+                                          } catch (_) {}
                                         }
                                       },
+                                    ),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -582,6 +674,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                   ),
                                 ],
                               ],
+                              ),
                             ),
                           ),
 
@@ -1192,6 +1285,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
   void _showAttachmentOptions() {
     HapticFeedback.selectionClick();
+    final prevCanRequest = _focusNode.canRequestFocus;
+    _focusNode.canRequestFocus = false;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1263,16 +1358,26 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
           ],
         ),
       ),
-    );
+    ).whenComplete(() {
+      if (mounted) {
+        _focusNode.canRequestFocus = prevCanRequest;
+      }
+    });
   }
 
   void _showUnifiedToolsModal() {
     HapticFeedback.selectionClick();
+    final prevCanRequest = _focusNode.canRequestFocus;
+    _focusNode.canRequestFocus = false;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => const UnifiedToolsModal(),
-    );
+    ).whenComplete(() {
+      if (mounted) {
+        _focusNode.canRequestFocus = prevCanRequest;
+      }
+    });
   }
 
   // --- Inline Voice Input ---

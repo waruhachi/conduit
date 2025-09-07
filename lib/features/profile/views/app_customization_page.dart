@@ -388,6 +388,62 @@ class AppCustomizationPage extends ConsumerWidget {
             ),
 
             const SizedBox(height: Spacing.lg),
+            // Chat input behavior
+            Text(
+              'Chat',
+              style: context.conduitTheme.headingSmall?.copyWith(
+                color: context.conduitTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: Spacing.md),
+            ConduitCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: Spacing.listItemPadding,
+                      vertical: Spacing.sm,
+                    ),
+                    leading: Container(
+                      padding: const EdgeInsets.all(Spacing.sm),
+                      decoration: BoxDecoration(
+                        color: context.conduitTheme.buttonPrimary
+                            .withValues(alpha: Alpha.highlight),
+                        borderRadius: BorderRadius.circular(AppBorderRadius.small),
+                      ),
+                      child: Icon(
+                        Platform.isIOS
+                            ? CupertinoIcons.paperplane
+                            : Icons.keyboard_return,
+                        color: context.conduitTheme.buttonPrimary,
+                        size: IconSize.medium,
+                      ),
+                    ),
+                    title: Text(
+                      'Send on Enter',
+                      style: context.conduitTheme.bodyLarge?.copyWith(
+                        color: context.conduitTheme.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Enter sends (soft keyboard). Cmd/Ctrl+Enter also available',
+                      style: context.conduitTheme.bodySmall?.copyWith(
+                        color: context.conduitTheme.textSecondary,
+                      ),
+                    ),
+                    trailing: Switch.adaptive(
+                      value: settings.sendOnEnter,
+                      onChanged: (v) =>
+                          ref.read(appSettingsProvider.notifier).setSendOnEnter(v),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: Spacing.lg),
             Text(
               AppLocalizations.of(context)!.realtime,
               style: context.conduitTheme.headingSmall?.copyWith(

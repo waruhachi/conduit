@@ -56,6 +56,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   Timer? _scrollDebounceTimer;
   bool _isDeactivated = false;
   double _inputHeight = 0; // dynamic input height to position scroll button
+  bool _lastKeyboardVisible = false; // track keyboard visibility transitions
+  bool _didStartupFocus = false; // one-time auto-focus on startup
 
   String _formatModelDisplayName(
     String name, {
@@ -607,7 +609,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   Widget _buildLoadingMessagesList() {
     return ListView.builder(
       key: const ValueKey('loading_messages'),
-      controller: _scrollController,
+      // Do not reuse the primary scroll controller here to avoid
+      // attaching the same controller to multiple lists during
+      // AnimatedSwitcher transitions.
+      controller: null,
       padding: const EdgeInsets.fromLTRB(
         Spacing.lg,
         Spacing.md,
@@ -929,6 +934,21 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final canScroll = _scrollController.hasClients &&
         _scrollController.position.maxScrollExtent > 0;
 
+    // On keyboard open, if already near bottom, auto-scroll to bottom to keep input visible
+    if (keyboardVisible && !_lastKeyboardVisible) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_scrollController.hasClients) {
+          final maxScroll = _scrollController.position.maxScrollExtent;
+          final currentScroll = _scrollController.position.pixels;
+          if (maxScroll - currentScroll < 300) {
+            _scrollToBottom(smooth: true);
+          }
+        }
+      });
+    }
+    _lastKeyboardVisible = keyboardVisible;
+
     // Auto-select model when in reviewer mode with no selection
     if (isReviewerMode && selectedModel == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -936,11 +956,35 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       });
     }
 
+    // Focus composer on app startup once, when a model is selected
+    if (!_didStartupFocus && selectedModel != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final current = ref.read(inputFocusTriggerProvider);
+        // Immediate focus bump
+        ref.read(inputFocusTriggerProvider.notifier).state = current + 1;
+        // Second bump shortly after to overcome route/IME timing
+        Future.delayed(const Duration(milliseconds: 120), () {
+          if (!mounted) return;
+          final cur2 = ref.read(inputFocusTriggerProvider);
+          ref.read(inputFocusTriggerProvider.notifier).state = cur2 + 1;
+        });
+      });
+      _didStartupFocus = true;
+    }
+
     return ErrorBoundary(
       child: PopScope(
         canPop: false,
         onPopInvokedWithResult: (bool didPop, Object? result) async {
           if (didPop) return;
+
+          // First, if any input has focus, clear focus and consume back press
+          final currentFocus = FocusManager.instance.primaryFocus;
+          if (currentFocus != null && currentFocus.hasFocus) {
+            currentFocus.unfocus();
+            return;
+          }
 
           // Auto-handle leaving without confirmation
           final messages = ref.read(chatMessagesProvider);
@@ -1312,8 +1356,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               ],
             ],
           ),
-          body: Stack(
-            children: [
+          body: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              try {
+                SystemChannels.textInput.invokeMethod('TextInput.hide');
+              } catch (_) {}
+            },
+            child: Stack(
+              children: [
               Column(
                 children: [
                   // Messages Area with pull-to-refresh
@@ -1347,8 +1399,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       },
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onTap: () =>
-                            FocusManager.instance.primaryFocus?.unfocus(),
+                        onTap: () {
+                          FocusManager.instance.primaryFocus?.unfocus();
+                          try {
+                            SystemChannels.textInput.invokeMethod('TextInput.hide');
+                          } catch (_) {}
+                        },
                         child: RepaintBoundary(
                           child: _buildMessagesList(theme),
                         ),
@@ -1462,7 +1518,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 ),
               ),
               // Edge overlay removed; rely on native interactive drawer drag
-            ],
+              ],
+            ),
           ),
         ), // Scaffold
       ), // PopScope

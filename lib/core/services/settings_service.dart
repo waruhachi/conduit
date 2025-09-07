@@ -23,6 +23,8 @@ class SettingsService {
   static const String _socketTransportModeKey = 'socket_transport_mode'; // 'auto' or 'ws'
   // Quick pill visibility selections (max 2)
   static const String _quickPillsKey = 'quick_pills'; // StringList of identifiers e.g. ['web','image','tools']
+  // Chat input behavior
+  static const String _sendOnEnterKey = 'send_on_enter';
 
   /// Get reduced motion preference
   static Future<bool> getReduceMotion() async {
@@ -139,6 +141,7 @@ class SettingsService {
       voiceAutoSendFinal: await getVoiceAutoSendFinal(),
       socketTransportMode: await getSocketTransportMode(),
       quickPills: await getQuickPills(),
+      sendOnEnter: await getSendOnEnter(),
     );
   }
 
@@ -158,6 +161,7 @@ class SettingsService {
       setVoiceAutoSendFinal(settings.voiceAutoSendFinal),
       setSocketTransportMode(settings.socketTransportMode),
       setQuickPills(settings.quickPills),
+      setSendOnEnter(settings.sendOnEnter),
     ]);
   }
 
@@ -223,6 +227,17 @@ class SettingsService {
     await prefs.setStringList(_quickPillsKey, pills.take(2).toList());
   }
 
+  // Chat input behavior
+  static Future<bool> getSendOnEnter() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_sendOnEnterKey) ?? false;
+  }
+
+  static Future<void> setSendOnEnter(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_sendOnEnterKey, value);
+  }
+
   /// Get effective animation duration considering all settings
   static Duration getEffectiveAnimationDuration(
     BuildContext context,
@@ -278,6 +293,7 @@ class AppSettings {
   final bool voiceAutoSendFinal;
   final String socketTransportMode; // 'auto' or 'ws'
   final List<String> quickPills; // e.g., ['web','image']
+  final bool sendOnEnter;
 
   const AppSettings({
     this.reduceMotion = false,
@@ -293,6 +309,7 @@ class AppSettings {
     this.voiceAutoSendFinal = false,
     this.socketTransportMode = 'ws',
     this.quickPills = const [],
+    this.sendOnEnter = false,
   });
 
   AppSettings copyWith({
@@ -309,6 +326,7 @@ class AppSettings {
     bool? voiceAutoSendFinal,
     String? socketTransportMode,
     List<String>? quickPills,
+    bool? sendOnEnter,
   }) {
     return AppSettings(
       reduceMotion: reduceMotion ?? this.reduceMotion,
@@ -324,6 +342,7 @@ class AppSettings {
       voiceAutoSendFinal: voiceAutoSendFinal ?? this.voiceAutoSendFinal,
       socketTransportMode: socketTransportMode ?? this.socketTransportMode,
       quickPills: quickPills ?? this.quickPills,
+      sendOnEnter: sendOnEnter ?? this.sendOnEnter,
     );
   }
 
@@ -342,6 +361,7 @@ class AppSettings {
         other.voiceLocaleId == voiceLocaleId &&
         other.voiceHoldToTalk == voiceHoldToTalk &&
         other.voiceAutoSendFinal == voiceAutoSendFinal &&
+        other.sendOnEnter == sendOnEnter &&
         _listEquals(other.quickPills, quickPills);
         // socketTransportMode intentionally not included in == to avoid frequent rebuilds
   }
@@ -361,6 +381,7 @@ class AppSettings {
       voiceHoldToTalk,
       voiceAutoSendFinal,
       socketTransportMode,
+      sendOnEnter,
       Object.hashAllUnordered(quickPills),
     );
   }
@@ -456,6 +477,11 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
     final filtered = pills.take(2).toList();
     state = state.copyWith(quickPills: filtered);
     await SettingsService.setQuickPills(filtered);
+  }
+
+  Future<void> setSendOnEnter(bool value) async {
+    state = state.copyWith(sendOnEnter: value);
+    await SettingsService.setSendOnEnter(value);
   }
 
   Future<void> resetToDefaults() async {
