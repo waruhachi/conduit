@@ -79,6 +79,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     if (Platform.isIOS) {
       // Use Cupertino-style pull-to-refresh on iOS
       final scroll = CustomScrollView(
+        key: const PageStorageKey<String>('chats_drawer_scroll'),
         controller: _listController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
@@ -100,6 +101,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       child: Scrollbar(
         controller: _listController,
         child: ListView(
+          key: const PageStorageKey<String>('chats_drawer_scroll'),
           controller: _listController,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: padding,
@@ -1604,69 +1606,99 @@ class _ConversationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.conduitTheme;
-    return Material(
-      color: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        side: BorderSide(
-          color: selected
-              ? theme.buttonPrimary.withValues(alpha: 0.5)
-              : theme.dividerColor,
-          width: BorderWidth.regular,
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        onTap: isLoading ? null : onTap,
-        onLongPress: onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.md,
-            vertical: Spacing.sm,
+    final Color selectedBackground =
+        theme.buttonPrimary.withValues(alpha: 0.10); // subtle highlight
+    final Color selectedBorder = theme.buttonPrimary.withValues(alpha: 0.60);
+
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected ? selectedBackground : Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          side: BorderSide(
+            color: selected ? selectedBorder : theme.dividerColor,
+            width: BorderWidth.regular,
           ),
-          child: Row(
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          onTap: isLoading ? null : onTap,
+          onLongPress: onLongPress,
+          child: Stack(
             children: [
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.standard.copyWith(
-                    color: theme.textPrimary,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              // Left accent bar for active conversation
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOut,
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  width: selected ? 3.0 : 0.0,
+                  decoration: BoxDecoration(
+                    color: theme.buttonPrimary,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(AppBorderRadius.md),
+                      bottomLeft: Radius.circular(AppBorderRadius.md),
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: Spacing.xs),
-              if (isLoading)
-                SizedBox(
-                  width: IconSize.sm,
-                  height: IconSize.sm,
-                  child: CircularProgressIndicator(
-                    strokeWidth: BorderWidth.medium,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      theme.loadingIndicator,
-                    ),
-                  ),
-                )
-              else if (onMorePressed != null)
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: TouchTarget.listItem,
-                    minHeight: TouchTarget.listItem,
-                  ),
-                  icon: Icon(
-                    Platform.isIOS
-                        ? CupertinoIcons.ellipsis
-                        : Icons.more_vert_rounded,
-                    color: theme.iconSecondary,
-                    size: IconSize.listItem,
-                  ),
-                  onPressed: onMorePressed,
-                  tooltip: AppLocalizations.of(context)!.more,
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.md,
+                  vertical: Spacing.sm,
                 ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.standard.copyWith(
+                          color: theme.textPrimary,
+                          fontWeight:
+                              selected ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: Spacing.xs),
+                    if (isLoading)
+                      SizedBox(
+                        width: IconSize.sm,
+                        height: IconSize.sm,
+                        child: CircularProgressIndicator(
+                          strokeWidth: BorderWidth.medium,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            theme.loadingIndicator,
+                          ),
+                        ),
+                      )
+                    else if (onMorePressed != null)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: TouchTarget.listItem,
+                          minHeight: TouchTarget.listItem,
+                        ),
+                        icon: Icon(
+                          Platform.isIOS
+                              ? CupertinoIcons.ellipsis
+                              : Icons.more_vert_rounded,
+                          color: theme.iconSecondary,
+                          size: IconSize.listItem,
+                        ),
+                        onPressed: onMorePressed,
+                        tooltip: AppLocalizations.of(context)!.more,
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
