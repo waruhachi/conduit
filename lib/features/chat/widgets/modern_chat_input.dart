@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'dart:io' show Platform;
 import 'dart:async';
+import 'dart:math' as math;
 import '../providers/chat_providers.dart';
 import '../../tools/widgets/unified_tools_modal.dart';
 import '../../tools/providers/tools_providers.dart';
@@ -597,83 +598,123 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                       iconSize: IconSize.large + 2.0,
                                     ),
                                     const SizedBox(width: Spacing.xs),
-                                    // Quick pills: no scroll, clip text within fixed max width
+                                    // Quick pills: expand to full text when space allows
                                     Expanded(
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            flex: 2,
-                                            child: _buildPillButton(
+                                      child: LayoutBuilder(
+                                        builder: (context, constraints) {
+                                          final double total = constraints.maxWidth;
+                                          const double toolsWidth = TouchTarget.comfortable;
+                                          const double gapBeforeTools = Spacing.xs;
+                                          final double gapBetweenPills = imageGenAvailable ? Spacing.xs : 0;
+
+                                          final double availableForPills =
+                                              math.max(0.0, total - toolsWidth - gapBeforeTools);
+
+                                          // Measure natural widths (text + horizontal padding)
+                                          final textStyle = AppTypography.labelStyle;
+                                          const double horizontalPadding = Spacing.md * 2;
+
+                                          String webLabel = AppLocalizations.of(context)!.web;
+                                          final webTp = TextPainter(
+                                            text: TextSpan(text: webLabel, style: textStyle),
+                                            maxLines: 1,
+                                            textDirection: Directionality.of(context),
+                                          )..layout();
+                                          final double webNatural = webTp.width + horizontalPadding;
+
+                                          double imageNatural = 0;
+                                          if (imageGenAvailable) {
+                                            final imgLabel = AppLocalizations.of(context)!.imageGen;
+                                            final imgTp = TextPainter(
+                                              text: TextSpan(text: imgLabel, style: textStyle),
+                                              maxLines: 1,
+                                              textDirection: Directionality.of(context),
+                                            )..layout();
+                                            imageNatural = imgTp.width + horizontalPadding;
+                                          }
+
+                                          List<Widget> rowChildren = [];
+
+                                          Widget webPill = _buildPillButton(
+                                            icon: Platform.isIOS
+                                                ? CupertinoIcons.search
+                                                : Icons.search,
+                                            label: webLabel,
+                                            isActive: webSearchEnabled,
+                                            onTap: widget.enabled && !_isRecording
+                                                ? () {
+                                                    ref.read(
+                                                      webSearchEnabledProvider.notifier,
+                                                    ).state = !webSearchEnabled;
+                                                  }
+                                                : null,
+                                          );
+
+                                          if (!imageGenAvailable) {
+                                            if (webNatural <= availableForPills) {
+                                              rowChildren.add(webPill);
+                                            } else {
+                                              rowChildren.add(Flexible(fit: FlexFit.loose, child: webPill));
+                                            }
+                                          } else {
+                                            Widget imagePill = _buildPillButton(
                                               icon: Platform.isIOS
-                                                  ? CupertinoIcons.search
-                                                  : Icons.search,
-                                              label: AppLocalizations.of(
-                                                context,
-                                              )!.web,
-                                              isActive: webSearchEnabled,
-                                              onTap:
-                                                  widget.enabled &&
-                                                      !_isRecording
+                                                  ? CupertinoIcons.photo
+                                                  : Icons.image,
+                                              label: AppLocalizations.of(context)!.imageGen,
+                                              isActive: imageGenEnabled,
+                                              onTap: widget.enabled && !_isRecording
                                                   ? () {
-                                                      ref
-                                                              .read(
-                                                                webSearchEnabledProvider
-                                                                    .notifier,
-                                                              )
-                                                              .state =
-                                                          !webSearchEnabled;
+                                                      ref.read(
+                                                        imageGenerationEnabledProvider.notifier,
+                                                      ).state = !imageGenEnabled;
                                                     }
                                                   : null,
-                                            ),
-                                          ),
-                                          if (imageGenAvailable) ...[
-                                            const SizedBox(width: Spacing.xs),
-                                            Expanded(
-                                              flex: 3,
-                                              child: _buildPillButton(
-                                                icon: Platform.isIOS
-                                                    ? CupertinoIcons.photo
-                                                    : Icons.image,
-                                                label: AppLocalizations.of(
-                                                  context,
-                                                )!.imageGen,
-                                                isActive: imageGenEnabled,
-                                                onTap:
-                                                    widget.enabled &&
-                                                        !_isRecording
-                                                    ? () {
-                                                        ref
-                                                                .read(
-                                                                  imageGenerationEnabledProvider
-                                                                      .notifier,
-                                                                )
-                                                                .state =
-                                                            !imageGenEnabled;
-                                                      }
-                                                    : null,
-                                              ),
-                                            ),
-                                          ],
-                                          const SizedBox(width: Spacing.xs),
-                                          _buildRoundButton(
-                                            icon: Icons.more_horiz,
-                                            onTap:
-                                                widget.enabled && !_isRecording
-                                                ? _showUnifiedToolsModal
-                                                : null,
-                                            tooltip: AppLocalizations.of(
-                                              context,
-                                            )!.tools,
-                                            isActive:
-                                                ref
-                                                    .watch(
-                                                      selectedToolIdsProvider,
-                                                    )
-                                                    .isNotEmpty ||
-                                                webSearchEnabled ||
-                                                imageGenEnabled,
-                                          ),
-                                        ],
+                                            );
+
+                                            final double combined = webNatural + gapBetweenPills + imageNatural;
+                                            if (combined <= availableForPills) {
+                                              // Both fit naturally
+                                              rowChildren..add(webPill)..add(const SizedBox(width: Spacing.xs))..add(imagePill);
+                                            } else if (webNatural < availableForPills) {
+                                              // Keep web natural, let image take remaining
+                                              rowChildren
+                                                ..add(webPill)
+                                                ..add(const SizedBox(width: Spacing.xs))
+                                                ..add(Flexible(fit: FlexFit.loose, child: imagePill));
+                                            } else if (imageNatural < availableForPills) {
+                                              // Keep image natural, let web take remaining
+                                              rowChildren
+                                                ..add(Flexible(fit: FlexFit.loose, child: webPill))
+                                                ..add(const SizedBox(width: Spacing.xs))
+                                                ..add(imagePill);
+                                            } else {
+                                              // Both too large: apportion space proportional to their natural widths
+                                              final int webFlex = math.max(1, webNatural.round());
+                                              final int imgFlex = math.max(1, imageNatural.round());
+                                              rowChildren
+                                                ..add(Flexible(fit: FlexFit.loose, flex: webFlex, child: webPill))
+                                                ..add(const SizedBox(width: Spacing.xs))
+                                                ..add(Flexible(fit: FlexFit.loose, flex: imgFlex, child: imagePill));
+                                            }
+                                          }
+
+                                          // Append tools button at the end
+                                          rowChildren
+                                            ..add(const SizedBox(width: Spacing.xs))
+                                            ..add(_buildRoundButton(
+                                              icon: Icons.more_horiz,
+                                              onTap: widget.enabled && !_isRecording
+                                                  ? _showUnifiedToolsModal
+                                                  : null,
+                                              tooltip: AppLocalizations.of(context)!.tools,
+                                              isActive: ref.watch(selectedToolIdsProvider).isNotEmpty ||
+                                                  webSearchEnabled ||
+                                                  imageGenEnabled,
+                                            ));
+
+                                          return Row(children: rowChildren);
+                                        },
                                       ),
                                     ),
                                     const SizedBox(width: Spacing.xs),
@@ -1014,34 +1055,70 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                 HapticFeedback.selectionClick();
                 onTap();
               },
-        child: Container(
-          height: TouchTarget.comfortable, // exact height match
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-          decoration: BoxDecoration(
-            // Subtle primary tint when active for clearer affordance
-            color: isActive
-                ? context.conduitTheme.buttonPrimary.withValues(
-                    alpha: Alpha.buttonHover + 0.04,
-                  )
-                : context.conduitTheme.cardBackground,
-            borderRadius: BorderRadius.circular(AppBorderRadius.xl),
-            // No elevation to match modal chips
-            boxShadow: ConduitShadows.button,
-          ),
-          child: Center(
-            child: Text(
-              label,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final textStyle = AppTypography.labelStyle.copyWith(
+              color: isActive
+                  ? context.conduitTheme.buttonPrimary
+                  : context.conduitTheme.textPrimary,
+            );
+
+            // Measure natural single-line text width
+            final textPainter = TextPainter(
+              text: TextSpan(text: label, style: textStyle),
               maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
-              style: AppTypography.labelStyle.copyWith(
+              textDirection: Directionality.of(context),
+            )..layout();
+
+            const double horizontalPadding = Spacing.md * 2;
+            final double naturalWidth = textPainter.width + horizontalPadding;
+            final double maxAllowed = constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : naturalWidth;
+            final double finalWidth = math.min(naturalWidth, maxAllowed);
+            final bool needsClamp = naturalWidth > maxAllowed;
+
+            final double innerTextWidth = math.max(0.0, finalWidth - horizontalPadding);
+
+            return Container(
+              width: finalWidth,
+              height: TouchTarget.comfortable, // exact height match
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+              decoration: BoxDecoration(
+                // Subtle primary tint when active for clearer affordance
                 color: isActive
-                    ? context.conduitTheme.buttonPrimary
-                    : context.conduitTheme.textPrimary,
+                    ? context.conduitTheme.buttonPrimary.withValues(
+                        alpha: Alpha.buttonHover + 0.04,
+                      )
+                    : context.conduitTheme.cardBackground,
+                borderRadius: BorderRadius.circular(AppBorderRadius.xl),
+                // No elevation to match modal chips
+                boxShadow: ConduitShadows.button,
               ),
-            ),
-          ),
+              child: Center(
+                child: needsClamp
+                    ? SizedBox(
+                        width: innerTextWidth,
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
+                          textAlign: TextAlign.center,
+                          style: textStyle,
+                        ),
+                      )
+                    : Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                        textAlign: TextAlign.center,
+                        style: textStyle,
+                      ),
+              ),
+            );
+          },
         ),
       ),
     );
