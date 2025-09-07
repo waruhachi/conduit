@@ -250,6 +250,10 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _isDeactivated) return;
         final hasFocus = _focusNode.hasFocus;
+        // Publish composer focus state
+        try {
+          ref.read(composerHasFocusProvider.notifier).state = hasFocus;
+        } catch (_) {}
         if (hasFocus) {
           if (!_isExpanded) _setExpanded(true);
         } else {
@@ -277,6 +281,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
   @override
   void dispose() {
+    try {
+      ref.read(composerHasFocusProvider.notifier).state = false;
+    } catch (_) {}
     _controller.dispose();
     _focusNode.dispose();
     _expandController.dispose();
@@ -1286,7 +1293,13 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   void _showAttachmentOptions() {
     HapticFeedback.selectionClick();
     final prevCanRequest = _focusNode.canRequestFocus;
+    final wasFocused = _focusNode.hasFocus;
     _focusNode.canRequestFocus = false;
+    // Ensure keyboard is closed before presenting modal
+    try {
+      FocusScope.of(context).unfocus();
+      SystemChannels.textInput.invokeMethod('TextInput.hide');
+    } catch (_) {}
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1361,6 +1374,16 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     ).whenComplete(() {
       if (mounted) {
         _focusNode.canRequestFocus = prevCanRequest;
+        if (wasFocused && widget.enabled) {
+          if (!_isExpanded) _setExpanded(true);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _ensureFocusedIfEnabled();
+            try {
+              SystemChannels.textInput.invokeMethod('TextInput.show');
+            } catch (_) {}
+          });
+        }
       }
     });
   }
@@ -1368,7 +1391,13 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   void _showUnifiedToolsModal() {
     HapticFeedback.selectionClick();
     final prevCanRequest = _focusNode.canRequestFocus;
+    final wasFocused = _focusNode.hasFocus;
     _focusNode.canRequestFocus = false;
+    // Ensure keyboard is closed before presenting modal
+    try {
+      FocusScope.of(context).unfocus();
+      SystemChannels.textInput.invokeMethod('TextInput.hide');
+    } catch (_) {}
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1376,6 +1405,16 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     ).whenComplete(() {
       if (mounted) {
         _focusNode.canRequestFocus = prevCanRequest;
+        if (wasFocused && widget.enabled) {
+          if (!_isExpanded) _setExpanded(true);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _ensureFocusedIfEnabled();
+            try {
+              SystemChannels.textInput.invokeMethod('TextInput.show');
+            } catch (_) {}
+          });
+        }
       }
     });
   }

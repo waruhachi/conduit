@@ -1533,12 +1533,25 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     WidgetRef ref,
     List<Model> models,
   ) {
+    // Ensure keyboard is closed before presenting modal
+    final hadFocus = ref.read(composerHasFocusProvider);
+    try {
+      FocusManager.instance.primaryFocus?.unfocus();
+      SystemChannels.textInput.invokeMethod('TextInput.hide');
+    } catch (_) {}
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _ModelSelectorSheet(models: models, ref: ref),
-    );
+    ).whenComplete(() {
+      if (!mounted) return;
+      if (hadFocus) {
+        // Bump focus trigger to restore composer focus + IME
+        final cur = ref.read(inputFocusTriggerProvider);
+        ref.read(inputFocusTriggerProvider.notifier).state = cur + 1;
+      }
+    });
   }
 
   // TODO: Implement chat options when needed

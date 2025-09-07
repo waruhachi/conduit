@@ -36,6 +36,9 @@ final prefilledInputTextProvider = StateProvider<String?>((ref) => null);
 // Trigger to request focus on the chat input (increment to signal)
 final inputFocusTriggerProvider = StateProvider<int>((ref) => 0);
 
+// Whether the chat composer currently has focus
+final composerHasFocusProvider = StateProvider<bool>((ref) => false);
+
 class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
   final Ref _ref;
   StreamSubscription? _messageStream;
