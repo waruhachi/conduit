@@ -13,7 +13,9 @@ import 'dart:math' as math;
 import '../providers/chat_providers.dart';
 import '../../tools/widgets/unified_tools_modal.dart';
 import '../../tools/providers/tools_providers.dart';
+import '../../../core/models/tool.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/services/settings_service.dart';
 import '../../chat/services/voice_input_service.dart';
 
 import '../../../shared/utils/platform_utils.dart';
@@ -372,6 +374,15 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     final webSearchEnabled = ref.watch(webSearchEnabledProvider);
     final imageGenEnabled = ref.watch(imageGenerationEnabledProvider);
     final imageGenAvailable = ref.watch(imageGenerationAvailableProvider);
+    final selectedQuickPills =
+        ref.watch(appSettingsProvider.select((s) => s.quickPills));
+    final toolsAsync = ref.watch(toolsListProvider);
+    final List<Tool> availableTools = toolsAsync.maybeWhen<List<Tool>>(
+      data: (t) => t,
+      orElse: () => const <Tool>[],
+    );
+    final bool showWebPill = selectedQuickPills.contains('web');
+    final bool showImagePillPref = selectedQuickPills.contains('image');
     final voiceAvailableAsync = ref.watch(voiceInputAvailableProvider);
     final bool voiceAvailable = voiceAvailableAsync.maybeWhen(
       data: (v) => v,
@@ -603,103 +614,158 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                       child: LayoutBuilder(
                                         builder: (context, constraints) {
                                           final double total = constraints.maxWidth;
-                                          const double toolsWidth = TouchTarget.comfortable;
-                                          const double gapBeforeTools = Spacing.xs;
-                                          final double gapBetweenPills = imageGenAvailable ? Spacing.xs : 0;
+                                          final bool showImage = imageGenAvailable && showImagePillPref;
+                                          final bool showWeb = showWebPill;
+                                          // Tools button is always shown
+                                          final double toolsWidth = TouchTarget.comfortable;
+                                          final double gapBeforeTools = Spacing.xs;
 
                                           final double availableForPills =
                                               math.max(0.0, total - toolsWidth - gapBeforeTools);
 
-                                          // Measure natural widths (text + horizontal padding)
+                                          // Compose selected pill entries in order
+                                          final List<Map<String, dynamic>> entries = [];
                                           final textStyle = AppTypography.labelStyle;
                                           const double horizontalPadding = Spacing.md * 2;
 
-                                          String webLabel = AppLocalizations.of(context)!.web;
-                                          final webTp = TextPainter(
-                                            text: TextSpan(text: webLabel, style: textStyle),
-                                            maxLines: 1,
-                                            textDirection: Directionality.of(context),
-                                          )..layout();
-                                          final double webNatural = webTp.width + horizontalPadding;
-
-                                          double imageNatural = 0;
-                                          if (imageGenAvailable) {
-                                            final imgLabel = AppLocalizations.of(context)!.imageGen;
-                                            final imgTp = TextPainter(
-                                              text: TextSpan(text: imgLabel, style: textStyle),
-                                              maxLines: 1,
-                                              textDirection: Directionality.of(context),
-                                            )..layout();
-                                            imageNatural = imgTp.width + horizontalPadding;
+                                          for (final id in selectedQuickPills) {
+                                            if (id == 'web' && showWeb) {
+                                              final lbl = AppLocalizations.of(context)!.web;
+                                              final tp = TextPainter(
+                                                text: TextSpan(text: lbl, style: textStyle),
+                                                maxLines: 1,
+                                                textDirection: Directionality.of(context),
+                                              )..layout();
+                                              entries.add({
+                                                'id': id,
+                                                'label': lbl,
+                                                'width': tp.width + horizontalPadding,
+                                                'widgetBuilder': () => _buildPillButton(
+                                                  icon: Platform.isIOS ? CupertinoIcons.search : Icons.search,
+                                                  label: lbl,
+                                                  isActive: webSearchEnabled,
+                                                  onTap: widget.enabled && !_isRecording
+                                                      ? () {
+                                                          ref.read(webSearchEnabledProvider.notifier).state = !webSearchEnabled;
+                                                        }
+                                                      : null,
+                                                ),
+                                              });
+                                            } else if (id == 'image' && showImage) {
+                                              final lbl = AppLocalizations.of(context)!.imageGen;
+                                              final tp = TextPainter(
+                                                text: TextSpan(text: lbl, style: textStyle),
+                                                maxLines: 1,
+                                                textDirection: Directionality.of(context),
+                                              )..layout();
+                                              entries.add({
+                                                'id': id,
+                                                'label': lbl,
+                                                'width': tp.width + horizontalPadding,
+                                                'widgetBuilder': () => _buildPillButton(
+                                                  icon: Platform.isIOS ? CupertinoIcons.photo : Icons.image,
+                                                  label: lbl,
+                                                  isActive: imageGenEnabled,
+                                                  onTap: widget.enabled && !_isRecording
+                                                      ? () {
+                                                          ref
+                                                              .read(imageGenerationEnabledProvider.notifier)
+                                                              .state = !imageGenEnabled;
+                                                        }
+                                                      : null,
+                                                ),
+                                              });
+                                            } else {
+                                              // Tool ID from server
+                                              Tool? tool;
+                                              for (final t in availableTools) {
+                                                if (t.id == id) { tool = t; break; }
+                                              }
+                                              if (tool != null) {
+                                                final lbl = tool!.name;
+                                                final tp = TextPainter(
+                                                  text: TextSpan(text: lbl, style: textStyle),
+                                                  maxLines: 1,
+                                                  textDirection: Directionality.of(context),
+                                                )..layout();
+                                                final selectedIds = ref.watch(selectedToolIdsProvider);
+                                                final isActive = selectedIds.contains(id);
+                                                entries.add({
+                                                  'id': id,
+                                                  'label': lbl,
+                                                  'width': tp.width + horizontalPadding,
+                                                  'widgetBuilder': () => _buildPillButton(
+                                                    icon: Icons.extension,
+                                                    label: lbl,
+                                                    isActive: isActive,
+                                                    onTap: widget.enabled && !_isRecording
+                                                        ? () {
+                                                            final current = List<String>.from(
+                                                                ref.read(selectedToolIdsProvider));
+                                                            if (current.contains(id)) {
+                                                              current.remove(id);
+                                                            } else {
+                                                              current.add(id);
+                                                            }
+                                                            ref.read(selectedToolIdsProvider.notifier).state = current;
+                                                          }
+                                                        : null,
+                                                  ),
+                                                });
+                                              }
+                                            }
                                           }
 
-                                          List<Widget> rowChildren = [];
-
-                                          Widget webPill = _buildPillButton(
-                                            icon: Platform.isIOS
-                                                ? CupertinoIcons.search
-                                                : Icons.search,
-                                            label: webLabel,
-                                            isActive: webSearchEnabled,
-                                            onTap: widget.enabled && !_isRecording
-                                                ? () {
-                                                    ref.read(
-                                                      webSearchEnabledProvider.notifier,
-                                                    ).state = !webSearchEnabled;
-                                                  }
-                                                : null,
-                                          );
-
-                                          if (!imageGenAvailable) {
-                                            if (webNatural <= availableForPills) {
-                                              rowChildren.add(webPill);
+                                          // Build rowChildren according to measured widths and available space
+                                          final List<Widget> rowChildren = [];
+                                          if (entries.isEmpty) {
+                                            // no quick pills, will just show tools later
+                                          } else if (entries.length == 1) {
+                                            final e = entries.first;
+                                            final pill = e['widgetBuilder']() as Widget;
+                                            final w = (e['width'] as double);
+                                            if (w <= availableForPills) {
+                                              rowChildren.add(pill);
                                             } else {
-                                              rowChildren.add(Flexible(fit: FlexFit.loose, child: webPill));
+                                              rowChildren.add(Flexible(fit: FlexFit.loose, child: pill));
                                             }
                                           } else {
-                                            Widget imagePill = _buildPillButton(
-                                              icon: Platform.isIOS
-                                                  ? CupertinoIcons.photo
-                                                  : Icons.image,
-                                              label: AppLocalizations.of(context)!.imageGen,
-                                              isActive: imageGenEnabled,
-                                              onTap: widget.enabled && !_isRecording
-                                                  ? () {
-                                                      ref.read(
-                                                        imageGenerationEnabledProvider.notifier,
-                                                      ).state = !imageGenEnabled;
-                                                    }
-                                                  : null,
-                                            );
+                                            // up to 2 based on settings enforcement; if more, take first 2
+                                            final e1 = entries[0];
+                                            final e2 = entries[1];
+                                            final w1 = (e1['width'] as double);
+                                            final w2 = (e2['width'] as double);
+                                            const double gapBetweenPills = Spacing.xs;
+                                            final combined = w1 + gapBetweenPills + w2;
+                                            final pill1 = e1['widgetBuilder']() as Widget;
+                                            final pill2 = e2['widgetBuilder']() as Widget;
 
-                                            final double combined = webNatural + gapBetweenPills + imageNatural;
                                             if (combined <= availableForPills) {
-                                              // Both fit naturally
-                                              rowChildren..add(webPill)..add(const SizedBox(width: Spacing.xs))..add(imagePill);
-                                            } else if (webNatural < availableForPills) {
-                                              // Keep web natural, let image take remaining
                                               rowChildren
-                                                ..add(webPill)
+                                                ..add(pill1)
                                                 ..add(const SizedBox(width: Spacing.xs))
-                                                ..add(Flexible(fit: FlexFit.loose, child: imagePill));
-                                            } else if (imageNatural < availableForPills) {
-                                              // Keep image natural, let web take remaining
+                                                ..add(pill2);
+                                            } else if (w1 < availableForPills) {
                                               rowChildren
-                                                ..add(Flexible(fit: FlexFit.loose, child: webPill))
+                                                ..add(pill1)
                                                 ..add(const SizedBox(width: Spacing.xs))
-                                                ..add(imagePill);
+                                                ..add(Flexible(fit: FlexFit.loose, child: pill2));
+                                            } else if (w2 < availableForPills) {
+                                              rowChildren
+                                                ..add(Flexible(fit: FlexFit.loose, child: pill1))
+                                                ..add(const SizedBox(width: Spacing.xs))
+                                                ..add(pill2);
                                             } else {
-                                              // Both too large: apportion space proportional to their natural widths
-                                              final int webFlex = math.max(1, webNatural.round());
-                                              final int imgFlex = math.max(1, imageNatural.round());
+                                              final int f1 = math.max(1, w1.round());
+                                              final int f2 = math.max(1, w2.round());
                                               rowChildren
-                                                ..add(Flexible(fit: FlexFit.loose, flex: webFlex, child: webPill))
+                                                ..add(Flexible(fit: FlexFit.loose, flex: f1, child: pill1))
                                                 ..add(const SizedBox(width: Spacing.xs))
-                                                ..add(Flexible(fit: FlexFit.loose, flex: imgFlex, child: imagePill));
+                                                ..add(Flexible(fit: FlexFit.loose, flex: f2, child: pill2));
                                             }
                                           }
 
-                                          // Append tools button at the end
+                                          // Append tools button at the end (always visible)
                                           rowChildren
                                             ..add(const SizedBox(width: Spacing.xs))
                                             ..add(_buildRoundButton(

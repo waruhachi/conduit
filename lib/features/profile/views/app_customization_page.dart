@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/settings_service.dart';
 import '../../../shared/theme/theme_extensions.dart';
+import '../../tools/providers/tools_providers.dart';
+import '../../../core/models/tool.dart';
 import '../../../shared/widgets/conduit_components.dart';
 import '../../../shared/utils/ui_utils.dart';
 import '../../../core/providers/app_providers.dart';
@@ -255,6 +257,134 @@ class AppCustomizationPage extends ConsumerWidget {
                   ),
                 ],
               ),
+            ),
+
+            const SizedBox(height: Spacing.lg),
+            // Quick pills (Web / Image Gen)
+            Text(
+              AppLocalizations.of(context)!.onboardQuickTitle,
+              style: context.conduitTheme.headingSmall?.copyWith(
+                color: context.conduitTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: Spacing.md),
+            Consumer(
+              builder: (context, ref, _) {
+                final selectedRaw = ref.watch(
+                  appSettingsProvider.select((s) => s.quickPills),
+                );
+                final toolsAsync = ref.watch(toolsListProvider);
+                final tools = toolsAsync.maybeWhen(
+                  data: (t) => t,
+                  orElse: () => const <Tool>[],
+                );
+                final allowed = <String>{
+                  'web',
+                  'image',
+                  ...tools.map((t) => t.id),
+                };
+                // Sanitize persisted selection
+                final selected =
+                    selectedRaw.where((id) => allowed.contains(id)).take(2).toList();
+                if (selected.length != selectedRaw.length) {
+                  // Persist sanitized list asynchronously
+                  Future.microtask(() => ref
+                      .read(appSettingsProvider.notifier)
+                      .setQuickPills(selected));
+                }
+                final int selectedCount = selected.length;
+
+                void toggle(String id) async {
+                  final current = List<String>.from(selected);
+                  if (current.contains(id)) {
+                    current.remove(id);
+                  } else {
+                    if (current.length >= 2) return; // enforce max 2
+                    current.add(id);
+                  }
+                  await ref.read(appSettingsProvider.notifier).setQuickPills(current);
+                }
+
+                // Build dynamic tool chips list once
+                final List<Widget> dynamicToolChips = ref
+                    .watch(toolsListProvider)
+                    .maybeWhen<List<Widget>>(
+                      data: (tools) => tools.map((Tool t) {
+                        final isSel = selected.contains(t.id);
+                        final canSelect = selectedCount < 2 || isSel;
+                        return ConduitChip(
+                          label: t.name,
+                          icon: Icons.extension,
+                          isSelected: isSel,
+                          onTap: canSelect ? () => toggle(t.id) : null,
+                        );
+                      }).toList(),
+                      orElse: () => const <Widget>[],
+                    );
+
+                return ConduitCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Spacing.listItemPadding,
+                    vertical: Spacing.sm,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              AppLocalizations.of(context)!.appCustomizationSubtitle,
+                              style: context.conduitTheme.bodySmall?.copyWith(
+                                color: context.conduitTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: selected.isEmpty
+                                ? null
+                                : () async {
+                                    await ref
+                                        .read(appSettingsProvider.notifier)
+                                        .setQuickPills(const []);
+                                  },
+                            child: Text(AppLocalizations.of(context)!.clear),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: Spacing.sm),
+                      Wrap(
+                        spacing: Spacing.sm,
+                        runSpacing: Spacing.sm,
+                        children: [
+                          ConduitChip(
+                            label: AppLocalizations.of(context)!.web,
+                            icon: Platform.isIOS
+                                ? CupertinoIcons.search
+                                : Icons.search,
+                            isSelected: selected.contains('web'),
+                            onTap: (selectedCount < 2 || selected.contains('web'))
+                                ? () => toggle('web')
+                                : null,
+                          ),
+                          ConduitChip(
+                            label: AppLocalizations.of(context)!.imageGen,
+                            icon: Platform.isIOS
+                                ? CupertinoIcons.photo
+                                : Icons.image,
+                            isSelected: selected.contains('image'),
+                            onTap: (selectedCount < 2 || selected.contains('image'))
+                                ? () => toggle('image')
+                                : null,
+                          ),
+                          // Dynamic tools from server
+                          ...dynamicToolChips,
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
 
             const SizedBox(height: Spacing.lg),

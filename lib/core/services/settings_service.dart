@@ -21,6 +21,8 @@ class SettingsService {
   static const String _voiceAutoSendKey = 'voice_auto_send_final';
   // Realtime transport preference
   static const String _socketTransportModeKey = 'socket_transport_mode'; // 'auto' or 'ws'
+  // Quick pill visibility selections (max 2)
+  static const String _quickPillsKey = 'quick_pills'; // StringList of identifiers e.g. ['web','image','tools']
 
   /// Get reduced motion preference
   static Future<bool> getReduceMotion() async {
@@ -136,6 +138,7 @@ class SettingsService {
       voiceHoldToTalk: await getVoiceHoldToTalk(),
       voiceAutoSendFinal: await getVoiceAutoSendFinal(),
       socketTransportMode: await getSocketTransportMode(),
+      quickPills: await getQuickPills(),
     );
   }
 
@@ -154,6 +157,7 @@ class SettingsService {
       setVoiceHoldToTalk(settings.voiceHoldToTalk),
       setVoiceAutoSendFinal(settings.voiceAutoSendFinal),
       setSocketTransportMode(settings.socketTransportMode),
+      setQuickPills(settings.quickPills),
     ]);
   }
 
@@ -202,6 +206,21 @@ class SettingsService {
     final prefs = await SharedPreferences.getInstance();
     if (mode != 'auto' && mode != 'ws') mode = 'auto';
     await prefs.setString(_socketTransportModeKey, mode);
+  }
+
+  // Quick Pills (visibility)
+  static Future<List<String>> getQuickPills() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_quickPillsKey);
+    // Default: none selected
+    if (list == null) return const [];
+    // Enforce max 2; accept arbitrary tool IDs plus 'web' and 'image'
+    return list.take(2).toList();
+  }
+
+  static Future<void> setQuickPills(List<String> pills) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_quickPillsKey, pills.take(2).toList());
   }
 
   /// Get effective animation duration considering all settings
@@ -258,6 +277,7 @@ class AppSettings {
   final bool voiceHoldToTalk;
   final bool voiceAutoSendFinal;
   final String socketTransportMode; // 'auto' or 'ws'
+  final List<String> quickPills; // e.g., ['web','image']
 
   const AppSettings({
     this.reduceMotion = false,
@@ -272,6 +292,7 @@ class AppSettings {
     this.voiceHoldToTalk = false,
     this.voiceAutoSendFinal = false,
     this.socketTransportMode = 'auto',
+    this.quickPills = const [],
   });
 
   AppSettings copyWith({
@@ -287,6 +308,7 @@ class AppSettings {
     bool? voiceHoldToTalk,
     bool? voiceAutoSendFinal,
     String? socketTransportMode,
+    List<String>? quickPills,
   }) {
     return AppSettings(
       reduceMotion: reduceMotion ?? this.reduceMotion,
@@ -301,6 +323,7 @@ class AppSettings {
       voiceHoldToTalk: voiceHoldToTalk ?? this.voiceHoldToTalk,
       voiceAutoSendFinal: voiceAutoSendFinal ?? this.voiceAutoSendFinal,
       socketTransportMode: socketTransportMode ?? this.socketTransportMode,
+      quickPills: quickPills ?? this.quickPills,
     );
   }
 
@@ -318,7 +341,8 @@ class AppSettings {
         other.omitProviderInModelName == omitProviderInModelName &&
         other.voiceLocaleId == voiceLocaleId &&
         other.voiceHoldToTalk == voiceHoldToTalk &&
-        other.voiceAutoSendFinal == voiceAutoSendFinal;
+        other.voiceAutoSendFinal == voiceAutoSendFinal &&
+        _listEquals(other.quickPills, quickPills);
         // socketTransportMode intentionally not included in == to avoid frequent rebuilds
   }
 
@@ -337,8 +361,18 @@ class AppSettings {
       voiceHoldToTalk,
       voiceAutoSendFinal,
       socketTransportMode,
+      Object.hashAllUnordered(quickPills),
     );
   }
+}
+
+bool _listEquals(List<String> a, List<String> b) {
+  if (identical(a, b)) return true;
+  if (a.length != b.length) return false;
+  for (int i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
 
 /// Provider for app settings
@@ -415,6 +449,13 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setSocketTransportMode(String mode) async {
     state = state.copyWith(socketTransportMode: mode);
     await SettingsService.setSocketTransportMode(mode);
+  }
+
+  Future<void> setQuickPills(List<String> pills) async {
+    // Enforce max 2; accept arbitrary server tool IDs plus built-ins
+    final filtered = pills.take(2).toList();
+    state = state.copyWith(quickPills: filtered);
+    await SettingsService.setQuickPills(filtered);
   }
 
   Future<void> resetToDefaults() async {

@@ -26,7 +26,15 @@ class SocketService {
       _socket?.dispose();
     } catch (_) {}
 
-    final base = serverConfig.url.replaceFirst(RegExp(r'/+$'), '');
+    String base = serverConfig.url.replaceFirst(RegExp(r'/+$'), '');
+    // Normalize accidental ":0" ports or invalid port values in stored URL
+    try {
+      final u = Uri.parse(base);
+      if (u.hasPort && u.port == 0) {
+        // Drop the explicit :0 to fall back to scheme default (80/443)
+        base = '${u.scheme}://${u.host}${u.path.isEmpty ? '' : u.path}';
+      }
+    } catch (_) {}
     final path = '/ws/socket.io';
 
     final builder = io.OptionBuilder()
