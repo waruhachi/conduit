@@ -13,6 +13,7 @@ import '../../../core/auth/auth_state_manager.dart';
 import '../../../core/utils/stream_chunker.dart';
 import '../../../core/services/persistent_streaming_service.dart';
 import '../../../core/utils/debug_logger.dart';
+import '../../../core/utils/inactivity_watchdog.dart';
 import '../services/reviewer_mode_service.dart';
 import '../../../shared/services/tasks/task_queue.dart';
 import '../../tools/providers/tools_providers.dart';
@@ -40,8 +41,8 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
   StreamSubscription? _messageStream;
   ProviderSubscription? _conversationListener;
   final List<StreamSubscription> _subscriptions = [];
-  // Inactivity watchdog to prevent stuck typing indicator
-  Timer? _typingStuckGuard;
+  // Activity-based watchdog to prevent stuck typing indicator
+  InactivityWatchdog? _typingWatchdog;
 
   ChatMessagesNotifier(this._ref) : super([]) {
     // Load messages when conversation changes with proper cleanup
@@ -115,62 +116,42 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
   }
 
   void _cancelTypingGuard() {
-    _typingStuckGuard?.cancel();
-    _typingStuckGuard = null;
+    _typingWatchdog?.stop();
+    _typingWatchdog = null;
   }
 
   void _scheduleTypingGuard({Duration? timeout}) {
     // Default timeout tuned to balance long tool gaps and UX
     final effectiveTimeout = timeout ?? const Duration(seconds: 25);
-    _typingStuckGuard?.cancel();
-    _typingStuckGuard = Timer(effectiveTimeout, () async {
-      try {
-        if (state.isEmpty) return;
-        final last = state.last;
-        // Still the same streaming message and no finish signal
-        if (last.role == 'assistant' && last.isStreaming) {
-          // Attempt a soft recovery: if content is still empty, try fetching final content from server
-          if ((last.content).trim().isEmpty) {
-            try {
-              final apiSvc = _ref.read(apiServiceProvider);
-              final activeConv = _ref.read(activeConversationProvider);
-              final msgId = last.id;
-              final chatId = activeConv?.id;
-              if (apiSvc != null && chatId != null && chatId.isNotEmpty) {
-                final resp = await apiSvc.dio.get('/api/v1/chats/' + chatId);
-                final data = resp.data as Map<String, dynamic>;
-                String content = '';
-                final chatObj = data['chat'] as Map<String, dynamic>?;
-                if (chatObj != null) {
-                  final list = chatObj['messages'];
-                  if (list is List) {
-                    final target = list.firstWhere(
-                      (m) => (m is Map && (m['id']?.toString() == msgId)),
-                      orElse: () => null,
-                    );
-                    if (target != null) {
-                      final rawContent = (target as Map)['content'];
-                      if (rawContent is String) {
-                        content = rawContent;
-                      } else if (rawContent is List) {
-                        final textItem = rawContent.firstWhere(
-                          (i) => i is Map && i['type'] == 'text',
-                          orElse: () => null,
-                        );
-                        if (textItem != null) {
-                          content = (textItem as Map)['text']?.toString() ?? '';
-                        }
-                      }
-                    }
-                  }
-                  if (content.isEmpty) {
-                    final history = chatObj['history'];
-                    if (history is Map && history['messages'] is Map) {
-                      final Map<String, dynamic> messagesMap =
-                          (history['messages'] as Map).cast<String, dynamic>();
-                      final msg = messagesMap[msgId];
-                      if (msg is Map) {
-                        final rawContent = msg['content'];
+    _typingWatchdog ??= InactivityWatchdog(
+      window: effectiveTimeout,
+      onTimeout: () async {
+        try {
+          if (state.isEmpty) return;
+          final last = state.last;
+          // Still the same streaming message and no finish signal
+          if (last.role == 'assistant' && last.isStreaming) {
+            // Attempt a soft recovery: if content is still empty, try fetching final content from server
+            if ((last.content).trim().isEmpty) {
+              try {
+                final apiSvc = _ref.read(apiServiceProvider);
+                final activeConv = _ref.read(activeConversationProvider);
+                final msgId = last.id;
+                final chatId = activeConv?.id;
+                if (apiSvc != null && chatId != null && chatId.isNotEmpty) {
+                  final resp = await apiSvc.dio.get('/api/v1/chats/' + chatId);
+                  final data = resp.data as Map<String, dynamic>;
+                  String content = '';
+                  final chatObj = data['chat'] as Map<String, dynamic>?;
+                  if (chatObj != null) {
+                    final list = chatObj['messages'];
+                    if (list is List) {
+                      final target = list.firstWhere(
+                        (m) => (m is Map && (m['id']?.toString() == msgId)),
+                        orElse: () => null,
+                      );
+                      if (target != null) {
+                        final rawContent = (target as Map)['content'];
                         if (rawContent is String) {
                           content = rawContent;
                         } else if (rawContent is List) {
@@ -179,27 +160,52 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
                             orElse: () => null,
                           );
                           if (textItem != null) {
-                            content =
-                                (textItem as Map)['text']?.toString() ?? '';
+                            content = (textItem as Map)['text']?.toString() ?? '';
+                          }
+                        }
+                      }
+                    }
+                    if (content.isEmpty) {
+                      final history = chatObj['history'];
+                      if (history is Map && history['messages'] is Map) {
+                        final Map<String, dynamic> messagesMap =
+                            (history['messages'] as Map)
+                                .cast<String, dynamic>();
+                        final msg = messagesMap[msgId];
+                        if (msg is Map) {
+                          final rawContent = msg['content'];
+                          if (rawContent is String) {
+                            content = rawContent;
+                          } else if (rawContent is List) {
+                            final textItem = rawContent.firstWhere(
+                              (i) => i is Map && i['type'] == 'text',
+                              orElse: () => null,
+                            );
+                            if (textItem != null) {
+                              content =
+                                  (textItem as Map)['text']?.toString() ?? '';
+                            }
                           }
                         }
                       }
                     }
                   }
+                  if (content.isNotEmpty) {
+                    replaceLastMessageContent(content);
+                  }
                 }
-                if (content.isNotEmpty) {
-                  replaceLastMessageContent(content);
-                }
-              }
-            } catch (_) {}
+              } catch (_) {}
+            }
+            // Regardless of fetch result, ensure UI is not stuck
+            finishStreaming();
           }
-          // Regardless of fetch result, ensure UI is not stuck
-          finishStreaming();
+        } finally {
+          _cancelTypingGuard();
         }
-      } finally {
-        _cancelTypingGuard();
-      }
-    });
+      },
+    );
+    _typingWatchdog!.setWindow(effectiveTimeout);
+    _typingWatchdog!.ping();
   }
 
   void _touchStreamingActivity() {
@@ -222,20 +228,17 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
           final webSearchAvailable = _ref.read(webSearchAvailableProvider);
           final globalImageGen = _ref.read(imageGenerationEnabledProvider);
 
+          // Extend guard windows to tolerate long reasoning/tools (> 1 min)
           if (isWebSearchFlow || (globalWebSearch && webSearchAvailable)) {
-            timeout = Duration(
-              milliseconds: timeout.inMilliseconds.clamp(0, 45000),
-            );
-            // If current < 45s, bump to 45s
-            if (timeout.inSeconds < 45) timeout = const Duration(seconds: 45);
+            if (timeout.inSeconds < 60) timeout = const Duration(seconds: 60);
           }
           if (isBgFlow) {
-            // Background tools/dynamic channel can be longer
-            if (timeout.inSeconds < 60) timeout = const Duration(seconds: 60);
+            // Background tools/dynamic channel can be much longer
+            if (timeout.inSeconds < 120) timeout = const Duration(seconds: 120);
           }
           if (isImageGenFlow || globalImageGen) {
             // Image generation tends to be the longest
-            if (timeout.inSeconds < 90) timeout = const Duration(seconds: 90);
+            if (timeout.inSeconds < 180) timeout = const Duration(seconds: 180);
           }
         } catch (_) {}
 
@@ -762,7 +765,7 @@ Future<void> regenerateMessage(
         final bool isLastUser = (i == messages.length - 1) && msg.role == 'user';
         final List<String> messageAttachments =
             (isLastUser && (attachments != null && attachments.isNotEmpty))
-                ? List<String>.from(attachments!)
+                ? List<String>.from(attachments)
                 : (msg.attachmentIds ?? const <String>[]);
 
         if (messageAttachments.isNotEmpty) {
@@ -1468,6 +1471,26 @@ Future<void> _sendMessageInternal(
     } catch (_) {}
 
     if (socketService != null) {
+      // Activity-based watchdog for chat/channel events (resets on activity)
+      final _chatWatchdog = InactivityWatchdog(
+        window: const Duration(minutes: 5),
+        onTimeout: () {
+          try {
+            socketService.offChatEvents();
+            socketService.offChannelEvents();
+          } catch (_) {}
+          // As a final safeguard, if we're still in streaming state, finish it
+          try {
+            final msgs = ref.read(chatMessagesProvider);
+            if (msgs.isNotEmpty &&
+                msgs.last.role == 'assistant' &&
+                msgs.last.isStreaming) {
+              ref.read(chatMessagesProvider.notifier).finishStreaming();
+            }
+          } catch (_) {}
+        },
+      )..start();
+
       void chatHandler(Map<String, dynamic> ev) {
         try {
           final data = ev['data'];
@@ -1475,6 +1498,9 @@ Future<void> _sendMessageInternal(
           final type = data['type'];
           final payload = data['data'];
           DebugLogger.stream('Socket chat-events: type=$type');
+          // Any chat event indicates activity; reset inactivity watchdog
+          // (watchdog defined below, near handler registration)
+          _chatWatchdog.ping();
           if (type == 'chat:completion' && payload != null) {
             if (payload is Map<String, dynamic>) {
               // Provider may emit tool_calls at the top level
@@ -1591,6 +1617,10 @@ Future<void> _sendMessageInternal(
                 try {
                   socketService.offChatEvents();
                 } catch (_) {}
+                try {
+                  _chatWatchdog.ping(); // ensure timer exists
+                  _chatWatchdog.stop();
+                } catch (_) {}
 
                 // Notify server that chat is completed (mirrors web client)
                 try {
@@ -1703,6 +1733,9 @@ Future<void> _sendMessageInternal(
                 }
                 // Normal path: finish now
                 ref.read(chatMessagesProvider.notifier).finishStreaming();
+                try {
+                  _chatWatchdog.stop();
+                } catch (_) {}
               }
             }
           } else if (type == 'request:chat:completion' && payload != null) {
@@ -1722,6 +1755,10 @@ Future<void> _sendMessageInternal(
                 try {
                   if (line is String) {
                     final s = line.trim();
+                    // Dynamic channel activity
+                    try {
+                      _chatWatchdog.ping();
+                    } catch (_) {}
                     DebugLogger.stream(
                       'Socket [$channel] line=${s.length > 160 ? '${s.substring(0, 160)}…' : s}',
                     );
@@ -1988,27 +2025,15 @@ Future<void> _sendMessageInternal(
                   .read(chatMessagesProvider.notifier)
                   .appendToLastMessage(content);
               _updateImagesFromCurrentContent(ref);
+              _chatWatchdog.ping();
             }
           }
         } catch (_) {}
       }
 
       socketService.onChannelEvents(channelEventsHandler);
-      Future.delayed(const Duration(seconds: 90), () {
-        try {
-          socketService.offChatEvents();
-          socketService.offChannelEvents();
-        } catch (_) {}
-        // As a final safeguard, if we're still in streaming state, finish it to avoid stuck UI
-        try {
-          final msgs = ref.read(chatMessagesProvider);
-          if (msgs.isNotEmpty &&
-              msgs.last.role == 'assistant' &&
-              msgs.last.isStreaming) {
-            ref.read(chatMessagesProvider.notifier).finishStreaming();
-          }
-        } catch (_) {}
-      });
+      // Start activity watchdog
+      _chatWatchdog.ping();
     }
 
     // Prepare streaming and background handling
@@ -2063,8 +2088,17 @@ Future<void> _sendMessageInternal(
 
     // Helpers were defined above
 
+    int _chunkSeq = 0;
     final streamSubscription = persistentController.stream.listen(
       (chunk) {
+        _chunkSeq += 1;
+        try {
+          persistentService.updateStreamProgress(
+            streamId,
+            chunkSequence: _chunkSeq,
+            appendedContent: chunk,
+          );
+        } catch (_) {}
         var effectiveChunk = chunk;
         // Check for web search indicators in the stream
         if (webSearchEnabled && !isSearching) {
@@ -2960,11 +2994,32 @@ void _attachSocketStreamingHandlers({
 
   final api = ref.read(apiServiceProvider);
 
+  // Activity-based watchdog for socket-driven streaming (resets on activity)
+  final _socketWatchdog = InactivityWatchdog(
+    window: const Duration(minutes: 5),
+    onTimeout: () {
+      try {
+        socketService.offChatEvents();
+        socketService.offChannelEvents();
+      } catch (_) {}
+      try {
+        final msgs = ref.read(chatMessagesProvider);
+        if (msgs.isNotEmpty &&
+            msgs.last.role == 'assistant' &&
+            msgs.last.isStreaming) {
+          ref.read(chatMessagesProvider.notifier).finishStreaming();
+        }
+      } catch (_) {}
+    },
+  )..start();
+
   void channelLineHandlerFactory(String channel) {
     void handler(dynamic line) {
       try {
         if (line is String) {
           final s = line.trim();
+          // Any socket line is activity
+          _socketWatchdog.ping();
           if (s == '[DONE]' || s == 'DONE') {
             try {
               socketService.offEvent(channel);
@@ -2982,6 +3037,7 @@ void _attachSocketStreamingHandlers({
               );
             } catch (_) {}
             ref.read(chatMessagesProvider.notifier).finishStreaming();
+            _socketWatchdog.stop();
             return;
           }
           if (s.startsWith('data:')) {
@@ -3003,6 +3059,7 @@ void _attachSocketStreamingHandlers({
                 );
               } catch (_) {}
               ref.read(chatMessagesProvider.notifier).finishStreaming();
+              _socketWatchdog.stop();
               return;
             }
             try {
@@ -3065,11 +3122,13 @@ void _attachSocketStreamingHandlers({
             }
           }
         } else if (line is Map) {
+          _socketWatchdog.ping();
           if (line['done'] == true) {
             try {
               socketService.offEvent(channel);
             } catch (_) {}
             ref.read(chatMessagesProvider.notifier).finishStreaming();
+            _socketWatchdog.stop();
             return;
           }
         }
@@ -3077,11 +3136,8 @@ void _attachSocketStreamingHandlers({
     }
 
     socketService.onEvent(channel, handler);
-    Future.delayed(const Duration(minutes: 3), () {
-      try {
-        socketService.offEvent(channel);
-      } catch (_) {}
-    });
+    // Start activity watchdog now that handler is attached
+    _socketWatchdog.ping();
   }
 
   void chatHandler(Map<String, dynamic> ev) {
@@ -3174,6 +3230,9 @@ void _attachSocketStreamingHandlers({
           if (payload['done'] == true) {
             try {
               socketService.offChatEvents();
+            } catch (_) {}
+            try {
+              _socketWatchdog.stop();
             } catch (_) {}
             try {
               unawaited(
@@ -3326,20 +3385,8 @@ void _attachSocketStreamingHandlers({
 
   socketService.onChatEvents(chatHandler);
   socketService.onChannelEvents(channelEventsHandler);
-  Future.delayed(const Duration(seconds: 90), () {
-    try {
-      socketService.offChatEvents();
-      socketService.offChannelEvents();
-    } catch (_) {}
-    try {
-      final msgs = ref.read(chatMessagesProvider);
-      if (msgs.isNotEmpty &&
-          msgs.last.role == 'assistant' &&
-          msgs.last.isStreaming) {
-        ref.read(chatMessagesProvider.notifier).finishStreaming();
-      }
-    } catch (_) {}
-  });
+  // Start activity watchdog for chat/channel events
+  _socketWatchdog.ping();
 }
 
 // ========== Tool Servers (OpenAPI) Helpers ==========

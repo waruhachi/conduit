@@ -333,7 +333,9 @@ class PersistentStreamingService with WidgetsBindingObserver {
     final lastUpdate = metadata['lastUpdate'] as DateTime?;
     if (lastUpdate != null) {
       final timeSinceUpdate = DateTime.now().difference(lastUpdate);
-      return timeSinceUpdate > const Duration(minutes: 1);
+      // Align with app-side watchdogs: be less aggressive than UI guard
+      // but still attempt recovery before server timeouts become likely.
+      return timeSinceUpdate > const Duration(minutes: 2);
     }
 
     return false;
