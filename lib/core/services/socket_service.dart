@@ -5,9 +5,14 @@ import '../models/server_config.dart';
 class SocketService {
   final ServerConfig serverConfig;
   final String? authToken;
+  final bool websocketOnly;
   io.Socket? _socket;
 
-  SocketService({required this.serverConfig, required this.authToken});
+  SocketService({
+    required this.serverConfig,
+    required this.authToken,
+    this.websocketOnly = false,
+  });
 
   String? get sessionId => _socket?.id;
   io.Socket? get socket => _socket;
@@ -24,20 +29,28 @@ class SocketService {
     final base = serverConfig.url.replaceFirst(RegExp(r'/+$'), '');
     final path = '/ws/socket.io';
 
-    _socket = io.io(
-      base,
-      io.OptionBuilder()
-          .setTransports(['websocket'])
-          .setPath(path)
-          .setExtraHeaders(
-            authToken != null && authToken!.isNotEmpty
-                ? {
-                    'Authorization': 'Bearer $authToken',
-                  }
-                : {},
-          )
-          .build(),
-    );
+    final builder = io.OptionBuilder()
+        // Transport selection
+        .setTransports(
+          websocketOnly ? ['websocket'] : ['polling', 'websocket'],
+        )
+        .setRememberUpgrade(!websocketOnly)
+        .setUpgrade(!websocketOnly)
+        // Tune reconnect/backoff and timeouts
+        .setReconnectionAttempts(0) // 0/Infinity semantics: unlimited attempts
+        .setReconnectionDelay(1000)
+        .setReconnectionDelayMax(5000)
+        .setRandomizationFactor(0.5)
+        .setTimeout(20000)
+        .setPath(path);
+
+    if (authToken != null && authToken!.isNotEmpty) {
+      builder
+          .setAuth({'token': authToken})
+          .setExtraHeaders({'Authorization': 'Bearer $authToken'});
+    }
+
+    _socket = io.io(base, builder.build());
 
     _socket!.on('connect', (_) {
       debugPrint('Socket connected: ${_socket!.id}');
@@ -50,6 +63,24 @@ class SocketService {
 
     _socket!.on('connect_error', (err) {
       debugPrint('Socket connect_error: $err');
+    });
+
+    _socket!.on('reconnect_attempt', (attempt) {
+      debugPrint('Socket reconnect_attempt: $attempt');
+    });
+
+    _socket!.on('reconnect', (attempt) {
+      debugPrint('Socket reconnected after $attempt attempts');
+      if (authToken != null && authToken!.isNotEmpty) {
+        // Best-effort rejoin
+        _socket!.emit('user-join', {
+          'auth': {'token': authToken}
+        });
+      }
+    });
+
+    _socket!.on('reconnect_failed', (_) {
+      debugPrint('Socket reconnect_failed');
     });
 
     _socket!.on('disconnect', (reason) {

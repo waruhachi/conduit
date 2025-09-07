@@ -196,11 +196,16 @@ final socketServiceProvider = Provider<SocketService?>((ref) {
 
   final activeServer = ref.watch(activeServerProvider);
   final token = ref.watch(authTokenProvider3);
+  final transportMode = ref.watch(appSettingsProvider).socketTransportMode; // 'auto' or 'ws'
 
   return activeServer.maybeWhen(
     data: (server) {
       if (server == null) return null;
-      final s = SocketService(serverConfig: server, authToken: token);
+      final s = SocketService(
+        serverConfig: server,
+        authToken: token,
+        websocketOnly: transportMode == 'ws',
+      );
       // best-effort connect; errors handled internally
       // ignore unawaited_futures
       s.connect();

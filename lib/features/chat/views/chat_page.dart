@@ -1408,16 +1408,21 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                           try {
                             final full = await api.getConversation(active.id);
                             ref
-                                    .read(activeConversationProvider.notifier)
-                                    .state =
-                                full;
+                                .read(activeConversationProvider.notifier)
+                                .state = full;
                           } catch (e) {
-                            debugPrint(
-                              'DEBUG: Failed to refresh conversation: $e',
-                            );
-                            // Could show a snackbar here if needed
+                            debugPrint('DEBUG: Failed to refresh conversation: $e');
                           }
                         }
+
+                        // Also refresh the conversations list to reconcile missed events
+                        // and keep timestamps/order in sync with the server.
+                        try {
+                          ref.invalidate(conversationsProvider);
+                          // Best-effort await to stabilize UI; ignore errors.
+                          await ref.read(conversationsProvider.future);
+                        } catch (_) {}
+
                         // Add small delay for better UX feedback
                         await Future.delayed(const Duration(milliseconds: 300));
                       },

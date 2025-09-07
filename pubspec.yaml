@@ -16,7 +16,7 @@ dependencies:
   flutter_riverpod: ^2.6.1
   
   # Network & API
-  dio: ^5.5.0
+  dio: ^5.9.0
   http_parser: ^4.0.2
   
   
@@ -28,7 +28,7 @@ dependencies:
   markdown_widget: ^2.3.2+8
   flutter_highlight: ^0.7.0
   cached_network_image: ^3.3.1
-  socket_io_client: ^2.0.3
+  socket_io_client: ^3.1.2
   yaml: ^3.1.2
   
   
@@ -37,17 +37,17 @@ dependencies:
   flutter_animate: ^4.5.0
   
   # Platform Features
-  record: ^6.0.0
+  record: ^6.1.1
   stts: ^1.2.5
-  image_picker: ^1.1.2
-  file_picker: ^10.2.1
+  image_picker: ^1.2.0
+  file_picker: ^10.3.2
   path_provider: ^2.1.4
   
   # Utilities
   path: ^1.9.0
   uuid: ^4.5.0
   crypto: ^3.0.3
-  package_info_plus: ^8.0.2
+  package_info_plus: ^8.3.1
   url_launcher: ^6.3.0
   intl: ^0.20.2
 
@@ -65,9 +65,9 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  build_runner: ^2.4.11
-  freezed: ^3.0.0
-  json_serializable: ^6.8.0
+  build_runner: ^2.7.1
+  freezed: ^3.2.0
+  json_serializable: ^6.11.1
   flutter_native_splash: ^2.4.6
 
 dependency_overrides:

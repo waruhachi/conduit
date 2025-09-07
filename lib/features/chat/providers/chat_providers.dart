@@ -55,10 +55,27 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
         // locally streamed assistant content with an outdated server copy.
         if (previous?.updatedAt != next?.updatedAt) {
           final serverMessages = next?.messages ?? const [];
-          // Only replace local messages if the server has strictly more messages
-          // (i.e., includes new content we don't have yet).
+          // Primary rule: adopt server messages when there are strictly more of them.
           if (serverMessages.length > state.length) {
             state = serverMessages;
+            return;
+          }
+
+          // Secondary rule: if counts are equal but the last assistant message grew,
+          // adopt the server copy to recover from missed socket events.
+          if (serverMessages.isNotEmpty && state.isNotEmpty) {
+            final serverLast = serverMessages.last;
+            final localLast = state.last;
+            final serverText = serverLast.content.trim();
+            final localText = localLast.content.trim();
+            final sameLastId = serverLast.id == localLast.id;
+            final isAssistant = serverLast.role == 'assistant';
+            final serverHasMore = serverText.isNotEmpty && serverText.length > localText.length;
+            final localEmptyButServerHas = localText.isEmpty && serverText.isNotEmpty;
+            if (sameLastId && isAssistant && (serverHasMore || localEmptyButServerHas)) {
+              state = serverMessages;
+              return;
+            }
           }
         }
         return;

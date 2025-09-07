@@ -2907,7 +2907,8 @@ class ApiService {
     bool containsDone(String s) =>
         s.contains('<details type="tool_calls"') && s.contains('done="true"');
 
-    while (DateTime.now().difference(started).inSeconds < 60) {
+    // Allow longer time for large completions (e.g., long stories)
+    while (DateTime.now().difference(started).inSeconds < 180) {
       try {
         // Small delay between polls
         await Future.delayed(const Duration(milliseconds: 900));
@@ -3069,14 +3070,15 @@ class ApiService {
           break;
         }
 
-        // If content hasn't changed for a few polls, assume completion
+        // If content hasn't changed for a few polls, assume completion,
+        // but do not early-exit while content is still empty.
         final prev = last;
-        if (content == prev) {
+        if (content == prev && content.isNotEmpty) {
           stableCount++;
-        } else {
+        } else if (content != prev) {
           stableCount = 0;
         }
-        if (stableCount >= 3) {
+        if (content.isNotEmpty && stableCount >= 3) {
           break;
         }
 
@@ -3085,6 +3087,66 @@ class ApiService {
         // Ignore transient errors and continue polling
       }
     }
+
+    // Final backfill: one last attempt to fetch the latest content
+    // in case the server wrote the final message after our last poll.
+    try {
+      if (!streamController.isClosed) {
+        final resp = await _dio.get('/api/v1/chats/$chatId');
+        final data = resp.data as Map<String, dynamic>;
+        String content = '';
+        Map<String, dynamic>? chatObj = (data['chat'] is Map<String, dynamic>)
+            ? data['chat'] as Map<String, dynamic>
+            : null;
+        if (chatObj != null && chatObj['messages'] is List) {
+          final List messagesList = chatObj['messages'] as List;
+          final target = messagesList.firstWhere(
+            (m) => (m is Map && (m['id']?.toString() == messageId)),
+            orElse: () => null,
+          );
+          if (target != null) {
+            final rawContent = (target as Map)['content'];
+            if (rawContent is String) {
+              content = rawContent;
+            } else if (rawContent is List) {
+              final textItem = rawContent.firstWhere(
+                (i) => i is Map && i['type'] == 'text',
+                orElse: () => null,
+              );
+              if (textItem != null) {
+                content = (textItem as Map)['text']?.toString() ?? '';
+              }
+            }
+          }
+        }
+        if (content.isEmpty && chatObj != null) {
+          final history = chatObj['history'];
+          if (history is Map && history['messages'] is Map) {
+            final Map<String, dynamic> messagesMap =
+                (history['messages'] as Map).cast<String, dynamic>();
+            final msg = messagesMap[messageId];
+            if (msg is Map) {
+              final rawContent = msg['content'];
+              if (rawContent is String) {
+                content = rawContent;
+              } else if (rawContent is List) {
+                final textItem = rawContent.firstWhere(
+                  (i) => i is Map && i['type'] == 'text',
+                  orElse: () => null,
+                );
+                if (textItem != null) {
+                  content = (textItem as Map)['text']?.toString() ?? '';
+                }
+              }
+            }
+          }
+        }
+        if (content.isNotEmpty && content != last) {
+          streamController.add('\n');
+          streamController.add(content);
+        }
+      }
+    } catch (_) {}
 
     if (!streamController.isClosed) {
       streamController.close();

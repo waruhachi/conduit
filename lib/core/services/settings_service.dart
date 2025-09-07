@@ -19,6 +19,8 @@ class SettingsService {
   static const String _voiceLocaleKey = 'voice_locale_id';
   static const String _voiceHoldToTalkKey = 'voice_hold_to_talk';
   static const String _voiceAutoSendKey = 'voice_auto_send_final';
+  // Realtime transport preference
+  static const String _socketTransportModeKey = 'socket_transport_mode'; // 'auto' or 'ws'
 
   /// Get reduced motion preference
   static Future<bool> getReduceMotion() async {
@@ -133,6 +135,7 @@ class SettingsService {
       voiceLocaleId: await getVoiceLocaleId(),
       voiceHoldToTalk: await getVoiceHoldToTalk(),
       voiceAutoSendFinal: await getVoiceAutoSendFinal(),
+      socketTransportMode: await getSocketTransportMode(),
     );
   }
 
@@ -150,6 +153,7 @@ class SettingsService {
       setVoiceLocaleId(settings.voiceLocaleId),
       setVoiceHoldToTalk(settings.voiceHoldToTalk),
       setVoiceAutoSendFinal(settings.voiceAutoSendFinal),
+      setSocketTransportMode(settings.socketTransportMode),
     ]);
   }
 
@@ -186,6 +190,18 @@ class SettingsService {
   static Future<void> setVoiceAutoSendFinal(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_voiceAutoSendKey, value);
+  }
+
+  /// Transport mode: 'auto' (polling+websocket) or 'ws' (websocket only)
+  static Future<String> getSocketTransportMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_socketTransportModeKey) ?? 'auto';
+  }
+
+  static Future<void> setSocketTransportMode(String mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mode != 'auto' && mode != 'ws') mode = 'auto';
+    await prefs.setString(_socketTransportModeKey, mode);
   }
 
   /// Get effective animation duration considering all settings
@@ -241,6 +257,7 @@ class AppSettings {
   final String? voiceLocaleId;
   final bool voiceHoldToTalk;
   final bool voiceAutoSendFinal;
+  final String socketTransportMode; // 'auto' or 'ws'
 
   const AppSettings({
     this.reduceMotion = false,
@@ -254,6 +271,7 @@ class AppSettings {
     this.voiceLocaleId,
     this.voiceHoldToTalk = false,
     this.voiceAutoSendFinal = false,
+    this.socketTransportMode = 'auto',
   });
 
   AppSettings copyWith({
@@ -268,6 +286,7 @@ class AppSettings {
     Object? voiceLocaleId = const _DefaultValue(),
     bool? voiceHoldToTalk,
     bool? voiceAutoSendFinal,
+    String? socketTransportMode,
   }) {
     return AppSettings(
       reduceMotion: reduceMotion ?? this.reduceMotion,
@@ -281,6 +300,7 @@ class AppSettings {
       voiceLocaleId: voiceLocaleId is _DefaultValue ? this.voiceLocaleId : voiceLocaleId as String?,
       voiceHoldToTalk: voiceHoldToTalk ?? this.voiceHoldToTalk,
       voiceAutoSendFinal: voiceAutoSendFinal ?? this.voiceAutoSendFinal,
+      socketTransportMode: socketTransportMode ?? this.socketTransportMode,
     );
   }
 
@@ -299,6 +319,7 @@ class AppSettings {
         other.voiceLocaleId == voiceLocaleId &&
         other.voiceHoldToTalk == voiceHoldToTalk &&
         other.voiceAutoSendFinal == voiceAutoSendFinal;
+        // socketTransportMode intentionally not included in == to avoid frequent rebuilds
   }
 
   @override
@@ -315,6 +336,7 @@ class AppSettings {
       voiceLocaleId,
       voiceHoldToTalk,
       voiceAutoSendFinal,
+      socketTransportMode,
     );
   }
 }
@@ -388,6 +410,11 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setVoiceAutoSendFinal(bool value) async {
     state = state.copyWith(voiceAutoSendFinal: value);
     await SettingsService.setVoiceAutoSendFinal(value);
+  }
+
+  Future<void> setSocketTransportMode(String mode) async {
+    state = state.copyWith(socketTransportMode: mode);
+    await SettingsService.setSocketTransportMode(mode);
   }
 
   Future<void> resetToDefaults() async {

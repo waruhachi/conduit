@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_providers.dart';
 import '../../features/auth/providers/unified_auth_providers.dart';
 import '../services/navigation_service.dart';
+import '../models/conversation.dart';
+import '../services/background_streaming_handler.dart';
 import '../../features/onboarding/views/onboarding_sheet.dart';
 import '../../shared/theme/theme_extensions.dart';
 import '../utils/debug_logger.dart';
@@ -27,6 +29,12 @@ final appStartupFlowProvider = Provider<void>((ref) {
   if (navState == AuthNavigationState.authenticated) {
     ref.watch(socketServiceProvider);
   }
+
+  // Ensure resume-triggered foreground refresh is active
+  ref.watch(foregroundRefreshProvider);
+
+  // Keep Socket.IO connection alive in background within platform limits
+  ref.watch(socketPersistenceProvider);
 
   // When auth state becomes authenticated, run additional background work
   ref.listen<AuthNavigationState>(authNavigationStateProvider,
@@ -66,6 +74,128 @@ final appStartupFlowProvider = Provider<void>((ref) {
     }
   });
 });
+
+/// Listens to app lifecycle and refreshes server state when app returns to foreground.
+///
+/// Rationale: Socket.IO does not replay historical events. If the app was suspended,
+/// we may miss updates. On resume, invalidate conversations to reconcile state.
+final foregroundRefreshProvider = Provider<void>((ref) {
+  final observer = _ForegroundRefreshObserver(ref);
+  WidgetsBinding.instance.addObserver(observer);
+  ref.onDispose(() => WidgetsBinding.instance.removeObserver(observer));
+});
+
+class _ForegroundRefreshObserver extends WidgetsBindingObserver {
+  final Ref _ref;
+  _ForegroundRefreshObserver(this._ref);
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Schedule to avoid side-effects during build frames
+      Future.microtask(() {
+        try {
+          _ref.invalidate(conversationsProvider);
+        } catch (_) {}
+      });
+    }
+  }
+}
+
+/// Attempts to keep the realtime socket connection alive while the app is
+/// backgrounded, similar to how PersistentStreamingService works for streams.
+///
+/// Notes:
+/// - iOS: limited to short background task windows; we send periodic keepAlive.
+/// - Android: uses existing foreground service notification.
+final socketPersistenceProvider = Provider<void>((ref) {
+  final observer = _SocketPersistenceObserver(ref);
+  WidgetsBinding.instance.addObserver(observer);
+  // React to active conversation changes while backgrounded
+  final sub = ref.listen<Conversation?>(
+    activeConversationProvider,
+    (prev, next) => observer.onActiveConversationChanged(),
+  );
+  ref.onDispose(() => WidgetsBinding.instance.removeObserver(observer));
+  ref.onDispose(sub.close);
+});
+
+class _SocketPersistenceObserver extends WidgetsBindingObserver {
+  final Ref _ref;
+  _SocketPersistenceObserver(this._ref);
+
+  static const String _socketId = 'socket-keepalive';
+  Timer? _heartbeat;
+  bool _bgActive = false;
+  bool _isBackgrounded = false;
+
+  bool _shouldKeepAlive() {
+    final authed =
+        _ref.read(authNavigationStateProvider) ==
+            AuthNavigationState.authenticated;
+    final hasConversation = _ref.read(activeConversationProvider) != null;
+    return authed && hasConversation;
+  }
+
+  void _startBackground() {
+    if (_bgActive) return;
+    if (!_shouldKeepAlive()) return;
+    try {
+      BackgroundStreamingHandler.instance
+          .startBackgroundExecution([_socketId]);
+      // Periodic keep-alive (primarily useful on iOS)
+      _heartbeat?.cancel();
+      _heartbeat =
+          Timer.periodic(const Duration(seconds: 30), (_) async {
+        try {
+          await BackgroundStreamingHandler.instance.keepAlive();
+        } catch (_) {}
+      });
+      _bgActive = true;
+    } catch (_) {}
+  }
+
+  void _stopBackground() {
+    if (!_bgActive) return;
+    try {
+      BackgroundStreamingHandler.instance
+          .stopBackgroundExecution([_socketId]);
+    } catch (_) {}
+    _heartbeat?.cancel();
+    _heartbeat = null;
+    _bgActive = false;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+        _isBackgrounded = true;
+        _startBackground();
+        break;
+      case AppLifecycleState.resumed:
+        _isBackgrounded = false;
+        _stopBackground();
+        break;
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        _isBackgrounded = false;
+        _stopBackground();
+        break;
+    }
+  }
+
+  // Called when active conversation changes; only acts during background
+  void onActiveConversationChanged() {
+    if (!_isBackgrounded) return;
+    if (_shouldKeepAlive()) {
+      _startBackground();
+    } else {
+      _stopBackground();
+    }
+  }
+}
 
 Future<void> _maybeShowOnboarding(Ref ref) async {
   try {
