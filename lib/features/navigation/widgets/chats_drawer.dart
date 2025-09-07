@@ -12,6 +12,7 @@ import '../../chat/providers/chat_providers.dart' as chat;
 // import '../../files/views/files_page.dart';
 import '../../profile/views/profile_page.dart';
 import '../../../shared/utils/ui_utils.dart';
+import '../../../shared/widgets/themed_dialogs.dart';
 import '../../../core/auth/auth_state_manager.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import '../../../core/models/user.dart' as models;
@@ -580,43 +581,12 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
   }
 
   Future<void> _promptCreateFolder() async {
-    final theme = context.conduitTheme;
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: theme.surfaceBackground,
-        title: Text(
-          AppLocalizations.of(context)!.newFolder,
-          style: TextStyle(color: theme.textPrimary),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: TextStyle(color: theme.inputText),
-          decoration: InputDecoration(
-            hintText: AppLocalizations.of(context)!.folderName,
-            hintStyle: TextStyle(color: theme.inputPlaceholder),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: theme.inputBorder),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: theme.buttonPrimary),
-            ),
-          ),
-          onSubmitted: (v) => Navigator.pop(ctx, controller.text.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(AppLocalizations.of(context)!.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: Text(AppLocalizations.of(context)!.create),
-          ),
-        ],
-      ),
+    final name = await ThemedDialogs.promptTextInput(
+      context,
+      title: AppLocalizations.of(context)!.newFolder,
+      hintText: AppLocalizations.of(context)!.folderName,
+      confirmText: AppLocalizations.of(context)!.create,
+      cancelText: AppLocalizations.of(context)!.cancel,
     );
 
     if (name == null) return;
@@ -822,50 +792,13 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     String folderId,
     String currentName,
   ) async {
-    final theme = context.conduitTheme;
-    final controller = TextEditingController(text: currentName);
-
-    final newName = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: theme.surfaceBackground,
-          title: Text(
-            AppLocalizations.of(context)!.rename,
-            style: TextStyle(color: theme.textPrimary),
-          ),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            style: TextStyle(color: theme.inputText),
-            decoration: InputDecoration(
-              hintText: AppLocalizations.of(context)!.folderName,
-              hintStyle: TextStyle(color: theme.inputPlaceholder),
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: theme.inputBorder),
-              ),
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: theme.buttonPrimary),
-              ),
-            ),
-            textInputAction: TextInputAction.done,
-            onSubmitted: (value) => Navigator.pop(dialogContext, value.trim()),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(AppLocalizations.of(context)!.cancel),
-            ),
-            TextButton(
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                Navigator.pop(dialogContext, controller.text.trim());
-              },
-              child: Text(AppLocalizations.of(context)!.save),
-            ),
-          ],
-        );
-      },
+    final newName = await ThemedDialogs.promptTextInput(
+      context,
+      title: AppLocalizations.of(context)!.rename,
+      hintText: AppLocalizations.of(context)!.folderName,
+      initialValue: currentName,
+      confirmText: AppLocalizations.of(context)!.save,
+      cancelText: AppLocalizations.of(context)!.cancel,
     );
 
     if (newName == null) return;
@@ -892,10 +825,10 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     String folderId,
     String folderName,
   ) async {
-    final confirmed = await UiUtils.showConfirmationDialog(
+    final confirmed = await ThemedDialogs.confirm(
       context,
-      title: 'Delete Folder',
-      message: 'This folder and its assignment references will be removed.',
+      title: AppLocalizations.of(context)!.deleteFolderTitle,
+      message: AppLocalizations.of(context)!.deleteFolderMessage,
       confirmText: AppLocalizations.of(context)!.delete,
       isDestructive: true,
     );
@@ -912,7 +845,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       if (!mounted) return;
       UiUtils.showMessage(
         this.context,
-        'Failed to delete folder',
+        AppLocalizations.of(context)!.failedToDeleteFolder,
         isError: true,
       );
     }
@@ -1470,50 +1403,13 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     String conversationId,
     String currentTitle,
   ) async {
-    final theme = context.conduitTheme;
-    final controller = TextEditingController(text: currentTitle);
-
-    final newName = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: theme.surfaceBackground,
-          title: Text(
-            AppLocalizations.of(context)!.renameChat,
-            style: TextStyle(color: theme.textPrimary),
-          ),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            style: TextStyle(color: theme.inputText),
-            decoration: InputDecoration(
-              hintText: AppLocalizations.of(context)!.enterChatName,
-              hintStyle: TextStyle(color: theme.inputPlaceholder),
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: theme.inputBorder),
-              ),
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: theme.buttonPrimary),
-              ),
-            ),
-            textInputAction: TextInputAction.done,
-            onSubmitted: (value) => Navigator.pop(dialogContext, value.trim()),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(AppLocalizations.of(context)!.cancel),
-            ),
-            TextButton(
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                Navigator.pop(dialogContext, controller.text.trim());
-              },
-              child: Text(AppLocalizations.of(context)!.save),
-            ),
-          ],
-        );
-      },
+    final newName = await ThemedDialogs.promptTextInput(
+      context,
+      title: AppLocalizations.of(context)!.renameChat,
+      hintText: AppLocalizations.of(context)!.enterChatName,
+      initialValue: currentTitle,
+      confirmText: AppLocalizations.of(context)!.save,
+      cancelText: AppLocalizations.of(context)!.cancel,
     );
 
     if (newName == null) return;
@@ -1546,7 +1442,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     BuildContext context,
     String conversationId,
   ) async {
-    final confirmed = await UiUtils.showConfirmationDialog(
+    final confirmed = await ThemedDialogs.confirm(
       context,
       title: AppLocalizations.of(context)!.deleteChatTitle,
       message: AppLocalizations.of(context)!.deleteChatMessage,

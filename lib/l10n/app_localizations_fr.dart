@@ -606,6 +606,17 @@ class AppLocalizationsFr extends AppLocalizations {
   String get deleteChatMessage => 'Ce chat sera supprimé définitivement.';
 
   @override
+  String get deleteFolderTitle => 'Supprimer le dossier';
+
+  @override
+  String get deleteFolderMessage =>
+      'Ce dossier et ses associations seront supprimés.';
+
+  @override
+  String get failedToDeleteFolder =>
+      'Échec de la suppression du dossier';
+
+  @override
   String get aboutApp => 'À propos de l\'application';
 
   @override

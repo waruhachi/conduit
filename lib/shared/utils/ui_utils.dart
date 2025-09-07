@@ -115,54 +115,7 @@ class UiUtils {
     );
   }
 
-  /// Shows a Conduit-styled confirmation dialog
-  static Future<bool> showConfirmationDialog(
-    BuildContext context, {
-    required String title,
-    required String message,
-    String confirmText = 'Confirm',
-    String cancelText = 'Cancel',
-    bool isDestructive = false,
-  }) async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: context.conduitTheme.surfaceBackground,
-            title: Text(
-              title,
-              style: TextStyle(color: context.conduitTheme.textPrimary),
-            ),
-            content: Text(
-              message,
-              style: TextStyle(color: context.conduitTheme.textSecondary),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(
-                  cancelText.isNotEmpty
-                      ? cancelText
-                      : AppLocalizations.of(context)!.cancel,
-                ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: isDestructive
-                    ? TextButton.styleFrom(
-                        foregroundColor: context.conduitTheme.error,
-                      )
-                    : null,
-                child: Text(
-                  confirmText.isNotEmpty
-                      ? confirmText
-                      : AppLocalizations.of(context)!.confirm,
-                ),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-  }
+  // Confirmation dialog moved to shared ThemedDialogs.confirm for cohesion
 
   /// Formats dates in a conversational way following Conduit patterns
   static String formatDate(DateTime date) {

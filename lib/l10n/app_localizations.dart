@@ -1182,6 +1182,24 @@ abstract class AppLocalizations {
   /// **'This chat will be permanently deleted.'**
   String get deleteChatMessage;
 
+  /// Dialog title asking to confirm deletion of a folder.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Folder'**
+  String get deleteFolderTitle;
+
+  /// Warning that deleting a folder will remove it and its associations.
+  ///
+  /// In en, this message translates to:
+  /// **'This folder and its assignment references will be removed.'**
+  String get deleteFolderMessage;
+
+  /// Error notice when deleting a folder fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to delete folder'**
+  String get failedToDeleteFolder;
+
   /// Settings tile title to view app information.
   ///
   /// In en, this message translates to:

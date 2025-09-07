@@ -96,4 +96,108 @@ class ThemedDialogs {
       ),
     );
   }
+
+  /// Cohesive text input dialog used for rename/create flows
+  static Future<String?> promptTextInput(
+    BuildContext context, {
+    required String title,
+    required String hintText,
+    String? initialValue,
+    String confirmText = 'Save',
+    String cancelText = 'Cancel',
+    bool barrierDismissible = true,
+    TextInputType? keyboardType,
+    TextCapitalization textCapitalization = TextCapitalization.sentences,
+    int? maxLength,
+  }) async {
+    final theme = context.conduitTheme;
+    final controller = TextEditingController(text: initialValue ?? '');
+
+    String? result = await showDialog<String>(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      builder: (ctx) {
+        return buildBase(
+          context: ctx,
+          title: title,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: keyboardType,
+                textCapitalization: textCapitalization,
+                maxLength: maxLength,
+                style: TextStyle(color: theme.inputText),
+                decoration: InputDecoration(
+                  hintText: hintText,
+                  hintStyle: TextStyle(color: theme.inputPlaceholder),
+                  filled: true,
+                  fillColor: theme.inputBackground,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                    borderSide: BorderSide(color: theme.inputBorder, width: 1),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                    borderSide:
+                        BorderSide(color: theme.buttonPrimary, width: 1),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: Spacing.md,
+                    vertical: Spacing.md,
+                  ),
+                ),
+                onSubmitted: (v) {
+                  final trimmed = v.trim();
+                  final unchanged = (initialValue != null &&
+                      trimmed == initialValue.trim());
+                  if (trimmed.isEmpty || unchanged) return;
+                  Navigator.of(ctx).pop(trimmed);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(
+                cancelText,
+                style: TextStyle(color: theme.textSecondary),
+              ),
+            ),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (context, value, _) {
+                final trimmed = value.text.trim();
+                final unchanged =
+                    (initialValue != null && trimmed == initialValue.trim());
+                final enabled = trimmed.isNotEmpty && !unchanged;
+                return TextButton(
+                  onPressed: enabled
+                      ? () => Navigator.of(ctx).pop(trimmed)
+                      : null,
+                  child: Text(
+                    confirmText,
+                    style: TextStyle(
+                      color: enabled
+                          ? theme.buttonPrimary
+                          : theme.textSecondary,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    return result;
+  }
 }

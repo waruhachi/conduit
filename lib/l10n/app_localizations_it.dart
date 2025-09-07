@@ -599,6 +599,17 @@ class AppLocalizationsIt extends AppLocalizations {
       'Questa chat verrà eliminata definitivamente.';
 
   @override
+  String get deleteFolderTitle => 'Elimina cartella';
+
+  @override
+  String get deleteFolderMessage =>
+      'Questa cartella e le sue associazioni verranno rimosse.';
+
+  @override
+  String get failedToDeleteFolder =>
+      'Impossibile eliminare la cartella';
+
+  @override
   String get aboutApp => 'Informazioni sull\'app';
 
   @override

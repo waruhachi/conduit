@@ -11,6 +11,7 @@ import '../../../core/widgets/error_boundary.dart';
 import '../../../shared/widgets/improved_loading_states.dart';
 
 import '../../../shared/utils/ui_utils.dart';
+import '../../../shared/widgets/themed_dialogs.dart';
 import '../../../shared/widgets/sheet_handle.dart';
 import '../../../shared/widgets/conduit_components.dart';
 import '../../../core/providers/app_providers.dart';
@@ -574,7 +575,7 @@ class ProfilePage extends ConsumerWidget {
   }
 
   void _signOut(BuildContext context, WidgetRef ref) async {
-    final confirm = await UiUtils.showConfirmationDialog(
+    final confirm = await ThemedDialogs.confirm(
       context,
       title: AppLocalizations.of(context)!.signOut,
       message: AppLocalizations.of(context)!.endYourSession,
