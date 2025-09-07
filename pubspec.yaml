@@ -75,21 +75,8 @@ dependency_overrides:
 flutter:
   uses-material-design: true
   generate: true
-  # Localization configuration
-  # The default synthetic package is used for generated localizations:
-  # import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-  # ARB files live in lib/l10n
-  # You can customize output via the `l10n:` section if needed.
-  #
-  # l10n:
-  #   arb-dir: lib/l10n
-  #   template-arb-file: app_en.arb
-  #   output-localization-file: app_localizations.dart
-  #   preferred-supported-locales:
-  #     - en
-  #     - de
-  #     - fr
-  #     - it
+  # Localization
+  # ARB files live in lib/l10n (configured via l10n.yaml)
   
   assets:
     - assets/icons/

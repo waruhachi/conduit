@@ -64,7 +64,8 @@ import 'app_localizations_it.dart';
 /// be consistent with the languages listed in the AppLocalizations.supportedLocales
 /// property.
 abstract class AppLocalizations {
-  AppLocalizations(String locale) : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+  AppLocalizations(String locale)
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -72,7 +73,8 @@ abstract class AppLocalizations {
     return Localizations.of<AppLocalizations>(context, AppLocalizations);
   }
 
-  static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
+  static const LocalizationsDelegate<AppLocalizations> delegate =
+      _AppLocalizationsDelegate();
 
   /// A list of this localizations delegate along with the default localizations
   /// delegates.
@@ -84,142 +86,143 @@ abstract class AppLocalizations {
   /// Additional delegates can be added by appending to this list in
   /// MaterialApp. This list does not have to be used at all if a custom list
   /// of delegates is preferred or required.
-  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates = <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
+      <LocalizationsDelegate<dynamic>>[
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
-    Locale('de'),
     Locale('en'),
+    Locale('de'),
     Locale('fr'),
-    Locale('it')
+    Locale('it'),
   ];
 
-  /// No description provided for @appTitle.
+  /// Application name displayed in the app and OS UI.
   ///
   /// In en, this message translates to:
   /// **'Conduit'**
   String get appTitle;
 
-  /// No description provided for @initializationFailed.
+  /// Shown if the app fails to initialize critical services.
   ///
   /// In en, this message translates to:
   /// **'Initialization Failed'**
   String get initializationFailed;
 
-  /// No description provided for @retry.
+  /// Button label to try an action again.
   ///
   /// In en, this message translates to:
   /// **'Retry'**
   String get retry;
 
-  /// No description provided for @back.
+  /// Back navigation label/tooltip.
   ///
   /// In en, this message translates to:
   /// **'Back'**
   String get back;
 
-  /// No description provided for @you.
+  /// Profile tab title.
   ///
   /// In en, this message translates to:
   /// **'You'**
   String get you;
 
-  /// No description provided for @loadingProfile.
+  /// Progress message while fetching profile data.
   ///
   /// In en, this message translates to:
   /// **'Loading profile...'**
   String get loadingProfile;
 
-  /// No description provided for @unableToLoadProfile.
+  /// Error title shown when profile request fails.
   ///
   /// In en, this message translates to:
   /// **'Unable to load profile'**
   String get unableToLoadProfile;
 
-  /// No description provided for @pleaseCheckConnection.
+  /// Generic connectivity hint after an error.
   ///
   /// In en, this message translates to:
   /// **'Please check your connection and try again'**
   String get pleaseCheckConnection;
 
-  /// No description provided for @account.
+  /// Section header for account-related options.
   ///
   /// In en, this message translates to:
   /// **'Account'**
   String get account;
 
-  /// No description provided for @signOut.
+  /// Button/title for signing out of the app.
   ///
   /// In en, this message translates to:
   /// **'Sign Out'**
   String get signOut;
 
-  /// No description provided for @endYourSession.
+  /// Subtitle explaining the sign-out action.
   ///
   /// In en, this message translates to:
   /// **'End your session'**
   String get endYourSession;
 
-  /// No description provided for @defaultModel.
+  /// Label for choosing a default AI model.
   ///
   /// In en, this message translates to:
   /// **'Default Model'**
   String get defaultModel;
 
-  /// No description provided for @autoSelect.
+  /// Option to let the app pick a suitable model automatically.
   ///
   /// In en, this message translates to:
   /// **'Auto-select'**
   String get autoSelect;
 
-  /// No description provided for @loadingModels.
+  /// Progress message while fetching model list.
   ///
   /// In en, this message translates to:
   /// **'Loading models...'**
   String get loadingModels;
 
-  /// No description provided for @failedToLoadModels.
+  /// Error message shown when model list cannot be retrieved.
   ///
   /// In en, this message translates to:
   /// **'Failed to load models'**
   String get failedToLoadModels;
 
-  /// No description provided for @availableModels.
+  /// Header above a list of models to select from.
   ///
   /// In en, this message translates to:
   /// **'Available Models'**
   String get availableModels;
 
-  /// No description provided for @noResults.
+  /// Shown when a search returns no matches.
   ///
   /// In en, this message translates to:
   /// **'No results'**
   String get noResults;
 
-  /// No description provided for @searchModels.
+  /// Hint text for model search input.
   ///
   /// In en, this message translates to:
   /// **'Search models...'**
   String get searchModels;
 
-  /// No description provided for @errorMessage.
+  /// Generic error message for unexpected failures.
   ///
   /// In en, this message translates to:
   /// **'Something went wrong. Please try again.'**
   String get errorMessage;
 
-  /// No description provided for @loginButton.
+  /// Button text for the login action.
   ///
   /// In en, this message translates to:
   /// **'Login'**
   String get loginButton;
 
-  /// No description provided for @menuItem.
+  /// Generic settings menu item label.
   ///
   /// In en, this message translates to:
   /// **'Settings'**
@@ -237,115 +240,115 @@ abstract class AppLocalizations {
   /// **'{count, plural, =0{No items} one{1 item} other{{count} items}}'**
   String itemsCount(int count);
 
-  /// No description provided for @closeButtonSemantic.
+  /// Accessible label for a generic Close button.
   ///
   /// In en, this message translates to:
   /// **'Close'**
   String get closeButtonSemantic;
 
-  /// No description provided for @loadingContent.
+  /// Shown while loading page content.
   ///
   /// In en, this message translates to:
   /// **'Loading content'**
   String get loadingContent;
 
-  /// No description provided for @noItems.
+  /// Placeholder text when a list is empty.
   ///
   /// In en, this message translates to:
   /// **'No items'**
   String get noItems;
 
-  /// No description provided for @noItemsToDisplay.
+  /// Alternative empty-state description.
   ///
   /// In en, this message translates to:
   /// **'No items to display'**
   String get noItemsToDisplay;
 
-  /// No description provided for @loadMore.
+  /// Button label to load additional items in a paged list.
   ///
   /// In en, this message translates to:
   /// **'Load More'**
   String get loadMore;
 
-  /// No description provided for @workspace.
+  /// Section/tab label for documents and files.
   ///
   /// In en, this message translates to:
   /// **'Workspace'**
   String get workspace;
 
-  /// No description provided for @recentFiles.
+  /// Header for recently accessed files.
   ///
   /// In en, this message translates to:
   /// **'Recent Files'**
   String get recentFiles;
 
-  /// No description provided for @knowledgeBase.
+  /// Section for knowledge base content.
   ///
   /// In en, this message translates to:
   /// **'Knowledge Base'**
   String get knowledgeBase;
 
-  /// No description provided for @noFilesYet.
+  /// Empty state when no files are present.
   ///
   /// In en, this message translates to:
   /// **'No files yet'**
   String get noFilesYet;
 
-  /// No description provided for @uploadDocsPrompt.
+  /// Prompt encouraging users to upload documents.
   ///
   /// In en, this message translates to:
   /// **'Upload documents to reference in your conversations with Conduit'**
   String get uploadDocsPrompt;
 
-  /// No description provided for @uploadFirstFile.
+  /// CTA to add the first file.
   ///
   /// In en, this message translates to:
   /// **'Upload your first file'**
   String get uploadFirstFile;
 
-  /// No description provided for @knowledgeBaseEmpty.
+  /// Empty state title for the knowledge base section.
   ///
   /// In en, this message translates to:
   /// **'Knowledge base is empty'**
   String get knowledgeBaseEmpty;
 
-  /// No description provided for @createCollectionsPrompt.
+  /// Prompt describing the benefit of creating collections.
   ///
   /// In en, this message translates to:
   /// **'Create collections of related documents for easy reference'**
   String get createCollectionsPrompt;
 
-  /// No description provided for @chooseSourcePhoto.
+  /// Sheet title to pick camera or photo library.
   ///
   /// In en, this message translates to:
   /// **'Choose your source'**
   String get chooseSourcePhoto;
 
-  /// No description provided for @takePhoto.
+  /// Action to open camera and capture a new photo.
   ///
   /// In en, this message translates to:
   /// **'Take a photo'**
   String get takePhoto;
 
-  /// No description provided for @chooseFromGallery.
+  /// Action to pick an existing photo from library.
   ///
   /// In en, this message translates to:
   /// **'Choose from your photos'**
   String get chooseFromGallery;
 
-  /// No description provided for @document.
+  /// Generic document label used in UI.
   ///
   /// In en, this message translates to:
   /// **'Document'**
   String get document;
 
-  /// No description provided for @documentHint.
+  /// Helper hint listing supported document types.
   ///
   /// In en, this message translates to:
   /// **'PDF, Word, or text file'**
   String get documentHint;
 
-  /// No description provided for @uploadFileTitle.
+  /// Dialog/sheet title for file upload.
   ///
   /// In en, this message translates to:
   /// **'Upload File'**
@@ -357,1111 +360,1111 @@ abstract class AppLocalizations {
   /// **'File upload for {type} is coming soon!'**
   String fileUploadComingSoon(String type);
 
-  /// No description provided for @kbCreationComingSoon.
+  /// Temporary message indicating KB creation feature is not yet available.
   ///
   /// In en, this message translates to:
   /// **'Knowledge base creation is coming soon!'**
   String get kbCreationComingSoon;
 
-  /// No description provided for @backToServerSetup.
+  /// Button/back label to return to server configuration flow.
   ///
   /// In en, this message translates to:
   /// **'Back to server setup'**
   String get backToServerSetup;
 
-  /// No description provided for @connectedToServer.
+  /// Status label indicating a successful server connection.
   ///
   /// In en, this message translates to:
   /// **'Connected to Server'**
   String get connectedToServer;
 
-  /// No description provided for @signIn.
+  /// Button/heading for sign-in flows.
   ///
   /// In en, this message translates to:
   /// **'Sign In'**
   String get signIn;
 
-  /// No description provided for @enterCredentials.
+  /// Instructional text on the sign-in screen.
   ///
   /// In en, this message translates to:
   /// **'Enter your credentials to access your AI conversations'**
   String get enterCredentials;
 
-  /// No description provided for @credentials.
+  /// Header for credential input section.
   ///
   /// In en, this message translates to:
   /// **'Credentials'**
   String get credentials;
 
-  /// No description provided for @apiKey.
+  /// Label for API key input field.
   ///
   /// In en, this message translates to:
   /// **'API Key'**
   String get apiKey;
 
-  /// No description provided for @usernameOrEmail.
+  /// Label for username/email input field.
   ///
   /// In en, this message translates to:
   /// **'Username or Email'**
   String get usernameOrEmail;
 
-  /// No description provided for @password.
+  /// Label for password input field.
   ///
   /// In en, this message translates to:
   /// **'Password'**
   String get password;
 
-  /// No description provided for @signInWithApiKey.
+  /// Alternative sign-in method using an API key.
   ///
   /// In en, this message translates to:
   /// **'Sign in with API Key'**
   String get signInWithApiKey;
 
-  /// No description provided for @connectToServer.
+  /// Call-to-action button for server connection.
   ///
   /// In en, this message translates to:
   /// **'Connect to Server'**
   String get connectToServer;
 
-  /// No description provided for @enterServerAddress.
+  /// Instruction telling user to provide server URL to begin.
   ///
   /// In en, this message translates to:
   /// **'Enter your Open-WebUI server address to get started'**
   String get enterServerAddress;
 
-  /// No description provided for @serverUrl.
+  /// Label for server URL field.
   ///
   /// In en, this message translates to:
   /// **'Server URL'**
   String get serverUrl;
 
-  /// No description provided for @serverUrlHint.
+  /// Hint text showing example server URL format.
   ///
   /// In en, this message translates to:
   /// **'https://your-server.com'**
   String get serverUrlHint;
 
-  /// No description provided for @enterServerUrlSemantic.
+  /// Semantic/ARIA label instructing to enter server URL or IP.
   ///
   /// In en, this message translates to:
   /// **'Enter your server URL or IP address'**
   String get enterServerUrlSemantic;
 
-  /// No description provided for @headerName.
+  /// Label for custom header key.
   ///
   /// In en, this message translates to:
   /// **'Header Name'**
   String get headerName;
 
-  /// No description provided for @headerValue.
+  /// Label for custom header value.
   ///
   /// In en, this message translates to:
   /// **'Header Value'**
   String get headerValue;
 
-  /// No description provided for @headerValueHint.
+  /// Hint text with example header values, including API key or Bearer token.
   ///
   /// In en, this message translates to:
   /// **'api-key-123 or Bearer token'**
   String get headerValueHint;
 
-  /// No description provided for @addHeader.
+  /// Button to add a new custom header row.
   ///
   /// In en, this message translates to:
   /// **'Add header'**
   String get addHeader;
 
-  /// No description provided for @maximumHeadersReached.
+  /// Warning when custom header limit is reached.
   ///
   /// In en, this message translates to:
   /// **'Maximum headers reached'**
   String get maximumHeadersReached;
 
-  /// No description provided for @removeHeader.
+  /// Action to remove a custom header row.
   ///
   /// In en, this message translates to:
   /// **'Remove header'**
   String get removeHeader;
 
-  /// No description provided for @connecting.
+  /// Status while attempting to connect to server.
   ///
   /// In en, this message translates to:
   /// **'Connecting...'**
   String get connecting;
 
-  /// No description provided for @connectToServerButton.
+  /// Primary action button to initiate server connection.
   ///
   /// In en, this message translates to:
   /// **'Connect to Server'**
   String get connectToServerButton;
 
-  /// No description provided for @demoModeActive.
+  /// Banner/text indicating the app runs in demo mode.
   ///
   /// In en, this message translates to:
   /// **'Demo Mode Active'**
   String get demoModeActive;
 
-  /// No description provided for @skipServerSetupTryDemo.
+  /// CTA to bypass server configuration and enter demo mode.
   ///
   /// In en, this message translates to:
   /// **'Skip server setup and try the demo'**
   String get skipServerSetupTryDemo;
 
-  /// No description provided for @enterDemo.
+  /// Button to enter demo mode.
   ///
   /// In en, this message translates to:
   /// **'Enter Demo'**
   String get enterDemo;
 
-  /// No description provided for @demoBadge.
+  /// Small badge label for demo content.
   ///
   /// In en, this message translates to:
   /// **'Demo'**
   String get demoBadge;
 
-  /// No description provided for @serverNotOpenWebUI.
+  /// Validation error when the server does not resemble Open-WebUI.
   ///
   /// In en, this message translates to:
   /// **'This does not appear to be an Open-WebUI server.'**
   String get serverNotOpenWebUI;
 
-  /// No description provided for @serverUrlEmpty.
+  /// Validation message for empty server URL.
   ///
   /// In en, this message translates to:
   /// **'Server URL cannot be empty'**
   String get serverUrlEmpty;
 
-  /// No description provided for @invalidUrlFormat.
+  /// Validation message when URL format is incorrect.
   ///
   /// In en, this message translates to:
   /// **'Invalid URL format. Please check your input.'**
   String get invalidUrlFormat;
 
-  /// No description provided for @onlyHttpHttps.
+  /// Validation note restricting protocols to HTTP/HTTPS.
   ///
   /// In en, this message translates to:
   /// **'Only HTTP and HTTPS protocols are supported.'**
   String get onlyHttpHttps;
 
-  /// No description provided for @serverAddressRequired.
+  /// Validation hint providing examples for server addresses.
   ///
   /// In en, this message translates to:
   /// **'Server address is required (e.g., 192.168.1.10 or example.com).'**
   String get serverAddressRequired;
 
-  /// No description provided for @portRange.
+  /// Validation message for allowed port range.
   ///
   /// In en, this message translates to:
   /// **'Port must be between 1 and 65535.'**
   String get portRange;
 
-  /// No description provided for @invalidIpFormat.
+  /// Validation message for IP addresses with example.
   ///
   /// In en, this message translates to:
   /// **'Invalid IP address format. Use format like 192.168.1.10.'**
   String get invalidIpFormat;
 
-  /// No description provided for @couldNotConnectGeneric.
+  /// Generic failure when connecting to the server.
   ///
   /// In en, this message translates to:
   /// **'Couldn\'t connect. Double-check the address and try again.'**
   String get couldNotConnectGeneric;
 
-  /// No description provided for @weCouldntReachServer.
+  /// Connectivity error with hints to verify server status.
   ///
   /// In en, this message translates to:
   /// **'We couldn\'t reach the server. Check your connection and that the server is running.'**
   String get weCouldntReachServer;
 
-  /// No description provided for @connectionTimedOut.
+  /// Timeout error while connecting to server.
   ///
   /// In en, this message translates to:
   /// **'Connection timed out. The server might be busy or blocked by a firewall.'**
   String get connectionTimedOut;
 
-  /// No description provided for @useHttpOrHttpsOnly.
+  /// Note instructing the user to include protocol in URL.
   ///
   /// In en, this message translates to:
   /// **'Use http:// or https:// only.'**
   String get useHttpOrHttpsOnly;
 
-  /// No description provided for @loginFailed.
+  /// Title for failed login attempts.
   ///
   /// In en, this message translates to:
   /// **'Login failed'**
   String get loginFailed;
 
-  /// No description provided for @invalidCredentials.
+  /// Detailed message when authentication fails.
   ///
   /// In en, this message translates to:
   /// **'Invalid username or password. Please try again.'**
   String get invalidCredentials;
 
-  /// No description provided for @serverRedirectingHttps.
+  /// Warning about HTTP→HTTPS redirect issues.
   ///
   /// In en, this message translates to:
   /// **'The server is redirecting requests. Check your server\'s HTTPS configuration.'**
   String get serverRedirectingHttps;
 
-  /// No description provided for @unableToConnectServer.
+  /// Generic server connection failure message.
   ///
   /// In en, this message translates to:
   /// **'Unable to connect to server. Please check your connection.'**
   String get unableToConnectServer;
 
-  /// No description provided for @requestTimedOut.
+  /// Timeout while waiting for a server response.
   ///
   /// In en, this message translates to:
   /// **'The request timed out. Please try again.'**
   String get requestTimedOut;
 
-  /// No description provided for @genericSignInFailed.
+  /// Fallback sign-in error when no specific cause is known.
   ///
   /// In en, this message translates to:
   /// **'We couldn\'t sign you in. Check your credentials and server settings.'**
   String get genericSignInFailed;
 
-  /// No description provided for @skip.
+  /// Onboarding: skip current step.
   ///
   /// In en, this message translates to:
   /// **'Skip'**
   String get skip;
 
-  /// No description provided for @next.
+  /// Onboarding: go to the next step.
   ///
   /// In en, this message translates to:
   /// **'Next'**
   String get next;
 
-  /// No description provided for @done.
+  /// Onboarding: finish the flow.
   ///
   /// In en, this message translates to:
   /// **'Done'**
   String get done;
 
-  /// No description provided for @onboardStartTitle.
+  /// Onboarding card: start chatting title.
   ///
   /// In en, this message translates to:
   /// **'Start a conversation'**
   String get onboardStartTitle;
 
-  /// No description provided for @onboardStartSubtitle.
+  /// Onboarding card: brief guidance to begin a chat.
   ///
   /// In en, this message translates to:
   /// **'Choose a model, then type below to begin. Tap New Chat anytime.'**
   String get onboardStartSubtitle;
 
-  /// No description provided for @onboardStartBullet1.
+  /// Bullet: how to switch models.
   ///
   /// In en, this message translates to:
   /// **'Tap the model name in the top bar to switch models'**
   String get onboardStartBullet1;
 
-  /// No description provided for @onboardStartBullet2.
+  /// Bullet: how to reset context.
   ///
   /// In en, this message translates to:
   /// **'Use New Chat to reset context'**
   String get onboardStartBullet2;
 
-  /// No description provided for @onboardAttachTitle.
+  /// Onboarding card: attach context title.
   ///
   /// In en, this message translates to:
   /// **'Add context'**
   String get onboardAttachTitle;
 
-  /// No description provided for @onboardAttachSubtitle.
+  /// Onboarding card: why attaching context helps.
   ///
   /// In en, this message translates to:
   /// **'Ground replies with content from Workspace or photos.'**
   String get onboardAttachSubtitle;
 
-  /// No description provided for @onboardAttachBullet1.
+  /// Bullet: types of workspace files.
   ///
   /// In en, this message translates to:
   /// **'Workspace: PDFs, docs, datasets'**
   String get onboardAttachBullet1;
 
-  /// No description provided for @onboardAttachBullet2.
+  /// Bullet: photo sources supported.
   ///
   /// In en, this message translates to:
   /// **'Photos: camera or library'**
   String get onboardAttachBullet2;
 
-  /// No description provided for @onboardSpeakTitle.
+  /// Onboarding card: voice input title.
   ///
   /// In en, this message translates to:
   /// **'Speak naturally'**
   String get onboardSpeakTitle;
 
-  /// No description provided for @onboardSpeakSubtitle.
+  /// Onboarding card: how voice input works.
   ///
   /// In en, this message translates to:
   /// **'Tap the mic to dictate with live waveform feedback.'**
   String get onboardSpeakSubtitle;
 
-  /// No description provided for @onboardSpeakBullet1.
+  /// Bullet: stop dictation preserves text.
   ///
   /// In en, this message translates to:
   /// **'Stop anytime; partial text is preserved'**
   String get onboardSpeakBullet1;
 
-  /// No description provided for @onboardSpeakBullet2.
+  /// Bullet: benefits of voice input.
   ///
   /// In en, this message translates to:
   /// **'Great for quick notes or long prompts'**
   String get onboardSpeakBullet2;
 
-  /// No description provided for @onboardQuickTitle.
+  /// Onboarding card: quick actions title.
   ///
   /// In en, this message translates to:
   /// **'Quick actions'**
   String get onboardQuickTitle;
 
-  /// No description provided for @onboardQuickSubtitle.
+  /// Onboarding card: how to use the app menu.
   ///
   /// In en, this message translates to:
   /// **'Open the menu to switch between Chats, Workspace, and Profile.'**
   String get onboardQuickSubtitle;
 
-  /// No description provided for @onboardQuickBullet1.
+  /// Bullet: menu access to sections.
   ///
   /// In en, this message translates to:
   /// **'Tap the menu to access Chats, Workspace, Profile'**
   String get onboardQuickBullet1;
 
-  /// No description provided for @onboardQuickBullet2.
+  /// Bullet: actions available in the top bar.
   ///
   /// In en, this message translates to:
   /// **'Start New Chat or manage models from the top bar'**
   String get onboardQuickBullet2;
 
-  /// No description provided for @addAttachment.
+  /// Button to add an attachment (file/photo).
   ///
   /// In en, this message translates to:
   /// **'Add attachment'**
   String get addAttachment;
 
-  /// No description provided for @tools.
+  /// Header for a tools/actions section.
   ///
   /// In en, this message translates to:
   /// **'Tools'**
   String get tools;
 
-  /// No description provided for @voiceInput.
+  /// Label for voice input feature.
   ///
   /// In en, this message translates to:
   /// **'Voice input'**
   String get voiceInput;
 
-  /// No description provided for @messageInputLabel.
+  /// Accessibility label for the message input.
   ///
   /// In en, this message translates to:
   /// **'Message input'**
   String get messageInputLabel;
 
-  /// No description provided for @messageInputHint.
+  /// Hint shown in the message input field.
   ///
   /// In en, this message translates to:
   /// **'Type your message'**
   String get messageInputHint;
 
-  /// No description provided for @messageHintText.
+  /// Short placeholder text in the message input.
   ///
   /// In en, this message translates to:
   /// **'Message...'**
   String get messageHintText;
 
-  /// No description provided for @stopGenerating.
+  /// Action to stop the assistant's response generation.
   ///
   /// In en, this message translates to:
   /// **'Stop generating'**
   String get stopGenerating;
 
-  /// No description provided for @send.
+  /// Primary action to send a message.
   ///
   /// In en, this message translates to:
   /// **'Send'**
   String get send;
 
-  /// No description provided for @sendMessage.
+  /// Semantic label for sending a message.
   ///
   /// In en, this message translates to:
   /// **'Send message'**
   String get sendMessage;
 
-  /// No description provided for @file.
+  /// A file item or attachment type label.
   ///
   /// In en, this message translates to:
   /// **'File'**
   String get file;
 
-  /// No description provided for @photo.
+  /// A photo item or attachment type label.
   ///
   /// In en, this message translates to:
   /// **'Photo'**
   String get photo;
 
-  /// No description provided for @camera.
+  /// Camera source label.
   ///
   /// In en, this message translates to:
   /// **'Camera'**
   String get camera;
 
-  /// No description provided for @apiUnavailable.
+  /// Shown when backend API service is unavailable.
   ///
   /// In en, this message translates to:
   /// **'API service not available'**
   String get apiUnavailable;
 
-  /// No description provided for @unableToLoadImage.
+  /// General failure to load an image.
   ///
   /// In en, this message translates to:
   /// **'Unable to load image'**
   String get unableToLoadImage;
 
-  /// No description provided for @notAnImageFile.
+  /// Error when a referenced file is not an image.
   ///
   /// In en, this message translates to:
   /// **'Not an image file: {fileName}'**
   String notAnImageFile(String fileName);
 
-  /// No description provided for @failedToLoadImage.
+  /// Error including the underlying reason when image loading fails.
   ///
   /// In en, this message translates to:
   /// **'Failed to load image: {error}'**
   String failedToLoadImage(String error);
 
-  /// No description provided for @invalidDataUrl.
+  /// Error for malformed data: URLs.
   ///
   /// In en, this message translates to:
   /// **'Invalid data URL format'**
   String get invalidDataUrl;
 
-  /// No description provided for @failedToDecodeImage.
+  /// Error when decoding image bytes/base64.
   ///
   /// In en, this message translates to:
   /// **'Failed to decode image'**
   String get failedToDecodeImage;
 
-  /// No description provided for @invalidImageFormat.
+  /// Error when image type/format is not supported.
   ///
   /// In en, this message translates to:
   /// **'Invalid image format'**
   String get invalidImageFormat;
 
-  /// No description provided for @emptyImageData.
+  /// Error when image data buffer is empty.
   ///
   /// In en, this message translates to:
   /// **'Empty image data'**
   String get emptyImageData;
 
-  /// No description provided for @offlineBanner.
+  /// Banner warning when device is offline.
   ///
   /// In en, this message translates to:
   /// **'You\'re offline. Some features may be limited.'**
   String get offlineBanner;
 
-  /// No description provided for @featureRequiresInternet.
+  /// Informational text explaining internet requirement.
   ///
   /// In en, this message translates to:
   /// **'This feature requires an internet connection'**
   String get featureRequiresInternet;
 
-  /// No description provided for @messagesWillSendWhenOnline.
+  /// Queue behavior notice while offline.
   ///
   /// In en, this message translates to:
   /// **'Messages will be sent when you\'re back online'**
   String get messagesWillSendWhenOnline;
 
-  /// No description provided for @confirm.
+  /// Confirmation button label.
   ///
   /// In en, this message translates to:
   /// **'Confirm'**
   String get confirm;
 
-  /// No description provided for @cancel.
+  /// Cancel button label.
   ///
   /// In en, this message translates to:
   /// **'Cancel'**
   String get cancel;
 
-  /// No description provided for @ok.
+  /// Generic OK button label.
   ///
   /// In en, this message translates to:
   /// **'OK'**
   String get ok;
 
-  /// No description provided for @inputField.
+  /// Accessibility label describing an input field.
   ///
   /// In en, this message translates to:
   /// **'Input field'**
   String get inputField;
 
-  /// No description provided for @captureDocumentOrImage.
+  /// Action to capture a document or image using camera.
   ///
   /// In en, this message translates to:
   /// **'Capture a document or image'**
   String get captureDocumentOrImage;
 
-  /// No description provided for @checkConnection.
+  /// CTA to verify network connectivity.
   ///
   /// In en, this message translates to:
   /// **'Check Connection'**
   String get checkConnection;
 
-  /// No description provided for @openSettings.
+  /// CTA to open device or app settings.
   ///
   /// In en, this message translates to:
   /// **'Open Settings'**
   String get openSettings;
 
-  /// No description provided for @chooseDifferentFile.
+  /// CTA to pick an alternative file.
   ///
   /// In en, this message translates to:
   /// **'Choose Different File'**
   String get chooseDifferentFile;
 
-  /// No description provided for @goBack.
+  /// CTA to navigate back.
   ///
   /// In en, this message translates to:
   /// **'Go Back'**
   String get goBack;
 
-  /// No description provided for @technicalDetails.
+  /// Expandable section label to show error details or logs.
   ///
   /// In en, this message translates to:
   /// **'Technical Details'**
   String get technicalDetails;
 
-  /// No description provided for @save.
+  /// Primary action to save changes.
   ///
   /// In en, this message translates to:
   /// **'Save'**
   String get save;
 
-  /// No description provided for @chooseModel.
+  /// Button/label to choose a model.
   ///
   /// In en, this message translates to:
   /// **'Choose Model'**
   String get chooseModel;
 
-  /// No description provided for @reviewerMode.
+  /// Developer/reviewer mode indicator.
   ///
   /// In en, this message translates to:
   /// **'REVIEWER MODE'**
   String get reviewerMode;
 
-  /// No description provided for @selectLanguage.
+  /// Dialog title to pick application language.
   ///
   /// In en, this message translates to:
   /// **'Select Language'**
   String get selectLanguage;
 
-  /// No description provided for @newFolder.
+  /// Action to create a new folder.
   ///
   /// In en, this message translates to:
   /// **'New Folder'**
   String get newFolder;
 
-  /// No description provided for @folderName.
+  /// Label for entering a folder's name.
   ///
   /// In en, this message translates to:
   /// **'Folder name'**
   String get folderName;
 
-  /// No description provided for @newChat.
+  /// Action to start a new chat.
   ///
   /// In en, this message translates to:
   /// **'New Chat'**
   String get newChat;
 
-  /// No description provided for @more.
+  /// Opens additional actions or content.
   ///
   /// In en, this message translates to:
   /// **'More'**
   String get more;
 
-  /// No description provided for @clear.
+  /// Action to clear input or selection.
   ///
   /// In en, this message translates to:
   /// **'Clear'**
   String get clear;
 
-  /// No description provided for @searchHint.
+  /// Generic search input hint.
   ///
   /// In en, this message translates to:
   /// **'Search...'**
   String get searchHint;
 
-  /// No description provided for @searchConversations.
+  /// Search input hint scoped to conversations.
   ///
   /// In en, this message translates to:
   /// **'Search conversations...'**
   String get searchConversations;
 
-  /// No description provided for @create.
+  /// Primary action to create a resource.
   ///
   /// In en, this message translates to:
   /// **'Create'**
   String get create;
 
-  /// No description provided for @folderCreated.
+  /// Toast/notice after successfully creating a folder.
   ///
   /// In en, this message translates to:
   /// **'Folder created'**
   String get folderCreated;
 
-  /// No description provided for @failedToCreateFolder.
+  /// Error notice when folder creation fails.
   ///
   /// In en, this message translates to:
   /// **'Failed to create folder'**
   String get failedToCreateFolder;
 
-  /// No description provided for @movedChatToFolder.
+  /// Toast indicating a chat titled {title} was moved to folder {folder}.
   ///
   /// In en, this message translates to:
   /// **'Moved \"{title}\" to \"{folder}\"'**
   String movedChatToFolder(String title, String folder);
 
-  /// No description provided for @failedToMoveChat.
+  /// Error notice when moving a chat fails.
   ///
   /// In en, this message translates to:
   /// **'Failed to move chat'**
   String get failedToMoveChat;
 
-  /// No description provided for @failedToLoadChats.
+  /// Error notice when fetching chat list fails.
   ///
   /// In en, this message translates to:
   /// **'Failed to load chats'**
   String get failedToLoadChats;
 
-  /// No description provided for @failedToUpdatePin.
+  /// Error notice when updating pin star/flag fails.
   ///
   /// In en, this message translates to:
   /// **'Failed to update pin'**
   String get failedToUpdatePin;
 
-  /// No description provided for @failedToDeleteChat.
+  /// Error notice when deleting a chat fails.
   ///
   /// In en, this message translates to:
   /// **'Failed to delete chat'**
   String get failedToDeleteChat;
 
-  /// No description provided for @manage.
+  /// Context action to manage an item.
   ///
   /// In en, this message translates to:
   /// **'Manage'**
   String get manage;
 
-  /// No description provided for @rename.
+  /// Context action to rename an item.
   ///
   /// In en, this message translates to:
   /// **'Rename'**
   String get rename;
 
-  /// No description provided for @delete.
+  /// Context action to delete an item.
   ///
   /// In en, this message translates to:
   /// **'Delete'**
   String get delete;
 
-  /// No description provided for @renameChat.
+  /// Dialog title to rename a chat.
   ///
   /// In en, this message translates to:
   /// **'Rename Chat'**
   String get renameChat;
 
-  /// No description provided for @enterChatName.
+  /// Input hint/label for new chat name.
   ///
   /// In en, this message translates to:
   /// **'Enter chat name'**
   String get enterChatName;
 
-  /// No description provided for @failedToRenameChat.
+  /// Error notice when renaming chat fails.
   ///
   /// In en, this message translates to:
   /// **'Failed to rename chat'**
   String get failedToRenameChat;
 
-  /// No description provided for @failedToUpdateArchive.
+  /// Error notice when archiving/unarchiving fails.
   ///
   /// In en, this message translates to:
   /// **'Failed to update archive'**
   String get failedToUpdateArchive;
 
-  /// No description provided for @unarchive.
+  /// Action to unarchive an item.
   ///
   /// In en, this message translates to:
   /// **'Unarchive'**
   String get unarchive;
 
-  /// No description provided for @archive.
+  /// Action to archive an item.
   ///
   /// In en, this message translates to:
   /// **'Archive'**
   String get archive;
 
-  /// No description provided for @pin.
+  /// Action to pin/star an item.
   ///
   /// In en, this message translates to:
   /// **'Pin'**
   String get pin;
 
-  /// No description provided for @unpin.
+  /// Action to remove pin from an item.
   ///
   /// In en, this message translates to:
   /// **'Unpin'**
   String get unpin;
 
-  /// No description provided for @recent.
+  /// List filter for recently used items.
   ///
   /// In en, this message translates to:
   /// **'Recent'**
   String get recent;
 
-  /// No description provided for @system.
+  /// Option indicating the device/system default.
   ///
   /// In en, this message translates to:
   /// **'System'**
   String get system;
 
-  /// No description provided for @english.
+  /// Language name: English.
   ///
   /// In en, this message translates to:
   /// **'English'**
   String get english;
 
-  /// No description provided for @deutsch.
+  /// Language name: German.
   ///
   /// In en, this message translates to:
   /// **'Deutsch'**
   String get deutsch;
 
-  /// No description provided for @francais.
+  /// Language name: French.
   ///
   /// In en, this message translates to:
   /// **'Français'**
   String get francais;
 
-  /// No description provided for @italiano.
+  /// Language name: Italian.
   ///
   /// In en, this message translates to:
   /// **'Italiano'**
   String get italiano;
 
-  /// No description provided for @deleteMessagesTitle.
+  /// Dialog title asking to confirm deletion of messages.
   ///
   /// In en, this message translates to:
   /// **'Delete Messages'**
   String get deleteMessagesTitle;
 
-  /// No description provided for @deleteMessagesMessage.
+  /// Confirmation prompt asking to delete a number of messages.
   ///
   /// In en, this message translates to:
   /// **'Delete {count} messages?'**
   String deleteMessagesMessage(int count);
 
-  /// No description provided for @routeNotFound.
+  /// Displayed when navigation fails to find a route name.
   ///
   /// In en, this message translates to:
   /// **'Route not found: {routeName}'**
   String routeNotFound(String routeName);
 
-  /// No description provided for @deleteChatTitle.
+  /// Dialog title asking to confirm deletion of a chat.
   ///
   /// In en, this message translates to:
   /// **'Delete Chat'**
   String get deleteChatTitle;
 
-  /// No description provided for @deleteChatMessage.
+  /// Warning that deleting a chat cannot be undone.
   ///
   /// In en, this message translates to:
   /// **'This chat will be permanently deleted.'**
   String get deleteChatMessage;
 
-  /// No description provided for @aboutApp.
+  /// Settings tile title to view app information.
   ///
   /// In en, this message translates to:
   /// **'About App'**
   String get aboutApp;
 
-  /// No description provided for @aboutAppSubtitle.
+  /// Subtitle/description for the About section.
   ///
   /// In en, this message translates to:
   /// **'Conduit information and links'**
   String get aboutAppSubtitle;
 
-  /// No description provided for @typeBelowToBegin.
+  /// Hint shown in empty chat input area.
   ///
   /// In en, this message translates to:
   /// **'Type below to begin'**
   String get typeBelowToBegin;
 
-  /// No description provided for @web.
+  /// Tab/section label for web features.
   ///
   /// In en, this message translates to:
   /// **'Web'**
   String get web;
 
-  /// No description provided for @imageGen.
+  /// Short label for image generation section/tab.
   ///
   /// In en, this message translates to:
   /// **'Image Gen'**
   String get imageGen;
 
-  /// No description provided for @pinned.
+  /// Filter/tab for pinned items.
   ///
   /// In en, this message translates to:
   /// **'Pinned'**
   String get pinned;
 
-  /// No description provided for @folders.
+  /// Tab listing chat folders.
   ///
   /// In en, this message translates to:
   /// **'Folders'**
   String get folders;
 
-  /// No description provided for @archived.
+  /// Filter/tab for archived chats.
   ///
   /// In en, this message translates to:
   /// **'Archived'**
   String get archived;
 
-  /// No description provided for @appLanguage.
+  /// Label for choosing the app's display language.
   ///
   /// In en, this message translates to:
   /// **'App Language'**
   String get appLanguage;
 
-  /// No description provided for @darkMode.
+  /// Label for toggling dark theme.
   ///
   /// In en, this message translates to:
   /// **'Dark Mode'**
   String get darkMode;
 
-  /// No description provided for @webSearch.
+  /// Feature toggle/section for web search.
   ///
   /// In en, this message translates to:
   /// **'Web Search'**
   String get webSearch;
 
-  /// No description provided for @webSearchDescription.
+  /// Explains that responses can include citations from the web.
   ///
   /// In en, this message translates to:
   /// **'Search the web and cite sources in replies.'**
   String get webSearchDescription;
 
-  /// No description provided for @imageGeneration.
+  /// Feature toggle/section for image generation.
   ///
   /// In en, this message translates to:
   /// **'Image Generation'**
   String get imageGeneration;
 
-  /// No description provided for @imageGenerationDescription.
+  /// Explains creating images via model prompts.
   ///
   /// In en, this message translates to:
   /// **'Create images from your prompts.'**
   String get imageGenerationDescription;
 
-  /// No description provided for @copy.
+  /// Action to copy text to clipboard.
   ///
   /// In en, this message translates to:
   /// **'Copy'**
   String get copy;
 
-  /// No description provided for @edit.
+  /// Action to edit an item/message.
   ///
   /// In en, this message translates to:
   /// **'Edit'**
   String get edit;
 
-  /// No description provided for @regenerate.
+  /// Action to request a new assistant response.
   ///
   /// In en, this message translates to:
   /// **'Regenerate'**
   String get regenerate;
 
-  /// No description provided for @noConversationsYet.
+  /// Empty state when the user has no chats.
   ///
   /// In en, this message translates to:
   /// **'No conversations yet'**
   String get noConversationsYet;
 
-  /// No description provided for @usernameOrEmailHint.
+  /// Hint text for username/email input.
   ///
   /// In en, this message translates to:
   /// **'Enter your username or email'**
   String get usernameOrEmailHint;
 
-  /// No description provided for @passwordHint.
+  /// Hint text for password input.
   ///
   /// In en, this message translates to:
   /// **'Enter your password'**
   String get passwordHint;
 
-  /// No description provided for @enterApiKey.
+  /// Hint text for API key input.
   ///
   /// In en, this message translates to:
   /// **'Enter your API key'**
   String get enterApiKey;
 
-  /// No description provided for @signingIn.
+  /// Status message shown while signing in.
   ///
   /// In en, this message translates to:
   /// **'Signing in...'**
   String get signingIn;
 
-  /// No description provided for @advancedSettings.
+  /// Section that contains additional/optional configuration.
   ///
   /// In en, this message translates to:
   /// **'Advanced Settings'**
   String get advancedSettings;
 
-  /// No description provided for @customHeaders.
+  /// Section title for adding custom HTTP headers.
   ///
   /// In en, this message translates to:
   /// **'Custom Headers'**
   String get customHeaders;
 
-  /// No description provided for @customHeadersDescription.
+  /// Helper text explaining use-cases for custom headers.
   ///
   /// In en, this message translates to:
   /// **'Add custom HTTP headers for authentication, API keys, or special server requirements.'**
   String get customHeadersDescription;
 
-  /// No description provided for @headerNameEmpty.
+  /// Validation message for empty header name.
   ///
   /// In en, this message translates to:
   /// **'Header name cannot be empty'**
   String get headerNameEmpty;
 
-  /// No description provided for @headerNameTooLong.
+  /// Validation message for header name length.
   ///
   /// In en, this message translates to:
   /// **'Header name too long (max 64 characters)'**
   String get headerNameTooLong;
 
-  /// No description provided for @headerNameInvalidChars.
+  /// Validation message for invalid characters in header name.
   ///
   /// In en, this message translates to:
   /// **'Invalid header name. Use only letters, numbers, and these symbols: !#\$&-^_`|~'**
   String get headerNameInvalidChars;
 
-  /// No description provided for @headerNameReserved.
+  /// Error when attempting to override a reserved HTTP header {key}.
   ///
   /// In en, this message translates to:
   /// **'Cannot override reserved header \"{key}\"'**
   String headerNameReserved(String key);
 
-  /// No description provided for @headerValueEmpty.
+  /// Validation message for empty header value.
   ///
   /// In en, this message translates to:
   /// **'Header value cannot be empty'**
   String get headerValueEmpty;
 
-  /// No description provided for @headerValueTooLong.
+  /// Validation message for header value length.
   ///
   /// In en, this message translates to:
   /// **'Header value too long (max 1024 characters)'**
   String get headerValueTooLong;
 
-  /// No description provided for @headerValueInvalidChars.
+  /// Validation message for invalid characters in header value.
   ///
   /// In en, this message translates to:
   /// **'Header value contains invalid characters. Use only printable ASCII.'**
   String get headerValueInvalidChars;
 
-  /// No description provided for @headerValueUnsafe.
+  /// Security warning for suspicious header values.
   ///
   /// In en, this message translates to:
   /// **'Header value appears to contain potentially unsafe content'**
   String get headerValueUnsafe;
 
-  /// No description provided for @headerAlreadyExists.
+  /// Error when a custom header with key {key} already exists.
   ///
   /// In en, this message translates to:
   /// **'Header \"{key}\" already exists. Remove it first to update.'**
   String headerAlreadyExists(String key);
 
-  /// No description provided for @maxHeadersReachedDetail.
+  /// Explains the upper limit of custom headers.
   ///
   /// In en, this message translates to:
   /// **'Maximum of 10 custom headers allowed. Remove some to add more.'**
   String get maxHeadersReachedDetail;
 
-  /// No description provided for @editMessage.
+  /// Action to edit a previously sent message.
   ///
   /// In en, this message translates to:
   /// **'Edit Message'**
   String get editMessage;
 
-  /// No description provided for @noModelsAvailable.
+  /// Shown when model list is empty or failed to load.
   ///
   /// In en, this message translates to:
   /// **'No models available'**
   String get noModelsAvailable;
 
-  /// No description provided for @followingSystem.
+  /// Indicates the app is following the system theme ("Dark"/"Light").
   ///
   /// In en, this message translates to:
   /// **'Following system: {theme}'**
   String followingSystem(String theme);
 
-  /// No description provided for @themeDark.
+  /// Theme label for dark appearance.
   ///
   /// In en, this message translates to:
   /// **'Dark'**
   String get themeDark;
 
-  /// No description provided for @themeLight.
+  /// Theme label for light appearance.
   ///
   /// In en, this message translates to:
   /// **'Light'**
   String get themeLight;
 
-  /// No description provided for @currentlyUsingDarkTheme.
+  /// Status text indicating dark theme is active.
   ///
   /// In en, this message translates to:
   /// **'Currently using Dark theme'**
   String get currentlyUsingDarkTheme;
 
-  /// No description provided for @currentlyUsingLightTheme.
+  /// Status text indicating light theme is active.
   ///
   /// In en, this message translates to:
   /// **'Currently using Light theme'**
   String get currentlyUsingLightTheme;
 
-  /// No description provided for @aboutConduit.
+  /// Dialog title for app information.
   ///
   /// In en, this message translates to:
   /// **'About Conduit'**
   String get aboutConduit;
 
-  /// No description provided for @versionLabel.
+  /// Displays version and build number in the About dialog.
   ///
   /// In en, this message translates to:
   /// **'Version: {version} ({build})'**
   String versionLabel(String version, String build);
 
-  /// No description provided for @githubRepository.
+  /// Link label pointing to the app repository.
   ///
   /// In en, this message translates to:
   /// **'GitHub Repository'**
   String get githubRepository;
 
-  /// No description provided for @unableToLoadAppInfo.
+  /// Error text when package info cannot be retrieved.
   ///
   /// In en, this message translates to:
   /// **'Unable to load app info'**
   String get unableToLoadAppInfo;
 
-  /// No description provided for @thinking.
+  /// Label shown while the assistant is reasoning.
   ///
   /// In en, this message translates to:
   /// **'Thinking…'**
   String get thinking;
 
-  /// No description provided for @thoughts.
+  /// Section title for showing reasoning content.
   ///
   /// In en, this message translates to:
   /// **'Thoughts'**
@@ -1473,86 +1476,87 @@ abstract class AppLocalizations {
   /// **'Thought for {duration}'**
   String thoughtForDuration(String duration);
 
-  /// No description provided for @appCustomization.
+  /// Title of the customization settings page.
   ///
   /// In en, this message translates to:
   /// **'App Customization'**
   String get appCustomization;
 
-  /// No description provided for @appCustomizationSubtitle.
+  /// Subtitle shown under App Customization tile and page header.
   ///
   /// In en, this message translates to:
   /// **'Personalize how names and UI display'**
   String get appCustomizationSubtitle;
 
-  /// No description provided for @display.
+  /// Section header for visual and layout related settings.
   ///
   /// In en, this message translates to:
   /// **'Display'**
   String get display;
 
-  /// No description provided for @realtime.
+  /// Section header for realtime/transport settings.
   ///
   /// In en, this message translates to:
   /// **'Realtime'**
   String get realtime;
 
-  /// No description provided for @hideProviderInModelNames.
+  /// Toggle label to hide the provider prefix in model names (e.g., show gpt-4o instead of openai/gpt-4o).
   ///
   /// In en, this message translates to:
   /// **'Hide provider in model names'**
   String get hideProviderInModelNames;
 
-  /// No description provided for @hideProviderInModelNamesDescription.
+  /// Helper text for provider hiding toggle.
   ///
   /// In en, this message translates to:
   /// **'Show names like \"gpt-4o\" instead of \"openai/gpt-4o\".'**
   String get hideProviderInModelNamesDescription;
 
-  /// No description provided for @transportMode.
+  /// Title for selecting the networking transport used for realtime.
   ///
   /// In en, this message translates to:
   /// **'Transport mode'**
   String get transportMode;
 
-  /// No description provided for @transportModeDescription.
+  /// Helper text explaining the transport setting.
   ///
   /// In en, this message translates to:
   /// **'Choose how the app connects for realtime updates.'**
   String get transportModeDescription;
 
-  /// No description provided for @mode.
+  /// Form field label for transport mode dropdown.
   ///
   /// In en, this message translates to:
   /// **'Mode'**
   String get mode;
 
-  /// No description provided for @transportModeAuto.
+  /// Dropdown option label for automatic transport selection.
   ///
   /// In en, this message translates to:
   /// **'Auto (Polling + WebSocket)'**
   String get transportModeAuto;
 
-  /// No description provided for @transportModeWs.
+  /// Dropdown option label for WebSocket-only transport.
   ///
   /// In en, this message translates to:
   /// **'WebSocket only'**
   String get transportModeWs;
 
-  /// No description provided for @transportModeAutoInfo.
+  /// Footnote text for the Auto transport mode.
   ///
   /// In en, this message translates to:
   /// **'More robust on restrictive networks. Upgrades to WebSocket when possible.'**
   String get transportModeAutoInfo;
 
-  /// No description provided for @transportModeWsInfo.
+  /// Footnote text for the WebSocket-only transport mode.
   ///
   /// In en, this message translates to:
   /// **'Lower overhead, but may fail behind strict proxies/firewalls.'**
   String get transportModeWsInfo;
 }
 
-class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
+class _AppLocalizationsDelegate
+    extends LocalizationsDelegate<AppLocalizations> {
   const _AppLocalizationsDelegate();
 
   @override
@@ -1561,27 +1565,30 @@ class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> 
   }
 
   @override
-  bool isSupported(Locale locale) => <String>['de', 'en', 'fr', 'it'].contains(locale.languageCode);
+  bool isSupported(Locale locale) =>
+      <String>['de', 'en', 'fr', 'it'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {
-
-
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
-    case 'de': return AppLocalizationsDe();
-    case 'en': return AppLocalizationsEn();
-    case 'fr': return AppLocalizationsFr();
-    case 'it': return AppLocalizationsIt();
+    case 'de':
+      return AppLocalizationsDe();
+    case 'en':
+      return AppLocalizationsEn();
+    case 'fr':
+      return AppLocalizationsFr();
+    case 'it':
+      return AppLocalizationsIt();
   }
 
   throw FlutterError(
     'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
     'an issue with the localizations generation tool. Please file an issue '
     'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.'
+    'that was used.',
   );
 }

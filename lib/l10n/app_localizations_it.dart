@@ -116,7 +116,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get noFilesYet => 'Ancora nessun file';
 
   @override
-  String get uploadDocsPrompt => 'Carica documenti da usare nelle conversazioni con Conduit';
+  String get uploadDocsPrompt =>
+      'Carica documenti da usare nelle conversazioni con Conduit';
 
   @override
   String get uploadFirstFile => 'Carica il tuo primo file';
@@ -125,7 +126,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get knowledgeBaseEmpty => 'La base di conoscenza è vuota';
 
   @override
-  String get createCollectionsPrompt => 'Crea raccolte di documenti correlati per un rapido riferimento';
+  String get createCollectionsPrompt =>
+      'Crea raccolte di documenti correlati per un rapido riferimento';
 
   @override
   String get chooseSourcePhoto => 'Scegli origine';
@@ -151,7 +153,8 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String get kbCreationComingSoon => 'La creazione della base di conoscenza arriverà presto!';
+  String get kbCreationComingSoon =>
+      'La creazione della base di conoscenza arriverà presto!';
 
   @override
   String get backToServerSetup => 'Torna alla configurazione del server';
@@ -163,7 +166,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get signIn => 'Accedi';
 
   @override
-  String get enterCredentials => 'Inserisci le credenziali per accedere alle conversazioni IA';
+  String get enterCredentials =>
+      'Inserisci le credenziali per accedere alle conversazioni IA';
 
   @override
   String get credentials => 'Credenziali';
@@ -184,7 +188,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get connectToServer => 'Connetti al server';
 
   @override
-  String get enterServerAddress => 'Inserisci l\'indirizzo del server Open-WebUI per iniziare';
+  String get enterServerAddress =>
+      'Inserisci l\'indirizzo del server Open-WebUI per iniziare';
 
   @override
   String get serverUrl => 'URL del server';
@@ -193,7 +198,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get serverUrlHint => 'https://tuo-server.com';
 
   @override
-  String get enterServerUrlSemantic => 'Inserisci l\'URL o l\'indirizzo IP del server';
+  String get enterServerUrlSemantic =>
+      'Inserisci l\'URL o l\'indirizzo IP del server';
 
   @override
   String get headerName => 'Nome header';
@@ -223,7 +229,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get demoModeActive => 'Modalità demo attiva';
 
   @override
-  String get skipServerSetupTryDemo => 'Salta configurazione server e prova la demo';
+  String get skipServerSetupTryDemo =>
+      'Salta configurazione server e prova la demo';
 
   @override
   String get enterDemo => 'Entra in demo';
@@ -244,7 +251,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get onlyHttpHttps => 'Sono supportati solo i protocolli HTTP e HTTPS.';
 
   @override
-  String get serverAddressRequired => 'Indirizzo server richiesto (es. 192.168.1.10 o example.com).';
+  String get serverAddressRequired =>
+      'Indirizzo server richiesto (es. 192.168.1.10 o example.com).';
 
   @override
   String get portRange => 'La porta deve essere tra 1 e 65535.';
@@ -253,13 +261,16 @@ class AppLocalizationsIt extends AppLocalizations {
   String get invalidIpFormat => 'Formato IP non valido. Esempio: 192.168.1.10.';
 
   @override
-  String get couldNotConnectGeneric => 'Impossibile connettersi. Verifica l\'indirizzo e riprova.';
+  String get couldNotConnectGeneric =>
+      'Impossibile connettersi. Verifica l\'indirizzo e riprova.';
 
   @override
-  String get weCouldntReachServer => 'Impossibile raggiungere il server. Verifica connessione e stato del server.';
+  String get weCouldntReachServer =>
+      'Impossibile raggiungere il server. Verifica connessione e stato del server.';
 
   @override
-  String get connectionTimedOut => 'Tempo scaduto. Il server potrebbe essere occupato o bloccato.';
+  String get connectionTimedOut =>
+      'Tempo scaduto. Il server potrebbe essere occupato o bloccato.';
 
   @override
   String get useHttpOrHttpsOnly => 'Usa solo http:// o https://.';
@@ -268,19 +279,23 @@ class AppLocalizationsIt extends AppLocalizations {
   String get loginFailed => 'Accesso non riuscito';
 
   @override
-  String get invalidCredentials => 'Nome utente o password non validi. Riprova.';
+  String get invalidCredentials =>
+      'Nome utente o password non validi. Riprova.';
 
   @override
-  String get serverRedirectingHttps => 'Il server sta reindirizzando. Controlla la configurazione HTTPS.';
+  String get serverRedirectingHttps =>
+      'Il server sta reindirizzando. Controlla la configurazione HTTPS.';
 
   @override
-  String get unableToConnectServer => 'Impossibile connettersi al server. Controlla la connessione.';
+  String get unableToConnectServer =>
+      'Impossibile connettersi al server. Controlla la connessione.';
 
   @override
   String get requestTimedOut => 'Richiesta scaduta. Riprova.';
 
   @override
-  String get genericSignInFailed => 'Impossibile accedere. Controlla credenziali e server.';
+  String get genericSignInFailed =>
+      'Impossibile accedere. Controlla credenziali e server.';
 
   @override
   String get skip => 'Salta';
@@ -295,10 +310,12 @@ class AppLocalizationsIt extends AppLocalizations {
   String get onboardStartTitle => 'Inizia una conversazione';
 
   @override
-  String get onboardStartSubtitle => 'Scegli un modello e inizia a scrivere. Tocca Nuova chat in qualsiasi momento.';
+  String get onboardStartSubtitle =>
+      'Scegli un modello e inizia a scrivere. Tocca Nuova chat in qualsiasi momento.';
 
   @override
-  String get onboardStartBullet1 => 'Tocca il nome del modello in alto per cambiare';
+  String get onboardStartBullet1 =>
+      'Tocca il nome del modello in alto per cambiare';
 
   @override
   String get onboardStartBullet2 => 'Usa Nuova chat per azzerare il contesto';
@@ -307,7 +324,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get onboardAttachTitle => 'Aggiungi contesto';
 
   @override
-  String get onboardAttachSubtitle => 'Collega le risposte a Workspace o alle foto.';
+  String get onboardAttachSubtitle =>
+      'Collega le risposte a Workspace o alle foto.';
 
   @override
   String get onboardAttachBullet1 => 'Workspace: PDF, documenti, dataset';
@@ -319,10 +337,12 @@ class AppLocalizationsIt extends AppLocalizations {
   String get onboardSpeakTitle => 'Parla in modo naturale';
 
   @override
-  String get onboardSpeakSubtitle => 'Tocca il microfono per dettare con feedback visivo.';
+  String get onboardSpeakSubtitle =>
+      'Tocca il microfono per dettare con feedback visivo.';
 
   @override
-  String get onboardSpeakBullet1 => 'Interrompi in qualsiasi momento; il testo parziale viene mantenuto';
+  String get onboardSpeakBullet1 =>
+      'Interrompi in qualsiasi momento; il testo parziale viene mantenuto';
 
   @override
   String get onboardSpeakBullet2 => 'Ottimo per note rapide o prompt lunghi';
@@ -331,13 +351,16 @@ class AppLocalizationsIt extends AppLocalizations {
   String get onboardQuickTitle => 'Azioni rapide';
 
   @override
-  String get onboardQuickSubtitle => 'Apri il menu per passare tra Chat, Workspace e Profilo.';
+  String get onboardQuickSubtitle =>
+      'Apri il menu per passare tra Chat, Workspace e Profilo.';
 
   @override
-  String get onboardQuickBullet1 => 'Tocca il menu per accedere a Chat, Workspace, Profilo';
+  String get onboardQuickBullet1 =>
+      'Tocca il menu per accedere a Chat, Workspace, Profilo';
 
   @override
-  String get onboardQuickBullet2 => 'Avvia Nuova chat o gestisci i modelli dalla barra';
+  String get onboardQuickBullet2 =>
+      'Avvia Nuova chat o gestisci i modelli dalla barra';
 
   @override
   String get addAttachment => 'Aggiungi allegato';
@@ -404,13 +427,16 @@ class AppLocalizationsIt extends AppLocalizations {
   String get emptyImageData => 'Dati immagine vuoti';
 
   @override
-  String get offlineBanner => 'Sei offline. Alcune funzioni potrebbero essere limitate.';
+  String get offlineBanner =>
+      'Sei offline. Alcune funzioni potrebbero essere limitate.';
 
   @override
-  String get featureRequiresInternet => 'Questa funzione richiede una connessione Internet';
+  String get featureRequiresInternet =>
+      'Questa funzione richiede una connessione Internet';
 
   @override
-  String get messagesWillSendWhenOnline => 'I messaggi verranno inviati quando tornerai online';
+  String get messagesWillSendWhenOnline =>
+      'I messaggi verranno inviati quando tornerai online';
 
   @override
   String get confirm => 'Conferma';
@@ -569,7 +595,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get deleteChatTitle => 'Elimina chat';
 
   @override
-  String get deleteChatMessage => 'Questa chat verrà eliminata definitivamente.';
+  String get deleteChatMessage =>
+      'Questa chat verrà eliminata definitivamente.';
 
   @override
   String get aboutApp => 'Informazioni sull\'app';
@@ -644,7 +671,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get customHeaders => 'Header personalizzati';
 
   @override
-  String get customHeadersDescription => 'Aggiungi header HTTP personalizzati per autenticazione, chiavi API o requisiti speciali del server.';
+  String get customHeadersDescription =>
+      'Aggiungi header HTTP personalizzati per autenticazione, chiavi API o requisiti speciali del server.';
 
   @override
   String get headerNameEmpty => 'Il nome header non può essere vuoto';
@@ -653,7 +681,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get headerNameTooLong => 'Nome header troppo lungo (max 64 caratteri)';
 
   @override
-  String get headerNameInvalidChars => 'Nome header non valido. Usa solo lettere, numeri e questi simboli: !#\$&-^_`|~';
+  String get headerNameInvalidChars =>
+      'Nome header non valido. Usa solo lettere, numeri e questi simboli: !#\$&-^_`|~';
 
   @override
   String headerNameReserved(String key) {
@@ -664,13 +693,16 @@ class AppLocalizationsIt extends AppLocalizations {
   String get headerValueEmpty => 'Il valore dell\'header non può essere vuoto';
 
   @override
-  String get headerValueTooLong => 'Valore header troppo lungo (max 1024 caratteri)';
+  String get headerValueTooLong =>
+      'Valore header troppo lungo (max 1024 caratteri)';
 
   @override
-  String get headerValueInvalidChars => 'Il valore dell\'header contiene caratteri non validi. Usa solo ASCII stampabile.';
+  String get headerValueInvalidChars =>
+      'Il valore dell\'header contiene caratteri non validi. Usa solo ASCII stampabile.';
 
   @override
-  String get headerValueUnsafe => 'Il valore dell\'header sembra contenere contenuti potenzialmente non sicuri';
+  String get headerValueUnsafe =>
+      'Il valore dell\'header sembra contenere contenuti potenzialmente non sicuri';
 
   @override
   String headerAlreadyExists(String key) {
@@ -678,7 +710,8 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String get maxHeadersReachedDetail => 'Massimo 10 header personalizzati consentiti. Rimuovine alcuni per aggiungerne altri.';
+  String get maxHeadersReachedDetail =>
+      'Massimo 10 header personalizzati consentiti. Rimuovine alcuni per aggiungerne altri.';
 
   @override
   String get editMessage => 'Modifica messaggio';
@@ -715,7 +748,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get githubRepository => 'Repository GitHub';
 
   @override
-  String get unableToLoadAppInfo => 'Impossibile caricare le informazioni dell\'app';
+  String get unableToLoadAppInfo =>
+      'Impossibile caricare le informazioni dell\'app';
 
   @override
   String get thinking => 'Sta pensando…';
@@ -732,7 +766,8 @@ class AppLocalizationsIt extends AppLocalizations {
   String get appCustomization => 'Personalizzazione app';
 
   @override
-  String get appCustomizationSubtitle => 'Personalizza la visualizzazione dei nomi e dell\'UI';
+  String get appCustomizationSubtitle =>
+      'Personalizza la visualizzazione dei nomi e dell\'UI';
 
   @override
   String get display => 'Schermo';
@@ -741,16 +776,19 @@ class AppLocalizationsIt extends AppLocalizations {
   String get realtime => 'Tempo reale';
 
   @override
-  String get hideProviderInModelNames => 'Nascondi provider nei nomi dei modelli';
+  String get hideProviderInModelNames =>
+      'Nascondi provider nei nomi dei modelli';
 
   @override
-  String get hideProviderInModelNamesDescription => 'Mostra nomi come \"gpt-4o\" invece di \"openai/gpt-4o\".';
+  String get hideProviderInModelNamesDescription =>
+      'Mostra nomi come \"gpt-4o\" invece di \"openai/gpt-4o\".';
 
   @override
   String get transportMode => 'Modalità di trasporto';
 
   @override
-  String get transportModeDescription => 'Scegli come l\'app si connette per gli aggiornamenti in tempo reale.';
+  String get transportModeDescription =>
+      'Scegli come l\'app si connette per gli aggiornamenti in tempo reale.';
 
   @override
   String get mode => 'Modalità';
@@ -762,8 +800,10 @@ class AppLocalizationsIt extends AppLocalizations {
   String get transportModeWs => 'Solo WebSocket';
 
   @override
-  String get transportModeAutoInfo => 'Più robusto nelle reti restrittive. Passa a WebSocket quando possibile.';
+  String get transportModeAutoInfo =>
+      'Più robusto nelle reti restrittive. Passa a WebSocket quando possibile.';
 
   @override
-  String get transportModeWsInfo => 'Minore overhead, ma può fallire dietro proxy/firewall restrittivi.';
+  String get transportModeWsInfo =>
+      'Minore overhead, ma può fallire dietro proxy/firewall restrittivi.';
 }

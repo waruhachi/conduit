@@ -1,0 +1,19 @@
+projects:
+  - name: Conduit
+    slug: conduit
+    components:
+      - name: Mobile App
+        slug: app
+        # Weblate will use the repository connected via the UI.
+        # Configure file discovery for Flutter ARB localization files.
+        filemask: lib/l10n/app_*.arb
+        template: lib/l10n/app_en.arb
+        new_base: lib/l10n/app_{language}.arb
+        base_language: en
+        file_format: arb
+        monolingual: true
+        # Prefer PRs from Weblate instead of direct pushes
+        pull_request: true
+        # Optional: auto-add new languages when enabled in Weblate
+        add_new_languages: true
+
