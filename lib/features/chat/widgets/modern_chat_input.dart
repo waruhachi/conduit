@@ -199,13 +199,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         _pendingFocusAfterExpand = false;
         // Focus and ensure IME shows reliably after expansion finishes
         _ensureFocusedIfEnabled();
-        Future.microtask(() {
-          try {
-            if (_focusNode.hasFocus) {
-              SystemChannels.textInput.invokeMethod('TextInput.show');
-            }
-          } catch (_) {}
-        });
+        // Let platform show IME naturally when focus is active. Avoid manual
+        // TextInput.show here to prevent race conditions on Android.
+        // If a device/IME requires a nudge, the TextField's onTap path covers it.
       }
     });
     _pulseController = AnimationController(
@@ -426,14 +422,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         // Explicit request: always try to focus and show the keyboard
         _ensureFocusedIfEnabled();
         if (!_isExpanded) _setExpanded(true);
-        // Nudge the platform text input to show reliably on iOS/Android
-        Future.microtask(() {
-          try {
-            if (_focusNode.hasFocus) {
-              SystemChannels.textInput.invokeMethod('TextInput.show');
-            }
-          } catch (_) {}
-        });
         _lastHandledFocusTick = focusTick;
       });
     }
@@ -487,6 +475,13 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                       .fast, // Faster for better responsiveness
                   curve: Curves.fastOutSlowIn, // More efficient curve
                   alignment: Alignment.topCenter,
+                  onEnd: () {
+                    if (!mounted || _isDeactivated) return;
+                    if (_pendingFocusAfterExpand) {
+                      _pendingFocusAfterExpand = false;
+                      _ensureFocusedIfEnabled();
+                    }
+                  },
                   child: SingleChildScrollView(
                     physics: const ClampingScrollPhysics(),
                     child: RepaintBoundary(
@@ -502,22 +497,16 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                               bottom: Spacing.inputPadding,
                             ),
                             child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
+                              // Defer taps to the TextField so it can gain focus immediately.
+                              // This prevents the first tap from being consumed by the wrapper,
+                              // which previously opened the keyboard without focusing the field.
+                              behavior: HitTestBehavior.deferToChild,
                               onTap: () {
                                 if (!_isExpanded && widget.enabled) {
                                   _pendingFocusAfterExpand = true;
                                   _setExpanded(true);
-                                  WidgetsBinding.instance
-                                      .addPostFrameCallback((_) {
-                                    if (!mounted) return;
-                                    if (_pendingFocusAfterExpand) {
-                                      _ensureFocusedIfEnabled();
-                                      try {
-                                        SystemChannels.textInput
-                                            .invokeMethod('TextInput.show');
-                                      } catch (_) {}
-                                    }
-                                  });
+                                  // Defer focus until AnimatedSize finishes changing layout
+                                  // to avoid IME/client race conditions.
                                 }
                               },
                               child: Row(
@@ -652,18 +641,12 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                             if (!mounted) return;
                                             if (_pendingFocusAfterExpand) {
                                               _ensureFocusedIfEnabled();
-                                              try {
-                                                SystemChannels.textInput
-                                                    .invokeMethod('TextInput.show');
-                                              } catch (_) {}
+                                              // Focus alone should bring up IME.
                                             }
                                           });
                                         } else {
                                           _ensureFocusedIfEnabled();
-                                          try {
-                                            SystemChannels.textInput
-                                                .invokeMethod('TextInput.show');
-                                          } catch (_) {}
+                                          // Focus alone should bring up IME.
                                         }
                                       },
                                     ),
@@ -1379,9 +1362,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             _ensureFocusedIfEnabled();
-            try {
-              SystemChannels.textInput.invokeMethod('TextInput.show');
-            } catch (_) {}
+            // Let focus naturally reopen the IME.
           });
         }
       }
@@ -1410,9 +1391,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             _ensureFocusedIfEnabled();
-            try {
-              SystemChannels.textInput.invokeMethod('TextInput.show');
-            } catch (_) {}
+            // Let focus naturally reopen the IME.
           });
         }
       }
