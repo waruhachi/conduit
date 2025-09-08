@@ -674,11 +674,19 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
           ),
           child: Row(
             children: [
-              ConduitBadge(
-                text: entry.key,
-                backgroundColor: context.conduitTheme.buttonPrimary.withValues(alpha: 0.1),
-                textColor: context.conduitTheme.buttonPrimary,
-                isCompact: true,
+              // Make the header badge flexible and truncate long text
+              Flexible(
+                fit: FlexFit.loose,
+                child: ConduitBadge(
+                  text: entry.key,
+                  backgroundColor:
+                      context.conduitTheme.buttonPrimary.withValues(alpha: 0.1),
+                  textColor: context.conduitTheme.buttonPrimary,
+                  isCompact: true,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                ),
               ),
               const SizedBox(width: Spacing.md),
               Expanded(

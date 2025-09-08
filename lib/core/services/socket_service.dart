@@ -52,10 +52,41 @@ class SocketService {
         .setTimeout(20000)
         .setPath(path);
 
+    // Merge Authorization (if any) with user-defined custom headers for the
+    // Socket.IO handshake. Avoid overriding reserved headers.
+    final Map<String, String> extraHeaders = {};
     if (authToken != null && authToken!.isNotEmpty) {
-      builder
-          .setAuth({'token': authToken})
-          .setExtraHeaders({'Authorization': 'Bearer $authToken'});
+      extraHeaders['Authorization'] = 'Bearer $authToken';
+      builder.setAuth({'token': authToken});
+    }
+    if (serverConfig.customHeaders.isNotEmpty) {
+      final reserved = {
+        'authorization',
+        'content-type',
+        'accept',
+        // Socket/WebSocket reserved or managed by client/runtime
+        'host',
+        'origin',
+        'connection',
+        'upgrade',
+        'sec-websocket-key',
+        'sec-websocket-version',
+        'sec-websocket-extensions',
+        'sec-websocket-protocol',
+      };
+      serverConfig.customHeaders.forEach((key, value) {
+        final lower = key.toLowerCase();
+        if (!reserved.contains(lower) && value.isNotEmpty) {
+          // Do not overwrite Authorization we already set from authToken
+          if (lower == 'authorization' && extraHeaders.containsKey('Authorization')) {
+            return;
+          }
+          extraHeaders[key] = value;
+        }
+      });
+    }
+    if (extraHeaders.isNotEmpty) {
+      builder.setExtraHeaders(extraHeaders);
     }
 
     _socket = io.io(base, builder.build());

@@ -562,6 +562,10 @@ class ConduitBadge extends StatelessWidget {
   final Color? backgroundColor;
   final Color? textColor;
   final bool isCompact;
+  // Optional text behavior controls for truncation/wrapping
+  final int? maxLines;
+  final TextOverflow? overflow;
+  final bool? softWrap;
 
   const ConduitBadge({
     super.key,
@@ -569,6 +573,9 @@ class ConduitBadge extends StatelessWidget {
     this.backgroundColor,
     this.textColor,
     this.isCompact = false,
+    this.maxLines,
+    this.overflow,
+    this.softWrap,
   });
 
   @override
@@ -592,6 +599,9 @@ class ConduitBadge extends StatelessWidget {
           color: textColor ?? context.conduitTheme.buttonPrimary,
           fontWeight: FontWeight.w600,
         ),
+        maxLines: maxLines,
+        overflow: overflow,
+        softWrap: softWrap,
       ),
     );
   }
