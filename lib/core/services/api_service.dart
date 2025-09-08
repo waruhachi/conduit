@@ -2733,14 +2733,7 @@ class ApiService {
       };
     }
 
-    // Hint the server to emit reasoning details blocks when supported.
-    // This mirrors Open WebUI "reasoning_tags" behavior (default enabled).
-    // It allows the client to display a collapsible "Thinking" section.
-    data['params'] = {
-      'reasoning_tags': true,
-      'reasoning_effort':
-          'medium', // Safe default; providers ignore if unsupported
-    };
+    // No default reasoning parameters included; providers handle thinking UIs natively.
 
     // Add tool_ids if provided (Open-WebUI expects tool_ids as array of strings)
     if (toolIds != null && toolIds.isNotEmpty) {
