@@ -1917,6 +1917,28 @@ Future<void> _sendMessageInternal(
                 socketService.onEvent(channel, channelLineHandler);
               } catch (_) {}
             }
+          } else if (type == 'chat:message:error' && payload != null) {
+            // Surface error associated with the current assistant message
+            try {
+              dynamic err = payload is Map ? payload['error'] : null;
+              String content = '';
+              if (err is Map) {
+                final c = err['content'];
+                if (c is String) {
+                  content = c;
+                } else if (c != null) {
+                  content = c.toString();
+                }
+              } else if (err is String) {
+                content = err;
+              } else if (payload is Map && payload['message'] is String) {
+                content = payload['message'];
+              }
+              if (content.isNotEmpty) {
+                ref.read(chatMessagesProvider.notifier).replaceLastMessageContent('⚠️ ' + content);
+              }
+            } catch (_) {}
+            ref.read(chatMessagesProvider.notifier).finishStreaming();
           } else if (type == 'execute:tool' && payload != null) {
             // Show an executing tile immediately using provided tool info
             try {
@@ -1962,7 +1984,7 @@ Future<void> _sendMessageInternal(
                 }
               } catch (_) {}
             } catch (_) {}
-          } else if (type == 'files' && payload != null) {
+          } else if ((type == 'files' || type == 'chat:message:files') && payload != null) {
             // Handle files event from socket (image generation results)
             try {
               DebugLogger.stream(

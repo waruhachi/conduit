@@ -464,6 +464,73 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
             finishStreaming();
           }
         }
+      } else if (type == 'chat:message:error' && payload != null) {
+        // Server reports an error for the current assistant message
+        try {
+          dynamic err = payload is Map ? payload['error'] : null;
+          String content = '';
+          if (err is Map) {
+            final c = err['content'];
+            if (c is String) {
+              content = c;
+            } else if (c != null) {
+              content = c.toString();
+            }
+          } else if (err is String) {
+            content = err;
+          } else if (payload is Map && payload['message'] is String) {
+            content = payload['message'];
+          }
+          if (content.isNotEmpty) {
+            // Replace current assistant message with a readable error
+            replaceLastMessageContent('⚠️ ' + content);
+          }
+        } catch (_) {}
+        // Ensure UI exits streaming state
+        finishStreaming();
+      } else if ((type == 'chat:message:delta' || type == 'message') && payload != null) {
+        // Incremental message content over socket; respect suppression on SSE-driven flows
+        if (!suppressSocketContent) {
+          final content = payload['content']?.toString() ?? '';
+          if (content.isNotEmpty) {
+            appendToLastMessage(content);
+            _updateImagesFromCurrentContent();
+          }
+        }
+      } else if ((type == 'chat:message' || type == 'replace') && payload != null) {
+        // Full message replacement over socket; respect suppression on SSE-driven flows
+        if (!suppressSocketContent) {
+          final content = payload['content']?.toString() ?? '';
+          if (content.isNotEmpty) {
+            replaceLastMessageContent(content);
+          }
+        }
+      } else if ((type == 'chat:message:files') && payload != null) {
+        // Alias for files event used by web client
+        try {
+          final files = _extractFilesFromResult(payload['files'] ?? payload);
+          if (files.isNotEmpty) {
+            final msgs = getMessages();
+            if (msgs.isNotEmpty && msgs.last.role == 'assistant') {
+              final existing = msgs.last.files ?? <Map<String, dynamic>>[];
+              final seen = <String>{
+                for (final f in existing)
+                  if (f['url'] is String) (f['url'] as String) else '',
+              }..removeWhere((e) => e.isEmpty);
+              final merged = <Map<String, dynamic>>[...existing];
+              for (final f in files) {
+                final url = f['url'] as String?;
+                if (url != null && url.isNotEmpty && !seen.contains(url)) {
+                  merged.add({'type': 'image', 'url': url});
+                  seen.add(url);
+                }
+              }
+              if (merged.length != existing.length) {
+                updateLastMessageWith((m) => m.copyWith(files: merged));
+              }
+            }
+          }
+        } catch (_) {}
       } else if (type == 'request:chat:completion' && payload != null) {
         final channel = payload['channel'];
         if (channel is String && channel.isNotEmpty) {
