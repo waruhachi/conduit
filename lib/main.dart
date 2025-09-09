@@ -29,7 +29,18 @@ void main() async {
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   final sharedPrefs = await SharedPreferences.getInstance();
-  const secureStorage = FlutterSecureStorage();
+  const secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+      sharedPreferencesName: 'conduit_secure_prefs',
+      preferencesKeyPrefix: 'conduit_',
+      resetOnError: false,
+    ),
+    iOptions: IOSOptions(
+      accountName: 'conduit_secure_storage',
+      synchronizable: false,
+    ),
+  );
 
   runApp(
     ProviderScope(

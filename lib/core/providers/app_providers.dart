@@ -29,7 +29,20 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 });
 
 final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
-  return const FlutterSecureStorage();
+  // Single, shared instance with explicit platform options
+  return const FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+      sharedPreferencesName: 'conduit_secure_prefs',
+      preferencesKeyPrefix: 'conduit_',
+      // Avoid auto-wipe on transient errors; we handle errors in code
+      resetOnError: false,
+    ),
+    iOptions: IOSOptions(
+      accountName: 'conduit_secure_storage',
+      synchronizable: false,
+    ),
+  );
 });
 
 final storageServiceProvider = Provider<StorageService>((ref) {

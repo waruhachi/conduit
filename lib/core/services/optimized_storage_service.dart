@@ -16,7 +16,7 @@ class OptimizedStorageService {
     required FlutterSecureStorage secureStorage,
     required SharedPreferences prefs,
   }) : _prefs = prefs,
-       _secureCredentialStorage = SecureCredentialStorage();
+       _secureCredentialStorage = SecureCredentialStorage(instance: secureStorage);
 
   // Optimized key names with versioning
   static const String _authTokenKey = 'auth_token_v3';

@@ -8,8 +8,8 @@ import '../utils/debug_logger.dart';
 class SecureCredentialStorage {
   late final FlutterSecureStorage _secureStorage;
 
-  SecureCredentialStorage() {
-    _secureStorage = FlutterSecureStorage(
+  SecureCredentialStorage({FlutterSecureStorage? instance}) {
+    _secureStorage = instance ?? FlutterSecureStorage(
       aOptions: _getAndroidOptions(),
       iOptions: _getIOSOptions(),
     );
@@ -25,10 +25,8 @@ class SecureCredentialStorage {
       encryptedSharedPreferences: true,
       sharedPreferencesName: 'conduit_secure_prefs',
       preferencesKeyPrefix: 'conduit_',
-      resetOnError: true,
-      // Use more compatible encryption algorithms
-      keyCipherAlgorithm: KeyCipherAlgorithm.RSA_ECB_PKCS1Padding,
-      storageCipherAlgorithm: StorageCipherAlgorithm.AES_CBC_PKCS7Padding,
+      // Avoid auto-wipe on transient errors; handle gracefully in code
+      resetOnError: false,
     );
   }
 

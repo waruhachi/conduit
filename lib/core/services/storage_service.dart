@@ -16,7 +16,7 @@ class StorageService {
     required SharedPreferences prefs,
   }) : _secureStorage = secureStorage,
        _prefs = prefs,
-       _secureCredentialStorage = SecureCredentialStorage();
+       _secureCredentialStorage = SecureCredentialStorage(instance: secureStorage);
 
   // Secure storage keys
   static const String _authTokenKey = 'auth_token';
