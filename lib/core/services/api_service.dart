@@ -219,13 +219,19 @@ class ApiService {
 
       DebugLogger.log('User settings retrieved successfully');
 
-      final settings = response.data as Map<String, dynamic>;
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        DebugLogger.warning(
+          'User settings response is empty or unexpected type: ${data.runtimeType}',
+        );
+        return null;
+      }
 
       // Extract default model from ui.models array
-      final ui = settings['ui'] as Map<String, dynamic>?;
-      if (ui != null) {
-        final models = ui['models'] as List?;
-        if (models != null && models.isNotEmpty) {
+      final ui = data['ui'];
+      if (ui is Map<String, dynamic>) {
+        final models = ui['models'];
+        if (models is List && models.isNotEmpty) {
           // Return the first model in the user's preferred models list
           final defaultModel = models.first.toString();
           DebugLogger.log(
@@ -239,25 +245,8 @@ class ApiService {
       return null;
     } catch (e) {
       DebugLogger.error('Error fetching default model from user settings', e);
-      // Fall back to trying the old endpoint
-      try {
-        DebugLogger.log('Falling back to configs/models endpoint');
-        final response = await _dio.get('/api/v1/configs/models');
-        final config = response.data as Map<String, dynamic>;
-
-        final defaultModel =
-            config['DEFAULT_MODELS'] as String? ??
-            config['default_models'] as String? ??
-            config['default_model'] as String?;
-
-        if (defaultModel != null && defaultModel.isNotEmpty) {
-          DebugLogger.log('Found default model from fallback: $defaultModel');
-          return defaultModel;
-        }
-      } catch (fallbackError) {
-        DebugLogger.error('Fallback also failed', fallbackError);
-      }
-
+      // Do not call admin-only configs endpoint here; let the caller
+      // handle fallback (e.g., first available model from /api/models).
       return null;
     }
   }

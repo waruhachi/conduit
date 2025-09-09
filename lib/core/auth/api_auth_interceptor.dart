@@ -62,6 +62,11 @@ class ApiAuthInterceptor extends Interceptor {
       }
     }
 
+    // Endpoints that support optional auth should not strictly require it
+    if (_hasOptionalAuth(path)) {
+      return false;
+    }
+
     // All other endpoints require authentication per OpenAPI spec
     return true;
   }
@@ -135,9 +140,19 @@ class ApiAuthInterceptor extends Interceptor {
 
     // Handle authentication errors consistently
     if (statusCode == 401) {
-      // 401 always indicates invalid/expired auth token
-      DebugLogger.auth('401 Unauthorized on $path - clearing auth token');
-      _clearAuthToken();
+      // Do not clear the token for public or optional-auth endpoints.
+      // A 401 here may indicate endpoint-level permission or server config,
+      // not necessarily an expired/invalid token.
+      final requiresAuth = _requiresAuth(path);
+      final optionalAuth = _hasOptionalAuth(path);
+      if (requiresAuth && !optionalAuth) {
+        DebugLogger.auth('401 Unauthorized on $path - clearing auth token');
+        _clearAuthToken();
+      } else {
+        DebugLogger.auth(
+          '401 on public/optional endpoint $path - keeping auth token',
+        );
+      }
     } else if (statusCode == 403) {
       // 403 on protected endpoints indicates insufficient permissions or invalid token
       final requiresAuth = _requiresAuth(path);
