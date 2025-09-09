@@ -63,7 +63,6 @@ class _OnboardingSheetState extends State<OnboardingSheet> {
   @override
   Widget build(BuildContext context) {
     final height = MediaQuery.of(context).size.height;
-    final isSmall = height < 720;
     return Container(
       height: height * 0.7,
       decoration: BoxDecoration(
@@ -89,14 +88,22 @@ class _OnboardingSheetState extends State<OnboardingSheet> {
                   itemBuilder: (context, i) {
                     final page = _pages[i];
                     final content = _IllustratedPage(page: page);
-                    return isSmall
-                        ? SingleChildScrollView(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: Spacing.lg,
-                            ),
-                            child: content,
-                          )
-                        : content;
+                    // Ensure content can scroll vertically when space is tight,
+                    // while keeping it centered when there is enough space.
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        final centered = ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
+                          child: Center(child: content),
+                        );
+                        return SingleChildScrollView(
+                          physics: const ClampingScrollPhysics(),
+                          child: centered,
+                        );
+                      },
+                    );
                   },
                 ),
               ),
