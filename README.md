@@ -68,6 +68,13 @@ flutter run -d ios   # or: -d android
 - **Multi-modal Support**: Work with vision models
 - **Secure Storage**: Credentials stored securely using platform keychains
 - **Folder Management**: Organize conversations into folders; create, rename, move, and delete
+ - **Tools (Function Calling)**: Invoke server-side tools exposed by Open‑WebUI, with result rendering
+
+### Authentication
+Conduit supports multiple authentication flows when connecting to your Open‑WebUI:
+- **Username + Password**: Sign in directly against servers that expose a login endpoint. Credentials are stored securely using platform keychains.
+- **API Key**: Paste a server‑issued API token for stateless auth.
+- **Custom Headers**: Add headers during login (e.g., `X-API-Key`, `Authorization`, `X-Org`, or self‑hosted SSO headers) that Conduit will include on all HTTP/WebSocket requests.
 
 ## Screenshots
 
