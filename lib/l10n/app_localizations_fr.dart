@@ -124,6 +124,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get uploadFirstFile => 'Importer votre premier fichier';
 
   @override
+  String get attachments => 'Attachments';
+
+  @override
   String get knowledgeBaseEmpty => 'La base de connaissances est vide';
 
   @override

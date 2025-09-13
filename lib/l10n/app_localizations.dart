@@ -306,6 +306,12 @@ abstract class AppLocalizations {
   /// **'Upload your first file'**
   String get uploadFirstFile;
 
+  /// Header above list of attached files in compose area.
+  ///
+  /// In en, this message translates to:
+  /// **'Attachments'**
+  String get attachments;
+
   /// Empty state title for the knowledge base section.
   ///
   /// In en, this message translates to:

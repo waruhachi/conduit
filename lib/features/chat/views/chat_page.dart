@@ -59,10 +59,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   bool _lastKeyboardVisible = false; // track keyboard visibility transitions
   bool _didStartupFocus = false; // one-time auto-focus on startup
 
-  String _formatModelDisplayName(
-    String name, {
-    required bool omitProvider,
-  }) {
+  String _formatModelDisplayName(String name, {required bool omitProvider}) {
     var display = name.trim();
     if (omitProvider) {
       // Prefer the segment after the last '/'
@@ -295,8 +292,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       // Get attached files and collect uploaded file IDs (including data URLs for images)
       final attachedFiles = ref.read(attachedFilesProvider);
       final uploadedFileIds = attachedFiles
-          .where((file) =>
-              file.status == FileUploadStatus.completed && file.fileId != null)
+          .where(
+            (file) =>
+                file.status == FileUploadStatus.completed &&
+                file.fileId != null,
+          )
           .map((file) => file.fileId!)
           .toList();
 
@@ -305,7 +305,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
       // Enqueue task-based send to unify flow across text, images, and tools
       final activeConv = ref.read(activeConversationProvider);
-      await ref.read(taskQueueProvider.notifier).enqueueSendText(
+      await ref
+          .read(taskQueueProvider.notifier)
+          .enqueueSendText(
             conversationId: activeConv?.id,
             text: text,
             attachments: uploadedFileIds.isNotEmpty ? uploadedFileIds : null,
@@ -373,22 +375,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       final activeConv = ref.read(activeConversationProvider);
       for (final file in files) {
         try {
-          final ext = path.extension(file.path).toLowerCase();
-          final isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext);
-          if (isImage) {
-            await ref.read(taskQueueProvider.notifier).enqueueImageToDataUrl(
-                  conversationId: activeConv?.id,
-                  filePath: file.path,
-                  fileName: path.basename(file.path),
-                );
-          } else {
-            await ref.read(taskQueueProvider.notifier).enqueueUploadMedia(
-                  conversationId: activeConv?.id,
-                  filePath: file.path,
-                  fileName: path.basename(file.path),
-                  fileSize: await file.length(),
-                );
-          }
+          await ref
+              .read(taskQueueProvider.notifier)
+              .enqueueUploadMedia(
+                conversationId: activeConv?.id,
+                filePath: file.path,
+                fileName: path.basename(file.path),
+                fileSize: await file.length(),
+              );
         } catch (e) {
           if (!mounted) return;
           debugPrint('Enqueue upload failed: $e');
@@ -453,10 +447,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       debugPrint('DEBUG: Enqueueing image upload...');
       final activeConv = ref.read(activeConversationProvider);
       try {
-        await ref.read(taskQueueProvider.notifier).enqueueImageToDataUrl(
+        await ref
+            .read(taskQueueProvider.notifier)
+            .enqueueUploadMedia(
               conversationId: activeConv?.id,
               filePath: image.path,
               fileName: path.basename(image.path),
+              fileSize: imageSize,
             );
       } catch (e) {
         debugPrint('DEBUG: Enqueue image upload failed: $e');
@@ -709,8 +706,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         String? displayModelName;
         final rawModel = message.model;
         if (rawModel != null && rawModel.isNotEmpty) {
-          final omitProvider =
-              ref.watch(appSettingsProvider).omitProviderInModelName;
+          final omitProvider = ref
+              .watch(appSettingsProvider)
+              .omitProviderInModelName;
           final modelsAsync = ref.watch(modelsProvider);
           if (modelsAsync.hasValue) {
             final models = modelsAsync.value!;
@@ -931,7 +929,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     // Keyboard visibility
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     // Whether the messages list can actually scroll (avoids showing button when not needed)
-    final canScroll = _scrollController.hasClients &&
+    final canScroll =
+        _scrollController.hasClients &&
         _scrollController.position.maxScrollExtent > 0;
 
     // On keyboard open, if already near bottom, auto-scroll to bottom to keep input visible
@@ -1128,10 +1127,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                         label,
                                         style: AppTypography.headlineSmallStyle
                                             .copyWith(
-                                          color:
-                                              context.conduitTheme.textPrimary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                              color: context
+                                                  .conduitTheme
+                                                  .textPrimary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                         textAlign: TextAlign.center,
                                         semanticsLabel: label,
                                       );
@@ -1366,158 +1366,170 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             },
             child: Stack(
               children: [
-              Column(
-                children: [
-                  // Messages Area with pull-to-refresh
-                  Expanded(
-                    child: ConduitRefreshIndicator(
-                      onRefresh: () async {
-                        // Reload active conversation messages from server
-                        final api = ref.read(apiServiceProvider);
-                        final active = ref.read(activeConversationProvider);
-                        if (api != null && active != null) {
-                          try {
-                            final full = await api.getConversation(active.id);
-                            ref
-                                .read(activeConversationProvider.notifier)
-                                .state = full;
-                          } catch (e) {
-                            debugPrint('DEBUG: Failed to refresh conversation: $e');
+                Column(
+                  children: [
+                    // Messages Area with pull-to-refresh
+                    Expanded(
+                      child: ConduitRefreshIndicator(
+                        onRefresh: () async {
+                          // Reload active conversation messages from server
+                          final api = ref.read(apiServiceProvider);
+                          final active = ref.read(activeConversationProvider);
+                          if (api != null && active != null) {
+                            try {
+                              final full = await api.getConversation(active.id);
+                              ref
+                                      .read(activeConversationProvider.notifier)
+                                      .state =
+                                  full;
+                            } catch (e) {
+                              debugPrint(
+                                'DEBUG: Failed to refresh conversation: $e',
+                              );
+                            }
                           }
-                        }
 
-                        // Also refresh the conversations list to reconcile missed events
-                        // and keep timestamps/order in sync with the server.
-                        try {
-                          ref.invalidate(conversationsProvider);
-                          // Best-effort await to stabilize UI; ignore errors.
-                          await ref.read(conversationsProvider.future);
-                        } catch (_) {}
-
-                        // Add small delay for better UX feedback
-                        await Future.delayed(const Duration(milliseconds: 300));
-                      },
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {
-                          FocusManager.instance.primaryFocus?.unfocus();
+                          // Also refresh the conversations list to reconcile missed events
+                          // and keep timestamps/order in sync with the server.
                           try {
-                            SystemChannels.textInput.invokeMethod('TextInput.hide');
+                            ref.invalidate(conversationsProvider);
+                            // Best-effort await to stabilize UI; ignore errors.
+                            await ref.read(conversationsProvider.future);
                           } catch (_) {}
+
+                          // Add small delay for better UX feedback
+                          await Future.delayed(
+                            const Duration(milliseconds: 300),
+                          );
                         },
-                        child: RepaintBoundary(
-                          child: _buildMessagesList(theme),
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            FocusManager.instance.primaryFocus?.unfocus();
+                            try {
+                              SystemChannels.textInput.invokeMethod(
+                                'TextInput.hide',
+                              );
+                            } catch (_) {}
+                          },
+                          child: RepaintBoundary(
+                            child: _buildMessagesList(theme),
+                          ),
                         ),
                       ),
                     ),
-                  ),
 
-                  // File attachments
-                  const FileAttachmentWidget(),
+                    // File attachments
+                    const FileAttachmentWidget(),
 
-                  // Offline indicator
-                  const ChatOfflineOverlay(),
+                    // Offline indicator
+                    const ChatOfflineOverlay(),
 
-                  // Modern Input (root matches input background including safe area)
-                  RepaintBoundary(
-                    child: MeasureSize(
-                      onChange: (size) {
-                        if (mounted) {
-                          setState(() {
-                            _inputHeight = size.height;
-                          });
-                        }
-                      },
-                      child: ModernChatInput(
-                        enabled:
-                            selectedModel != null &&
-                            (isOnline || ref.watch(reviewerModeProvider)),
-                        onSendMessage: (text) =>
-                            _handleMessageSend(text, selectedModel),
-                        onVoiceInput: null,
-                        onFileAttachment: _handleFileAttachment,
-                        onImageAttachment: _handleImageAttachment,
-                        onCameraCapture: () =>
-                            _handleImageAttachment(fromCamera: true),
+                    // Modern Input (root matches input background including safe area)
+                    RepaintBoundary(
+                      child: MeasureSize(
+                        onChange: (size) {
+                          if (mounted) {
+                            setState(() {
+                              _inputHeight = size.height;
+                            });
+                          }
+                        },
+                        child: ModernChatInput(
+                          enabled:
+                              selectedModel != null &&
+                              (isOnline || ref.watch(reviewerModeProvider)),
+                          onSendMessage: (text) =>
+                              _handleMessageSend(text, selectedModel),
+                          onVoiceInput: null,
+                          onFileAttachment: _handleFileAttachment,
+                          onImageAttachment: _handleImageAttachment,
+                          onCameraCapture: () =>
+                              _handleImageAttachment(fromCamera: true),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
 
-              // Floating Scroll to Bottom Button with smooth appear/disappear
-              Positioned(
-                bottom: ((_inputHeight > 0) ? _inputHeight : (Spacing.xxl + Spacing.xxxl)) + Spacing.sm,
-                left: 0,
-                right: 0,
-                child: AnimatedSwitcher(
-                  duration: AnimationDuration.microInteraction,
-                  switchInCurve: AnimationCurves.microInteraction,
-                  switchOutCurve: AnimationCurves.microInteraction,
-                  transitionBuilder: (child, animation) {
-                    final slideAnimation = Tween<Offset>(
-                      begin: const Offset(0, 0.15),
-                      end: Offset.zero,
-                    ).animate(animation);
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: slideAnimation,
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: (_showScrollToBottom &&
-                          !keyboardVisible &&
-                          canScroll &&
-                          ref.watch(chatMessagesProvider).isNotEmpty)
-                      ? Center(
-                          key: const ValueKey('scroll_to_bottom_visible'),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(
-                              AppBorderRadius.floatingButton,
-                            ),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: context
-                                    .conduitTheme
-                                    .surfaceContainerHighest
-                                    .withValues(alpha: 0.75),
-                                border: Border.all(
-                                  color: context.conduitTheme.cardBorder
-                                      .withValues(alpha: 0.3),
-                                  width: BorderWidth.regular,
-                                ),
-                                borderRadius: BorderRadius.circular(
-                                  AppBorderRadius.floatingButton,
-                                ),
-                                boxShadow: ConduitShadows.button,
+                // Floating Scroll to Bottom Button with smooth appear/disappear
+                Positioned(
+                  bottom:
+                      ((_inputHeight > 0)
+                          ? _inputHeight
+                          : (Spacing.xxl + Spacing.xxxl)) +
+                      Spacing.sm,
+                  left: 0,
+                  right: 0,
+                  child: AnimatedSwitcher(
+                    duration: AnimationDuration.microInteraction,
+                    switchInCurve: AnimationCurves.microInteraction,
+                    switchOutCurve: AnimationCurves.microInteraction,
+                    transitionBuilder: (child, animation) {
+                      final slideAnimation = Tween<Offset>(
+                        begin: const Offset(0, 0.15),
+                        end: Offset.zero,
+                      ).animate(animation);
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: slideAnimation,
+                          child: child,
+                        ),
+                      );
+                    },
+                    child:
+                        (_showScrollToBottom &&
+                            !keyboardVisible &&
+                            canScroll &&
+                            ref.watch(chatMessagesProvider).isNotEmpty)
+                        ? Center(
+                            key: const ValueKey('scroll_to_bottom_visible'),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                AppBorderRadius.floatingButton,
                               ),
-                              child: SizedBox(
-                                width: TouchTarget.button,
-                                height: TouchTarget.button,
-                                child: IconButton(
-                                  onPressed: _scrollToBottom,
-                                  splashRadius: 24,
-                                  icon: Icon(
-                                    Platform.isIOS
-                                        ? CupertinoIcons.arrow_down
-                                        : Icons.keyboard_arrow_down,
-                                    size: IconSize.lg,
-                                    color: context.conduitTheme.iconPrimary
-                                        .withValues(alpha: 0.9),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: context
+                                      .conduitTheme
+                                      .surfaceContainerHighest
+                                      .withValues(alpha: 0.75),
+                                  border: Border.all(
+                                    color: context.conduitTheme.cardBorder
+                                        .withValues(alpha: 0.3),
+                                    width: BorderWidth.regular,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    AppBorderRadius.floatingButton,
+                                  ),
+                                  boxShadow: ConduitShadows.button,
+                                ),
+                                child: SizedBox(
+                                  width: TouchTarget.button,
+                                  height: TouchTarget.button,
+                                  child: IconButton(
+                                    onPressed: _scrollToBottom,
+                                    splashRadius: 24,
+                                    icon: Icon(
+                                      Platform.isIOS
+                                          ? CupertinoIcons.arrow_down
+                                          : Icons.keyboard_arrow_down,
+                                      size: IconSize.lg,
+                                      color: context.conduitTheme.iconPrimary
+                                          .withValues(alpha: 0.9),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
+                          )
+                        : const SizedBox.shrink(
+                            key: ValueKey('scroll_to_bottom_hidden'),
                           ),
-                        )
-                      : const SizedBox.shrink(
-                          key: ValueKey('scroll_to_bottom_hidden'),
-                        ),
+                  ),
                 ),
-              ),
-              // Edge overlay removed; rely on native interactive drawer drag
+                // Edge overlay removed; rely on native interactive drawer drag
               ],
             ),
           ),

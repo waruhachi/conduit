@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io' show Platform;
+import 'package:conduit/l10n/app_localizations.dart';
 import '../services/file_attachment_service.dart';
 import '../../../shared/widgets/loading_states.dart';
 
@@ -24,7 +25,7 @@ class FileAttachmentWidget extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Attachments',
+            AppLocalizations.of(context)!.attachments,
             style: TextStyle(
               color: context.conduitTheme.textSecondary.withValues(alpha: 0.7),
               fontSize: AppTypography.labelMedium,

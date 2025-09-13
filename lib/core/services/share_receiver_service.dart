@@ -56,7 +56,10 @@ final shareReceiverInitializerProvider = Provider<void>((ref) {
   );
   ref.listen(selectedModelProvider, (prev, next) => maybeProcessPending());
   // Also poll once shortly after navigation settles to ensure ChatPage is ready
-  Future.delayed(const Duration(milliseconds: 150), () => maybeProcessPending());
+  Future.delayed(
+    const Duration(milliseconds: 150),
+    () => maybeProcessPending(),
+  );
 
   // Hook into share_handler
   final handler = sh.ShareHandler.instance;
@@ -158,22 +161,14 @@ Future<void> _processPayload(Ref ref, SharedPayload payload) async {
           final activeConv = ref.read(activeConversationProvider);
           for (final file in files) {
             try {
-              final ext = path.extension(file.path).toLowerCase();
-              final isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext);
-              if (isImage) {
-                await ref.read(taskQueueProvider.notifier).enqueueImageToDataUrl(
-                      conversationId: activeConv?.id,
-                      filePath: file.path,
-                      fileName: path.basename(file.path),
-                    );
-              } else {
-                await ref.read(taskQueueProvider.notifier).enqueueUploadMedia(
-                      conversationId: activeConv?.id,
-                      filePath: file.path,
-                      fileName: path.basename(file.path),
-                      fileSize: await file.length(),
-                    );
-              }
+              await ref
+                  .read(taskQueueProvider.notifier)
+                  .enqueueUploadMedia(
+                    conversationId: activeConv?.id,
+                    filePath: file.path,
+                    fileName: path.basename(file.path),
+                    fileSize: await file.length(),
+                  );
             } catch (_) {}
           }
         }

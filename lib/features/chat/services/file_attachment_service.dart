@@ -152,7 +152,9 @@ class FileAttachmentService {
     int? maxHeight,
   }) async {
     try {
-      foundation.debugPrint('DEBUG: Converting image to data URL: ${imageFile.path}');
+      foundation.debugPrint(
+        'DEBUG: Converting image to data URL: ${imageFile.path}',
+      );
 
       // Read the file as bytes
       final bytes = await imageFile.readAsBytes();
@@ -217,41 +219,22 @@ class FileAttachmentService {
         'webp',
       ].contains(ext.substring(1));
 
-      if (isImage) {
-        foundation.debugPrint(
-          'DEBUG: Image file detected, converting to data URL instead of uploading',
-        );
+      // Upload ALL files (including images) to server for consistency with web client
+      foundation.debugPrint('DEBUG: Uploading file to server...');
+      final fileId = await _apiService.uploadFile(file.path, fileName);
+      foundation.debugPrint(
+        'DEBUG: File uploaded successfully with ID: $fileId',
+      );
 
-        // For images, convert to data URL instead of uploading
-        final dataUrl = await convertImageToDataUrl(file);
-        if (dataUrl != null) {
-          yield FileUploadState(
-            file: file,
-            fileName: fileName,
-            fileSize: fileSize,
-            progress: 1.0,
-            status: FileUploadStatus.completed,
-            fileId: dataUrl, // Use data URL as fileId for images
-            isImage: true,
-          );
-        } else {
-          throw Exception('Failed to convert image to data URL');
-        }
-      } else {
-        foundation.debugPrint('DEBUG: Non-image file, uploading to server...');
-        // Upload file using the API service
-        final fileId = await _apiService.uploadFile(file.path, fileName);
-        foundation.debugPrint('DEBUG: File uploaded successfully with ID: $fileId');
-
-        yield FileUploadState(
-          file: file,
-          fileName: fileName,
-          fileSize: fileSize,
-          progress: 1.0,
-          status: FileUploadStatus.completed,
-          fileId: fileId,
-        );
-      }
+      yield FileUploadState(
+        file: file,
+        fileName: fileName,
+        fileSize: fileSize,
+        progress: 1.0,
+        status: FileUploadStatus.completed,
+        fileId: fileId,
+        isImage: isImage,
+      );
     } catch (e) {
       foundation.debugPrint('DEBUG: File upload failed: $e');
       final fileName = path.basename(file.path);
@@ -439,10 +422,10 @@ class MockFileAttachmentService {
   // Mock upload file with progress tracking
   Stream<FileUploadState> uploadFile(File file) async* {
     foundation.debugPrint('DEBUG: Mock file upload for: ${file.path}');
-    
+
     final fileName = path.basename(file.path);
     final fileSize = await file.length();
-    
+
     // Yield initial state
     yield FileUploadState(
       file: file,
@@ -451,7 +434,7 @@ class MockFileAttachmentService {
       progress: 0.0,
       status: FileUploadStatus.uploading,
     );
-    
+
     // Simulate upload progress
     for (int i = 1; i <= 10; i++) {
       await Future.delayed(const Duration(milliseconds: 100));
@@ -463,7 +446,7 @@ class MockFileAttachmentService {
         status: FileUploadStatus.uploading,
       );
     }
-    
+
     // Yield completed state with mock file ID
     yield FileUploadState(
       file: file,
@@ -473,10 +456,10 @@ class MockFileAttachmentService {
       status: FileUploadStatus.completed,
       fileId: 'mock_file_${DateTime.now().millisecondsSinceEpoch}',
     );
-    
+
     foundation.debugPrint('DEBUG: Mock file upload completed');
   }
-  
+
   Future<List<String>> uploadFiles(
     List<File> files, {
     Function(int, int)? onProgress,
@@ -484,7 +467,7 @@ class MockFileAttachmentService {
   }) async {
     // Simulate upload progress for reviewer mode
     final uploadIds = <String>[];
-    
+
     for (int i = 0; i < files.length; i++) {
       if (onProgress != null) {
         // Simulate progress
@@ -496,7 +479,7 @@ class MockFileAttachmentService {
       // Generate mock upload ID
       uploadIds.add('mock_upload_${DateTime.now().millisecondsSinceEpoch}_$i');
     }
-    
+
     return uploadIds;
   }
 }
@@ -504,11 +487,11 @@ class MockFileAttachmentService {
 // Providers
 final fileAttachmentServiceProvider = Provider<dynamic>((ref) {
   final isReviewerMode = ref.watch(reviewerModeProvider);
-  
+
   if (isReviewerMode) {
     return MockFileAttachmentService();
   }
-  
+
   final apiService = ref.watch(apiServiceProvider);
   if (apiService == null) return null;
   return FileAttachmentService(apiService);

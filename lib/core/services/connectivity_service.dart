@@ -20,11 +20,11 @@ class ConnectivityService {
   Stream<ConnectivityStatus> get connectivityStream =>
       _connectivityController.stream;
   ConnectivityStatus get currentStatus => _lastStatus;
-  
+
   /// Stream that emits true when connected, false when offline
-  Stream<bool> get isConnected => connectivityStream
-      .map((status) => status == ConnectivityStatus.online);
-      
+  Stream<bool> get isConnected =>
+      connectivityStream.map((status) => status == ConnectivityStatus.online);
+
   /// Check if currently connected
   bool get isCurrentlyConnected => _lastStatus == ConnectivityStatus.online;
 
@@ -95,7 +95,8 @@ class ConnectivityService {
 
 // Providers
 final connectivityServiceProvider = Provider<ConnectivityService>((ref) {
-  final dio = ref.watch(dioProvider);
+  // Use a lightweight Dio instance only for connectivity checks
+  final dio = Dio();
   final service = ConnectivityService(dio);
   ref.onDispose(() => service.dispose());
   return service;
@@ -120,6 +121,4 @@ final isOnlineProvider = Provider<bool>((ref) {
 });
 
 // Dio provider (if not already defined elsewhere)
-final dioProvider = Provider<Dio>((ref) {
-  return Dio(); // This should be configured with your base URL
-});
+// Removed unused Dio provider to avoid confusion. Use ApiService instead.

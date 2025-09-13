@@ -163,7 +163,8 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
                             orElse: () => null,
                           );
                           if (textItem != null) {
-                            content = (textItem as Map)['text']?.toString() ?? '';
+                            content =
+                                (textItem as Map)['text']?.toString() ?? '';
                           }
                         }
                       }
@@ -765,11 +766,12 @@ Future<void> regenerateMessage(
         final cleaned = ToolCallsParser.sanitizeForApi(msg.content);
 
         // Prefer provided attachments for the last user message; otherwise use message attachments
-        final bool isLastUser = (i == messages.length - 1) && msg.role == 'user';
+        final bool isLastUser =
+            (i == messages.length - 1) && msg.role == 'user';
         final List<String> messageAttachments =
             (isLastUser && (attachments != null && attachments.isNotEmpty))
-                ? List<String>.from(attachments)
-                : (msg.attachmentIds ?? const <String>[]);
+            ? List<String>.from(attachments)
+            : (msg.attachmentIds ?? const <String>[]);
 
         if (messageAttachments.isNotEmpty) {
           final messageMap = await _buildMessagePayloadWithAttachments(
@@ -946,6 +948,11 @@ Future<void> regenerateMessage(
     final bool isBackgroundWebSearchPre = webSearchEnabled;
 
     // Dispatch using unified send pipeline (background tools flow)
+    final bool _isBackgroundFlowPre =
+        isBackgroundToolsFlowPre ||
+        isBackgroundWebSearchPre ||
+        imageGenerationEnabled;
+    final bool _passSocketSession = wantSessionBinding && _isBackgroundFlowPre;
     final response = api!.sendMessage(
       messages: conversationMessages,
       model: selectedModel.id,
@@ -954,7 +961,7 @@ Future<void> regenerateMessage(
       enableWebSearch: webSearchEnabled,
       enableImageGeneration: imageGenerationEnabled,
       modelItem: modelItem,
-      sessionIdOverride: wantSessionBinding ? socketSessionId : null,
+      sessionIdOverride: _passSocketSession ? socketSessionId : null,
       toolServers: toolServers,
       backgroundTasks: bgTasks,
       responseMessageId: assistantMessageId,
@@ -1935,7 +1942,9 @@ Future<void> _sendMessageInternal(
                 content = payload['message'];
               }
               if (content.isNotEmpty) {
-                ref.read(chatMessagesProvider.notifier).replaceLastMessageContent('⚠️ ' + content);
+                ref
+                    .read(chatMessagesProvider.notifier)
+                    .replaceLastMessageContent('⚠️ ' + content);
               }
             } catch (_) {}
             ref.read(chatMessagesProvider.notifier).finishStreaming();
@@ -1984,7 +1993,8 @@ Future<void> _sendMessageInternal(
                 }
               } catch (_) {}
             } catch (_) {}
-          } else if ((type == 'files' || type == 'chat:message:files') && payload != null) {
+          } else if ((type == 'files' || type == 'chat:message:files') &&
+              payload != null) {
             // Handle files event from socket (image generation results)
             try {
               DebugLogger.stream(

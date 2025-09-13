@@ -84,6 +84,8 @@
   "@uploadDocsPrompt": {"description": "Prompt encouraging users to upload documents."},
   "uploadFirstFile": "Upload your first file",
   "@uploadFirstFile": {"description": "CTA to add the first file."},
+  "attachments": "Attachments",
+  "@attachments": {"description": "Header above list of attached files in compose area."},
   "knowledgeBaseEmpty": "Knowledge base is empty",
   "@knowledgeBaseEmpty": {"description": "Empty state title for the knowledge base section."},
   "createCollectionsPrompt": "Create collections of related documents for easy reference",

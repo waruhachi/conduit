@@ -145,8 +145,16 @@ class BackgroundStreamingHandler: NSObject {
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
     
-    // Setup background streaming handler manually
-    if let controller = window?.rootViewController as? FlutterViewController {
+    // Setup background streaming handler with scene-safe rootViewController access
+    var controller: FlutterViewController?
+    if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+       let root = scene.windows.first?.rootViewController as? FlutterViewController {
+      controller = root
+    } else if let legacy = window?.rootViewController as? FlutterViewController {
+      controller = legacy
+    }
+
+    if let controller {
       let channel = FlutterMethodChannel(
         name: "conduit/background_streaming",
         binaryMessenger: controller.binaryMessenger

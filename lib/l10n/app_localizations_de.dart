@@ -125,6 +125,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get uploadFirstFile => 'Erste Datei hochladen';
 
   @override
+  String get attachments => 'Attachments';
+
+  @override
   String get knowledgeBaseEmpty => 'Wissensdatenbank ist leer';
 
   @override

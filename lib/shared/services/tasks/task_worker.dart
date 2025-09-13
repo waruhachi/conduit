@@ -8,7 +8,6 @@ import '../../../core/services/attachment_upload_queue.dart';
 import '../../../core/utils/debug_logger.dart';
 import '../../../features/chat/providers/chat_providers.dart' as chat;
 import '../../../features/chat/services/file_attachment_service.dart';
-import 'package:path/path.dart' as path;
 import 'outbound_task.dart';
 
 class TaskWorker {
@@ -73,9 +72,7 @@ class TaskWorker {
     try {
       final api = _ref.read(apiServiceProvider);
       if (api != null) {
-        await uploader.initialize(
-          onUpload: (p, n) => api.uploadFile(p, n),
-        );
+        await uploader.initialize(onUpload: (p, n) => api.uploadFile(p, n));
       }
     } catch (_) {}
 
@@ -116,7 +113,9 @@ class TaskWorker {
             file: File(task.filePath),
             fileName: task.fileName,
             fileSize: task.fileSize ?? existing.fileSize,
-            progress: status == FileUploadStatus.completed ? 1.0 : existing.progress,
+            progress: status == FileUploadStatus.completed
+                ? 1.0
+                : existing.progress,
             status: status,
             fileId: entry.fileId ?? existing.fileId,
             error: entry.lastError,
@@ -140,11 +139,16 @@ class TaskWorker {
 
     // Fire a process tick
     unawaited(uploader.processQueue());
-    await completer.future.timeout(const Duration(minutes: 2), onTimeout: () {
-      try { sub.cancel(); } catch (_) {}
-      DebugLogger.warning('UploadMediaTask timed out: ${task.fileName}');
-      return;
-    });
+    await completer.future.timeout(
+      const Duration(minutes: 2),
+      onTimeout: () {
+        try {
+          sub.cancel();
+        } catch (_) {}
+        DebugLogger.warning('UploadMediaTask timed out: ${task.fileName}');
+        return;
+      },
+    );
   }
 
   Future<void> _performExecuteToolCall(ExecuteToolCallTask task) async {
@@ -203,12 +207,7 @@ class TaskWorker {
         ? <String>[resolvedToolId]
         : null;
 
-    await chat.sendMessageFromService(
-      _ref,
-      instruction,
-      null,
-      toolIds,
-    );
+    await chat.sendMessageFromService(_ref, instruction, null, toolIds);
   }
 
   Future<void> _performGenerateImage(GenerateImageTask task) async {
@@ -235,97 +234,109 @@ class TaskWorker {
     final prev = _ref.read(chat.imageGenerationEnabledProvider);
     try {
       _ref.read(chat.imageGenerationEnabledProvider.notifier).state = true;
-      await chat.sendMessageFromService(
-        _ref,
-        task.prompt,
-        null,
-        null,
-      );
+      await chat.sendMessageFromService(_ref, task.prompt, null, null);
     } finally {
       _ref.read(chat.imageGenerationEnabledProvider.notifier).state = prev;
     }
   }
 
   Future<void> _performImageToDataUrl(ImageToDataUrlTask task) async {
+    // Upload images to server instead of converting to data URLs
+    final uploader = AttachmentUploadQueue();
     try {
-      // Update UI to uploading state first
-      try {
-        final current = _ref.read(attachedFilesProvider);
-        final idx = current.indexWhere((f) => f.file.path == task.filePath);
-        if (idx != -1) {
-          final existing = current[idx];
-          final uploading = FileUploadState(
-            file: existing.file,
-            fileName: task.fileName,
-            fileSize: existing.fileSize,
-            progress: 0.5,
-            status: FileUploadStatus.uploading,
-            fileId: existing.fileId,
-          );
-          _ref.read(attachedFilesProvider.notifier).updateFileState(
-                task.filePath,
-                uploading,
-              );
-        }
-      } catch (_) {}
-
-      // Read file and convert to data URL
-      final file = File(task.filePath);
-      final bytes = await file.readAsBytes();
-      final b64 = base64Encode(bytes);
-      final ext = path.extension(task.fileName).toLowerCase();
-      String mime = 'image/png';
-      if (ext == '.jpg' || ext == '.jpeg') {
-        mime = 'image/jpeg';
-      } else if (ext == '.gif') {
-        mime = 'image/gif';
-      } else if (ext == '.webp') {
-        mime = 'image/webp';
+      final api = _ref.read(apiServiceProvider);
+      if (api != null) {
+        await uploader.initialize(onUpload: (p, n) => api.uploadFile(p, n));
       }
-      final dataUrl = 'data:$mime;base64,$b64';
+    } catch (_) {}
 
-      // Mark as completed with data URL as fileId
+    try {
+      final current = _ref.read(attachedFilesProvider);
+      final idx = current.indexWhere((f) => f.file.path == task.filePath);
+      if (idx != -1) {
+        final existing = current[idx];
+        final uploading = FileUploadState(
+          file: existing.file,
+          fileName: task.fileName,
+          fileSize: existing.fileSize,
+          progress: 0.0,
+          status: FileUploadStatus.uploading,
+          fileId: existing.fileId,
+        );
+        _ref
+            .read(attachedFilesProvider.notifier)
+            .updateFileState(task.filePath, uploading);
+      }
+    } catch (_) {}
+
+    final id = await uploader.enqueue(
+      filePath: task.filePath,
+      fileName: task.fileName,
+      fileSize: File(task.filePath).lengthSync(),
+    );
+
+    final completer = Completer<void>();
+    late final StreamSubscription<List<QueuedAttachment>> sub;
+    sub = uploader.queueStream.listen((items) {
+      QueuedAttachment? entry;
+      try {
+        entry = items.firstWhere((e) => e.id == id);
+      } catch (_) {
+        entry = null;
+      }
+      if (entry == null) return;
       try {
         final current = _ref.read(attachedFilesProvider);
         final idx = current.indexWhere((f) => f.file.path == task.filePath);
         if (idx != -1) {
           final existing = current[idx];
-          final done = FileUploadState(
-            file: existing.file,
+          final status = switch (entry.status) {
+            QueuedAttachmentStatus.pending => FileUploadStatus.uploading,
+            QueuedAttachmentStatus.uploading => FileUploadStatus.uploading,
+            QueuedAttachmentStatus.completed => FileUploadStatus.completed,
+            QueuedAttachmentStatus.failed => FileUploadStatus.failed,
+            QueuedAttachmentStatus.cancelled => FileUploadStatus.failed,
+          };
+          final newState = FileUploadState(
+            file: File(task.filePath),
             fileName: task.fileName,
             fileSize: existing.fileSize,
-            progress: 1.0,
-            status: FileUploadStatus.completed,
-            fileId: dataUrl,
+            progress: status == FileUploadStatus.completed
+                ? 1.0
+                : existing.progress,
+            status: status,
+            fileId: entry.fileId ?? existing.fileId,
+            isImage: true,
+            error: entry.lastError,
           );
-          _ref.read(attachedFilesProvider.notifier).updateFileState(
-                task.filePath,
-                done,
-              );
+          _ref
+              .read(attachedFilesProvider.notifier)
+              .updateFileState(task.filePath, newState);
         }
       } catch (_) {}
-    } catch (e) {
-      try {
-        final current = _ref.read(attachedFilesProvider);
-        final idx = current.indexWhere((f) => f.file.path == task.filePath);
-        if (idx != -1) {
-          final existing = current[idx];
-          final failed = FileUploadState(
-            file: existing.file,
-            fileName: task.fileName,
-            fileSize: existing.fileSize,
-            progress: 0.0,
-            status: FileUploadStatus.failed,
-            fileId: existing.fileId,
-            error: e.toString(),
-          );
-          _ref.read(attachedFilesProvider.notifier).updateFileState(
-                task.filePath,
-                failed,
-              );
-        }
-      } catch (_) {}
-    }
+      switch (entry.status) {
+        case QueuedAttachmentStatus.completed:
+        case QueuedAttachmentStatus.failed:
+        case QueuedAttachmentStatus.cancelled:
+          sub.cancel();
+          completer.complete();
+          break;
+        default:
+          break;
+      }
+    });
+
+    unawaited(uploader.processQueue());
+    await completer.future.timeout(
+      const Duration(minutes: 2),
+      onTimeout: () {
+        try {
+          sub.cancel();
+        } catch (_) {}
+        DebugLogger.warning('Image upload timed out: ${task.fileName}');
+        return;
+      },
+    );
   }
 
   // _performSaveConversation removed
