@@ -21,10 +21,18 @@ class AppCustomizationPage extends ConsumerWidget {
     final settings = ref.watch(appSettingsProvider);
     final themeMode = ref.watch(themeModeProvider);
     final platformBrightness = MediaQuery.platformBrightnessOf(context);
-    final bool isDarkEffective =
-        themeMode == ThemeMode.dark ||
-        (themeMode == ThemeMode.system &&
-            platformBrightness == Brightness.dark);
+    final themeDescription = () {
+      if (themeMode == ThemeMode.system) {
+        final systemThemeLabel = platformBrightness == Brightness.dark
+            ? AppLocalizations.of(context)!.themeDark
+            : AppLocalizations.of(context)!.themeLight;
+        return AppLocalizations.of(context)!.followingSystem(systemThemeLabel);
+      }
+      if (themeMode == ThemeMode.dark) {
+        return AppLocalizations.of(context)!.currentlyUsingDarkTheme;
+      }
+      return AppLocalizations.of(context)!.currentlyUsingLightTheme;
+    }();
     final locale = ref.watch(localeProvider);
 
     return Scaffold(
@@ -68,7 +76,7 @@ class AppCustomizationPage extends ConsumerWidget {
               padding: EdgeInsets.zero,
               child: Column(
                 children: [
-                  // Dark mode toggle
+                  // Theme mode dropdown
                   ListTile(
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: Spacing.listItemPadding,
@@ -77,10 +85,12 @@ class AppCustomizationPage extends ConsumerWidget {
                     leading: Container(
                       padding: const EdgeInsets.all(Spacing.sm),
                       decoration: BoxDecoration(
-                        color: context.conduitTheme.buttonPrimary
-                            .withValues(alpha: Alpha.highlight),
-                        borderRadius:
-                            BorderRadius.circular(AppBorderRadius.small),
+                        color: context.conduitTheme.buttonPrimary.withValues(
+                          alpha: Alpha.highlight,
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          AppBorderRadius.small,
+                        ),
                       ),
                       child: Icon(
                         UiUtils.platformIcon(
@@ -99,117 +109,124 @@ class AppCustomizationPage extends ConsumerWidget {
                       ),
                     ),
                     subtitle: Text(
-                      themeMode == ThemeMode.system
-                          ? AppLocalizations.of(context)!.followingSystem(
-                              platformBrightness == Brightness.dark
-                                  ? AppLocalizations.of(context)!.themeDark
-                                  : AppLocalizations.of(context)!.themeLight,
-                            )
-                          : (isDarkEffective
-                                ? AppLocalizations.of(context)!
-                                    .currentlyUsingDarkTheme
-                                : AppLocalizations.of(context)!
-                                    .currentlyUsingLightTheme),
+                      themeDescription,
                       style: context.conduitTheme.bodySmall?.copyWith(
                         color: context.conduitTheme.textSecondary,
                       ),
                     ),
-                    trailing: Switch.adaptive(
-                      value: isDarkEffective,
-                      onChanged: (value) {
-                        ref
-                            .read(themeModeProvider.notifier)
-                            .setTheme(value ? ThemeMode.dark : ThemeMode.light);
-                      },
+                    trailing: DropdownButtonHideUnderline(
+                      child: DropdownButton<ThemeMode>(
+                        value: themeMode,
+                        onChanged: (mode) {
+                          if (mode == null) return;
+                          ref.read(themeModeProvider.notifier).setTheme(mode);
+                        },
+                        items: [
+                          DropdownMenuItem(
+                            value: ThemeMode.system,
+                            child: Text(AppLocalizations.of(context)!.system),
+                          ),
+                          DropdownMenuItem(
+                            value: ThemeMode.light,
+                            child: Text(
+                              AppLocalizations.of(context)!.themeLight,
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: ThemeMode.dark,
+                            child: Text(
+                              AppLocalizations.of(context)!.themeDark,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    onTap: () {
-                      final newValue = !isDarkEffective;
-                      ref
-                          .read(themeModeProvider.notifier)
-                          .setTheme(
-                              newValue ? ThemeMode.dark : ThemeMode.light);
-                    },
                   ),
                   Divider(color: context.conduitTheme.dividerColor, height: 1),
 
                   // App language selector
-                  Builder(builder: (context) {
-                    final currentCode = locale?.languageCode ?? 'system';
-                    final label = () {
-                      switch (currentCode) {
-                        case 'en':
-                          return 'English';
-                        case 'de':
-                          return 'Deutsch';
-                        case 'fr':
-                          return 'Français';
-                        case 'it':
-                          return 'Italiano';
-                        default:
-                          return 'System';
-                      }
-                    }();
-
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: Spacing.listItemPadding,
-                        vertical: Spacing.sm,
-                      ),
-                      leading: Container(
-                        padding: const EdgeInsets.all(Spacing.sm),
-                        decoration: BoxDecoration(
-                          color: context.conduitTheme.buttonPrimary
-                              .withValues(alpha: Alpha.highlight),
-                          borderRadius:
-                              BorderRadius.circular(AppBorderRadius.small),
-                        ),
-                        child: Icon(
-                          UiUtils.platformIcon(
-                            ios: CupertinoIcons.globe,
-                            android: Icons.language,
-                          ),
-                          color: context.conduitTheme.buttonPrimary,
-                          size: IconSize.medium,
-                        ),
-                      ),
-                      title: Text(
-                        AppLocalizations.of(context)!.appLanguage,
-                        style: context.conduitTheme.bodyLarge?.copyWith(
-                          color: context.conduitTheme.textPrimary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      subtitle: Text(
-                        label,
-                        style: context.conduitTheme.bodySmall?.copyWith(
-                          color: context.conduitTheme.textSecondary,
-                        ),
-                      ),
-                      trailing: Icon(
-                        UiUtils.platformIcon(
-                          ios: CupertinoIcons.chevron_right,
-                          android: Icons.chevron_right,
-                        ),
-                        color: context.conduitTheme.iconSecondary,
-                        size: IconSize.small,
-                      ),
-                      onTap: () async {
-                        final selected = await _showLanguageSelector(
-                            context, currentCode);
-                        if (selected != null) {
-                          if (selected == 'system') {
-                            await ref
-                                .read(localeProvider.notifier)
-                                .setLocale(null);
-                          } else {
-                            await ref
-                                .read(localeProvider.notifier)
-                                .setLocale(Locale(selected));
-                          }
+                  Builder(
+                    builder: (context) {
+                      final currentCode = locale?.languageCode ?? 'system';
+                      final label = () {
+                        switch (currentCode) {
+                          case 'en':
+                            return 'English';
+                          case 'de':
+                            return 'Deutsch';
+                          case 'fr':
+                            return 'Français';
+                          case 'it':
+                            return 'Italiano';
+                          default:
+                            return 'System';
                         }
-                      },
-                    );
-                  }),
+                      }();
+
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: Spacing.listItemPadding,
+                          vertical: Spacing.sm,
+                        ),
+                        leading: Container(
+                          padding: const EdgeInsets.all(Spacing.sm),
+                          decoration: BoxDecoration(
+                            color: context.conduitTheme.buttonPrimary
+                                .withValues(alpha: Alpha.highlight),
+                            borderRadius: BorderRadius.circular(
+                              AppBorderRadius.small,
+                            ),
+                          ),
+                          child: Icon(
+                            UiUtils.platformIcon(
+                              ios: CupertinoIcons.globe,
+                              android: Icons.language,
+                            ),
+                            color: context.conduitTheme.buttonPrimary,
+                            size: IconSize.medium,
+                          ),
+                        ),
+                        title: Text(
+                          AppLocalizations.of(context)!.appLanguage,
+                          style: context.conduitTheme.bodyLarge?.copyWith(
+                            color: context.conduitTheme.textPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        subtitle: Text(
+                          label,
+                          style: context.conduitTheme.bodySmall?.copyWith(
+                            color: context.conduitTheme.textSecondary,
+                          ),
+                        ),
+                        trailing: Icon(
+                          UiUtils.platformIcon(
+                            ios: CupertinoIcons.chevron_right,
+                            android: Icons.chevron_right,
+                          ),
+                          color: context.conduitTheme.iconSecondary,
+                          size: IconSize.small,
+                        ),
+                        onTap: () async {
+                          final selected = await _showLanguageSelector(
+                            context,
+                            currentCode,
+                          );
+                          if (selected != null) {
+                            if (selected == 'system') {
+                              await ref
+                                  .read(localeProvider.notifier)
+                                  .setLocale(null);
+                            } else {
+                              await ref
+                                  .read(localeProvider.notifier)
+                                  .setLocale(Locale(selected));
+                            }
+                          }
+                        },
+                      );
+                    },
+                  ),
                   Divider(color: context.conduitTheme.dividerColor, height: 1),
 
                   SwitchListTile.adaptive(
@@ -227,8 +244,9 @@ class AppCustomizationPage extends ConsumerWidget {
                       ),
                     ),
                     subtitle: Text(
-                      AppLocalizations.of(context)!
-                          .hideProviderInModelNamesDescription,
+                      AppLocalizations.of(
+                        context,
+                      )!.hideProviderInModelNamesDescription,
                       style: context.conduitTheme.bodySmall?.copyWith(
                         color: context.conduitTheme.textSecondary,
                       ),
@@ -241,10 +259,12 @@ class AppCustomizationPage extends ConsumerWidget {
                     secondary: Container(
                       padding: const EdgeInsets.all(Spacing.sm),
                       decoration: BoxDecoration(
-                        color: context.conduitTheme.buttonPrimary
-                            .withValues(alpha: Alpha.highlight),
-                        borderRadius:
-                            BorderRadius.circular(AppBorderRadius.small),
+                        color: context.conduitTheme.buttonPrimary.withValues(
+                          alpha: Alpha.highlight,
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          AppBorderRadius.small,
+                        ),
                       ),
                       child: Icon(
                         Platform.isIOS
@@ -284,13 +304,17 @@ class AppCustomizationPage extends ConsumerWidget {
                   ...tools.map((t) => t.id),
                 };
                 // Sanitize persisted selection
-                final selected =
-                    selectedRaw.where((id) => allowed.contains(id)).take(2).toList();
+                final selected = selectedRaw
+                    .where((id) => allowed.contains(id))
+                    .take(2)
+                    .toList();
                 if (selected.length != selectedRaw.length) {
                   // Persist sanitized list asynchronously
-                  Future.microtask(() => ref
-                      .read(appSettingsProvider.notifier)
-                      .setQuickPills(selected));
+                  Future.microtask(
+                    () => ref
+                        .read(appSettingsProvider.notifier)
+                        .setQuickPills(selected),
+                  );
                 }
                 final int selectedCount = selected.length;
 
@@ -302,7 +326,9 @@ class AppCustomizationPage extends ConsumerWidget {
                     if (current.length >= 2) return; // enforce max 2
                     current.add(id);
                   }
-                  await ref.read(appSettingsProvider.notifier).setQuickPills(current);
+                  await ref
+                      .read(appSettingsProvider.notifier)
+                      .setQuickPills(current);
                 }
 
                 // Build dynamic tool chips list once
@@ -334,7 +360,9 @@ class AppCustomizationPage extends ConsumerWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              AppLocalizations.of(context)!.appCustomizationSubtitle,
+                              AppLocalizations.of(
+                                context,
+                              )!.appCustomizationSubtitle,
                               style: context.conduitTheme.bodySmall?.copyWith(
                                 color: context.conduitTheme.textSecondary,
                               ),
@@ -363,7 +391,8 @@ class AppCustomizationPage extends ConsumerWidget {
                                 ? CupertinoIcons.search
                                 : Icons.search,
                             isSelected: selected.contains('web'),
-                            onTap: (selectedCount < 2 || selected.contains('web'))
+                            onTap:
+                                (selectedCount < 2 || selected.contains('web'))
                                 ? () => toggle('web')
                                 : null,
                           ),
@@ -373,7 +402,9 @@ class AppCustomizationPage extends ConsumerWidget {
                                 ? CupertinoIcons.photo
                                 : Icons.image,
                             isSelected: selected.contains('image'),
-                            onTap: (selectedCount < 2 || selected.contains('image'))
+                            onTap:
+                                (selectedCount < 2 ||
+                                    selected.contains('image'))
                                 ? () => toggle('image')
                                 : null,
                           ),
@@ -408,9 +439,12 @@ class AppCustomizationPage extends ConsumerWidget {
                     leading: Container(
                       padding: const EdgeInsets.all(Spacing.sm),
                       decoration: BoxDecoration(
-                        color: context.conduitTheme.buttonPrimary
-                            .withValues(alpha: Alpha.highlight),
-                        borderRadius: BorderRadius.circular(AppBorderRadius.small),
+                        color: context.conduitTheme.buttonPrimary.withValues(
+                          alpha: Alpha.highlight,
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          AppBorderRadius.small,
+                        ),
                       ),
                       child: Icon(
                         Platform.isIOS
@@ -435,8 +469,9 @@ class AppCustomizationPage extends ConsumerWidget {
                     ),
                     trailing: Switch.adaptive(
                       value: settings.sendOnEnter,
-                      onChanged: (v) =>
-                          ref.read(appSettingsProvider.notifier).setSendOnEnter(v),
+                      onChanged: (v) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setSendOnEnter(v),
                     ),
                   ),
                 ],
@@ -464,10 +499,12 @@ class AppCustomizationPage extends ConsumerWidget {
                     leading: Container(
                       padding: const EdgeInsets.all(Spacing.sm),
                       decoration: BoxDecoration(
-                        color: context.conduitTheme.buttonPrimary
-                            .withValues(alpha: Alpha.highlight),
-                        borderRadius:
-                            BorderRadius.circular(AppBorderRadius.small),
+                        color: context.conduitTheme.buttonPrimary.withValues(
+                          alpha: Alpha.highlight,
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          AppBorderRadius.small,
+                        ),
                       ),
                       child: Icon(
                         Platform.isIOS
@@ -509,13 +546,15 @@ class AppCustomizationPage extends ConsumerWidget {
                       items: [
                         DropdownMenuItem(
                           value: 'auto',
-                          child: Text(AppLocalizations.of(context)!
-                              .transportModeAuto),
+                          child: Text(
+                            AppLocalizations.of(context)!.transportModeAuto,
+                          ),
                         ),
                         DropdownMenuItem(
                           value: 'ws',
-                          child: Text(AppLocalizations.of(context)!
-                              .transportModeWs),
+                          child: Text(
+                            AppLocalizations.of(context)!.transportModeWs,
+                          ),
                         ),
                       ],
                       decoration: InputDecoration(
@@ -538,10 +577,8 @@ class AppCustomizationPage extends ConsumerWidget {
                     ),
                     child: Text(
                       settings.socketTransportMode == 'auto'
-                          ? AppLocalizations.of(context)!
-                              .transportModeAutoInfo
-                          : AppLocalizations.of(context)!
-                              .transportModeWsInfo,
+                          ? AppLocalizations.of(context)!.transportModeAutoInfo
+                          : AppLocalizations.of(context)!.transportModeWsInfo,
                       style: context.conduitTheme.caption?.copyWith(
                         color: context.conduitTheme.textSecondary,
                       ),
