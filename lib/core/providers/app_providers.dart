@@ -209,7 +209,9 @@ final socketServiceProvider = Provider<SocketService?>((ref) {
 
   final activeServer = ref.watch(activeServerProvider);
   final token = ref.watch(authTokenProvider3);
-  final transportMode = ref.watch(appSettingsProvider).socketTransportMode; // 'auto' or 'ws'
+  final transportMode = ref
+      .watch(appSettingsProvider)
+      .socketTransportMode; // 'auto' or 'ws'
 
   return activeServer.maybeWhen(
     data: (server) {
@@ -223,7 +225,9 @@ final socketServiceProvider = Provider<SocketService?>((ref) {
       // ignore unawaited_futures
       s.connect();
       ref.onDispose(() {
-        try { s.dispose(); } catch (_) {}
+        try {
+          s.dispose();
+        } catch (_) {}
       });
       return s;
     },
@@ -373,7 +377,8 @@ final defaultModelAutoSelectionProvider = Provider<void>((ref) {
         }
 
         // Fallback: keep current selection or pick first available
-        selected ??= ref.read(selectedModelProvider) ??
+        selected ??=
+            ref.read(selectedModelProvider) ??
             (models.isNotEmpty ? models.first : null);
 
         if (selected != null) {
@@ -481,11 +486,11 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
           conversationMap[conversation.id] = conversation.copyWith(
             folderId: folderIdToUse,
           );
-          final _idPreview = conversation.id.length > 8
+          final idPreview = conversation.id.length > 8
               ? conversation.id.substring(0, 8)
               : conversation.id;
           foundation.debugPrint(
-            'DEBUG: Updated conversation $_idPreview with folderId: $folderIdToUse (explicit: ${explicitFolderId != null})',
+            'DEBUG: Updated conversation $idPreview with folderId: $folderIdToUse (explicit: ${explicitFolderId != null})',
           );
         } else {
           conversationMap[conversation.id] = conversation;
@@ -547,11 +552,11 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
             // Use map to prevent duplicates - this will overwrite if ID already exists
             conversationMap[toAdd.id] = toAdd;
             existingIds.add(toAdd.id);
-            final _idPreview = toAdd.id.length > 8
+            final idPreview = toAdd.id.length > 8
                 ? toAdd.id.substring(0, 8)
                 : toAdd.id;
             foundation.debugPrint(
-              'DEBUG: Added missing conversation from folder fetch: $_idPreview -> folder ${folder.id}',
+              'DEBUG: Added missing conversation from folder fetch: $idPreview -> folder ${folder.id}',
             );
           } else {
             // Create a minimal placeholder if not returned by folder API
@@ -566,11 +571,11 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
             // Use map to prevent duplicates
             conversationMap[convId] = placeholder;
             existingIds.add(convId);
-            final _idPreview = convId.length > 8
+            final idPreview = convId.length > 8
                 ? convId.substring(0, 8)
                 : convId;
             foundation.debugPrint(
-              'DEBUG: Added placeholder conversation for missing ID: $_idPreview -> folder ${folder.id}',
+              'DEBUG: Added placeholder conversation for missing ID: $idPreview -> folder ${folder.id}',
             );
           }
         }
@@ -694,16 +699,18 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
     if (userDefaultModelId != null && userDefaultModelId.isNotEmpty) {
       try {
         // Exact ID match only
-        selectedModel =
-            models.firstWhere((model) => model.id == userDefaultModelId);
+        selectedModel = models.firstWhere(
+          (model) => model.id == userDefaultModelId,
+        );
         foundation.debugPrint(
           'DEBUG: Found user default model by ID: ${selectedModel.name}',
         );
       } catch (e) {
         // Attempt a one-time migration if the stored value was a model name
         // from older versions. Only migrate on exact, unique name match.
-        final nameMatches =
-            models.where((m) => m.name == userDefaultModelId).toList();
+        final nameMatches = models
+            .where((m) => m.name == userDefaultModelId)
+            .toList();
         if (nameMatches.length == 1) {
           selectedModel = nameMatches.first;
           foundation.debugPrint(
@@ -719,7 +726,8 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
             'DEBUG: User default model "$userDefaultModelId" not found by ID and '
             'no unique name match. Ignoring.',
           );
-          selectedModel = null; // Will fall back to server default or first model
+          selectedModel =
+              null; // Will fall back to server default or first model
         }
       }
     }
@@ -732,14 +740,17 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
         if (defaultModelId != null && defaultModelId.isNotEmpty) {
           // Find the model that matches the default model ID (ID only)
           try {
-            selectedModel =
-                models.firstWhere((model) => model.id == defaultModelId);
+            selectedModel = models.firstWhere(
+              (model) => model.id == defaultModelId,
+            );
             foundation.debugPrint(
               'DEBUG: Found server default model by ID: ${selectedModel.name}',
             );
           } catch (e) {
             // If server returned a name instead of ID, attempt exact name match.
-            final byName = models.where((m) => m.name == defaultModelId).toList();
+            final byName = models
+                .where((m) => m.name == defaultModelId)
+                .toList();
             if (byName.length == 1) {
               selectedModel = byName.first;
               foundation.debugPrint(

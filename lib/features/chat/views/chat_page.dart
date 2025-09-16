@@ -557,15 +557,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     });
   }
 
-  // TODO: Implement select all functionality when needed
-  // void _selectAllMessages() {
-  //   final messages = ref.read(chatMessagesProvider);
-  //   setState(() {
-  //     _selectedMessageIds.clear();
-  //     _selectedMessageIds.addAll(messages.map((m) => m.id));
-  //   });
-  // }
-
   void _clearSelection() {
     setState(() {
       _selectedMessageIds.clear();
@@ -752,8 +743,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             modelName: displayModelName,
             onCopy: () => _copyMessage(message.content),
             onRegenerate: () => _regenerateMessage(message),
-            onLike: () => _likeMessage(message),
-            onDislike: () => _dislikeMessage(message),
           );
         } else {
           messageWidget = assistant.AssistantMessageWidget(
@@ -763,8 +752,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             modelName: displayModelName,
             onCopy: () => _copyMessage(message.content),
             onRegenerate: () => _regenerateMessage(message),
-            onLike: () => _likeMessage(message),
-            onDislike: () => _dislikeMessage(message),
           );
         }
 
@@ -839,14 +826,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   // Inline editing handled by UserMessageBubble. Dialog flow removed.
-
-  void _likeMessage(dynamic message) {
-    // TODO: Implement message liking
-  }
-
-  void _dislikeMessage(dynamic message) {
-    // TODO: Implement message disliking
-  }
 
   Widget _buildEmptyState(ThemeData theme) {
     final l10n = AppLocalizations.of(context)!;
@@ -1575,13 +1554,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     });
   }
 
-  // TODO: Implement chat options when needed
-  // void _showChatOptions() {
-  //   ScaffoldMessenger.of(
-  //     context,
-  //   ).showSnackBar(const SnackBar(content: Text('Chat options coming soon!')));
-  // }
-
   void _deleteSelectedMessages() {
     final selectedMessages = _getSelectedMessages();
     if (selectedMessages.isEmpty) return;
@@ -1594,7 +1566,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       isDestructive: true,
     ).then((confirmed) async {
       if (confirmed == true) {
-        // TODO: Implement message removal
         // for (final selectedMessage in selectedMessages) {
         //   ref.read(chatMessagesProvider.notifier).removeMessage(selectedMessage.id);
         // }

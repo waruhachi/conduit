@@ -151,7 +151,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   final FocusNode _focusNode = FocusNode();
   bool _isRecording = false;
   bool _isExpanded = true; // Start expanded for better UX
-  // TODO: Implement voice input functionality
   // final String _voiceInputText = '';
   bool _hasText = false; // track locally without rebuilding on each keystroke
   StreamSubscription<String>? _voiceStreamSubscription;
@@ -414,8 +413,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       });
     }
 
-    final bool showPlaceholder =
-        !_hasText && !_focusNode.hasFocus && !_isRecording;
     final Brightness brightness = Theme.of(context).brightness;
     final Color outlineColor = (_focusNode.hasFocus || _hasText)
         ? context.conduitTheme.inputBorderFocused.withValues(alpha: 0.6)
@@ -425,16 +422,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     );
     final Color composerSurface = context.conduitTheme.inputBackground;
     final Color placeholderColor = context.conduitTheme.inputPlaceholder;
-    final Color badgeBackground = showPlaceholder
-        ? placeholderColor.withValues(alpha: 0.12)
-        : composerSurface.withValues(alpha: 0.3);
-    final Color badgeBorder = showPlaceholder
-        ? Colors.transparent
-        : outlineColor.withValues(alpha: 0.35);
-    final Color badgeIconColor = showPlaceholder
-        ? placeholderColor
-        : context.conduitTheme.textPrimary.withValues(alpha: 0.75);
-
     return Container(
       // Transparent wrapper so rounded corners are visible against page background
       color: Colors.transparent,
@@ -679,21 +666,21 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                     ),
                                   ),
                                   if (!_isExpanded) ...[
-                                      const SizedBox(width: Spacing.sm),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          if (voiceAvailable) ...[
-                                            _buildVoiceButton(voiceAvailable),
-                                            const SizedBox(width: Spacing.xs),
-                                          ],
-                                          _buildPrimaryButton(
-                                            _hasText,
-                                            isGenerating,
-                                            stopGeneration,
-                                          ),
+                                    const SizedBox(width: Spacing.sm),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (voiceAvailable) ...[
+                                          _buildVoiceButton(voiceAvailable),
+                                          const SizedBox(width: Spacing.xs),
                                         ],
-                                      ),
+                                        _buildPrimaryButton(
+                                          _hasText,
+                                          isGenerating,
+                                          stopGeneration,
+                                        ),
+                                      ],
+                                    ),
                                   ],
                                 ],
                               ),
@@ -1017,7 +1004,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
                                           // Append tools button at the end (always visible)
 
-                                          rowChildren..add(
+                                          rowChildren.add(
                                             _buildIconButton(
                                               icon: Platform.isIOS
                                                   ? CupertinoIcons.wrench
@@ -1605,6 +1592,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     if (!widget.enabled) return;
     try {
       final ok = await _voiceService.initialize();
+      if (!mounted) return;
       if (!ok) {
         _showVoiceUnavailable(
           AppLocalizations.of(context)?.errorMessage ??
@@ -1614,6 +1602,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       }
       // Centralized permission + start
       final stream = await _voiceService.beginListening();
+      if (!mounted) return;
       setState(() {
         _isRecording = true;
         _baseTextAtStart = _controller.text;

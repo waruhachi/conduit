@@ -819,15 +819,18 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     String folderId,
     String folderName,
   ) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await ThemedDialogs.confirm(
       context,
-      title: AppLocalizations.of(context)!.deleteFolderTitle,
-      message: AppLocalizations.of(context)!.deleteFolderMessage,
-      confirmText: AppLocalizations.of(context)!.delete,
+      title: l10n.deleteFolderTitle,
+      message: l10n.deleteFolderMessage,
+      confirmText: l10n.delete,
       isDestructive: true,
     );
+    if (!mounted) return;
     if (!confirmed) return;
 
+    final deleteFolderError = l10n.failedToDeleteFolder;
     try {
       final api = ref.read(apiServiceProvider);
       if (api == null) throw Exception('No API service');
@@ -837,16 +840,13 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       ref.invalidate(conversationsProvider);
     } catch (_) {
       if (!mounted) return;
-      UiUtils.showMessage(
-        this.context,
-        AppLocalizations.of(context)!.failedToDeleteFolder,
-        isError: true,
-      );
+      UiUtils.showMessage(this.context, deleteFolderError, isError: true);
     }
   }
 
   Widget _buildUnfileDropTarget() {
     final theme = context.conduitTheme;
+    final l10n = AppLocalizations.of(context)!;
     final isHover = _dragHoverFolderId == '__UNFILE__';
     return DragTarget<_DragConversationData>(
       onWillAcceptWithDetails: (details) {
@@ -874,11 +874,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           }
         } catch (_) {
           if (mounted) {
-            UiUtils.showMessage(
-              context,
-              AppLocalizations.of(context)!.failedToMoveChat,
-              isError: true,
-            );
+            UiUtils.showMessage(context, l10n.failedToMoveChat, isError: true);
           }
         }
       },
@@ -1149,14 +1145,14 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     final dynamic authUser = ref.watch(authUserProvider);
     final user = userFromProfile ?? authUser;
 
-    String _initial(String name) {
+    String initialFor(String name) {
       if (name.isEmpty) return 'U';
       final ch = name.characters.first;
       return ch.toUpperCase();
     }
 
     final displayName = deriveUserDisplayName(user);
-    final initial = _initial(displayName);
+    final initial = initialFor(displayName);
     return Padding(
       padding: const EdgeInsets.fromLTRB(Spacing.sm, 0, Spacing.sm, Spacing.sm),
       child: Column(
@@ -1273,13 +1269,16 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                 onTap: () async {
                   HapticFeedback.lightImpact();
                   Navigator.pop(sheetContext);
+                  final pinErrorMessage = AppLocalizations.of(
+                    context,
+                  )!.failedToUpdatePin;
                   try {
                     await chat.pinConversation(ref, conv.id, !isPinned);
                   } catch (_) {
                     if (!mounted) return;
                     UiUtils.showMessage(
                       this.context,
-                      AppLocalizations.of(context)!.failedToUpdatePin,
+                      pinErrorMessage,
                       isError: true,
                     );
                   }
@@ -1305,13 +1304,16 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                 onTap: () async {
                   HapticFeedback.lightImpact();
                   Navigator.pop(sheetContext);
+                  final archiveErrorMessage = AppLocalizations.of(
+                    context,
+                  )!.failedToUpdateArchive;
                   try {
                     await chat.archiveConversation(ref, conv.id, !isArchived);
                   } catch (_) {
                     if (!mounted) return;
                     UiUtils.showMessage(
                       this.context,
-                      AppLocalizations.of(context)!.failedToUpdateArchive,
+                      archiveErrorMessage,
                       isError: true,
                     );
                   }
@@ -1360,18 +1362,20 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     String conversationId,
     String currentTitle,
   ) async {
+    final l10n = AppLocalizations.of(context)!;
     final newName = await ThemedDialogs.promptTextInput(
       context,
-      title: AppLocalizations.of(context)!.renameChat,
-      hintText: AppLocalizations.of(context)!.enterChatName,
+      title: l10n.renameChat,
+      hintText: l10n.enterChatName,
       initialValue: currentTitle,
-      confirmText: AppLocalizations.of(context)!.save,
-      cancelText: AppLocalizations.of(context)!.cancel,
+      confirmText: l10n.save,
+      cancelText: l10n.cancel,
     );
-
+    if (!mounted) return;
     if (newName == null) return;
     if (newName.isEmpty || newName == currentTitle) return;
 
+    final renameError = l10n.failedToRenameChat;
     try {
       final api = ref.read(apiServiceProvider);
       if (api == null) throw Exception('No API service');
@@ -1387,11 +1391,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       }
     } catch (_) {
       if (!mounted) return;
-      UiUtils.showMessage(
-        this.context,
-        AppLocalizations.of(context)!.failedToRenameChat,
-        isError: true,
-      );
+      UiUtils.showMessage(this.context, renameError, isError: true);
     }
   }
 
@@ -1399,15 +1399,18 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     BuildContext context,
     String conversationId,
   ) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await ThemedDialogs.confirm(
       context,
-      title: AppLocalizations.of(context)!.deleteChatTitle,
-      message: AppLocalizations.of(context)!.deleteChatMessage,
-      confirmText: AppLocalizations.of(context)!.delete,
+      title: l10n.deleteChatTitle,
+      message: l10n.deleteChatMessage,
+      confirmText: l10n.delete,
       isDestructive: true,
     );
+    if (!mounted) return;
     if (!confirmed) return;
 
+    final deleteError = l10n.failedToDeleteChat;
     try {
       final api = ref.read(apiServiceProvider);
       if (api == null) throw Exception('No API service');
@@ -1422,11 +1425,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       ref.invalidate(conversationsProvider);
     } catch (_) {
       if (!mounted) return;
-      UiUtils.showMessage(
-        this.context,
-        AppLocalizations.of(context)!.failedToDeleteChat,
-        isError: true,
-      );
+      UiUtils.showMessage(this.context, deleteError, isError: true);
     }
   }
 }

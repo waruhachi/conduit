@@ -49,7 +49,9 @@ class ReasoningParser {
     if (openingIdx >= 0 && !content.contains('</details>')) {
       final after = content.substring(openingIdx);
       // Try to extract optional summary
-      final summaryMatch = RegExp(r'<summary>([^<]*)<\/summary>').firstMatch(after);
+      final summaryMatch = RegExp(
+        r'<summary>([^<]*)<\/summary>',
+      ).firstMatch(after);
       final summary = (summaryMatch?.group(1) ?? '').trim();
       final reasoning = after
           .replaceAll(RegExp(r'^<details[^>]*>'), '')
@@ -80,7 +82,11 @@ class ReasoningParser {
     for (final pair in tagPairs) {
       final start = RegExp.escape(pair[0]);
       final end = RegExp.escape(pair[1]);
-      final tagRegex = RegExp('($start)([\s\S]*?)($end)', multiLine: true, dotAll: true);
+      final tagRegex = RegExp(
+        '($start)(.*?)($end)',
+        multiLine: true,
+        dotAll: true,
+      );
       final match = tagRegex.firstMatch(content);
       if (match != null) {
         final reasoning = (match.group(2) ?? '').trim();
@@ -144,7 +150,8 @@ class ReasoningParser {
       if (nextDetails == -1 && nextRawStart == -1) {
         nextIdx = -1;
         kind = 'none';
-      } else if (nextDetails != -1 && (nextRawStart == -1 || nextDetails < nextRawStart)) {
+      } else if (nextDetails != -1 &&
+          (nextRawStart == -1 || nextDetails < nextRawStart)) {
         nextIdx = nextDetails;
         kind = 'details';
       } else {
@@ -219,7 +226,9 @@ class ReasoningParser {
         if (depth != 0) {
           // Unclosed; treat as streaming partial
           final after = content.substring(openEnd + 1);
-          final summaryMatch = RegExp(r'<summary>([^<]*)<\/summary>').firstMatch(after);
+          final summaryMatch = RegExp(
+            r'<summary>([^<]*)<\/summary>',
+          ).firstMatch(after);
           final summary = (summaryMatch?.group(1) ?? '').trim();
           final reasoning = after
               .replaceAll(RegExp(r'^\s*<summary>[\s\S]*?<\/summary>'), '')
@@ -238,8 +247,13 @@ class ReasoningParser {
           break;
         } else {
           // Closed block: extract inner content
-          final inner = content.substring(openEnd + 1, i - 10); // without </details>
-          final sumMatch = RegExp(r'<summary>([^<]*)<\/summary>').firstMatch(inner);
+          final inner = content.substring(
+            openEnd + 1,
+            i - 10,
+          ); // without </details>
+          final sumMatch = RegExp(
+            r'<summary>([^<]*)<\/summary>',
+          ).firstMatch(inner);
           final summary = (sumMatch?.group(1) ?? '').trim();
           final reasoning = inner
               .replaceAll(RegExp(r'<summary>[\s\S]*?<\/summary>'), '')

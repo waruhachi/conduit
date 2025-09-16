@@ -392,11 +392,11 @@ class ApiService {
           debugPrint(
             '🔍 DEBUG: Sample chat data fields: ${chatData.keys.toList()}',
           );
-          final _sampleStr = chatData.toString();
-          final _preview = _sampleStr.length > 200
-              ? _sampleStr.substring(0, 200)
-              : _sampleStr;
-          debugPrint('🔍 DEBUG: Sample chat data: $_preview...');
+          final samplePreviewSource = chatData.toString();
+          final preview = samplePreviewSource.length > 200
+              ? samplePreviewSource.substring(0, 200)
+              : samplePreviewSource;
+          debugPrint('🔍 DEBUG: Sample chat data: $preview...');
         }
 
         final conversation = _parseOpenWebUIChat(chatData);
@@ -475,8 +475,8 @@ class ApiService {
 
     // Debug logging for folder assignment
     if (folderId != null) {
-      final _idPreview = id.length > 8 ? id.substring(0, 8) : id;
-      debugPrint('🔍 DEBUG: Conversation $_idPreview has folderId: $folderId');
+      final idPreview = id.length > 8 ? id.substring(0, 8) : id;
+      debugPrint('🔍 DEBUG: Conversation $idPreview has folderId: $folderId');
     }
 
     debugPrint(
@@ -3357,11 +3357,11 @@ class ApiService {
         } else if (response.data is Map) {
           DebugLogger.log('   Object keys: ${(response.data as Map).keys}');
         }
-        final _dataStr = response.data.toString();
-        final _dataPreview = _dataStr.length > 200
-            ? _dataStr.substring(0, 200)
-            : _dataStr;
-        DebugLogger.log('   Sample data: $_dataPreview...');
+        final dataSampleSource = response.data.toString();
+        final dataPreview = dataSampleSource.length > 200
+            ? dataSampleSource.substring(0, 200)
+            : dataSampleSource;
+        DebugLogger.log('   Sample data: $dataPreview...');
       } catch (e) {
         debugPrint('❌ $endpoint - Error: $e');
       }

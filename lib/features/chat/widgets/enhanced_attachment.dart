@@ -131,7 +131,9 @@ class _EnhancedAttachmentState extends ConsumerState<EnhancedAttachment> {
     if (path == null) return;
     final filename = (_fileInfo?['filename'] ?? _fileInfo?['name'] ?? 'file')
         .toString();
-    await Share.shareXFiles([XFile(path, name: filename)]);
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(path, name: filename)]),
+    );
   }
 
   String _fileIconFor(String filename) {

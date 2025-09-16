@@ -47,6 +47,7 @@ class ToolCallsParser {
         .replaceAll('&amp;', '&')
         .replaceAll('&#38;', '&');
   }
+
   /// Represents a mixed stream of text and tool-call entries in original order
   /// as they appeared in the content.
   static List<ToolCallsSegment>? segments(String content) {
@@ -97,7 +98,9 @@ class ToolCallsParser {
           i = nextOpen + 8; // '<details'
         } else {
           depth--;
-          i = (nextClose != -1) ? nextClose + 10 : content.length; // '</details>'
+          i = (nextClose != -1)
+              ? nextClose + 10
+              : content.length; // '</details>'
         }
       }
 
@@ -105,17 +108,16 @@ class ToolCallsParser {
 
       if (isToolCalls) {
         // Decode attributes for tool call tile
-        dynamic _decode(String? s) {
-          if (s == null || s.isEmpty) return null;
+        dynamic decodeAttribute(String? source) {
+          if (source == null || source.isEmpty) return null;
           try {
-            final unescaped = _unescapeHtml(s);
+            final unescaped = _unescapeHtml(source);
             return json.decode(unescaped);
           } catch (_) {
-            // If JSON decode fails, return unescaped string for display
             try {
-              return _unescapeHtml(s);
+              return _unescapeHtml(source);
             } catch (_) {
-              return s;
+              return source;
             }
           }
         }
@@ -123,9 +125,9 @@ class ToolCallsParser {
         final id = (attrs['id'] ?? '');
         final name = (attrs['name'] ?? 'tool');
         final done = (attrs['done'] == 'true');
-        final args = _decode(attrs['arguments']);
-        final result = _decode(attrs['result']);
-        final files = _decode(attrs['files']);
+        final args = decodeAttribute(attrs['arguments']);
+        final result = decodeAttribute(attrs['result']);
+        final files = decodeAttribute(attrs['files']);
 
         segs.add(
           ToolCallsSegment.entry(
@@ -207,7 +209,9 @@ class ToolCallsParser {
     if (parsed == null) return content;
     final buf = StringBuffer();
     for (final c in parsed.toolCalls) {
-      buf.writeln(c.done ? 'Tool Executed: ${c.name}' : 'Running tool: ${c.name}…');
+      buf.writeln(
+        c.done ? 'Tool Executed: ${c.name}' : 'Running tool: ${c.name}…',
+      );
       final args = _prettyMaybe(c.arguments, max: 400);
       final res = _prettyMaybe(c.result, max: 800);
       if (args.isNotEmpty) {
@@ -239,8 +243,8 @@ class ToolCallsParser {
 
   /// Sanitize assistant/user content before sending to the API, mirroring
   /// the web client's `processDetails` behavior:
-  /// - Remove <details type="reasoning"> and <details type="code_interpreter"> blocks
-  /// - Replace <details type="tool_calls" ...>...</details> blocks with the
+  /// - Remove &lt;details type="reasoning"&gt; and &lt;details type="code_interpreter"&gt; blocks
+  /// - Replace &lt;details type="tool_calls" ...&gt;...&lt;/details&gt; blocks with the
   ///   JSON-serialized `result` attribute (as a quoted string) when available;
   ///   otherwise replace with an empty string.
   static String sanitizeForApi(String content) {
@@ -251,7 +255,7 @@ class ToolCallsParser {
     for (final t in removeTypes) {
       content = content.replaceAll(
         RegExp(
-          '<details\\s+type=\"${t}\"[^>]*>[\\s\\S]*?<\\/details>',
+          '<details\\s+type="$t"[^>]*>[\\s\\S]*?</details>',
           multiLine: true,
           dotAll: true,
         ),

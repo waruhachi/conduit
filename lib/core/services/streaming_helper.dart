@@ -33,7 +33,8 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
   // Message update callbacks
   required void Function(String) appendToLastMessage,
   required void Function(String) replaceLastMessageContent,
-  required void Function(ChatMessage Function(ChatMessage)) updateLastMessageWith,
+  required void Function(ChatMessage Function(ChatMessage))
+  updateLastMessageWith,
   required void Function() finishStreaming,
   required List<ChatMessage> Function() getMessages,
 }) {
@@ -71,7 +72,7 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
   bool suppressSocketContent = suppressSocketContentInitially;
   bool usingDynamicChannel = usingDynamicChannelInitially;
 
-  void _updateImagesFromCurrentContent() {
+  void updateImagesFromCurrentContent() {
     try {
       final msgs = getMessages();
       if (msgs.isEmpty || msgs.last.role != 'assistant') return;
@@ -236,13 +237,13 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
                       for (final call in tc) {
                         if (call is Map<String, dynamic>) {
                           final fn = call['function'];
-                          final name =
-                              (fn is Map && fn['name'] is String)
-                                  ? fn['name'] as String
-                                  : null;
+                          final name = (fn is Map && fn['name'] is String)
+                              ? fn['name'] as String
+                              : null;
                           if (name is String && name.isNotEmpty) {
                             final msgs = getMessages();
-                            final exists = (msgs.isNotEmpty) &&
+                            final exists =
+                                (msgs.isNotEmpty) &&
                                 RegExp(
                                   r'<details\s+type=\"tool_calls\"[^>]*\bname=\"' +
                                       RegExp.escape(name) +
@@ -262,20 +263,20 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
                   final content = delta['content']?.toString() ?? '';
                   if (content.isNotEmpty) {
                     appendToLastMessage(content);
-                    _updateImagesFromCurrentContent();
+                    updateImagesFromCurrentContent();
                   }
                 }
               }
             } catch (_) {
               if (s.isNotEmpty) {
                 appendToLastMessage(s);
-                _updateImagesFromCurrentContent();
+                updateImagesFromCurrentContent();
               }
             }
           } else {
             if (s.isNotEmpty) {
               appendToLastMessage(s);
-              _updateImagesFromCurrentContent();
+              updateImagesFromCurrentContent();
             }
           }
         } else if (line is Map) {
@@ -320,10 +321,12 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
                       : null;
                   if (name is String && name.isNotEmpty) {
                     final msgs = getMessages();
-                    final exists = (msgs.isNotEmpty) &&
+                    final exists =
+                        (msgs.isNotEmpty) &&
                         RegExp(
                           r'<details\s+type=\"tool_calls\"[^>]*\bname=\"' +
-                              RegExp.escape(name) + r'\"',
+                              RegExp.escape(name) +
+                              r'\"',
                           multiLine: true,
                         ).hasMatch(msgs.last.content);
                     if (!exists) {
@@ -353,10 +356,12 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
                             : null;
                         if (name is String && name.isNotEmpty) {
                           final msgs = getMessages();
-                          final exists = (msgs.isNotEmpty) &&
+                          final exists =
+                              (msgs.isNotEmpty) &&
                               RegExp(
                                 r'<details\s+type=\"tool_calls\"[^>]*\bname=\"' +
-                                    RegExp.escape(name) + r'\"',
+                                    RegExp.escape(name) +
+                                    r'\"',
                                 multiLine: true,
                               ).hasMatch(msgs.last.content);
                           if (!exists) {
@@ -372,7 +377,7 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
                 final content = delta['content']?.toString() ?? '';
                 if (content.isNotEmpty) {
                   appendToLastMessage(content);
-                  _updateImagesFromCurrentContent();
+                  updateImagesFromCurrentContent();
                 }
               }
             }
@@ -409,7 +414,9 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
                         final list = chatObj['messages'];
                         if (list is List) {
                           final target = list.firstWhere(
-                            (m) => (m is Map && (m['id']?.toString() == assistantMessageId)),
+                            (m) =>
+                                (m is Map &&
+                                (m['id']?.toString() == assistantMessageId)),
                             orElse: () => null,
                           );
                           if (target != null) {
@@ -431,7 +438,8 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
                           final history = chatObj['history'];
                           if (history is Map && history['messages'] is Map) {
                             final Map<String, dynamic> messagesMap =
-                                (history['messages'] as Map).cast<String, dynamic>();
+                                (history['messages'] as Map)
+                                    .cast<String, dynamic>();
                             final msg = messagesMap[assistantMessageId];
                             if (msg is Map) {
                               final rawContent = msg['content'];
@@ -454,7 +462,8 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
                         replaceLastMessageContent(content);
                       }
                     }
-                  } catch (_) {} finally {
+                  } catch (_) {
+                  } finally {
                     finishStreaming();
                   }
                 });
@@ -483,21 +492,23 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
           }
           if (content.isNotEmpty) {
             // Replace current assistant message with a readable error
-            replaceLastMessageContent('⚠️ ' + content);
+            replaceLastMessageContent('⚠️ $content');
           }
         } catch (_) {}
         // Ensure UI exits streaming state
         finishStreaming();
-      } else if ((type == 'chat:message:delta' || type == 'message') && payload != null) {
+      } else if ((type == 'chat:message:delta' || type == 'message') &&
+          payload != null) {
         // Incremental message content over socket; respect suppression on SSE-driven flows
         if (!suppressSocketContent) {
           final content = payload['content']?.toString() ?? '';
           if (content.isNotEmpty) {
             appendToLastMessage(content);
-            _updateImagesFromCurrentContent();
+            updateImagesFromCurrentContent();
           }
         }
-      } else if ((type == 'chat:message' || type == 'replace') && payload != null) {
+      } else if ((type == 'chat:message' || type == 'replace') &&
+          payload != null) {
         // Full message replacement over socket; respect suppression on SSE-driven flows
         if (!suppressSocketContent) {
           final content = payload['content']?.toString() ?? '';
@@ -600,10 +611,9 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
       } else if (type == 'event:status' && payload != null) {
         final status = payload['status']?.toString() ?? '';
         if (status.isNotEmpty) {
-          updateLastMessageWith((m) => m.copyWith(metadata: {
-                ...?m.metadata,
-                'status': status,
-              }));
+          updateLastMessageWith(
+            (m) => m.copyWith(metadata: {...?m.metadata, 'status': status}),
+          );
         }
       } else if (type == 'event:tool' && payload != null) {
         // Accept files from both 'result' and 'files'
@@ -624,7 +634,7 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
         final content = payload['content']?.toString() ?? '';
         if (content.isNotEmpty) {
           appendToLastMessage(content);
-          _updateImagesFromCurrentContent();
+          updateImagesFromCurrentContent();
         }
       }
     } catch (_) {}
@@ -640,7 +650,7 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
         final content = payload['content']?.toString() ?? '';
         if (content.isNotEmpty) {
           appendToLastMessage(content);
-          _updateImagesFromCurrentContent();
+          updateImagesFromCurrentContent();
         }
       }
     } catch (_) {}
@@ -656,7 +666,9 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
       } catch (_) {}
       try {
         final msgs = getMessages();
-        if (msgs.isNotEmpty && msgs.last.role == 'assistant' && msgs.last.isStreaming) {
+        if (msgs.isNotEmpty &&
+            msgs.last.role == 'assistant' &&
+            msgs.last.isStreaming) {
           finishStreaming();
         }
       } catch (_) {}
@@ -681,17 +693,21 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
         }
       }
 
-      if (isSearching && (chunk.contains('[/SEARCHING]') || chunk.contains('Search complete'))) {
+      if (isSearching &&
+          (chunk.contains('[/SEARCHING]') ||
+              chunk.contains('Search complete'))) {
         isSearching = false;
         updateLastMessageWith(
           (message) => message.copyWith(metadata: {'webSearchActive': false}),
         );
-        effectiveChunk = effectiveChunk.replaceAll('[SEARCHING]', '').replaceAll('[/SEARCHING]', '');
+        effectiveChunk = effectiveChunk
+            .replaceAll('[SEARCHING]', '')
+            .replaceAll('[/SEARCHING]', '');
       }
 
       if (effectiveChunk.trim().isNotEmpty) {
         appendToLastMessage(effectiveChunk);
-        _updateImagesFromCurrentContent();
+        updateImagesFromCurrentContent();
       }
     },
     onDone: () async {

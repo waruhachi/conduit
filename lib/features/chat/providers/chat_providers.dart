@@ -142,7 +142,7 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
                 final msgId = last.id;
                 final chatId = activeConv?.id;
                 if (apiSvc != null && chatId != null && chatId.isNotEmpty) {
-                  final resp = await apiSvc.dio.get('/api/v1/chats/' + chatId);
+                  final resp = await apiSvc.dio.get('/api/v1/chats/$chatId');
                   final data = resp.data as Map<String, dynamic>;
                   String content = '';
                   final chatObj = data['chat'] as Map<String, dynamic>?;
@@ -948,11 +948,11 @@ Future<void> regenerateMessage(
     final bool isBackgroundWebSearchPre = webSearchEnabled;
 
     // Dispatch using unified send pipeline (background tools flow)
-    final bool _isBackgroundFlowPre =
+    final bool isBackgroundFlowPre =
         isBackgroundToolsFlowPre ||
         isBackgroundWebSearchPre ||
         imageGenerationEnabled;
-    final bool _passSocketSession = wantSessionBinding && _isBackgroundFlowPre;
+    final bool passSocketSession = wantSessionBinding && isBackgroundFlowPre;
     final response = api!.sendMessage(
       messages: conversationMessages,
       model: selectedModel.id,
@@ -961,7 +961,7 @@ Future<void> regenerateMessage(
       enableWebSearch: webSearchEnabled,
       enableImageGeneration: imageGenerationEnabled,
       modelItem: modelItem,
-      sessionIdOverride: _passSocketSession ? socketSessionId : null,
+      sessionIdOverride: passSocketSession ? socketSessionId : null,
       toolServers: toolServers,
       backgroundTasks: bgTasks,
       responseMessageId: assistantMessageId,
@@ -971,7 +971,7 @@ Future<void> regenerateMessage(
     final sessionId = response.sessionId;
 
     // New unified streaming path via helper; bypass old inline socket block
-    final bool _isBackgroundFlow =
+    final bool isBackgroundFlow =
         isBackgroundToolsFlowPre ||
         isBackgroundWebSearchPre ||
         imageGenerationEnabled ||
@@ -982,7 +982,7 @@ Future<void> regenerateMessage(
       ) {
         final mergedMeta = {
           if (m.metadata != null) ...m.metadata!,
-          'backgroundFlow': _isBackgroundFlow,
+          'backgroundFlow': isBackgroundFlow,
           if (isBackgroundWebSearchPre) 'webSearchFlow': true,
           if (imageGenerationEnabled) 'imageGenerationFlow': true,
         };
@@ -990,11 +990,11 @@ Future<void> regenerateMessage(
       });
     } catch (_) {}
 
-    final _sendStreamSub = attachUnifiedChunkedStreaming(
+    final sendStreamSub = attachUnifiedChunkedStreaming(
       stream: stream,
       webSearchEnabled: webSearchEnabled,
-      isBackgroundFlow: _isBackgroundFlow,
-      suppressSocketContentInitially: !_isBackgroundFlow,
+      isBackgroundFlow: isBackgroundFlow,
+      suppressSocketContentInitially: !isBackgroundFlow,
       usingDynamicChannelInitially: false,
       assistantMessageId: assistantMessageId,
       modelId: selectedModel.id,
@@ -1014,7 +1014,7 @@ Future<void> regenerateMessage(
           ref.read(chatMessagesProvider.notifier).finishStreaming(),
       getMessages: () => ref.read(chatMessagesProvider),
     );
-    ref.read(chatMessagesProvider.notifier).setMessageStream(_sendStreamSub);
+    ref.read(chatMessagesProvider.notifier).setMessageStream(sendStreamSub);
     return;
   } catch (e) {
     rethrow;
@@ -1482,7 +1482,7 @@ Future<void> _sendMessageInternal(
 
     if (socketService != null) {
       // Activity-based watchdog for chat/channel events (resets on activity)
-      final _chatWatchdog = InactivityWatchdog(
+      final chatWatchdog = InactivityWatchdog(
         window: const Duration(minutes: 5),
         onTimeout: () {
           try {
@@ -1510,7 +1510,7 @@ Future<void> _sendMessageInternal(
           DebugLogger.stream('Socket chat-events: type=$type');
           // Any chat event indicates activity; reset inactivity watchdog
           // (watchdog defined below, near handler registration)
-          _chatWatchdog.ping();
+          chatWatchdog.ping();
           if (type == 'chat:completion' && payload != null) {
             if (payload is Map<String, dynamic>) {
               // Provider may emit tool_calls at the top level
@@ -1529,9 +1529,7 @@ Future<void> _sendMessageInternal(
                         final exists =
                             (msgs.isNotEmpty) &&
                             RegExp(
-                              r'<details\s+type=\"tool_calls\"[^>]*\bname=\"' +
-                                  RegExp.escape(name) +
-                                  r'\"',
+                              '<details\\s+type="tool_calls"[^>]*\\bname="${RegExp.escape(name)}"',
                               multiLine: true,
                             ).hasMatch(msgs.last.content);
                         if (!exists) {
@@ -1567,9 +1565,7 @@ Future<void> _sendMessageInternal(
                               final exists =
                                   (msgs.isNotEmpty) &&
                                   RegExp(
-                                    r'<details\s+type=\"tool_calls\"[^>]*\bname=\"' +
-                                        RegExp.escape(name) +
-                                        r'\"',
+                                    '<details\\s+type="tool_calls"[^>]*\\bname="${RegExp.escape(name)}"',
                                     multiLine: true,
                                   ).hasMatch(msgs.last.content);
                               if (!exists) {
@@ -1628,8 +1624,8 @@ Future<void> _sendMessageInternal(
                   socketService.offChatEvents();
                 } catch (_) {}
                 try {
-                  _chatWatchdog.ping(); // ensure timer exists
-                  _chatWatchdog.stop();
+                  chatWatchdog.ping(); // ensure timer exists
+                  chatWatchdog.stop();
                 } catch (_) {}
 
                 // Notify server that chat is completed (mirrors web client)
@@ -1744,7 +1740,7 @@ Future<void> _sendMessageInternal(
                 // Normal path: finish now
                 ref.read(chatMessagesProvider.notifier).finishStreaming();
                 try {
-                  _chatWatchdog.stop();
+                  chatWatchdog.stop();
                 } catch (_) {}
               }
             }
@@ -1767,7 +1763,7 @@ Future<void> _sendMessageInternal(
                     final s = line.trim();
                     // Dynamic channel activity
                     try {
-                      _chatWatchdog.ping();
+                      chatWatchdog.ping();
                     } catch (_) {}
                     DebugLogger.stream(
                       'Socket [$channel] line=${s.length > 160 ? '${s.substring(0, 160)}…' : s}',
@@ -1850,9 +1846,7 @@ Future<void> _sendMessageInternal(
                                       final exists =
                                           (msgs.isNotEmpty) &&
                                           RegExp(
-                                            r'<details\\s+type=\"tool_calls\"[^>]*\\bname=\"' +
-                                                RegExp.escape(name) +
-                                                r'\"',
+                                            '<details\\s+type="tool_calls"[^>]*\\bname="${RegExp.escape(name)}"',
                                             multiLine: true,
                                           ).hasMatch(msgs.last.content);
                                       if (!exists) {
@@ -1944,7 +1938,7 @@ Future<void> _sendMessageInternal(
               if (content.isNotEmpty) {
                 ref
                     .read(chatMessagesProvider.notifier)
-                    .replaceLastMessageContent('⚠️ ' + content);
+                    .replaceLastMessageContent('⚠️ $content');
               }
             } catch (_) {}
             ref.read(chatMessagesProvider.notifier).finishStreaming();
@@ -2060,7 +2054,7 @@ Future<void> _sendMessageInternal(
                   .read(chatMessagesProvider.notifier)
                   .appendToLastMessage(content);
               _updateImagesFromCurrentContent(ref);
-              _chatWatchdog.ping();
+              chatWatchdog.ping();
             }
           }
         } catch (_) {}
@@ -2068,7 +2062,7 @@ Future<void> _sendMessageInternal(
 
       socketService.onChannelEvents(channelEventsHandler);
       // Start activity watchdog
-      _chatWatchdog.ping();
+      chatWatchdog.ping();
     }
 
     // Prepare streaming and background handling
@@ -2123,14 +2117,14 @@ Future<void> _sendMessageInternal(
 
     // Helpers were defined above
 
-    int _chunkSeq = 0;
+    int chunkSeq = 0;
     final streamSubscription = persistentController.stream.listen(
       (chunk) {
-        _chunkSeq += 1;
+        chunkSeq += 1;
         try {
           persistentService.updateStreamProgress(
             streamId,
-            chunkSequence: _chunkSeq,
+            chunkSequence: chunkSeq,
             appendedContent: chunk,
           );
         } catch (_) {}
@@ -3030,7 +3024,7 @@ void _attachSocketStreamingHandlers({
   final api = ref.read(apiServiceProvider);
 
   // Activity-based watchdog for socket-driven streaming (resets on activity)
-  final _socketWatchdog = InactivityWatchdog(
+  final socketWatchdog = InactivityWatchdog(
     window: const Duration(minutes: 5),
     onTimeout: () {
       try {
@@ -3054,7 +3048,7 @@ void _attachSocketStreamingHandlers({
         if (line is String) {
           final s = line.trim();
           // Any socket line is activity
-          _socketWatchdog.ping();
+          socketWatchdog.ping();
           if (s == '[DONE]' || s == 'DONE') {
             try {
               socketService.offEvent(channel);
@@ -3072,7 +3066,7 @@ void _attachSocketStreamingHandlers({
               );
             } catch (_) {}
             ref.read(chatMessagesProvider.notifier).finishStreaming();
-            _socketWatchdog.stop();
+            socketWatchdog.stop();
             return;
           }
           if (s.startsWith('data:')) {
@@ -3094,7 +3088,7 @@ void _attachSocketStreamingHandlers({
                 );
               } catch (_) {}
               ref.read(chatMessagesProvider.notifier).finishStreaming();
-              _socketWatchdog.stop();
+              socketWatchdog.stop();
               return;
             }
             try {
@@ -3118,9 +3112,7 @@ void _attachSocketStreamingHandlers({
                             final exists =
                                 (msgs.isNotEmpty) &&
                                 RegExp(
-                                  r'<details\s+type=\"tool_calls\"[^>]*\bname=\"' +
-                                      RegExp.escape(name) +
-                                      r'\"',
+                                  '<details\\s+type="tool_calls"[^>]*\\bname="${RegExp.escape(name)}"',
                                   multiLine: true,
                                 ).hasMatch(msgs.last.content);
                             if (!exists) {
@@ -3157,13 +3149,13 @@ void _attachSocketStreamingHandlers({
             }
           }
         } else if (line is Map) {
-          _socketWatchdog.ping();
+          socketWatchdog.ping();
           if (line['done'] == true) {
             try {
               socketService.offEvent(channel);
             } catch (_) {}
             ref.read(chatMessagesProvider.notifier).finishStreaming();
-            _socketWatchdog.stop();
+            socketWatchdog.stop();
             return;
           }
         }
@@ -3172,7 +3164,7 @@ void _attachSocketStreamingHandlers({
 
     socketService.onEvent(channel, handler);
     // Start activity watchdog now that handler is attached
-    _socketWatchdog.ping();
+    socketWatchdog.ping();
   }
 
   void chatHandler(Map<String, dynamic> ev) {
@@ -3198,9 +3190,7 @@ void _attachSocketStreamingHandlers({
                     final exists =
                         (msgs.isNotEmpty) &&
                         RegExp(
-                          r'<details\s+type=\"tool_calls\"[^>]*\bname=\"' +
-                              RegExp.escape(name) +
-                              r'\"',
+                          '<details\\s+type="tool_calls"[^>]*\\bname="${RegExp.escape(name)}"',
                           multiLine: true,
                         ).hasMatch(msgs.last.content);
                     if (!exists) {
@@ -3235,9 +3225,7 @@ void _attachSocketStreamingHandlers({
                           final exists =
                               (msgs.isNotEmpty) &&
                               RegExp(
-                                r'<details\s+type=\"tool_calls\"[^>]*\bname=\"' +
-                                    RegExp.escape(name) +
-                                    r'\"',
+                                '<details\\s+type="tool_calls"[^>]*\\bname="${RegExp.escape(name)}"',
                                 multiLine: true,
                               ).hasMatch(msgs.last.content);
                           if (!exists) {
@@ -3267,7 +3255,7 @@ void _attachSocketStreamingHandlers({
               socketService.offChatEvents();
             } catch (_) {}
             try {
-              _socketWatchdog.stop();
+              socketWatchdog.stop();
             } catch (_) {}
             try {
               unawaited(
@@ -3421,7 +3409,7 @@ void _attachSocketStreamingHandlers({
   socketService.onChatEvents(chatHandler);
   socketService.onChannelEvents(channelEventsHandler);
   // Start activity watchdog for chat/channel events
-  _socketWatchdog.ping();
+  socketWatchdog.ping();
 }
 
 // ========== Tool Servers (OpenAPI) Helpers ==========
@@ -3495,8 +3483,9 @@ Map<String, dynamic>? _resolveRef(
   final section = components?[type];
   if (section is Map<String, dynamic>) {
     final schema = section[name];
-    if (schema is Map<String, dynamic>)
+    if (schema is Map<String, dynamic>) {
       return Map<String, dynamic>.from(schema);
+    }
   }
   return null;
 }
@@ -3515,12 +3504,14 @@ Map<String, dynamic> _resolveSchemaSimple(
     final out = <String, dynamic>{};
     if (type is String) {
       out['type'] = type;
-      if (schema['description'] != null)
+      if (schema['description'] != null) {
         out['description'] = schema['description'];
+      }
       if (type == 'object') {
         out['properties'] = <String, dynamic>{};
-        if (schema['required'] is List)
+        if (schema['required'] is List) {
           out['required'] = List.from(schema['required']);
+        }
         final props = schema['properties'];
         if (props is Map<String, dynamic>) {
           props.forEach((k, v) {

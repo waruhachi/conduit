@@ -181,10 +181,12 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     final isExpanded = _expandedToolIds.contains(tc.id);
     final theme = context.conduitTheme;
 
-    String _pretty(dynamic v, {int max = 1200}) {
+    String pretty(dynamic v, {int max = 1200}) {
       try {
-        final pretty = const JsonEncoder.withIndent('  ').convert(v);
-        return pretty.length > max ? '${pretty.substring(0, max)}\n…' : pretty;
+        final formatted = const JsonEncoder.withIndent('  ').convert(v);
+        return formatted.length > max
+            ? '${formatted.substring(0, max)}\n…'
+            : formatted;
       } catch (_) {
         final s = v?.toString() ?? '';
         return s.length > max ? '${s.substring(0, max)}…' : s;
@@ -233,7 +235,9 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                   ),
                   const SizedBox(width: Spacing.xs),
                   Icon(
-                    tc.done ? Icons.build_circle_outlined : Icons.play_circle_outline,
+                    tc.done
+                        ? Icons.build_circle_outlined
+                        : Icons.play_circle_outline,
                     size: 14,
                     color: theme.buttonPrimary,
                   ),
@@ -281,7 +285,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                         ),
                         const SizedBox(height: Spacing.xxs),
                         SelectableText(
-                          _pretty(tc.arguments),
+                          pretty(tc.arguments),
                           style: TextStyle(
                             fontSize: AppTypography.bodySmall,
                             color: theme.textSecondary,
@@ -303,7 +307,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                         ),
                         const SizedBox(height: Spacing.xxs),
                         SelectableText(
-                          _pretty(tc.result),
+                          pretty(tc.result),
                           style: TextStyle(
                             fontSize: AppTypography.bodySmall,
                             color: theme.textSecondary,
@@ -315,8 +319,9 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                     ],
                   ),
                 ),
-                crossFadeState:
-                    isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                crossFadeState: isExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
                 duration: const Duration(milliseconds: 200),
               ),
             ],
@@ -331,7 +336,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     // Determine if media (attachments or generated images) is rendered above.
     final hasMediaAbove =
         (widget.message.attachmentIds?.isNotEmpty ?? false) ||
-            (widget.message.files?.isNotEmpty ?? false);
+        (widget.message.files?.isNotEmpty ?? false);
     bool firstToolSpacerAdded = false;
     int idx = 0;
     for (final seg in _segments) {
@@ -363,7 +368,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   }
 
   bool get _hasRenderableSegments {
-    bool _textRenderable(String t) {
+    bool textRenderable(String t) {
       String cleaned = t;
       // Hide tool_calls blocks entirely
       cleaned = cleaned.replaceAll(
@@ -398,7 +403,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
       if (seg.isTool && seg.toolCall != null) return true;
       if (seg.isReasoning && seg.reasoning != null) return true;
       final text = seg.text ?? '';
-      if (_textRenderable(text)) return true;
+      if (textRenderable(text)) return true;
     }
     return false;
   }
@@ -507,7 +512,8 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                           ),
                         );
                       },
-                      child: (widget.isStreaming &&
+                      child:
+                          (widget.isStreaming &&
                               !_hasRenderableSegments &&
                               _allowTypingIndicator)
                           ? KeyedSubtree(
@@ -566,8 +572,18 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     );
     // Remove raw <think>...</think> or <reasoning>...</reasoning> tags in text
     cleaned = cleaned
-        .replaceAll(RegExp(r'<think>[\s\S]*?<\/think>', multiLine: true, dotAll: true), '')
-        .replaceAll(RegExp(r'<reasoning>[\s\S]*?<\/reasoning>', multiLine: true, dotAll: true), '');
+        .replaceAll(
+          RegExp(r'<think>[\s\S]*?<\/think>', multiLine: true, dotAll: true),
+          '',
+        )
+        .replaceAll(
+          RegExp(
+            r'<reasoning>[\s\S]*?<\/reasoning>',
+            multiLine: true,
+            dotAll: true,
+          ),
+          '',
+        );
 
     // If there's an unclosed <details>, drop the tail to avoid raw tags.
     final lastOpen = cleaned.lastIndexOf('<details');
@@ -699,7 +715,8 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                       maxWidth: 500,
                       maxHeight: 400,
                     ),
-                    disableAnimation: false, // Keep animations enabled to prevent black display
+                    disableAnimation:
+                        false, // Keep animations enabled to prevent black display
                   );
                 },
               ),
@@ -722,7 +739,8 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                     maxWidth: imageCount == 2 ? 245 : 160,
                     maxHeight: imageCount == 2 ? 245 : 160,
                   ),
-                  disableAnimation: false, // Keep animations enabled to prevent black display
+                  disableAnimation:
+                      false, // Keep animations enabled to prevent black display
                 );
               }).toList(),
             ),
@@ -764,13 +782,10 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
 
     Widget dot(Duration delay) {
       return Container(
-        width: dotSize,
-        height: dotSize,
-        decoration: BoxDecoration(
-          color: dotColor,
-          shape: BoxShape.circle,
-        ),
-      )
+            width: dotSize,
+            height: dotSize,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          )
           .animate(onPlay: (controller) => controller.repeat())
           .then(delay: delay)
           .scale(
@@ -816,13 +831,10 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
 
     Widget dot(Duration delay) {
       return Container(
-        width: dotSize,
-        height: dotSize,
-        decoration: BoxDecoration(
-          color: dotColor,
-          shape: BoxShape.circle,
-        ),
-      )
+            width: dotSize,
+            height: dotSize,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          )
           .animate(onPlay: (controller) => controller.repeat())
           .then(delay: delay)
           .scale(
@@ -858,8 +870,6 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
       ),
     );
   }
-
-  
 
   Widget _buildActionButtons() {
     final isErrorMessage =
@@ -914,7 +924,8 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     String headerText() {
       final l10n = AppLocalizations.of(context)!;
       final hasSummary = rc.summary.isNotEmpty;
-      final isThinkingSummary = rc.summary.trim().toLowerCase() == 'thinking…' ||
+      final isThinkingSummary =
+          rc.summary.trim().toLowerCase() == 'thinking…' ||
           rc.summary.trim().toLowerCase() == 'thinking...';
       if (widget.isStreaming) {
         return hasSummary ? rc.summary : l10n.thinking;
@@ -1012,8 +1023,9 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                     ),
                   ),
                 ),
-                crossFadeState:
-                    isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                crossFadeState: isExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
                 duration: const Duration(milliseconds: 200),
               ),
             ],
