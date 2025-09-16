@@ -314,7 +314,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get done => 'Fertig';
 
   @override
-  String get onboardStartTitle => 'Unterhaltung starten';
+  String onboardStartTitle(String username) {
+    return 'Hallo, $username';
+  }
 
   @override
   String get onboardStartSubtitle =>

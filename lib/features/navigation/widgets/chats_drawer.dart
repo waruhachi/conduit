@@ -15,7 +15,7 @@ import '../../../shared/utils/ui_utils.dart';
 import '../../../shared/widgets/themed_dialogs.dart';
 import '../../../core/auth/auth_state_manager.dart';
 import 'package:conduit/l10n/app_localizations.dart';
-import '../../../core/models/user.dart' as models;
+import '../../../core/utils/user_display_name.dart';
 
 class ChatsDrawer extends ConsumerStatefulWidget {
   const ChatsDrawer({super.key});
@@ -1148,43 +1148,6 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     );
     final dynamic authUser = ref.watch(authUserProvider);
     final user = userFromProfile ?? authUser;
-    String _displayName(dynamic u) {
-      if (u == null) return 'User';
-      if (u is models.User) {
-        return (u.name?.isNotEmpty == true ? u.name : u.username) ?? 'User';
-      }
-      if (u is Map) {
-        final Map m = u;
-        String? _asString(dynamic v) =>
-            v is String && v.trim().isNotEmpty ? v.trim() : null;
-        String? _pick(Map source) {
-          return _asString(source['name']) ??
-              _asString(source['display_name']) ??
-              _asString(source['preferred_username']) ??
-              _asString(source['username']);
-        }
-
-        final top = _pick(m);
-        if (top != null) return top;
-        final nestedUser = m['user'];
-        if (nestedUser is Map) {
-          final nested = _pick(nestedUser);
-          if (nested != null) return nested;
-          final nestedEmail = _asString(nestedUser['email']);
-          if (nestedEmail != null && nestedEmail.contains('@')) {
-            return nestedEmail.split('@').first;
-          }
-        }
-        final email = _asString(m['email']);
-        if (email != null && email.contains('@')) {
-          return email.split('@').first;
-        }
-        return 'User';
-      }
-      // Fallback to string representation if some other type
-      final s = u.toString();
-      return s.isNotEmpty ? s : 'User';
-    }
 
     String _initial(String name) {
       if (name.isEmpty) return 'U';
@@ -1192,7 +1155,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       return ch.toUpperCase();
     }
 
-    final displayName = _displayName(user);
+    final displayName = deriveUserDisplayName(user);
     final initial = _initial(displayName);
     return Padding(
       padding: const EdgeInsets.fromLTRB(Spacing.sm, 0, Spacing.sm, Spacing.sm),

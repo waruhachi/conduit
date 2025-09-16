@@ -315,7 +315,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get done => 'Terminé';
 
   @override
-  String get onboardStartTitle => 'Commencer une conversation';
+  String onboardStartTitle(String username) {
+    return 'Bonjour, $username';
+  }
 
   @override
   String get onboardStartSubtitle =>

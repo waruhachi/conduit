@@ -90,7 +90,7 @@
   "skip": "Salta",
   "next": "Avanti",
   "done": "Fatto",
-  "onboardStartTitle": "Inizia una conversazione",
+  "onboardStartTitle": "Ciao, {username}",
   "onboardStartSubtitle": "Scegli un modello e inizia a scrivere. Tocca Nuova chat in qualsiasi momento.",
   "onboardStartBullet1": "Tocca il nome del modello in alto per cambiare",
   "onboardStartBullet2": "Usa Nuova chat per azzerare il contesto",

@@ -651,8 +651,8 @@ abstract class AppLocalizations {
   /// Onboarding card: start chatting title.
   ///
   /// In en, this message translates to:
-  /// **'Start a conversation'**
-  String get onboardStartTitle;
+  /// **'Hello, {username}'**
+  String onboardStartTitle(String username);
 
   /// Onboarding card: brief guidance to begin a chat.
   ///

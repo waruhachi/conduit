@@ -90,7 +90,7 @@
   "skip": "Überspringen",
   "next": "Weiter",
   "done": "Fertig",
-  "onboardStartTitle": "Unterhaltung starten",
+  "onboardStartTitle": "Hallo, {username}",
   "onboardStartSubtitle": "Wähle ein Modell und tippe los. Tippe jederzeit auf Neuer Chat.",
   "onboardStartBullet1": "Modellname oben antippen, um zu wechseln",
   "onboardStartBullet2": "Mit Neuer Chat den Kontext zurücksetzen",

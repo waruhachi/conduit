@@ -10,8 +10,10 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io' show Platform;
 import 'dart:async';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/auth/auth_state_manager.dart';
 import '../providers/chat_providers.dart';
 import '../../../core/utils/debug_logger.dart';
+import '../../../core/utils/user_display_name.dart';
 
 import '../widgets/modern_chat_input.dart';
 import '../widgets/user_message_bubble.dart';
@@ -847,6 +849,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   Widget _buildEmptyState(ThemeData theme) {
+    final l10n = AppLocalizations.of(context)!;
+    final currentUserAsync = ref.watch(currentUserProvider);
+    final userFromProfile = currentUserAsync.maybeWhen(
+      data: (user) => user,
+      orElse: () => null,
+    );
+    final dynamic authUser = ref.watch(authUserProvider);
+    final user = userFromProfile ?? authUser;
+    final greetingName = deriveUserDisplayName(user);
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(Spacing.lg),
@@ -886,7 +897,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             const SizedBox(height: Spacing.xl),
 
             Text(
-              AppLocalizations.of(context)!.onboardStartTitle,
+              l10n.onboardStartTitle(greetingName),
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: context.conduitTheme.textPrimary,
@@ -897,7 +908,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             const SizedBox(height: Spacing.sm),
 
             Text(
-              AppLocalizations.of(context)!.typeBelowToBegin,
+              l10n.typeBelowToBegin,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: context.conduitTheme.textSecondary,
                 fontWeight: FontWeight.w400,

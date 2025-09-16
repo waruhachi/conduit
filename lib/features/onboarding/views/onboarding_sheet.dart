@@ -1,29 +1,44 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import '../../../shared/theme/theme_extensions.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../../shared/widgets/sheet_handle.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 
-class OnboardingSheet extends StatefulWidget {
+import '../../../core/auth/auth_state_manager.dart';
+import '../../../core/providers/app_providers.dart';
+import '../../../core/utils/user_display_name.dart';
+import '../../../shared/theme/theme_extensions.dart';
+import '../../../shared/widgets/sheet_handle.dart';
+
+class OnboardingSheet extends ConsumerStatefulWidget {
   const OnboardingSheet({super.key});
 
   @override
-  State<OnboardingSheet> createState() => _OnboardingSheetState();
+  ConsumerState<OnboardingSheet> createState() => _OnboardingSheetState();
 }
 
-class _OnboardingSheetState extends State<OnboardingSheet> {
+class _OnboardingSheetState extends ConsumerState<OnboardingSheet> {
   final PageController _controller = PageController();
   int _index = 0;
-  late List<_OnboardingPage> _pages;
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final l10n = AppLocalizations.of(context)!;
-    _pages = [
+  void _next(int pageCount) {
+    if (_index < pageCount - 1) {
+      _controller.nextPage(
+        duration: AnimationDuration.fast,
+        curve: AnimationCurves.easeInOut,
+      );
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
+  List<_OnboardingPage> _buildPages(
+    AppLocalizations l10n,
+    String greetingName,
+  ) {
+    return [
       _OnboardingPage(
-        title: l10n.onboardStartTitle,
+        title: l10n.onboardStartTitle(greetingName),
         subtitle: l10n.onboardStartSubtitle,
         icon: CupertinoIcons.chat_bubble_2,
         bullets: [l10n.onboardStartBullet1, l10n.onboardStartBullet2],
@@ -49,20 +64,20 @@ class _OnboardingSheetState extends State<OnboardingSheet> {
     ];
   }
 
-  void _next() {
-    if (_index < _pages.length - 1) {
-      _controller.nextPage(
-        duration: AnimationDuration.fast,
-        curve: AnimationCurves.easeInOut,
-      );
-    } else {
-      Navigator.pop(context);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final height = MediaQuery.of(context).size.height;
+    final l10n = AppLocalizations.of(context)!;
+    final currentUserAsync = ref.watch(currentUserProvider);
+    final userFromProfile = currentUserAsync.maybeWhen(
+      data: (user) => user,
+      orElse: () => null,
+    );
+    final dynamic authUser = ref.watch(authUserProvider);
+    final user = userFromProfile ?? authUser;
+    final greetingName = deriveUserDisplayName(user);
+    final pages = _buildPages(l10n, greetingName);
+    final pageCount = pages.length;
     return Container(
       height: height * 0.7,
       decoration: BoxDecoration(
@@ -83,10 +98,10 @@ class _OnboardingSheetState extends State<OnboardingSheet> {
               Expanded(
                 child: PageView.builder(
                   controller: _controller,
-                  itemCount: _pages.length,
+                  itemCount: pageCount,
                   onPageChanged: (i) => setState(() => _index = i),
                   itemBuilder: (context, i) {
-                    final page = _pages[i];
+                    final page = pages[i];
                     final content = _IllustratedPage(page: page);
                     // Ensure content can scroll vertically when space is tight,
                     // while keeping it centered when there is enough space.
@@ -111,7 +126,7 @@ class _OnboardingSheetState extends State<OnboardingSheet> {
               const SizedBox(height: Spacing.md),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(_pages.length, (i) {
+                children: List.generate(pageCount, (i) {
                   final active = i == _index;
                   return AnimatedContainer(
                     duration: AnimationDuration.fast,
@@ -136,7 +151,7 @@ class _OnboardingSheetState extends State<OnboardingSheet> {
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     child: Text(
-                      AppLocalizations.of(context)!.skip,
+                      l10n.skip,
                       style: TextStyle(
                         color: context.conduitTheme.textSecondary,
                       ),
@@ -144,7 +159,7 @@ class _OnboardingSheetState extends State<OnboardingSheet> {
                   ),
                   const Spacer(),
                   FilledButton(
-                    onPressed: _next,
+                    onPressed: () => _next(pageCount),
                     style: FilledButton.styleFrom(
                       backgroundColor: context.conduitTheme.buttonPrimary,
                       foregroundColor: context.conduitTheme.buttonPrimaryText,
@@ -159,9 +174,7 @@ class _OnboardingSheetState extends State<OnboardingSheet> {
                       ),
                     ),
                     child: Text(
-                      _index == _pages.length - 1
-                          ? AppLocalizations.of(context)!.done
-                          : AppLocalizations.of(context)!.next,
+                      _index == pageCount - 1 ? l10n.done : l10n.next,
                     ),
                   ),
                 ],

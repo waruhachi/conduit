@@ -310,7 +310,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get done => 'Fatto';
 
   @override
-  String get onboardStartTitle => 'Inizia una conversazione';
+  String onboardStartTitle(String username) {
+    return 'Ciao, $username';
+  }
 
   @override
   String get onboardStartSubtitle =>
