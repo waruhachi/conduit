@@ -279,8 +279,26 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   void _handleMessageSend(String text, dynamic selectedModel) async {
+    // Resolve model on-demand if none selected yet
     if (selectedModel == null) {
-      return;
+      try {
+        // Prefer already-loaded models
+        List<Model> models;
+        final modelsAsync = ref.read(modelsProvider);
+        if (modelsAsync.hasValue) {
+          models = modelsAsync.value!;
+        } else {
+          models = await ref.read(modelsProvider.future);
+        }
+        if (models.isNotEmpty) {
+          selectedModel = models.first;
+          ref.read(selectedModelProvider.notifier).state = selectedModel;
+        }
+      } catch (_) {
+        // If models cannot be resolved, bail out without sending
+        return;
+      }
+      if (selectedModel == null) return;
     }
 
     final isOnline = ref.read(isOnlineProvider);
@@ -884,16 +902,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               textAlign: TextAlign.center,
             ).animate().fadeIn(delay: const Duration(milliseconds: 150)),
 
-            const SizedBox(height: Spacing.sm),
-
-            Text(
-              l10n.typeBelowToBegin,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: context.conduitTheme.textSecondary,
-                fontWeight: FontWeight.w400,
-              ),
-              textAlign: TextAlign.center,
-            ).animate().fadeIn(delay: const Duration(milliseconds: 300)),
           ],
         ),
       ),
@@ -945,8 +953,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       });
     }
 
-    // Focus composer on app startup once, when a model is selected
-    if (!_didStartupFocus && selectedModel != null) {
+    // Focus composer on app startup once
+    if (!_didStartupFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final current = ref.read(inputFocusTriggerProvider);
@@ -1425,7 +1433,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         },
                         child: ModernChatInput(
                           enabled:
-                              selectedModel != null &&
                               (isOnline || ref.watch(reviewerModeProvider)),
                           onSendMessage: (text) =>
                               _handleMessageSend(text, selectedModel),

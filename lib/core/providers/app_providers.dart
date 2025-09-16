@@ -682,137 +682,104 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
   if (api == null) return null;
 
   try {
-    // Get all available models first
+    // Respect manual selection if present
+    if (ref.read(isManualModelSelectionProvider)) {
+      final current = ref.read(selectedModelProvider);
+      if (current != null) return current;
+    }
+
+    // 1) Fast path: read stored default model ID directly and select optimistically
+    try {
+      final storedDefaultId = await SettingsService.getDefaultModel();
+      if (storedDefaultId != null && storedDefaultId.isNotEmpty) {
+        if (!ref.read(isManualModelSelectionProvider)) {
+          final placeholder = Model(
+            id: storedDefaultId,
+            name: storedDefaultId,
+            supportsStreaming: true,
+          );
+          ref.read(selectedModelProvider.notifier).state = placeholder;
+        }
+        // Reconcile against real models in background
+        Future.microtask(() async {
+          try {
+            final models = await ref.read(modelsProvider.future);
+            Model? resolved;
+            try {
+              resolved = models.firstWhere((m) => m.id == storedDefaultId);
+            } catch (_) {
+              final byName = models
+                  .where((m) => m.name == storedDefaultId)
+                  .toList();
+              if (byName.length == 1) resolved = byName.first;
+            }
+            resolved ??= models.isNotEmpty ? models.first : null;
+            if (resolved != null && !ref.read(isManualModelSelectionProvider)) {
+              ref.read(selectedModelProvider.notifier).state = resolved;
+              foundation.debugPrint(
+                'DEBUG: Reconciled default model to ${resolved.name}',
+              );
+            }
+          } catch (_) {}
+        });
+        return ref.read(selectedModelProvider);
+      }
+    } catch (_) {}
+
+    // 2) Fast server path: query server default ID without listing all models
+    try {
+      final serverDefault = await api.getDefaultModel();
+      if (serverDefault != null && serverDefault.isNotEmpty) {
+        if (!ref.read(isManualModelSelectionProvider)) {
+          final placeholder = Model(
+            id: serverDefault,
+            name: serverDefault,
+            supportsStreaming: true,
+          );
+          ref.read(selectedModelProvider.notifier).state = placeholder;
+        }
+        // Reconcile against real models in background
+        Future.microtask(() async {
+          try {
+            final models = await ref.read(modelsProvider.future);
+            Model? resolved;
+            try {
+              resolved = models.firstWhere((m) => m.id == serverDefault);
+            } catch (_) {
+              final byName = models
+                  .where((m) => m.name == serverDefault)
+                  .toList();
+              if (byName.length == 1) resolved = byName.first;
+            }
+            resolved ??= models.isNotEmpty ? models.first : null;
+            if (resolved != null && !ref.read(isManualModelSelectionProvider)) {
+              ref.read(selectedModelProvider.notifier).state = resolved;
+              foundation.debugPrint(
+                'DEBUG: Reconciled server default to ${resolved.name}',
+              );
+            }
+          } catch (_) {}
+        });
+        return ref.read(selectedModelProvider);
+      }
+    } catch (_) {}
+
+    // 3) Fallback: fetch models and pick first available
     final models = await ref.read(modelsProvider.future);
     if (models.isEmpty) {
       foundation.debugPrint('DEBUG: No models available');
       return null;
     }
-
-    Model? selectedModel;
-
-    // First check user's preferred default model (ID only). If an older
-    // name-based value is found, migrate it once to the correct ID.
-    final userSettings = ref.read(appSettingsProvider);
-    final userDefaultModelId = userSettings.defaultModel;
-
-    if (userDefaultModelId != null && userDefaultModelId.isNotEmpty) {
-      try {
-        // Exact ID match only
-        selectedModel = models.firstWhere(
-          (model) => model.id == userDefaultModelId,
-        );
-        foundation.debugPrint(
-          'DEBUG: Found user default model by ID: ${selectedModel.name}',
-        );
-      } catch (e) {
-        // Attempt a one-time migration if the stored value was a model name
-        // from older versions. Only migrate on exact, unique name match.
-        final nameMatches = models
-            .where((m) => m.name == userDefaultModelId)
-            .toList();
-        if (nameMatches.length == 1) {
-          selectedModel = nameMatches.first;
-          foundation.debugPrint(
-            'DEBUG: Migrating user default model name to ID: '
-            '${nameMatches.first.name} -> ${nameMatches.first.id}',
-          );
-          // Persist the migrated ID
-          await ref
-              .read(appSettingsProvider.notifier)
-              .setDefaultModel(nameMatches.first.id);
-        } else {
-          foundation.debugPrint(
-            'DEBUG: User default model "$userDefaultModelId" not found by ID and '
-            'no unique name match. Ignoring.',
-          );
-          selectedModel =
-              null; // Will fall back to server default or first model
-        }
-      }
-    }
-
-    // If no user default or user default not found, try server's default model
-    if (selectedModel == null) {
-      try {
-        final defaultModelId = await api.getDefaultModel();
-
-        if (defaultModelId != null && defaultModelId.isNotEmpty) {
-          // Find the model that matches the default model ID (ID only)
-          try {
-            selectedModel = models.firstWhere(
-              (model) => model.id == defaultModelId,
-            );
-            foundation.debugPrint(
-              'DEBUG: Found server default model by ID: ${selectedModel.name}',
-            );
-          } catch (e) {
-            // If server returned a name instead of ID, attempt exact name match.
-            final byName = models
-                .where((m) => m.name == defaultModelId)
-                .toList();
-            if (byName.length == 1) {
-              selectedModel = byName.first;
-              foundation.debugPrint(
-                'DEBUG: Server default "$defaultModelId" matched by name; '
-                'selected ${selectedModel.name} (${selectedModel.id})',
-              );
-            } else {
-              foundation.debugPrint(
-                'DEBUG: Server default model "$defaultModelId" not found by ID; '
-                'falling back to first available',
-              );
-              selectedModel = models.first;
-            }
-          }
-        } else {
-          // No server default, use first available model
-          selectedModel = models.first;
-          foundation.debugPrint(
-            'DEBUG: No server default model, using first available: ${selectedModel.name}',
-          );
-        }
-      } catch (apiError) {
-        foundation.debugPrint(
-          'DEBUG: Failed to get default model from server: $apiError',
-        );
-        // Use first available model as fallback
-        selectedModel = models.first;
-        foundation.debugPrint(
-          'DEBUG: Using first available model as fallback: ${selectedModel.name}',
-        );
-      }
-    }
-
-    // Update selection immediately inside provider context
+    final selectedModel = models.first;
     if (!ref.read(isManualModelSelectionProvider)) {
       ref.read(selectedModelProvider.notifier).state = selectedModel;
-      foundation.debugPrint('DEBUG: Set default model: ${selectedModel.name}');
+      foundation.debugPrint(
+        'DEBUG: Set default model (fallback): ${selectedModel.name}',
+      );
     }
-
     return selectedModel;
   } catch (e) {
     foundation.debugPrint('DEBUG: Error setting default model: $e');
-
-    // Final fallback: try to select any available model
-    try {
-      final models = await ref.read(modelsProvider.future);
-      if (models.isNotEmpty) {
-        final fallbackModel = models.first;
-        if (!ref.read(isManualModelSelectionProvider)) {
-          ref.read(selectedModelProvider.notifier).state = fallbackModel;
-          foundation.debugPrint(
-            'DEBUG: Fallback to first available model: ${fallbackModel.name}',
-          );
-        }
-        return fallbackModel;
-      }
-    } catch (fallbackError) {
-      foundation.debugPrint(
-        'DEBUG: Error in fallback model selection: $fallbackError',
-      );
-    }
-
     return null;
   }
 });
@@ -826,7 +793,7 @@ final backgroundModelLoadProvider = Provider<void>((ref) {
   // Schedule background loading without blocking
   Future.microtask(() async {
     // Wait a bit to ensure auth is complete
-    await Future.delayed(const Duration(milliseconds: 1500));
+    await Future.delayed(const Duration(milliseconds: 200));
 
     foundation.debugPrint('DEBUG: Starting background model loading');
 

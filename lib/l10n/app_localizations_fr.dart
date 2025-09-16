@@ -124,7 +124,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get uploadFirstFile => 'Importer votre premier fichier';
 
   @override
-  String get attachments => 'Attachments';
+  String get attachments => 'Pièces jointes';
 
   @override
   String get knowledgeBaseEmpty => 'La base de connaissances est vide';
@@ -321,7 +321,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get onboardStartSubtitle =>
-      'Choisissez un modèle puis commencez à écrire. Touchez Nouveau chat à tout moment.';
+      'Choisissez un modèle pour commencer. Touchez Nouveau chat à tout moment.';
 
   @override
   String get onboardStartBullet1 =>
@@ -625,9 +625,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aboutAppSubtitle => 'Informations et liens Conduit';
-
-  @override
-  String get typeBelowToBegin => 'Saisissez ci‑dessous pour commencer';
 
   @override
   String get web => 'Web';

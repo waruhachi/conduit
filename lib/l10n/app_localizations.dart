@@ -657,7 +657,7 @@ abstract class AppLocalizations {
   /// Onboarding card: brief guidance to begin a chat.
   ///
   /// In en, this message translates to:
-  /// **'Choose a model, then type below to begin. Tap New Chat anytime.'**
+  /// **'Choose a model to get started. Tap New Chat anytime.'**
   String get onboardStartSubtitle;
 
   /// Bullet: how to switch models.
@@ -1217,12 +1217,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Conduit information and links'**
   String get aboutAppSubtitle;
-
-  /// Hint shown in empty chat input area.
-  ///
-  /// In en, this message translates to:
-  /// **'Type below to begin'**
-  String get typeBelowToBegin;
 
   /// Tab/section label for web features.
   ///

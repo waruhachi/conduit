@@ -26,7 +26,9 @@ void main() async {
 
   // Enable edge-to-edge globally (back-compat on pre-Android 15)
   // Pairs with Activity's EdgeToEdge.enable and our SafeArea usage.
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  // Do not block first frame on system UI mode; apply shortly after startup
+  // ignore: discarded_futures
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   final sharedPrefs = await SharedPreferences.getInstance();
   const secureStorage = FlutterSecureStorage(
@@ -65,7 +67,8 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
   @override
   void initState() {
     super.initState();
-    _initializeAppState();
+    // Defer heavy provider initialization to after first frame to render UI sooner
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initializeAppState());
   }
 
   Widget _buildInitialLoadingSkeleton(BuildContext context) {
@@ -142,14 +145,11 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
             return MediaQuery(
               data: MediaQuery.of(context).copyWith(
                 // Ensure proper text scaling for edge-to-edge
-                textScaler: MediaQuery.of(context).textScaler.clamp(
-                  minScaleFactor: 0.8,
-                  maxScaleFactor: 1.3,
-                ),
+                textScaler: MediaQuery.of(
+                  context,
+                ).textScaler.clamp(minScaleFactor: 0.8, maxScaleFactor: 1.3),
               ),
-              child: OfflineIndicator(
-                child: child ?? const SizedBox.shrink(),
-              ),
+              child: OfflineIndicator(child: child ?? const SizedBox.shrink()),
             );
           },
           home: _getInitialPageWithReactiveState(),

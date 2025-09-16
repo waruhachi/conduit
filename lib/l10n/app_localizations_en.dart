@@ -316,7 +316,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardStartSubtitle =>
-      'Choose a model, then type below to begin. Tap New Chat anytime.';
+      'Choose a model to get started. Tap New Chat anytime.';
 
   @override
   String get onboardStartBullet1 =>
@@ -615,9 +615,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aboutAppSubtitle => 'Conduit information and links';
-
-  @override
-  String get typeBelowToBegin => 'Type below to begin';
 
   @override
   String get web => 'Web';

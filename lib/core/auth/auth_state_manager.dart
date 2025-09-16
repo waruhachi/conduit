@@ -99,10 +99,9 @@ class AuthStateManager extends StateNotifier<AuthState> {
 
       if (token != null && token.isNotEmpty) {
         DebugLogger.auth('Found stored token during initialization');
-        // Validate token before setting authenticated state
-        final isValid = await _validateToken(token);
-        DebugLogger.auth('Token validation result: $isValid');
-        if (isValid) {
+        // Fast path: trust token format to avoid blocking startup on network
+        final formatOk = _isValidTokenFormat(token);
+        if (formatOk) {
           state = state.copyWith(
             status: AuthStatus.authenticated,
             token: token,
@@ -110,14 +109,23 @@ class AuthStateManager extends StateNotifier<AuthState> {
             clearError: true,
           );
 
-          // Update API service with token
+          // Update API service with token and load user data in background
           _updateApiServiceToken(token);
-
-          // Load user data in background
           _loadUserData();
+
+          // Background server validation; if it fails, invalidate token gracefully
+          Future.microtask(() async {
+            try {
+              final ok = await _validateToken(token);
+              DebugLogger.auth('Deferred token validation result: $ok');
+              if (!ok) {
+                await onTokenInvalidated();
+              }
+            } catch (_) {}
+          });
         } else {
-          // Token is invalid, clear it
-          DebugLogger.auth('Token validation failed, deleting token');
+          // Token format invalid; clear and require login
+          DebugLogger.auth('Token format invalid, deleting token');
           await storage.deleteAuthToken();
           state = state.copyWith(
             status: AuthStatus.unauthenticated,
