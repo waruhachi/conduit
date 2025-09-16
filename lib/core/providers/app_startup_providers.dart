@@ -10,7 +10,77 @@ import '../models/conversation.dart';
 import '../services/background_streaming_handler.dart';
 import '../../features/onboarding/views/onboarding_sheet.dart';
 import '../../shared/theme/theme_extensions.dart';
+import '../services/connectivity_service.dart';
 import '../utils/debug_logger.dart';
+
+enum _ConversationWarmupStatus { idle, warming, complete }
+
+final _conversationWarmupStatusProvider =
+    StateProvider<_ConversationWarmupStatus>(
+      (ref) => _ConversationWarmupStatus.idle,
+    );
+
+final _conversationWarmupLastAttemptProvider = StateProvider<DateTime?>(
+  (ref) => null,
+);
+
+void _scheduleConversationWarmup(Ref ref, {bool force = false}) {
+  final navState = ref.read(authNavigationStateProvider);
+  if (navState != AuthNavigationState.authenticated) {
+    ref.read(_conversationWarmupStatusProvider.notifier).state =
+        _ConversationWarmupStatus.idle;
+    return;
+  }
+
+  final isOnline = ref.read(isOnlineProvider);
+  if (!isOnline) {
+    return;
+  }
+
+  final statusController = ref.read(_conversationWarmupStatusProvider.notifier);
+  final status = statusController.state;
+
+  if (!force) {
+    if (status == _ConversationWarmupStatus.warming ||
+        status == _ConversationWarmupStatus.complete) {
+      return;
+    }
+  } else if (status == _ConversationWarmupStatus.warming) {
+    return;
+  }
+
+  final now = DateTime.now();
+  final lastAttempt = ref.read(_conversationWarmupLastAttemptProvider);
+  if (!force &&
+      lastAttempt != null &&
+      now.difference(lastAttempt) < const Duration(seconds: 30)) {
+    return;
+  }
+  ref.read(_conversationWarmupLastAttemptProvider.notifier).state = now;
+
+  statusController.state = _ConversationWarmupStatus.warming;
+
+  Future.microtask(() async {
+    try {
+      final existing = ref.read(conversationsProvider);
+      if (existing.hasValue) {
+        statusController.state = _ConversationWarmupStatus.complete;
+        return;
+      }
+      if (existing.hasError) {
+        ref.invalidate(conversationsProvider);
+      }
+      final conversations = await ref.read(conversationsProvider.future);
+      statusController.state = _ConversationWarmupStatus.complete;
+      DebugLogger.info(
+        'Background chats warmup fetched ${conversations.length} conversations',
+      );
+    } catch (error) {
+      DebugLogger.warning('Background chats warmup failed: $error');
+      statusController.state = _ConversationWarmupStatus.idle;
+    }
+  });
+}
 
 /// App-level startup/background task flow orchestrator.
 ///
@@ -36,18 +106,18 @@ final appStartupFlowProvider = Provider<void>((ref) {
   // Keep Socket.IO connection alive in background within platform limits
   ref.watch(socketPersistenceProvider);
 
-  // When auth state becomes authenticated, run additional background work
-  ref.listen<AuthNavigationState>(authNavigationStateProvider,
-      (prev, next) {
+  // Warm the conversations list in the background as soon as possible
+  Future.microtask(() => _scheduleConversationWarmup(ref));
+
+  // Watch for auth transitions to trigger warmup and other background work
+  ref.listen<AuthNavigationState>(authNavigationStateProvider, (prev, next) {
     if (next == AuthNavigationState.authenticated) {
       // Schedule microtask so we don't perform side-effects inside build
       Future.microtask(() async {
         try {
           final api = ref.read(apiServiceProvider);
           if (api == null) {
-            DebugLogger.warning(
-              'API service not available for startup flow',
-            );
+            DebugLogger.warning('API service not available for startup flow');
             return;
           }
 
@@ -62,8 +132,13 @@ final appStartupFlowProvider = Provider<void>((ref) {
           try {
             await ref.read(defaultModelProvider.future);
           } catch (e) {
-            DebugLogger.warning('StartupFlow: default model preload failed: $e');
+            DebugLogger.warning(
+              'StartupFlow: default model preload failed: $e',
+            );
           }
+
+          // Kick background chat warmup now that we're authenticated
+          _scheduleConversationWarmup(ref, force: true);
 
           // Show onboarding once when user reaches chat and hasn't seen it yet
           await _maybeShowOnboarding(ref);
@@ -71,6 +146,30 @@ final appStartupFlowProvider = Provider<void>((ref) {
           DebugLogger.error('StartupFlow error', e);
         }
       });
+    } else {
+      // Reset warmup state when leaving authenticated flow
+      ref.read(_conversationWarmupStatusProvider.notifier).state =
+          _ConversationWarmupStatus.idle;
+    }
+  });
+
+  // Retry warmup when connectivity is restored
+  ref.listen<bool>(isOnlineProvider, (prev, next) {
+    if (next == true) {
+      _scheduleConversationWarmup(ref);
+    }
+  });
+
+  // When conversations reload (e.g., manual refresh), ensure warmup runs again
+  ref.listen<AsyncValue<List<Conversation>>>(conversationsProvider, (
+    previous,
+    next,
+  ) {
+    final wasReady = previous?.hasValue == true || previous?.hasError == true;
+    if (wasReady && next.isLoading) {
+      ref.read(_conversationWarmupStatusProvider.notifier).state =
+          _ConversationWarmupStatus.idle;
+      Future.microtask(() => _scheduleConversationWarmup(ref, force: true));
     }
   });
 });
@@ -96,7 +195,10 @@ class _ForegroundRefreshObserver extends WidgetsBindingObserver {
       Future.microtask(() {
         try {
           _ref.invalidate(conversationsProvider);
+          _ref.read(_conversationWarmupStatusProvider.notifier).state =
+              _ConversationWarmupStatus.idle;
         } catch (_) {}
+        _scheduleConversationWarmup(_ref, force: true);
       });
     }
   }
@@ -132,7 +234,7 @@ class _SocketPersistenceObserver extends WidgetsBindingObserver {
   bool _shouldKeepAlive() {
     final authed =
         _ref.read(authNavigationStateProvider) ==
-            AuthNavigationState.authenticated;
+        AuthNavigationState.authenticated;
     final hasConversation = _ref.read(activeConversationProvider) != null;
     return authed && hasConversation;
   }
@@ -141,12 +243,10 @@ class _SocketPersistenceObserver extends WidgetsBindingObserver {
     if (_bgActive) return;
     if (!_shouldKeepAlive()) return;
     try {
-      BackgroundStreamingHandler.instance
-          .startBackgroundExecution([_socketId]);
+      BackgroundStreamingHandler.instance.startBackgroundExecution([_socketId]);
       // Periodic keep-alive (primarily useful on iOS)
       _heartbeat?.cancel();
-      _heartbeat =
-          Timer.periodic(const Duration(seconds: 30), (_) async {
+      _heartbeat = Timer.periodic(const Duration(seconds: 30), (_) async {
         try {
           await BackgroundStreamingHandler.instance.keepAlive();
         } catch (_) {}
@@ -158,8 +258,7 @@ class _SocketPersistenceObserver extends WidgetsBindingObserver {
   void _stopBackground() {
     if (!_bgActive) return;
     try {
-      BackgroundStreamingHandler.instance
-          .stopBackgroundExecution([_socketId]);
+      BackgroundStreamingHandler.instance.stopBackgroundExecution([_socketId]);
     } catch (_) {}
     _heartbeat?.cancel();
     _heartbeat = null;
