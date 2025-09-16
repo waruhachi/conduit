@@ -87,9 +87,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           CupertinoSliverRefreshControl(onRefresh: _refreshChats),
           SliverPadding(
             padding: padding,
-            sliver: SliverList(
-              delegate: SliverChildListDelegate(children),
-            ),
+            sliver: SliverList(delegate: SliverChildListDelegate(children)),
           ),
         ],
       );
@@ -158,9 +156,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                 const SizedBox(width: Spacing.sm),
                 IconButton(
                   icon: Icon(
-                    Platform.isIOS
-                        ? CupertinoIcons.bubble_left
-                        : Icons.add_comment,
+                    Platform.isIOS ? CupertinoIcons.create : Icons.add_comment,
                     color: theme.iconPrimary,
                     size: IconSize.lg,
                   ),
@@ -281,7 +277,8 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           // Treat those as regular until the folders list is available and contains the ID.
           final regular = list.where((c) {
             final hasFolder = (c.folderId != null && c.folderId!.isNotEmpty);
-            final folderKnown = hasFolder && availableFolderIds.contains(c.folderId);
+            final folderKnown =
+                hasFolder && availableFolderIds.contains(c.folderId);
             return c.pinned != true &&
                 c.archived != true &&
                 (!hasFolder || !folderKnown);
@@ -327,9 +324,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
 
                     // Show all folders (including empty)
                     final sections = folders.map((folder) {
-                      final expandedMap = ref.watch(
-                        _expandedFoldersProvider,
-                      );
+                      final expandedMap = ref.watch(_expandedFoldersProvider);
                       final isExpanded = expandedMap[folder.id] ?? false;
                       final convs = grouped[folder.id] ?? const <dynamic>[];
                       return Column(
@@ -421,7 +416,8 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
 
         final regular = list.where((c) {
           final hasFolder = (c.folderId != null && c.folderId!.isNotEmpty);
-          final folderKnown = hasFolder && availableFolderIds.contains(c.folderId);
+          final folderKnown =
+              hasFolder && availableFolderIds.contains(c.folderId);
           return c.pinned != true &&
               c.archived != true &&
               (!hasFolder || !folderKnown);
@@ -480,9 +476,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                         ),
                         if (isExpanded && convs.isNotEmpty) ...[
                           const SizedBox(height: Spacing.xs),
-                          ...convs.map(
-                            (c) => _buildTileFor(c, inFolder: true),
-                          ),
+                          ...convs.map((c) => _buildTileFor(c, inFolder: true)),
                           const SizedBox(height: Spacing.sm),
                         ],
                       ],
@@ -1502,8 +1496,9 @@ class _ConversationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.conduitTheme;
-    final Color selectedBackground =
-        theme.buttonPrimary.withValues(alpha: 0.10); // subtle highlight
+    final Color selectedBackground = theme.buttonPrimary.withValues(
+      alpha: 0.10,
+    ); // subtle highlight
     final Color selectedBorder = theme.buttonPrimary.withValues(alpha: 0.60);
 
     return Semantics(
@@ -1557,8 +1552,9 @@ class _ConversationTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.standard.copyWith(
                           color: theme.textPrimary,
-                          fontWeight:
-                              selected ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                         ),
                       ),
                     ),

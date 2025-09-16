@@ -1335,9 +1335,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               if (!_isSelectionMode) ...[
                 IconButton(
                   icon: Icon(
-                    Platform.isIOS
-                        ? CupertinoIcons.bubble_left
-                        : Icons.add_comment,
+                    Platform.isIOS ? CupertinoIcons.create : Icons.add_comment,
                     color: context.conduitTheme.textPrimary,
                     size: IconSize.appBar,
                   ),
