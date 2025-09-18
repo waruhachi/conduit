@@ -901,7 +901,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               ),
               textAlign: TextAlign.center,
             ).animate().fadeIn(delay: const Duration(milliseconds: 150)),
-
           ],
         ),
       ),
@@ -1042,7 +1041,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         Scaffold.of(ctx).openDrawer();
                       },
                       child: Padding(
-                        padding: const EdgeInsets.all(4.0),
+                        padding: const EdgeInsets.only(
+                          left: Spacing.inputPadding,
+                        ),
                         child: Icon(
                           Platform.isIOS
                               ? CupertinoIcons.line_horizontal_3
@@ -1331,14 +1332,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   ),
             actions: [
               if (!_isSelectionMode) ...[
-                IconButton(
-                  icon: Icon(
-                    Platform.isIOS ? CupertinoIcons.create : Icons.add_comment,
-                    color: context.conduitTheme.textPrimary,
-                    size: IconSize.appBar,
+                Padding(
+                  padding: const EdgeInsets.only(right: Spacing.inputPadding),
+                  child: IconButton(
+                    icon: Icon(
+                      Platform.isIOS
+                          ? CupertinoIcons.create
+                          : Icons.add_comment,
+                      color: context.conduitTheme.textPrimary,
+                      size: IconSize.appBar,
+                    ),
+                    onPressed: _handleNewChat,
+                    tooltip: AppLocalizations.of(context)!.newChat,
                   ),
-                  onPressed: _handleNewChat,
-                  tooltip: AppLocalizations.of(context)!.newChat,
                 ),
               ] else ...[
                 IconButton(

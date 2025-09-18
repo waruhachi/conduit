@@ -150,14 +150,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   bool _isRecording = false;
-  bool _isExpanded = true; // Start expanded for better UX
   // final String _voiceInputText = '';
   bool _hasText = false; // track locally without rebuilding on each keystroke
   StreamSubscription<String>? _voiceStreamSubscription;
-  late AnimationController _expandController;
-  late AnimationController _pulseController;
-  Timer? _blurCollapseTimer;
-  bool _pendingFocusAfterExpand = false;
   late VoiceInputService _voiceService;
   StreamSubscription<int>? _intensitySub;
   StreamSubscription<String>? _textSub;
@@ -170,29 +165,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   void initState() {
     super.initState();
     _voiceService = ref.read(voiceInputServiceProvider);
-    _expandController = AnimationController(
-      duration:
-          AnimationDuration.fast, // Faster animation for better responsiveness
-      vsync: this,
-      value: 1.0, // Start expanded
-    );
-    _expandController.addStatusListener((status) {
-      if (!mounted || _isDeactivated) return;
-      if (_pendingFocusAfterExpand && status == AnimationStatus.completed) {
-        _pendingFocusAfterExpand = false;
-        // Focus and ensure IME shows reliably after expansion finishes
-        _ensureFocusedIfEnabled();
-        // Let platform show IME naturally when focus is active. Avoid manual
-        // TextInput.show here to prevent race conditions on Android.
-        // If a device/IME requires a nudge, the TextField's onTap path covers it.
-      }
-    });
-    _pulseController = AnimationController(
-      duration: AnimationDuration.slow,
-      vsync: this,
-    );
 
-    // Apply any prefilled text on first frame (focus/expand handled via inputFocusTrigger)
+    // Apply any prefilled text on first frame (focus handled via inputFocusTrigger)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _isDeactivated) return;
       final text = ref.read(prefilledInputTextProvider);
@@ -213,19 +187,12 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || _isDeactivated) return;
           setState(() => _hasText = has);
-          // Intelligent expansion: expand when user starts typing
-          if (has && !_isExpanded) {
-            _setExpanded(true);
-          }
         });
       }
     });
 
-    // Intelligent expand/collapse around focus changes
+    // Publish focus changes to listeners
     _focusNode.addListener(() {
-      // Cancel any pending blur-driven collapse
-      _blurCollapseTimer?.cancel();
-
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _isDeactivated) return;
         final hasFocus = _focusNode.hasFocus;
@@ -233,25 +200,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         try {
           ref.read(composerHasFocusProvider.notifier).state = hasFocus;
         } catch (_) {}
-        if (hasFocus) {
-          if (!_isExpanded) _setExpanded(true);
-        } else {
-          // A blur occurred: ensure no pending auto-focus remains
-          _pendingFocusAfterExpand = false;
-          // Defer collapse slightly to avoid IME show/hide race conditions
-          _blurCollapseTimer = Timer(const Duration(milliseconds: 160), () {
-            if (!mounted || _isDeactivated) return;
-            if (_focusNode.hasFocus) return; // focus came back
-            // Collapse only when keyboard is fully hidden to avoid flicker
-            final keyboardVisible =
-                MediaQuery.of(context).viewInsets.bottom > 0;
-            if (keyboardVisible) return;
-            final has = _controller.text.trim().isNotEmpty;
-            if (!has && _isExpanded) {
-              _setExpanded(false);
-            }
-          });
-        }
       });
     });
 
@@ -265,9 +213,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     } catch (_) {}
     _controller.dispose();
     _focusNode.dispose();
-    _expandController.dispose();
-    _pulseController.dispose();
-    _blurCollapseTimer?.cancel();
     _voiceStreamSubscription?.cancel();
     _intensitySub?.cancel();
     _textSub?.cancel();
@@ -286,9 +231,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   @override
   void deactivate() {
     _isDeactivated = true;
-    _blurCollapseTimer?.cancel();
-    _expandController.stop();
-    _pulseController.stop();
     super.deactivate();
   }
 
@@ -303,10 +245,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     super.didUpdateWidget(oldWidget);
     // Avoid auto-focusing when becoming enabled; wait for user intent
     if (!widget.enabled && oldWidget.enabled) {
-      // Became disabled → collapse and hide keyboard
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _isDeactivated) return;
-        if (_isExpanded) _setExpanded(false);
         if (_focusNode.hasFocus) {
           _focusNode.unfocus();
         }
@@ -322,18 +262,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     widget.onSendMessage(text);
     _controller.clear();
     // Keep focus and keyboard open; do not collapse automatically
-  }
-
-  void _setExpanded(bool expanded) {
-    if (!mounted || _isDeactivated || _isExpanded == expanded) return;
-    setState(() {
-      _isExpanded = expanded;
-    });
-    if (expanded) {
-      _expandController.forward();
-    } else {
-      _expandController.reverse();
-    }
   }
 
   void _insertNewline() {
@@ -408,7 +336,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         if (!mounted || _isDeactivated) return;
         // Explicit request: always try to focus and show the keyboard
         _ensureFocusedIfEnabled();
-        if (!_isExpanded) _setExpanded(true);
         _lastHandledFocusTick = focusTick;
       });
     }
@@ -467,13 +394,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                       .fast, // Faster for better responsiveness
                   curve: Curves.fastOutSlowIn, // More efficient curve
                   alignment: Alignment.topCenter,
-                  onEnd: () {
-                    if (!mounted || _isDeactivated) return;
-                    if (_pendingFocusAfterExpand) {
-                      _pendingFocusAfterExpand = false;
-                      _ensureFocusedIfEnabled();
-                    }
-                  },
                   child: SingleChildScrollView(
                     physics: const ClampingScrollPhysics(),
                     child: RepaintBoundary(
@@ -485,7 +405,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                             padding: const EdgeInsets.fromLTRB(
                               Spacing.sm,
                               Spacing.sm,
-                              Spacing.sm,
+                              Spacing.xs,
                               Spacing.sm,
                             ),
                             child: Container(
@@ -507,12 +427,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                       behavior: HitTestBehavior.opaque,
                                       onTap: () {
                                         if (!widget.enabled) return;
-                                        if (!_isExpanded) {
-                                          _pendingFocusAfterExpand = true;
-                                          _setExpanded(true);
-                                        } else {
-                                          _ensureFocusedIfEnabled();
-                                        }
+                                        _ensureFocusedIfEnabled();
                                       },
                                       child: Semantics(
                                         textField: true,
@@ -573,7 +488,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                               focusNode: _focusNode,
                                               enabled: widget.enabled,
                                               autofocus: false,
-                                              maxLines: _isExpanded ? null : 1,
+                                              minLines: 1,
+                                              maxLines: null,
                                               keyboardType:
                                                   TextInputType.multiline,
                                               textCapitalization:
@@ -642,22 +558,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                               },
                                               onTap: () {
                                                 if (!widget.enabled) return;
-                                                if (!_isExpanded) {
-                                                  _pendingFocusAfterExpand =
-                                                      true;
-                                                  _setExpanded(true);
-                                                  WidgetsBinding.instance
-                                                      .addPostFrameCallback((
-                                                        _,
-                                                      ) {
-                                                        if (!mounted) return;
-                                                        if (_pendingFocusAfterExpand) {
-                                                          _ensureFocusedIfEnabled();
-                                                        }
-                                                      });
-                                                } else {
-                                                  _ensureFocusedIfEnabled();
-                                                }
+                                                _ensureFocusedIfEnabled();
                                               },
                                             ),
                                           ),
@@ -665,423 +566,377 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                       ),
                                     ),
                                   ),
-                                  if (!_isExpanded) ...[
-                                    const SizedBox(width: Spacing.sm),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (voiceAvailable) ...[
-                                          _buildVoiceButton(voiceAvailable),
-                                          const SizedBox(width: Spacing.xs),
-                                        ],
-                                        _buildPrimaryButton(
-                                          _hasText,
-                                          isGenerating,
-                                          stopGeneration,
-                                        ),
-                                      ],
-                                    ),
-                                  ],
                                 ],
                               ),
                             ),
                           ),
-                          // Expanded bottom row with additional options
-                          if (_isExpanded) ...[
-                            Container(
-                              padding: const EdgeInsets.only(
-                                left: Spacing.inputPadding,
-                                right: Spacing.inputPadding,
-                                top: Spacing.xs,
-                                bottom: Spacing.sm,
-                              ),
-                              child: FadeTransition(
-                                opacity: _expandController,
-                                child: Row(
-                                  children: [
-                                    _buildRoundButton(
-                                      icon: Icons.add,
-                                      onTap: widget.enabled && !_isRecording
-                                          ? _showAttachmentOptions
-                                          : null,
-                                      tooltip: AppLocalizations.of(
-                                        context,
-                                      )!.addAttachment,
-                                      showBackground: false,
-                                      iconSize: IconSize.large + 2.0,
-                                    ),
-                                    const SizedBox(width: Spacing.xs),
-                                    // Quick pills: expand to full text when space allows
-                                    Expanded(
-                                      child: LayoutBuilder(
-                                        builder: (context, constraints) {
-                                          final double total =
-                                              constraints.maxWidth;
-                                          final bool showImage =
-                                              imageGenAvailable &&
-                                              showImagePillPref;
-                                          final bool showWeb = showWebPill;
-                                          // Tools button is always shown
-                                          final double toolsWidth =
-                                              TouchTarget.minimum;
-                                          final double gapBeforeTools =
-                                              Spacing.xs;
+                          Container(
+                            padding: const EdgeInsets.only(
+                              left: Spacing.inputPadding,
+                              right: Spacing.inputPadding,
+                              top: Spacing.xs,
+                              bottom: Spacing.sm,
+                            ),
+                            child: Row(
+                              children: [
+                                _buildRoundButton(
+                                  icon: Icons.add,
+                                  onTap: widget.enabled && !_isRecording
+                                      ? _showAttachmentOptions
+                                      : null,
+                                  tooltip: AppLocalizations.of(
+                                    context,
+                                  )!.addAttachment,
+                                  showBackground: false,
+                                  iconSize: IconSize.large + 2.0,
+                                ),
+                                const SizedBox(width: Spacing.xs),
+                                // Quick pills: expand to full text when space allows
+                                Expanded(
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final double total = constraints.maxWidth;
+                                      final bool showImage =
+                                          imageGenAvailable &&
+                                          showImagePillPref;
+                                      final bool showWeb = showWebPill;
+                                      // Tools button is always shown
+                                      final double toolsWidth =
+                                          TouchTarget.minimum;
+                                      final double gapBeforeTools = Spacing.xs;
 
-                                          final double availableForPills = math
-                                              .max(
-                                                0.0,
-                                                total -
-                                                    toolsWidth -
-                                                    gapBeforeTools,
-                                              );
+                                      final double availableForPills = math.max(
+                                        0.0,
+                                        total - toolsWidth - gapBeforeTools,
+                                      );
 
-                                          // Compose selected pill entries in order
-                                          final List<Map<String, dynamic>>
-                                          entries = [];
-                                          final textStyle =
-                                              AppTypography.labelStyle;
-                                          const double horizontalPadding =
-                                              Spacing.md * 2;
+                                      // Compose selected pill entries in order
+                                      final List<Map<String, dynamic>> entries =
+                                          [];
+                                      final textStyle =
+                                          AppTypography.labelStyle;
+                                      const double horizontalPadding =
+                                          Spacing.md * 2;
 
-                                          for (final id in selectedQuickPills) {
-                                            if (id == 'web' && showWeb) {
-                                              final lbl = AppLocalizations.of(
-                                                context,
-                                              )!.web;
-                                              final tp = TextPainter(
-                                                text: TextSpan(
-                                                  text: lbl,
-                                                  style: textStyle,
-                                                ),
-                                                maxLines: 1,
-                                                textDirection:
-                                                    Directionality.of(context),
-                                              )..layout();
-                                              entries.add({
-                                                'id': id,
-                                                'label': lbl,
-                                                'width':
-                                                    tp.width +
-                                                    horizontalPadding,
-                                                'widgetBuilder': () => _buildPillButton(
-                                                  icon: Platform.isIOS
-                                                      ? CupertinoIcons.search
-                                                      : Icons.search,
-                                                  label: lbl,
-                                                  isActive: webSearchEnabled,
-                                                  onTap:
-                                                      widget.enabled &&
-                                                          !_isRecording
-                                                      ? () {
-                                                          ref
-                                                                  .read(
-                                                                    webSearchEnabledProvider
-                                                                        .notifier,
-                                                                  )
-                                                                  .state =
-                                                              !webSearchEnabled;
-                                                        }
-                                                      : null,
-                                                ),
-                                              });
-                                            } else if (id == 'image' &&
-                                                showImage) {
-                                              final lbl = AppLocalizations.of(
-                                                context,
-                                              )!.imageGen;
-                                              final tp = TextPainter(
-                                                text: TextSpan(
-                                                  text: lbl,
-                                                  style: textStyle,
-                                                ),
-                                                maxLines: 1,
-                                                textDirection:
-                                                    Directionality.of(context),
-                                              )..layout();
-                                              entries.add({
-                                                'id': id,
-                                                'label': lbl,
-                                                'width':
-                                                    tp.width +
-                                                    horizontalPadding,
-                                                'widgetBuilder': () => _buildPillButton(
-                                                  icon: Platform.isIOS
-                                                      ? CupertinoIcons.photo
-                                                      : Icons.image,
-                                                  label: lbl,
-                                                  isActive: imageGenEnabled,
-                                                  onTap:
-                                                      widget.enabled &&
-                                                          !_isRecording
-                                                      ? () {
-                                                          ref
-                                                                  .read(
-                                                                    imageGenerationEnabledProvider
-                                                                        .notifier,
-                                                                  )
-                                                                  .state =
-                                                              !imageGenEnabled;
-                                                        }
-                                                      : null,
-                                                ),
-                                              });
-                                            } else {
-                                              // Tool ID from server
-                                              Tool? tool;
-                                              for (final t in availableTools) {
-                                                if (t.id == id) {
-                                                  tool = t;
-                                                  break;
-                                                }
-                                              }
-                                              if (tool != null) {
-                                                final lbl = tool.name;
-                                                final tp = TextPainter(
-                                                  text: TextSpan(
-                                                    text: lbl,
-                                                    style: textStyle,
-                                                  ),
-                                                  maxLines: 1,
-                                                  textDirection:
-                                                      Directionality.of(
-                                                        context,
-                                                      ),
-                                                )..layout();
-                                                final selectedIds = ref.watch(
-                                                  selectedToolIdsProvider,
-                                                );
-                                                final isActive = selectedIds
-                                                    .contains(id);
-                                                entries.add({
-                                                  'id': id,
-                                                  'label': lbl,
-                                                  'width':
-                                                      tp.width +
-                                                      horizontalPadding,
-                                                  'widgetBuilder': () => _buildPillButton(
-                                                    icon: Platform.isIOS
-                                                        ? CupertinoIcons.wrench
-                                                        : Icons.build,
-                                                    label: lbl,
-                                                    isActive: isActive,
-                                                    onTap:
-                                                        widget.enabled &&
-                                                            !_isRecording
-                                                        ? () {
-                                                            final current =
-                                                                List<
-                                                                  String
-                                                                >.from(
-                                                                  ref.read(
-                                                                    selectedToolIdsProvider,
-                                                                  ),
-                                                                );
-                                                            if (current
-                                                                .contains(id)) {
-                                                              current.remove(
-                                                                id,
-                                                              );
-                                                            } else {
-                                                              current.add(id);
-                                                            }
-                                                            ref
-                                                                    .read(
-                                                                      selectedToolIdsProvider
-                                                                          .notifier,
-                                                                    )
-                                                                    .state =
-                                                                current;
-                                                          }
-                                                        : null,
-                                                  ),
-                                                });
-                                              }
-                                            }
-                                          }
-
-                                          // Build rowChildren according to measured widths and available space
-                                          final List<Widget> rowChildren = [];
-                                          if (entries.isEmpty) {
-                                            // no quick pills, will just show tools later
-                                          } else if (entries.length == 1) {
-                                            final e = entries.first;
-                                            final pill =
-                                                e['widgetBuilder']() as Widget;
-                                            final w = (e['width'] as double);
-                                            if (w <= availableForPills) {
-                                              rowChildren.add(pill);
-                                            } else {
-                                              rowChildren.add(
-                                                Flexible(
-                                                  fit: FlexFit.loose,
-                                                  child: pill,
-                                                ),
-                                              );
-                                            }
-                                          } else {
-                                            // up to 2 based on settings enforcement; if more, take first 2
-                                            final e1 = entries[0];
-                                            final e2 = entries[1];
-                                            final w1 = (e1['width'] as double);
-                                            final w2 = (e2['width'] as double);
-                                            const double gapBetweenPills =
-                                                Spacing.xs;
-                                            final combined =
-                                                w1 + gapBetweenPills + w2;
-                                            final pill1 =
-                                                e1['widgetBuilder']() as Widget;
-                                            final pill2 =
-                                                e2['widgetBuilder']() as Widget;
-
-                                            if (combined <= availableForPills) {
-                                              rowChildren
-                                                ..add(pill1)
-                                                ..add(
-                                                  const SizedBox(
-                                                    width: Spacing.xs,
-                                                  ),
-                                                )
-                                                ..add(pill2);
-                                            } else if (w1 < availableForPills) {
-                                              rowChildren
-                                                ..add(pill1)
-                                                ..add(
-                                                  const SizedBox(
-                                                    width: Spacing.xs,
-                                                  ),
-                                                )
-                                                ..add(
-                                                  Flexible(
-                                                    fit: FlexFit.loose,
-                                                    child: pill2,
-                                                  ),
-                                                );
-                                            } else if (w2 < availableForPills) {
-                                              rowChildren
-                                                ..add(
-                                                  Flexible(
-                                                    fit: FlexFit.loose,
-                                                    child: pill1,
-                                                  ),
-                                                )
-                                                ..add(
-                                                  const SizedBox(
-                                                    width: Spacing.xs,
-                                                  ),
-                                                )
-                                                ..add(pill2);
-                                            } else {
-                                              final int f1 = math.max(
-                                                1,
-                                                w1.round(),
-                                              );
-                                              final int f2 = math.max(
-                                                1,
-                                                w2.round(),
-                                              );
-                                              rowChildren
-                                                ..add(
-                                                  Flexible(
-                                                    fit: FlexFit.loose,
-                                                    flex: f1,
-                                                    child: pill1,
-                                                  ),
-                                                )
-                                                ..add(
-                                                  const SizedBox(
-                                                    width: Spacing.xs,
-                                                  ),
-                                                )
-                                                ..add(
-                                                  Flexible(
-                                                    fit: FlexFit.loose,
-                                                    flex: f2,
-                                                    child: pill2,
-                                                  ),
-                                                );
-                                            }
-                                          }
-
-                                          // Append tools button at the end (always visible)
-
-                                          rowChildren.add(
-                                            _buildIconButton(
+                                      for (final id in selectedQuickPills) {
+                                        if (id == 'web' && showWeb) {
+                                          final lbl = AppLocalizations.of(
+                                            context,
+                                          )!.web;
+                                          final tp = TextPainter(
+                                            text: TextSpan(
+                                              text: lbl,
+                                              style: textStyle,
+                                            ),
+                                            maxLines: 1,
+                                            textDirection: Directionality.of(
+                                              context,
+                                            ),
+                                          )..layout();
+                                          entries.add({
+                                            'id': id,
+                                            'label': lbl,
+                                            'width':
+                                                tp.width + horizontalPadding,
+                                            'widgetBuilder': () => _buildPillButton(
                                               icon: Platform.isIOS
-                                                  ? CupertinoIcons.wrench
-                                                  : Icons.build,
+                                                  ? CupertinoIcons.search
+                                                  : Icons.search,
+                                              label: lbl,
+                                              isActive: webSearchEnabled,
                                               onTap:
                                                   widget.enabled &&
                                                       !_isRecording
-                                                  ? _showUnifiedToolsModal
+                                                  ? () {
+                                                      ref
+                                                              .read(
+                                                                webSearchEnabledProvider
+                                                                    .notifier,
+                                                              )
+                                                              .state =
+                                                          !webSearchEnabled;
+                                                    }
                                                   : null,
-                                              tooltip: AppLocalizations.of(
+                                            ),
+                                          });
+                                        } else if (id == 'image' && showImage) {
+                                          final lbl = AppLocalizations.of(
+                                            context,
+                                          )!.imageGen;
+                                          final tp = TextPainter(
+                                            text: TextSpan(
+                                              text: lbl,
+                                              style: textStyle,
+                                            ),
+                                            maxLines: 1,
+                                            textDirection: Directionality.of(
+                                              context,
+                                            ),
+                                          )..layout();
+                                          entries.add({
+                                            'id': id,
+                                            'label': lbl,
+                                            'width':
+                                                tp.width + horizontalPadding,
+                                            'widgetBuilder': () => _buildPillButton(
+                                              icon: Platform.isIOS
+                                                  ? CupertinoIcons.photo
+                                                  : Icons.image,
+                                              label: lbl,
+                                              isActive: imageGenEnabled,
+                                              onTap:
+                                                  widget.enabled &&
+                                                      !_isRecording
+                                                  ? () {
+                                                      ref
+                                                              .read(
+                                                                imageGenerationEnabledProvider
+                                                                    .notifier,
+                                                              )
+                                                              .state =
+                                                          !imageGenEnabled;
+                                                    }
+                                                  : null,
+                                            ),
+                                          });
+                                        } else {
+                                          // Tool ID from server
+                                          Tool? tool;
+                                          for (final t in availableTools) {
+                                            if (t.id == id) {
+                                              tool = t;
+                                              break;
+                                            }
+                                          }
+                                          if (tool != null) {
+                                            final lbl = tool.name;
+                                            final tp = TextPainter(
+                                              text: TextSpan(
+                                                text: lbl,
+                                                style: textStyle,
+                                              ),
+                                              maxLines: 1,
+                                              textDirection: Directionality.of(
                                                 context,
-                                              )!.tools,
-                                              isActive:
-                                                  ref
-                                                      .watch(
-                                                        selectedToolIdsProvider,
-                                                      )
-                                                      .isNotEmpty ||
-                                                  webSearchEnabled ||
-                                                  imageGenEnabled,
+                                              ),
+                                            )..layout();
+                                            final selectedIds = ref.watch(
+                                              selectedToolIdsProvider,
+                                            );
+                                            final isActive = selectedIds
+                                                .contains(id);
+                                            entries.add({
+                                              'id': id,
+                                              'label': lbl,
+                                              'width':
+                                                  tp.width + horizontalPadding,
+                                              'widgetBuilder': () => _buildPillButton(
+                                                icon: Platform.isIOS
+                                                    ? CupertinoIcons.wrench
+                                                    : Icons.build,
+                                                label: lbl,
+                                                isActive: isActive,
+                                                onTap:
+                                                    widget.enabled &&
+                                                        !_isRecording
+                                                    ? () {
+                                                        final current =
+                                                            List<String>.from(
+                                                              ref.read(
+                                                                selectedToolIdsProvider,
+                                                              ),
+                                                            );
+                                                        if (current.contains(
+                                                          id,
+                                                        )) {
+                                                          current.remove(id);
+                                                        } else {
+                                                          current.add(id);
+                                                        }
+                                                        ref
+                                                                .read(
+                                                                  selectedToolIdsProvider
+                                                                      .notifier,
+                                                                )
+                                                                .state =
+                                                            current;
+                                                      }
+                                                    : null,
+                                              ),
+                                            });
+                                          }
+                                        }
+                                      }
+
+                                      // Build rowChildren according to measured widths and available space
+                                      final List<Widget> rowChildren = [];
+                                      if (entries.isEmpty) {
+                                        // no quick pills, will just show tools later
+                                      } else if (entries.length == 1) {
+                                        final e = entries.first;
+                                        final pill =
+                                            e['widgetBuilder']() as Widget;
+                                        final w = (e['width'] as double);
+                                        if (w <= availableForPills) {
+                                          rowChildren.add(pill);
+                                        } else {
+                                          rowChildren.add(
+                                            Flexible(
+                                              fit: FlexFit.loose,
+                                              child: pill,
                                             ),
                                           );
+                                        }
+                                      } else {
+                                        // up to 2 based on settings enforcement; if more, take first 2
+                                        final e1 = entries[0];
+                                        final e2 = entries[1];
+                                        final w1 = (e1['width'] as double);
+                                        final w2 = (e2['width'] as double);
+                                        const double gapBetweenPills =
+                                            Spacing.xs;
+                                        final combined =
+                                            w1 + gapBetweenPills + w2;
+                                        final pill1 =
+                                            e1['widgetBuilder']() as Widget;
+                                        final pill2 =
+                                            e2['widgetBuilder']() as Widget;
 
-                                          return Row(children: rowChildren);
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: Spacing.sm),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (voiceAvailable) ...[
-                                          _buildVoiceButton(voiceAvailable),
-                                          const SizedBox(width: Spacing.xs),
-                                        ],
-                                        _buildPrimaryButton(
-                                          _hasText,
-                                          isGenerating,
-                                          stopGeneration,
+                                        if (combined <= availableForPills) {
+                                          rowChildren
+                                            ..add(pill1)
+                                            ..add(
+                                              const SizedBox(width: Spacing.xs),
+                                            )
+                                            ..add(pill2);
+                                        } else if (w1 < availableForPills) {
+                                          rowChildren
+                                            ..add(pill1)
+                                            ..add(
+                                              const SizedBox(width: Spacing.xs),
+                                            )
+                                            ..add(
+                                              Flexible(
+                                                fit: FlexFit.loose,
+                                                child: pill2,
+                                              ),
+                                            );
+                                        } else if (w2 < availableForPills) {
+                                          rowChildren
+                                            ..add(
+                                              Flexible(
+                                                fit: FlexFit.loose,
+                                                child: pill1,
+                                              ),
+                                            )
+                                            ..add(
+                                              const SizedBox(width: Spacing.xs),
+                                            )
+                                            ..add(pill2);
+                                        } else {
+                                          final int f1 = math.max(
+                                            1,
+                                            w1.round(),
+                                          );
+                                          final int f2 = math.max(
+                                            1,
+                                            w2.round(),
+                                          );
+                                          rowChildren
+                                            ..add(
+                                              Flexible(
+                                                fit: FlexFit.loose,
+                                                flex: f1,
+                                                child: pill1,
+                                              ),
+                                            )
+                                            ..add(
+                                              const SizedBox(width: Spacing.xs),
+                                            )
+                                            ..add(
+                                              Flexible(
+                                                fit: FlexFit.loose,
+                                                flex: f2,
+                                                child: pill2,
+                                              ),
+                                            );
+                                        }
+                                      }
+
+                                      // Append tools button at the end (always visible)
+                                      rowChildren.add(
+                                        _buildIconButton(
+                                          icon: Platform.isIOS
+                                              ? CupertinoIcons.wrench
+                                              : Icons.build,
+                                          onTap: widget.enabled && !_isRecording
+                                              ? _showUnifiedToolsModal
+                                              : null,
+                                          tooltip: AppLocalizations.of(
+                                            context,
+                                          )!.tools,
+                                          isActive:
+                                              ref
+                                                  .watch(
+                                                    selectedToolIdsProvider,
+                                                  )
+                                                  .isNotEmpty ||
+                                              webSearchEnabled ||
+                                              imageGenEnabled,
                                         ),
-                                      ],
-                                    ),
-                                    // Debug button for testing on-device STT (enable by changing false to true)
-                                    // ignore: dead_code
-                                    if (false) ...[
-                                      const SizedBox(width: Spacing.sm),
-                                      _buildRoundButton(
-                                        icon: Icons.bug_report,
-                                        onTap: widget.enabled
-                                            ? () async {
-                                                final result =
-                                                    await _voiceService
-                                                        .testOnDeviceStt();
-                                                if (context.mounted) {
-                                                  ScaffoldMessenger.of(
-                                                    context,
-                                                  ).showSnackBar(
-                                                    SnackBar(
-                                                      content: Text(
-                                                        'STT Test: $result',
-                                                      ),
-                                                      duration: const Duration(
-                                                        seconds: 5,
-                                                      ),
-                                                    ),
-                                                  );
-                                                }
-                                              }
-                                            : null,
-                                        tooltip: 'Test On-Device STT',
-                                      ),
+                                      );
+
+                                      return Row(children: rowChildren);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: Spacing.sm),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (voiceAvailable) ...[
+                                      _buildVoiceButton(voiceAvailable),
+                                      const SizedBox(width: Spacing.xs),
                                     ],
+                                    _buildPrimaryButton(
+                                      _hasText,
+                                      isGenerating,
+                                      stopGeneration,
+                                    ),
                                   ],
                                 ),
-                              ),
+                                // Debug button for testing on-device STT (enable by changing false to true)
+                                // ignore: dead_code
+                                if (false) ...[
+                                  const SizedBox(width: Spacing.sm),
+                                  _buildRoundButton(
+                                    icon: Icons.bug_report,
+                                    onTap: widget.enabled
+                                        ? () async {
+                                            final result = await _voiceService
+                                                .testOnDeviceStt();
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'STT Test: $result',
+                                                  ),
+                                                  duration: const Duration(
+                                                    seconds: 5,
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        : null,
+                                    tooltip: 'Test On-Device STT',
+                                  ),
+                                ],
+                              ],
                             ),
-                          ],
+                          ),
                         ],
                       ),
                     ),
@@ -1539,7 +1394,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       if (mounted) {
         _focusNode.canRequestFocus = prevCanRequest;
         if (wasFocused && widget.enabled) {
-          if (!_isExpanded) _setExpanded(true);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             _ensureFocusedIfEnabled();
@@ -1568,7 +1422,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       if (mounted) {
         _focusNode.canRequestFocus = prevCanRequest;
         if (wasFocused && widget.enabled) {
-          if (!_isExpanded) _setExpanded(true);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             _ensureFocusedIfEnabled();
