@@ -22,6 +22,7 @@ import 'dart:async';
 import 'dart:io';
 import '../../chat/views/chat_page_helpers.dart';
 import 'app_customization_page.dart';
+import '../../../shared/widgets/modal_safe_area.dart';
 
 /// Profile page (You tab) showing user info and main actions
 /// Enhanced with production-grade design tokens for better cohesion
@@ -236,7 +237,9 @@ class ProfilePage extends ConsumerWidget {
                   android: Icons.tune,
                 ),
                 title: AppLocalizations.of(context)!.appCustomization,
-                subtitle: AppLocalizations.of(context)!.appCustomizationSubtitle,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.appCustomizationSubtitle,
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -334,7 +337,10 @@ class ProfilePage extends ConsumerWidget {
           (m) => m.id == settings.defaultModel,
           orElse: () => models.isNotEmpty
               ? models.first
-              : Model(id: 'none', name: AppLocalizations.of(context)!.noModelsAvailable),
+              : Model(
+                  id: 'none',
+                  name: AppLocalizations.of(context)!.noModelsAvailable,
+                ),
         );
 
         return ListTile(
@@ -498,7 +504,9 @@ class ProfilePage extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  AppLocalizations.of(ctx)!.versionLabel(info.version, info.buildNumber),
+                  AppLocalizations.of(
+                    ctx,
+                  )!.versionLabel(info.version, info.buildNumber),
                   style: ctx.conduitTheme.bodyMedium?.copyWith(
                     color: ctx.conduitTheme.textSecondary,
                   ),
@@ -544,7 +552,10 @@ class ProfilePage extends ConsumerWidget {
       );
     } catch (e) {
       if (!context.mounted) return;
-      UiUtils.showMessage(context, AppLocalizations.of(context)!.unableToLoadAppInfo);
+      UiUtils.showMessage(
+        context,
+        AppLocalizations.of(context)!.unableToLoadAppInfo,
+      );
     }
   }
 
@@ -647,10 +658,7 @@ class _DefaultModelBottomSheetState
     // If no default model is set (null), default to auto-select
     _selectedModelId = widget.currentDefaultModelId ?? 'auto-select';
     // Add auto-select as first item
-    _filteredModels = [
-      const Model(id: 'auto-select', name: 'Auto-select'),
-      ...widget.models,
-    ];
+    _filteredModels = _allModels();
   }
 
   @override
@@ -660,215 +668,264 @@ class _DefaultModelBottomSheetState
     super.dispose();
   }
 
+  List<Model> _allModels() {
+    return [
+      const Model(id: 'auto-select', name: 'Auto-select'),
+      ...widget.models,
+    ];
+  }
+
   void _filterModels(String query) {
+    setState(() => _searchQuery = query);
+
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 160), () {
-      setState(() {
-        _searchQuery = query.toLowerCase();
-        List<Model> allModels = [
-          const Model(id: 'auto-select', name: 'Auto-select'),
-          ...widget.models,
-        ];
+      if (!mounted) return;
 
-        if (_searchQuery.isNotEmpty) {
-          _filteredModels = allModels.where((model) {
-            return model.name.toLowerCase().contains(_searchQuery) ||
-                model.id.toLowerCase().contains(_searchQuery);
-          }).toList();
-        } else {
-          _filteredModels = allModels;
-        }
+      final normalized = query.trim().toLowerCase();
+      final allModels = _allModels();
+      final filtered = normalized.isEmpty
+          ? allModels
+          : allModels.where((model) {
+              final name = model.name.toLowerCase();
+              final id = model.id.toLowerCase();
+              return name.contains(normalized) || id.contains(normalized);
+            }).toList();
+
+      setState(() {
+        _filteredModels = filtered;
       });
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.75,
-      maxChildSize: 0.92,
-      minChildSize: 0.45,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: context.conduitTheme.surfaceBackground,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(AppBorderRadius.bottomSheet),
-            ),
-            border: Border.all(
-              color: context.conduitTheme.dividerColor,
-              width: BorderWidth.regular,
-            ),
-            boxShadow: ConduitShadows.modal,
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => Navigator.of(context).maybePop(),
+            child: const SizedBox.shrink(),
           ),
-          child: SafeArea(
-            top: false,
-            bottom: true,
-            child: Padding(
-              padding: const EdgeInsets.all(Spacing.bottomSheetPadding),
-              child: Column(
-                children: [
-                  // Handle bar (standardized)
-                  const SheetHandle(),
+        ),
+        DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.75,
+          maxChildSize: 0.92,
+          minChildSize: 0.45,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: BoxDecoration(
+                color: context.conduitTheme.surfaceBackground,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppBorderRadius.bottomSheet),
+                ),
+                border: Border.all(
+                  color: context.conduitTheme.dividerColor,
+                  width: BorderWidth.regular,
+                ),
+                boxShadow: ConduitShadows.modal,
+              ),
+              child: ModalSheetSafeArea(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.modalPadding,
+                  vertical: Spacing.modalPadding,
+                ),
+                child: Column(
+                  children: [
+                    // Handle bar (standardized)
+                    const SheetHandle(),
 
-                  // Header removed (no icon/title or save button)
-                  const SizedBox(height: Spacing.md),
+                    // Header removed (no icon/title or save button)
+                    const SizedBox(height: Spacing.md),
 
-                  // Search field
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: Spacing.md),
-                    child: TextField(
-                      controller: _searchController,
-                      style: TextStyle(color: context.conduitTheme.textPrimary),
-                      decoration: InputDecoration(
-                        hintText: AppLocalizations.of(context)!.searchModels,
-                        hintStyle: TextStyle(
-                          color: context.conduitTheme.inputPlaceholder,
+                    // Search field
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Spacing.md),
+                      child: TextField(
+                        controller: _searchController,
+                        style: AppTypography.standard.copyWith(
+                          color: context.conduitTheme.textPrimary,
                         ),
-                        prefixIcon: Icon(
-                          Platform.isIOS ? CupertinoIcons.search : Icons.search,
-                          color: context.conduitTheme.iconSecondary,
-                        ),
-                        filled: true,
-                        fillColor: context.conduitTheme.inputBackground,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppBorderRadius.md,
+                        onChanged: _filterModels,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: AppLocalizations.of(context)!.searchModels,
+                          hintStyle: AppTypography.standard.copyWith(
+                            color: context.conduitTheme.inputPlaceholder,
                           ),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppBorderRadius.md,
+                          prefixIcon: Icon(
+                            Platform.isIOS
+                                ? CupertinoIcons.search
+                                : Icons.search,
+                            color: context.conduitTheme.iconSecondary,
+                            size: IconSize.input,
                           ),
-                          borderSide: BorderSide(
-                            color: context.conduitTheme.inputBorder,
-                            width: 1,
+                          prefixIconConstraints: const BoxConstraints(
+                            minWidth: TouchTarget.minimum,
+                            minHeight: TouchTarget.minimum,
                           ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppBorderRadius.md,
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    _filterModels('');
+                                  },
+                                  icon: Icon(
+                                    Platform.isIOS
+                                        ? CupertinoIcons.clear_circled_solid
+                                        : Icons.clear,
+                                    color: context.conduitTheme.iconSecondary,
+                                    size: IconSize.input,
+                                  ),
+                                )
+                              : null,
+                          suffixIconConstraints: const BoxConstraints(
+                            minWidth: TouchTarget.minimum,
+                            minHeight: TouchTarget.minimum,
                           ),
-                          borderSide: BorderSide(
-                            color: context.conduitTheme.buttonPrimary,
-                            width: 1,
+                          filled: true,
+                          fillColor: context.conduitTheme.inputBackground,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppBorderRadius.md,
+                            ),
+                            borderSide: BorderSide.none,
                           ),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: Spacing.md,
-                          vertical: Spacing.md,
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppBorderRadius.md,
+                            ),
+                            borderSide: BorderSide(
+                              color: context.conduitTheme.inputBorder,
+                              width: 1,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppBorderRadius.md,
+                            ),
+                            borderSide: BorderSide(
+                              color: context.conduitTheme.buttonPrimary,
+                              width: 1,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: Spacing.md,
+                            vertical: Spacing.xs,
+                          ),
                         ),
                       ),
-                      onChanged: _filterModels,
                     ),
-                  ),
 
-                  // Section header (cohesive with Chats Drawer)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: Spacing.sm),
-                    child: Row(
-                      children: [
-                        Text(
-                          AppLocalizations.of(context)!.availableModels,
-                          style: AppTypography.bodySmallStyle.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: context.conduitTheme.textSecondary,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                        const SizedBox(width: Spacing.xs),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: context.conduitTheme.surfaceBackground
-                                .withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(
-                              AppBorderRadius.xs,
-                            ),
-                            border: Border.all(
-                              color: context.conduitTheme.dividerColor,
-                              width: BorderWidth.thin,
-                            ),
-                          ),
-                          child: Text(
-                            '${_filteredModels.length}',
+                    // Section header (cohesive with Chats Drawer)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Spacing.sm),
+                      child: Row(
+                        children: [
+                          Text(
+                            AppLocalizations.of(context)!.availableModels,
                             style: AppTypography.bodySmallStyle.copyWith(
+                              fontWeight: FontWeight.w600,
                               color: context.conduitTheme.textSecondary,
+                              letterSpacing: 0.2,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: Spacing.sm),
-
-                  // Models list
-                  Expanded(
-                    child: Scrollbar(
-                      controller: scrollController,
-                      child: _filteredModels.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Platform.isIOS
-                                        ? CupertinoIcons.search_circle
-                                        : Icons.search_off,
-                                    size: 48,
-                                    color: context.conduitTheme.iconSecondary,
-                                  ),
-                                  const SizedBox(height: Spacing.md),
-                                  Text(
-                                    AppLocalizations.of(context)!.noResults,
-                                    style: TextStyle(
-                                      color: context.conduitTheme.textSecondary,
-                                      fontSize: AppTypography.bodyLarge,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : ListView.builder(
-                              controller: scrollController,
-                              padding: EdgeInsets.zero,
-                              itemCount: _filteredModels.length,
-                              itemBuilder: (context, index) {
-                                final model = _filteredModels[index];
-                                final isAutoSelect = model.id == 'auto-select';
-                                final isSelected = isAutoSelect
-                                    ? _selectedModelId == null ||
-                                          _selectedModelId == 'auto-select'
-                                    : _selectedModelId == model.id;
-
-                                return _buildModelListTile(
-                                  model: model,
-                                  isSelected: isSelected,
-                                  isAutoSelect: isAutoSelect,
-                                  onTap: () {
-                                    HapticFeedback.lightImpact();
-                                    final selectedId = isAutoSelect
-                                        ? 'auto-select'
-                                        : model.id;
-                                    // Return selection immediately; caller handles persisting
-                                    Navigator.pop(context, selectedId);
-                                  },
-                                );
-                              },
+                          const SizedBox(width: Spacing.xs),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
                             ),
+                            decoration: BoxDecoration(
+                              color: context.conduitTheme.surfaceBackground
+                                  .withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(
+                                AppBorderRadius.xs,
+                              ),
+                              border: Border.all(
+                                color: context.conduitTheme.dividerColor,
+                                width: BorderWidth.thin,
+                              ),
+                            ),
+                            child: Text(
+                              '${_filteredModels.length}',
+                              style: AppTypography.bodySmallStyle.copyWith(
+                                color: context.conduitTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: Spacing.sm),
+
+                    // Models list
+                    Expanded(
+                      child: Scrollbar(
+                        controller: scrollController,
+                        child: _filteredModels.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Platform.isIOS
+                                          ? CupertinoIcons.search_circle
+                                          : Icons.search_off,
+                                      size: 48,
+                                      color: context.conduitTheme.iconSecondary,
+                                    ),
+                                    const SizedBox(height: Spacing.md),
+                                    Text(
+                                      AppLocalizations.of(context)!.noResults,
+                                      style: TextStyle(
+                                        color:
+                                            context.conduitTheme.textSecondary,
+                                        fontSize: AppTypography.bodyLarge,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                controller: scrollController,
+                                padding: EdgeInsets.zero,
+                                itemCount: _filteredModels.length,
+                                itemBuilder: (context, index) {
+                                  final model = _filteredModels[index];
+                                  final isAutoSelect =
+                                      model.id == 'auto-select';
+                                  final isSelected = isAutoSelect
+                                      ? _selectedModelId == null ||
+                                            _selectedModelId == 'auto-select'
+                                      : _selectedModelId == model.id;
+
+                                  return _buildModelListTile(
+                                    model: model,
+                                    isSelected: isSelected,
+                                    isAutoSelect: isAutoSelect,
+                                    onTap: () {
+                                      HapticFeedback.lightImpact();
+                                      final selectedId = isAutoSelect
+                                          ? 'auto-select'
+                                          : model.id;
+                                      Navigator.pop(context, selectedId);
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
-        );
-      },
+            );
+          },
+        ),
+      ],
     );
   }
 

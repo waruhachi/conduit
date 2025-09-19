@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io' show Platform;
 import 'dart:async';
 import 'dart:ui';
+import 'dart:math' as math;
 import '../providers/chat_providers.dart';
 import '../../tools/providers/tools_providers.dart';
 import '../../../core/models/tool.dart';
@@ -19,6 +20,7 @@ import '../../chat/services/voice_input_service.dart';
 
 import '../../../shared/utils/platform_utils.dart';
 import 'package:conduit/l10n/app_localizations.dart';
+import '../../../shared/widgets/modal_safe_area.dart';
 
 class _SendMessageIntent extends Intent {
   const _SendMessageIntent();
@@ -1044,6 +1046,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (modalContext) => Consumer(
         builder: (innerContext, modalRef, _) {
           final l10n = AppLocalizations.of(innerContext)!;
@@ -1188,34 +1191,87 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
             ..add(_buildSectionLabel(l10n.tools))
             ..add(toolsSection);
 
-          return Container(
-            decoration: BoxDecoration(
-              color: theme.surfaceBackground,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(AppBorderRadius.bottomSheet),
-              ),
-              border: Border.all(
-                color: theme.dividerColor,
-                width: BorderWidth.thin,
-              ),
-              boxShadow: ConduitShadows.modal,
-            ),
-            child: SafeArea(
-              top: false,
-              bottom: true,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
-                  Spacing.modalPadding,
-                  Spacing.sm,
-                  Spacing.modalPadding,
-                  Spacing.modalPadding,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: bodyChildren,
-                ),
-              ),
-            ),
+          // Measure content height and cap the sheet's max size to avoid extra blank space
+          final GlobalKey sheetContentKey = GlobalKey();
+          double? measuredContentHeight;
+
+          return StatefulBuilder(
+            builder: (context, setModalState) {
+              // Schedule a post-frame measurement of the content height
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                final ctx = sheetContentKey.currentContext;
+                if (ctx != null) {
+                  final renderObject = ctx.findRenderObject();
+                  if (renderObject is RenderBox) {
+                    final double h = renderObject.size.height;
+                    if (h > 0 && h != measuredContentHeight) {
+                      measuredContentHeight = h;
+                      setModalState(() {});
+                    }
+                  }
+                }
+              });
+
+              final media = MediaQuery.of(modalContext);
+              final double availableHeight =
+                  media.size.height - media.padding.top;
+
+              double computedMax = 0.9;
+              if (measuredContentHeight != null && availableHeight > 0) {
+                computedMax = (measuredContentHeight! / availableHeight).clamp(
+                  0.1,
+                  0.9,
+                );
+              }
+              final double computedMin = math.min(0.25, computedMax);
+              final double computedInitial = math.min(0.4, computedMax);
+
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => Navigator.of(modalContext).maybePop(),
+                      child: const SizedBox.shrink(),
+                    ),
+                  ),
+                  DraggableScrollableSheet(
+                    expand: false,
+                    initialChildSize: computedInitial,
+                    minChildSize: computedMin,
+                    maxChildSize: computedMax,
+                    snap: true,
+                    snapSizes: [computedMax],
+                    builder: (sheetContext, scrollController) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: theme.surfaceBackground,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(AppBorderRadius.bottomSheet),
+                          ),
+                          border: Border.all(
+                            color: theme.dividerColor,
+                            width: BorderWidth.thin,
+                          ),
+                          boxShadow: ConduitShadows.modal,
+                        ),
+                        child: ModalSheetSafeArea(
+                          child: SingleChildScrollView(
+                            controller: scrollController,
+                            padding: EdgeInsets.zero,
+                            child: Column(
+                              key: sheetContentKey,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: bodyChildren,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
@@ -1308,7 +1364,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               boxShadow: value ? ConduitShadows.low : const [],
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 _buildToolGlyph(icon: icon, selected: value, theme: theme),
                 const SizedBox(width: Spacing.sm),
@@ -1316,23 +1372,14 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: AppTypography.bodyLargeStyle.copyWith(
-                                color: theme.textPrimary,
-                                fontWeight: value
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: Spacing.xs),
-                          _buildTogglePill(isOn: value, theme: theme),
-                        ],
+                      Text(
+                        title,
+                        style: AppTypography.bodySmallStyle.copyWith(
+                          color: theme.textPrimary,
+                          fontWeight: value ? FontWeight.w600 : FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       if (description.isNotEmpty) ...[
                         const SizedBox(height: Spacing.xs),
@@ -1340,7 +1387,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                           description,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTypography.bodySmallStyle.copyWith(
+                          style: AppTypography.captionStyle.copyWith(
                             color: theme.textSecondary.withValues(
                               alpha: Alpha.strong,
                             ),
@@ -1350,6 +1397,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                     ],
                   ),
                 ),
+                const SizedBox(width: Spacing.sm),
+                _buildTogglePill(isOn: value, theme: theme),
               ],
             ),
           ),
@@ -1402,7 +1451,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               boxShadow: selected ? ConduitShadows.low : const [],
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 _buildToolGlyph(
                   icon: _toolIconFor(tool),
@@ -1414,23 +1463,16 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              tool.name,
-                              style: AppTypography.bodyLargeStyle.copyWith(
-                                color: theme.textPrimary,
-                                fontWeight: selected
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: Spacing.xs),
-                          _buildTogglePill(isOn: selected, theme: theme),
-                        ],
+                      Text(
+                        tool.name,
+                        style: AppTypography.bodySmallStyle.copyWith(
+                          color: theme.textPrimary,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       if (description.isNotEmpty) ...[
                         const SizedBox(height: Spacing.xs),
@@ -1438,7 +1480,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                           description,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTypography.bodySmallStyle.copyWith(
+                          style: AppTypography.captionStyle.copyWith(
                             color: theme.textSecondary.withValues(
                               alpha: Alpha.strong,
                             ),
@@ -1448,6 +1490,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                     ],
                   ),
                 ),
+                const SizedBox(width: Spacing.sm),
+                _buildTogglePill(isOn: selected, theme: theme),
               ],
             ),
           ),

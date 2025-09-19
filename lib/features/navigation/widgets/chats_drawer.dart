@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../shared/theme/theme_extensions.dart';
+import '../../../shared/widgets/modal_safe_area.dart';
 import '../../chat/providers/chat_providers.dart' as chat;
 // import '../../files/views/files_page.dart';
 import '../../profile/views/profile_page.dart';
@@ -798,6 +799,9 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     String folderName,
   ) {
     final theme = context.conduitTheme;
+    // Ensure consistent modal padding/insets across the app
+    // ignore: unnecessary_import
+
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.surfaceBackground,
@@ -807,7 +811,11 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         ),
       ),
       builder: (sheetContext) {
-        return SafeArea(
+        return ModalSheetSafeArea(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.modalPadding,
+            vertical: Spacing.modalPadding,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1329,7 +1337,11 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         ),
       ),
       builder: (sheetContext) {
-        return SafeArea(
+        return ModalSheetSafeArea(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.modalPadding,
+            vertical: Spacing.modalPadding,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

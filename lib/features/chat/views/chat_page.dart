@@ -38,6 +38,7 @@ import '../../../shared/widgets/sheet_handle.dart';
 import '../../../shared/widgets/measure_size.dart';
 import '../../../shared/widgets/conduit_components.dart';
 import '../../../shared/widgets/middle_ellipsis_text.dart';
+import '../../../shared/widgets/modal_safe_area.dart';
 import '../../../core/services/settings_service.dart';
 // Removed unused PlatformUtils import
 import '../../../core/services/platform_service.dart' as ps;
@@ -1654,19 +1655,24 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
   }
 
   void _filterModels(String query) {
-    // Debounce for fast search
+    setState(() => _searchQuery = query);
+
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 160), () {
+      if (!mounted) return;
+
+      final normalized = query.trim().toLowerCase();
+      Iterable<Model> list = widget.models;
+
+      if (normalized.isNotEmpty) {
+        list = list.where((model) {
+          final name = model.name.toLowerCase();
+          final id = model.id.toLowerCase();
+          return name.contains(normalized) || id.contains(normalized);
+        });
+      }
+
       setState(() {
-        _searchQuery = query.toLowerCase();
-        Iterable<Model> list = widget.models;
-        if (_searchQuery.isNotEmpty) {
-          list = list.where((model) {
-            return model.name.toLowerCase().contains(_searchQuery) ||
-                model.id.toLowerCase().contains(_searchQuery);
-          });
-        }
-        // No capability filters
         _filteredModels = list.toList();
       });
     });
@@ -1674,149 +1680,190 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.75,
-      maxChildSize: 0.92,
-      minChildSize: 0.45,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: context.conduitTheme.surfaceBackground,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(AppBorderRadius.bottomSheet),
-            ),
-            border: Border.all(
-              color: context.conduitTheme.dividerColor,
-              width: BorderWidth.regular,
-            ),
-            boxShadow: ConduitShadows.modal,
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => Navigator.of(context).maybePop(),
+            child: const SizedBox.shrink(),
           ),
-          child: SafeArea(
-            top: false,
-            bottom: true,
-            child: Padding(
-              padding: const EdgeInsets.all(Spacing.bottomSheetPadding),
-              child: Column(
-                children: [
-                  // Handle bar (standardized)
-                  const SheetHandle(),
+        ),
+        DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.75,
+          maxChildSize: 0.92,
+          minChildSize: 0.45,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: BoxDecoration(
+                color: context.conduitTheme.surfaceBackground,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppBorderRadius.bottomSheet),
+                ),
+                border: Border.all(
+                  color: context.conduitTheme.dividerColor,
+                  width: BorderWidth.regular,
+                ),
+                boxShadow: ConduitShadows.modal,
+              ),
+              child: ModalSheetSafeArea(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.modalPadding,
+                  vertical: Spacing.modalPadding,
+                ),
+                child: Column(
+                  children: [
+                    // Handle bar (standardized)
+                    const SheetHandle(),
 
-                  // Search field
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: Spacing.md),
-                    child: TextField(
-                      controller: _searchController,
-                      style: TextStyle(color: context.conduitTheme.textPrimary),
-                      decoration: InputDecoration(
-                        hintText: AppLocalizations.of(context)!.searchModels,
-                        hintStyle: TextStyle(
-                          color: context.conduitTheme.inputPlaceholder,
+                    // Search field
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Spacing.md),
+                      child: TextField(
+                        controller: _searchController,
+                        style: AppTypography.standard.copyWith(
+                          color: context.conduitTheme.textPrimary,
                         ),
-                        prefixIcon: Icon(
-                          Platform.isIOS ? CupertinoIcons.search : Icons.search,
-                          color: context.conduitTheme.iconSecondary,
-                        ),
-                        filled: true,
-                        fillColor: context.conduitTheme.inputBackground,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppBorderRadius.md,
+                        onChanged: _filterModels,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: AppLocalizations.of(context)!.searchModels,
+                          hintStyle: AppTypography.standard.copyWith(
+                            color: context.conduitTheme.inputPlaceholder,
                           ),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppBorderRadius.md,
+                          prefixIcon: Icon(
+                            Platform.isIOS
+                                ? CupertinoIcons.search
+                                : Icons.search,
+                            color: context.conduitTheme.iconSecondary,
+                            size: IconSize.input,
                           ),
-                          borderSide: BorderSide(
-                            color: context.conduitTheme.inputBorder,
-                            width: 1,
+                          prefixIconConstraints: const BoxConstraints(
+                            minWidth: TouchTarget.minimum,
+                            minHeight: TouchTarget.minimum,
                           ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppBorderRadius.md,
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    _filterModels('');
+                                  },
+                                  icon: Icon(
+                                    Platform.isIOS
+                                        ? CupertinoIcons.clear_circled_solid
+                                        : Icons.clear,
+                                    color: context.conduitTheme.iconSecondary,
+                                    size: IconSize.input,
+                                  ),
+                                )
+                              : null,
+                          suffixIconConstraints: const BoxConstraints(
+                            minWidth: TouchTarget.minimum,
+                            minHeight: TouchTarget.minimum,
                           ),
-                          borderSide: BorderSide(
-                            color: context.conduitTheme.buttonPrimary,
-                            width: 1,
+                          filled: true,
+                          fillColor: context.conduitTheme.inputBackground,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppBorderRadius.md,
+                            ),
+                            borderSide: BorderSide.none,
                           ),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: Spacing.md,
-                          vertical: Spacing.md,
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppBorderRadius.md,
+                            ),
+                            borderSide: BorderSide(
+                              color: context.conduitTheme.inputBorder,
+                              width: 1,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppBorderRadius.md,
+                            ),
+                            borderSide: BorderSide(
+                              color: context.conduitTheme.buttonPrimary,
+                              width: 1,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: Spacing.md,
+                            vertical: Spacing.xs,
+                          ),
                         ),
                       ),
-                      onChanged: _filterModels,
                     ),
-                  ),
 
-                  // Removed capability filters
-                  const SizedBox(height: Spacing.sm),
+                    // Removed capability filters
+                    const SizedBox(height: Spacing.sm),
 
-                  // Models list
-                  Expanded(
-                    child: Scrollbar(
-                      controller: scrollController,
-                      child: _filteredModels.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Platform.isIOS
-                                        ? CupertinoIcons.search_circle
-                                        : Icons.search_off,
-                                    size: 48,
-                                    color: context.conduitTheme.iconSecondary,
-                                  ),
-                                  const SizedBox(height: Spacing.md),
-                                  Text(
-                                    'No results',
-                                    style: TextStyle(
-                                      color: context.conduitTheme.textSecondary,
-                                      fontSize: AppTypography.bodyLarge,
+                    // Models list
+                    Expanded(
+                      child: Scrollbar(
+                        controller: scrollController,
+                        child: _filteredModels.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Platform.isIOS
+                                          ? CupertinoIcons.search_circle
+                                          : Icons.search_off,
+                                      size: 48,
+                                      color: context.conduitTheme.iconSecondary,
                                     ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : ListView.builder(
-                              controller: scrollController,
-                              padding: EdgeInsets.zero,
-                              itemCount: _filteredModels.length,
-                              itemBuilder: (context, index) {
-                                final model = _filteredModels[index];
-                                final isSelected =
-                                    widget.ref
-                                        .watch(selectedModelProvider)
-                                        ?.id ==
-                                    model.id;
+                                    const SizedBox(height: Spacing.md),
+                                    Text(
+                                      'No results',
+                                      style: TextStyle(
+                                        color:
+                                            context.conduitTheme.textSecondary,
+                                        fontSize: AppTypography.bodyLarge,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                controller: scrollController,
+                                padding: EdgeInsets.zero,
+                                itemCount: _filteredModels.length,
+                                itemBuilder: (context, index) {
+                                  final model = _filteredModels[index];
+                                  final isSelected =
+                                      widget.ref
+                                          .watch(selectedModelProvider)
+                                          ?.id ==
+                                      model.id;
 
-                                return _buildModelListTile(
-                                  model: model,
-                                  isSelected: isSelected,
-                                  onTap: () {
-                                    HapticFeedback.selectionClick();
-                                    widget.ref
-                                            .read(
-                                              selectedModelProvider.notifier,
-                                            )
-                                            .state =
-                                        model;
-                                    Navigator.pop(context);
-                                  },
-                                );
-                              },
-                            ),
+                                  return _buildModelListTile(
+                                    model: model,
+                                    isSelected: isSelected,
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      widget.ref
+                                              .read(
+                                                selectedModelProvider.notifier,
+                                              )
+                                              .state =
+                                          model;
+                                      Navigator.pop(context);
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ),
-        );
-      },
+            );
+          },
+        ),
+      ],
     );
   }
 
