@@ -9,9 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'dart:io' show Platform;
 import 'dart:async';
-import 'dart:math' as math;
+import 'dart:ui';
 import '../providers/chat_providers.dart';
-import '../../tools/widgets/unified_tools_modal.dart';
 import '../../tools/providers/tools_providers.dart';
 import '../../../core/models/tool.dart';
 import '../../../core/providers/app_providers.dart';
@@ -69,6 +68,7 @@ class _MicButton extends StatelessWidget {
     final Color iconColor = isRecording
         ? context.conduitTheme.buttonPrimaryText
         : context.conduitTheme.textPrimary.withValues(alpha: Alpha.strong);
+    final double normalized = (intensity.clamp(0, 10)) / 10.0;
 
     return Tooltip(
       message: tooltip,
@@ -86,14 +86,46 @@ class _MicButton extends StatelessWidget {
           child: SizedBox(
             width: TouchTarget.minimum,
             height: TouchTarget.minimum,
-            child: Center(
-              child: isRecording
-                  ? _WaveformBars(intensity: intensity, color: iconColor)
-                  : Icon(
-                      Platform.isIOS ? CupertinoIcons.mic_fill : Icons.mic,
-                      size: IconSize.medium,
-                      color: iconColor,
-                    ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  width: TouchTarget.minimum * 0.74,
+                  height: TouchTarget.minimum * 0.74,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isRecording
+                        ? context.conduitTheme.buttonPrimary.withValues(
+                            alpha: 0.12 + (0.14 * normalized),
+                          )
+                        : Colors.transparent,
+                    boxShadow: isRecording
+                        ? [
+                            BoxShadow(
+                              color: context.conduitTheme.buttonPrimary
+                                  .withValues(
+                                    alpha: 0.22 + (0.18 * normalized),
+                                  ),
+                              blurRadius: 14 + (8 * normalized),
+                              spreadRadius: 2 + (normalized * 2),
+                            ),
+                          ]
+                        : const [],
+                  ),
+                ),
+                AnimatedScale(
+                  scale: isRecording ? 1.05 + (normalized * 0.05) : 1.0,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  child: Icon(
+                    Platform.isIOS ? CupertinoIcons.mic_fill : Icons.mic,
+                    size: IconSize.medium,
+                    color: iconColor,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -102,51 +134,10 @@ class _MicButton extends StatelessWidget {
   }
 }
 
-class _WaveformBars extends StatelessWidget {
-  final int intensity; // 0..10
-  final Color color;
-
-  const _WaveformBars({required this.intensity, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    // 5 bars with varying base heights; scale with intensity
-    final double unit = (intensity.clamp(0, 10)) / 10.0; // 0..1
-    final List<double> factors = [0.4, 0.7, 1.0, 0.7, 0.4];
-    final double maxHeight = IconSize.medium; // ~24px
-    // Keep bars within the available width to avoid RenderFlex overflow
-    final double width = 14.0; // tighter than 16 to accommodate padding
-    final double barWidth = 2.0;
-    final double gap = 1.0;
-    return SizedBox(
-      width: width,
-      height: maxHeight,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: List.generate(5, (i) {
-          final double h = (maxHeight * (factors[i] * (0.3 + 0.7 * unit)))
-              .clamp(4.0, maxHeight);
-          return Padding(
-            padding: EdgeInsets.only(left: i == 0 ? 0.0 : gap),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 100),
-              width: barWidth,
-              height: h,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(2.0),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-}
-
 class _ModernChatInputState extends ConsumerState<ModernChatInput>
     with TickerProviderStateMixin {
+  static const double _composerRadius = AppBorderRadius.card;
+
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   bool _isRecording = false;
@@ -283,7 +274,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
   @override
   Widget build(BuildContext context) {
-    // Listen for prefilled text changes safely from build
     ref.listen<String?>(prefilledInputTextProvider, (previous, next) {
       final incoming = next?.trim();
       if (incoming == null || incoming.isEmpty) return;
@@ -299,7 +289,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       });
     });
 
-    // Check if assistant is currently generating by checking last assistant message streaming
     final messages = ref.watch(chatMessagesProvider);
     final isGenerating =
         messages.isNotEmpty &&
@@ -328,625 +317,397 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       data: (v) => v,
       orElse: () => false,
     );
+    final selectedToolIds = ref.watch(selectedToolIdsProvider);
 
-    // React to external focus requests (e.g., from share prefill or startup)
     final focusTick = ref.watch(inputFocusTriggerProvider);
     if (focusTick != _lastHandledFocusTick) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _isDeactivated) return;
-        // Explicit request: always try to focus and show the keyboard
         _ensureFocusedIfEnabled();
         _lastHandledFocusTick = focusTick;
       });
     }
 
     final Brightness brightness = Theme.of(context).brightness;
-    final Color outlineColor = (_focusNode.hasFocus || _hasText)
-        ? context.conduitTheme.inputBorderFocused.withValues(alpha: 0.6)
-        : context.conduitTheme.inputBorder.withValues(alpha: 0.7);
-    final Color glowColor = context.conduitTheme.inputBackground.withValues(
-      alpha: brightness == Brightness.dark ? 0.2 : 0.12,
-    );
+    final bool isActive = _focusNode.hasFocus || _hasText;
     final Color composerSurface = context.conduitTheme.inputBackground;
-    final Color placeholderColor = context.conduitTheme.inputPlaceholder;
-    return Container(
-      // Transparent wrapper so rounded corners are visible against page background
-      color: Colors.transparent,
-      padding: EdgeInsets.only(
-        left: 0,
-        right: 0,
-        top: Spacing.xs.toDouble(),
-        bottom: 0,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Main input area with unified 2-row design
-          Container(
-            decoration: BoxDecoration(
-              color: context.conduitTheme.inputBackground,
-              borderRadius: BorderRadius.circular(AppBorderRadius.bottomSheet),
-              border: Border(
-                top: BorderSide(
-                  color: outlineColor.withValues(alpha: 0.5),
-                  width: BorderWidth.regular,
-                ),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: glowColor,
-                  blurRadius: 24,
-                  spreadRadius: -16,
-                  offset: const Offset(0, -4),
-                ),
-              ],
+    final Color shellBackground = brightness == Brightness.dark
+        ? composerSurface.withValues(alpha: 0.78)
+        : composerSurface;
+    final Color placeholderBase = context.conduitTheme.inputPlaceholder;
+    final Color placeholderFocused = context.conduitTheme.inputText.withValues(
+      alpha: 0.64,
+    );
+    final Color outlineColor = Color.lerp(
+      context.conduitTheme.inputBorder,
+      context.conduitTheme.inputBorderFocused,
+      isActive ? 1.0 : 0.0,
+    )!.withValues(alpha: brightness == Brightness.dark ? 0.55 : 0.45);
+    final Color shellShadowColor = context.conduitTheme.cardShadow.withValues(
+      alpha: brightness == Brightness.dark
+          ? 0.22 + (isActive ? 0.08 : 0.0)
+          : 0.12 + (isActive ? 0.06 : 0.0),
+    );
+
+    final List<Widget> quickPills = <Widget>[];
+
+    for (final id in selectedQuickPills) {
+      if (id == 'web' && showWebPill) {
+        final String label = AppLocalizations.of(context)!.web;
+        final IconData icon = Platform.isIOS
+            ? CupertinoIcons.search
+            : Icons.search;
+        void handleTap() {
+          final notifier = ref.read(webSearchEnabledProvider.notifier);
+          notifier.state = !webSearchEnabled;
+        }
+
+        quickPills.add(
+          _buildPillButton(
+            icon: icon,
+            label: label,
+            isActive: webSearchEnabled,
+            onTap: widget.enabled && !_isRecording ? handleTap : null,
+          ),
+        );
+      } else if (id == 'image' && showImagePillPref && imageGenAvailable) {
+        final String label = AppLocalizations.of(context)!.imageGen;
+        final IconData icon = Platform.isIOS
+            ? CupertinoIcons.photo
+            : Icons.image;
+        void handleTap() {
+          final notifier = ref.read(imageGenerationEnabledProvider.notifier);
+          notifier.state = !imageGenEnabled;
+        }
+
+        quickPills.add(
+          _buildPillButton(
+            icon: icon,
+            label: label,
+            isActive: imageGenEnabled,
+            onTap: widget.enabled && !_isRecording ? handleTap : null,
+          ),
+        );
+      } else {
+        Tool? tool;
+        for (final t in availableTools) {
+          if (t.id == id) {
+            tool = t;
+            break;
+          }
+        }
+        if (tool != null) {
+          final bool isSelected = selectedToolIds.contains(id);
+          final String label = tool.name;
+          final IconData icon = Platform.isIOS
+              ? CupertinoIcons.wrench
+              : Icons.build;
+
+          void handleTap() {
+            final current = List<String>.from(selectedToolIds);
+            if (current.contains(id)) {
+              current.remove(id);
+            } else {
+              current.add(id);
+            }
+            ref.read(selectedToolIdsProvider.notifier).state = current;
+          }
+
+          quickPills.add(
+            _buildPillButton(
+              icon: icon,
+              label: label,
+              isActive: isSelected,
+              onTap: widget.enabled && !_isRecording ? handleTap : null,
             ),
-            width: double.infinity,
-            child: SafeArea(
-              top: false,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  // cap the input area to 40% of screen height to avoid bottom overflow
-                  maxHeight: MediaQuery.of(context).size.height * 0.4,
-                ),
-                child: AnimatedSize(
-                  duration: AnimationDuration
-                      .fast, // Faster for better responsiveness
-                  curve: Curves.fastOutSlowIn, // More efficient curve
-                  alignment: Alignment.topCenter,
-                  child: SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    child: RepaintBoundary(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Modern header row inspired by the Gemini surface
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              Spacing.sm,
-                              Spacing.sm,
-                              Spacing.xs,
-                              Spacing.sm,
-                            ),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: composerSurface,
-                                borderRadius: BorderRadius.circular(
-                                  AppBorderRadius.large,
-                                ),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: Spacing.md,
-                                vertical: Spacing.xs,
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Expanded(
-                                    child: GestureDetector(
-                                      behavior: HitTestBehavior.opaque,
-                                      onTap: () {
-                                        if (!widget.enabled) return;
-                                        _ensureFocusedIfEnabled();
+          );
+        }
+      }
+    }
+
+    Widget shell = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        color: shellBackground,
+        borderRadius: BorderRadius.circular(_composerRadius),
+        border: Border.all(color: outlineColor, width: BorderWidth.thin),
+        boxShadow: [
+          BoxShadow(
+            color: shellShadowColor,
+            blurRadius: 12 + (isActive ? 4 : 0),
+            spreadRadius: -2,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      width: double.infinity,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewPadding.bottom,
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.4,
+          ),
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: RepaintBoundary(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(Spacing.sm),
+                      child: Container(
+                        padding: const EdgeInsets.all(Spacing.sm),
+                        decoration: BoxDecoration(
+                          color: shellBackground,
+                          borderRadius: BorderRadius.circular(_composerRadius),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () {
+                                  if (!widget.enabled) return;
+                                  _ensureFocusedIfEnabled();
+                                },
+                                child: Semantics(
+                                  textField: true,
+                                  label: AppLocalizations.of(
+                                    context,
+                                  )!.messageInputLabel,
+                                  hint: AppLocalizations.of(
+                                    context,
+                                  )!.messageInputHint,
+                                  child: Shortcuts(
+                                    shortcuts: () {
+                                      final map = <LogicalKeySet, Intent>{
+                                        LogicalKeySet(
+                                          LogicalKeyboardKey.meta,
+                                          LogicalKeyboardKey.enter,
+                                        ): const _SendMessageIntent(),
+                                        LogicalKeySet(
+                                          LogicalKeyboardKey.control,
+                                          LogicalKeyboardKey.enter,
+                                        ): const _SendMessageIntent(),
+                                      };
+                                      if (sendOnEnter) {
+                                        map[LogicalKeySet(
+                                              LogicalKeyboardKey.enter,
+                                            )] =
+                                            const _SendMessageIntent();
+                                        map[LogicalKeySet(
+                                              LogicalKeyboardKey.shift,
+                                              LogicalKeyboardKey.enter,
+                                            )] =
+                                            const _InsertNewlineIntent();
+                                      }
+                                      return map;
+                                    }(),
+                                    child: Actions(
+                                      actions: <Type, Action<Intent>>{
+                                        _SendMessageIntent:
+                                            CallbackAction<_SendMessageIntent>(
+                                              onInvoke: (intent) {
+                                                _sendMessage();
+                                                return null;
+                                              },
+                                            ),
+                                        _InsertNewlineIntent:
+                                            CallbackAction<
+                                              _InsertNewlineIntent
+                                            >(
+                                              onInvoke: (intent) {
+                                                _insertNewline();
+                                                return null;
+                                              },
+                                            ),
                                       },
-                                      child: Semantics(
-                                        textField: true,
-                                        label: AppLocalizations.of(
-                                          context,
-                                        )!.messageInputLabel,
-                                        hint: AppLocalizations.of(
-                                          context,
-                                        )!.messageInputHint,
-                                        child: Shortcuts(
-                                          shortcuts: () {
-                                            final map = <LogicalKeySet, Intent>{
-                                              LogicalKeySet(
-                                                LogicalKeyboardKey.meta,
-                                                LogicalKeyboardKey.enter,
-                                              ): const _SendMessageIntent(),
-                                              LogicalKeySet(
-                                                LogicalKeyboardKey.control,
-                                                LogicalKeyboardKey.enter,
-                                              ): const _SendMessageIntent(),
-                                            };
-                                            if (sendOnEnter) {
-                                              map[LogicalKeySet(
-                                                    LogicalKeyboardKey.enter,
-                                                  )] =
-                                                  const _SendMessageIntent();
-                                              map[LogicalKeySet(
-                                                    LogicalKeyboardKey.shift,
-                                                    LogicalKeyboardKey.enter,
-                                                  )] =
-                                                  const _InsertNewlineIntent();
-                                            }
-                                            return map;
-                                          }(),
-                                          child: Actions(
-                                            actions: <Type, Action<Intent>>{
-                                              _SendMessageIntent:
-                                                  CallbackAction<
-                                                    _SendMessageIntent
-                                                  >(
-                                                    onInvoke: (intent) {
-                                                      _sendMessage();
-                                                      return null;
-                                                    },
-                                                  ),
-                                              _InsertNewlineIntent:
-                                                  CallbackAction<
-                                                    _InsertNewlineIntent
-                                                  >(
-                                                    onInvoke: (intent) {
-                                                      _insertNewline();
-                                                      return null;
-                                                    },
-                                                  ),
-                                            },
-                                            child: TextField(
-                                              controller: _controller,
-                                              focusNode: _focusNode,
-                                              enabled: widget.enabled,
-                                              autofocus: false,
-                                              minLines: 1,
-                                              maxLines: null,
-                                              keyboardType:
-                                                  TextInputType.multiline,
-                                              textCapitalization:
-                                                  TextCapitalization.sentences,
-                                              textInputAction: sendOnEnter
-                                                  ? TextInputAction.send
-                                                  : TextInputAction.newline,
-                                              showCursor: true,
-                                              scrollPadding:
-                                                  const EdgeInsets.only(
-                                                    bottom: 80,
-                                                  ),
-                                              keyboardAppearance: Theme.of(
-                                                context,
-                                              ).brightness,
-                                              cursorColor: context
-                                                  .conduitTheme
-                                                  .inputText,
-                                              style: AppTypography
-                                                  .chatMessageStyle
-                                                  .copyWith(
-                                                    color: _isRecording
-                                                        ? context
-                                                              .conduitTheme
-                                                              .inputPlaceholder
-                                                        : context
-                                                              .conduitTheme
-                                                              .inputText,
-                                                    fontStyle: _isRecording
-                                                        ? FontStyle.italic
-                                                        : FontStyle.normal,
-                                                    fontWeight: _isRecording
-                                                        ? FontWeight.w500
-                                                        : FontWeight.w400,
-                                                  ),
-                                              decoration: InputDecoration(
-                                                hintText: AppLocalizations.of(
-                                                  context,
-                                                )!.messageHintText,
-                                                hintStyle: TextStyle(
-                                                  color: placeholderColor,
-                                                  fontSize:
-                                                      AppTypography.bodyLarge,
-                                                  fontWeight: _isRecording
-                                                      ? FontWeight.w500
-                                                      : FontWeight.w400,
+                                      child: TweenAnimationBuilder<double>(
+                                        tween: Tween<double>(
+                                          begin: 0.0,
+                                          end: isActive ? 1.0 : 0.0,
+                                        ),
+                                        duration: const Duration(
+                                          milliseconds: 180,
+                                        ),
+                                        curve: Curves.easeOutCubic,
+                                        builder: (context, factor, child) {
+                                          final Color animatedPlaceholder =
+                                              Color.lerp(
+                                                placeholderBase,
+                                                placeholderFocused,
+                                                factor,
+                                              )!;
+                                          final Color animatedTextColor =
+                                              Color.lerp(
+                                                context.conduitTheme.inputText
+                                                    .withValues(alpha: 0.88),
+                                                context.conduitTheme.inputText,
+                                                factor,
+                                              )!;
+
+                                          return TextField(
+                                            controller: _controller,
+                                            focusNode: _focusNode,
+                                            enabled: widget.enabled,
+                                            autofocus: false,
+                                            minLines: 1,
+                                            maxLines: null,
+                                            keyboardType:
+                                                TextInputType.multiline,
+                                            textCapitalization:
+                                                TextCapitalization.sentences,
+                                            textInputAction: sendOnEnter
+                                                ? TextInputAction.send
+                                                : TextInputAction.newline,
+                                            showCursor: true,
+                                            scrollPadding:
+                                                const EdgeInsets.only(
+                                                  bottom: 80,
+                                                ),
+                                            keyboardAppearance: brightness,
+                                            cursorColor: animatedTextColor,
+                                            style: AppTypography.bodyLargeStyle
+                                                .copyWith(
+                                                  color: animatedTextColor,
                                                   fontStyle: _isRecording
                                                       ? FontStyle.italic
                                                       : FontStyle.normal,
+                                                  fontWeight: _isRecording
+                                                      ? FontWeight.w500
+                                                      : FontWeight.w400,
                                                 ),
-                                                filled: false,
-                                                border: InputBorder.none,
-                                                enabledBorder: InputBorder.none,
-                                                focusedBorder: InputBorder.none,
-                                                errorBorder: InputBorder.none,
-                                                disabledBorder:
-                                                    InputBorder.none,
-                                                contentPadding: EdgeInsets.zero,
-                                                isDense: true,
-                                                alignLabelWithHint: true,
+                                            decoration: InputDecoration(
+                                              hintText: AppLocalizations.of(
+                                                context,
+                                              )!.messageHintText,
+                                              hintStyle: TextStyle(
+                                                color: animatedPlaceholder,
+                                                fontSize:
+                                                    AppTypography.bodyLarge,
+                                                fontWeight: _isRecording
+                                                    ? FontWeight.w500
+                                                    : FontWeight.w400,
+                                                fontStyle: _isRecording
+                                                    ? FontStyle.italic
+                                                    : FontStyle.normal,
                                               ),
-                                              onSubmitted: (_) {
-                                                if (sendOnEnter) {
-                                                  _sendMessage();
-                                                }
-                                              },
-                                              onTap: () {
-                                                if (!widget.enabled) return;
-                                                _ensureFocusedIfEnabled();
-                                              },
+                                              filled: true,
+                                              fillColor: shellBackground,
+                                              border: InputBorder.none,
+                                              enabledBorder: InputBorder.none,
+                                              focusedBorder: InputBorder.none,
+                                              errorBorder: InputBorder.none,
+                                              disabledBorder: InputBorder.none,
+                                              contentPadding: EdgeInsets.zero,
+                                              isDense: true,
+                                              alignLabelWithHint: true,
                                             ),
-                                          ),
+                                            onSubmitted: (_) {
+                                              if (sendOnEnter) {
+                                                _sendMessage();
+                                              }
+                                            },
+                                            onTap: () {
+                                              if (!widget.enabled) return;
+                                              _ensureFocusedIfEnabled();
+                                            },
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        Spacing.inputPadding,
+                        0,
+                        Spacing.inputPadding,
+                        Spacing.sm,
+                      ),
+                      child: Row(
+                        children: [
+                          _buildOverflowButton(
+                            tooltip: AppLocalizations.of(context)!.more,
+                          ),
+                          const SizedBox(width: Spacing.xs),
+                          Expanded(
+                            child: quickPills.isEmpty
+                                ? const SizedBox.shrink()
+                                : ClipRect(
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      physics: const BouncingScrollPhysics(),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: _withHorizontalSpacing(
+                                          quickPills,
+                                          Spacing.xxs,
                                         ),
                                       ),
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.only(
-                              left: Spacing.inputPadding,
-                              right: Spacing.inputPadding,
-                              top: Spacing.xs,
-                              bottom: Spacing.sm,
-                            ),
-                            child: Row(
-                              children: [
-                                _buildRoundButton(
-                                  icon: Icons.add,
-                                  onTap: widget.enabled && !_isRecording
-                                      ? _showAttachmentOptions
-                                      : null,
-                                  tooltip: AppLocalizations.of(
-                                    context,
-                                  )!.addAttachment,
-                                  showBackground: false,
-                                  iconSize: IconSize.large + 2.0,
-                                ),
+                          const SizedBox(width: Spacing.sm),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (voiceAvailable) ...[
+                                _buildVoiceButton(voiceAvailable),
                                 const SizedBox(width: Spacing.xs),
-                                // Quick pills: expand to full text when space allows
-                                Expanded(
-                                  child: LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      final double total = constraints.maxWidth;
-                                      final bool showImage =
-                                          imageGenAvailable &&
-                                          showImagePillPref;
-                                      final bool showWeb = showWebPill;
-                                      // Tools button is always shown
-                                      final double toolsWidth =
-                                          TouchTarget.minimum;
-                                      final double gapBeforeTools = Spacing.xs;
-
-                                      final double availableForPills = math.max(
-                                        0.0,
-                                        total - toolsWidth - gapBeforeTools,
-                                      );
-
-                                      // Compose selected pill entries in order
-                                      final List<Map<String, dynamic>> entries =
-                                          [];
-                                      final textStyle =
-                                          AppTypography.labelStyle;
-                                      const double horizontalPadding =
-                                          Spacing.md * 2;
-
-                                      for (final id in selectedQuickPills) {
-                                        if (id == 'web' && showWeb) {
-                                          final lbl = AppLocalizations.of(
-                                            context,
-                                          )!.web;
-                                          final tp = TextPainter(
-                                            text: TextSpan(
-                                              text: lbl,
-                                              style: textStyle,
-                                            ),
-                                            maxLines: 1,
-                                            textDirection: Directionality.of(
-                                              context,
-                                            ),
-                                          )..layout();
-                                          entries.add({
-                                            'id': id,
-                                            'label': lbl,
-                                            'width':
-                                                tp.width + horizontalPadding,
-                                            'widgetBuilder': () => _buildPillButton(
-                                              icon: Platform.isIOS
-                                                  ? CupertinoIcons.search
-                                                  : Icons.search,
-                                              label: lbl,
-                                              isActive: webSearchEnabled,
-                                              onTap:
-                                                  widget.enabled &&
-                                                      !_isRecording
-                                                  ? () {
-                                                      ref
-                                                              .read(
-                                                                webSearchEnabledProvider
-                                                                    .notifier,
-                                                              )
-                                                              .state =
-                                                          !webSearchEnabled;
-                                                    }
-                                                  : null,
-                                            ),
-                                          });
-                                        } else if (id == 'image' && showImage) {
-                                          final lbl = AppLocalizations.of(
-                                            context,
-                                          )!.imageGen;
-                                          final tp = TextPainter(
-                                            text: TextSpan(
-                                              text: lbl,
-                                              style: textStyle,
-                                            ),
-                                            maxLines: 1,
-                                            textDirection: Directionality.of(
-                                              context,
-                                            ),
-                                          )..layout();
-                                          entries.add({
-                                            'id': id,
-                                            'label': lbl,
-                                            'width':
-                                                tp.width + horizontalPadding,
-                                            'widgetBuilder': () => _buildPillButton(
-                                              icon: Platform.isIOS
-                                                  ? CupertinoIcons.photo
-                                                  : Icons.image,
-                                              label: lbl,
-                                              isActive: imageGenEnabled,
-                                              onTap:
-                                                  widget.enabled &&
-                                                      !_isRecording
-                                                  ? () {
-                                                      ref
-                                                              .read(
-                                                                imageGenerationEnabledProvider
-                                                                    .notifier,
-                                                              )
-                                                              .state =
-                                                          !imageGenEnabled;
-                                                    }
-                                                  : null,
-                                            ),
-                                          });
-                                        } else {
-                                          // Tool ID from server
-                                          Tool? tool;
-                                          for (final t in availableTools) {
-                                            if (t.id == id) {
-                                              tool = t;
-                                              break;
-                                            }
-                                          }
-                                          if (tool != null) {
-                                            final lbl = tool.name;
-                                            final tp = TextPainter(
-                                              text: TextSpan(
-                                                text: lbl,
-                                                style: textStyle,
-                                              ),
-                                              maxLines: 1,
-                                              textDirection: Directionality.of(
-                                                context,
-                                              ),
-                                            )..layout();
-                                            final selectedIds = ref.watch(
-                                              selectedToolIdsProvider,
-                                            );
-                                            final isActive = selectedIds
-                                                .contains(id);
-                                            entries.add({
-                                              'id': id,
-                                              'label': lbl,
-                                              'width':
-                                                  tp.width + horizontalPadding,
-                                              'widgetBuilder': () => _buildPillButton(
-                                                icon: Platform.isIOS
-                                                    ? CupertinoIcons.wrench
-                                                    : Icons.build,
-                                                label: lbl,
-                                                isActive: isActive,
-                                                onTap:
-                                                    widget.enabled &&
-                                                        !_isRecording
-                                                    ? () {
-                                                        final current =
-                                                            List<String>.from(
-                                                              ref.read(
-                                                                selectedToolIdsProvider,
-                                                              ),
-                                                            );
-                                                        if (current.contains(
-                                                          id,
-                                                        )) {
-                                                          current.remove(id);
-                                                        } else {
-                                                          current.add(id);
-                                                        }
-                                                        ref
-                                                                .read(
-                                                                  selectedToolIdsProvider
-                                                                      .notifier,
-                                                                )
-                                                                .state =
-                                                            current;
-                                                      }
-                                                    : null,
-                                              ),
-                                            });
-                                          }
-                                        }
-                                      }
-
-                                      // Build rowChildren according to measured widths and available space
-                                      final List<Widget> rowChildren = [];
-                                      if (entries.isEmpty) {
-                                        // no quick pills, will just show tools later
-                                      } else if (entries.length == 1) {
-                                        final e = entries.first;
-                                        final pill =
-                                            e['widgetBuilder']() as Widget;
-                                        final w = (e['width'] as double);
-                                        if (w <= availableForPills) {
-                                          rowChildren.add(pill);
-                                        } else {
-                                          rowChildren.add(
-                                            Flexible(
-                                              fit: FlexFit.loose,
-                                              child: pill,
-                                            ),
-                                          );
-                                        }
-                                      } else {
-                                        // up to 2 based on settings enforcement; if more, take first 2
-                                        final e1 = entries[0];
-                                        final e2 = entries[1];
-                                        final w1 = (e1['width'] as double);
-                                        final w2 = (e2['width'] as double);
-                                        const double gapBetweenPills =
-                                            Spacing.xs;
-                                        final combined =
-                                            w1 + gapBetweenPills + w2;
-                                        final pill1 =
-                                            e1['widgetBuilder']() as Widget;
-                                        final pill2 =
-                                            e2['widgetBuilder']() as Widget;
-
-                                        if (combined <= availableForPills) {
-                                          rowChildren
-                                            ..add(pill1)
-                                            ..add(
-                                              const SizedBox(width: Spacing.xs),
-                                            )
-                                            ..add(pill2);
-                                        } else if (w1 < availableForPills) {
-                                          rowChildren
-                                            ..add(pill1)
-                                            ..add(
-                                              const SizedBox(width: Spacing.xs),
-                                            )
-                                            ..add(
-                                              Flexible(
-                                                fit: FlexFit.loose,
-                                                child: pill2,
-                                              ),
-                                            );
-                                        } else if (w2 < availableForPills) {
-                                          rowChildren
-                                            ..add(
-                                              Flexible(
-                                                fit: FlexFit.loose,
-                                                child: pill1,
-                                              ),
-                                            )
-                                            ..add(
-                                              const SizedBox(width: Spacing.xs),
-                                            )
-                                            ..add(pill2);
-                                        } else {
-                                          final int f1 = math.max(
-                                            1,
-                                            w1.round(),
-                                          );
-                                          final int f2 = math.max(
-                                            1,
-                                            w2.round(),
-                                          );
-                                          rowChildren
-                                            ..add(
-                                              Flexible(
-                                                fit: FlexFit.loose,
-                                                flex: f1,
-                                                child: pill1,
-                                              ),
-                                            )
-                                            ..add(
-                                              const SizedBox(width: Spacing.xs),
-                                            )
-                                            ..add(
-                                              Flexible(
-                                                fit: FlexFit.loose,
-                                                flex: f2,
-                                                child: pill2,
-                                              ),
-                                            );
-                                        }
-                                      }
-
-                                      // Append tools button at the end (always visible)
-                                      rowChildren.add(
-                                        _buildIconButton(
-                                          icon: Platform.isIOS
-                                              ? CupertinoIcons.wrench
-                                              : Icons.build,
-                                          onTap: widget.enabled && !_isRecording
-                                              ? _showUnifiedToolsModal
-                                              : null,
-                                          tooltip: AppLocalizations.of(
-                                            context,
-                                          )!.tools,
-                                          isActive:
-                                              ref
-                                                  .watch(
-                                                    selectedToolIdsProvider,
-                                                  )
-                                                  .isNotEmpty ||
-                                              webSearchEnabled ||
-                                              imageGenEnabled,
-                                        ),
-                                      );
-
-                                      return Row(children: rowChildren);
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: Spacing.sm),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (voiceAvailable) ...[
-                                      _buildVoiceButton(voiceAvailable),
-                                      const SizedBox(width: Spacing.xs),
-                                    ],
-                                    _buildPrimaryButton(
-                                      _hasText,
-                                      isGenerating,
-                                      stopGeneration,
-                                    ),
-                                  ],
-                                ),
-                                // Debug button for testing on-device STT (enable by changing false to true)
-                                // ignore: dead_code
-                                if (false) ...[
-                                  const SizedBox(width: Spacing.sm),
-                                  _buildRoundButton(
-                                    icon: Icons.bug_report,
-                                    onTap: widget.enabled
-                                        ? () async {
-                                            final result = await _voiceService
-                                                .testOnDeviceStt();
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    'STT Test: $result',
-                                                  ),
-                                                  duration: const Duration(
-                                                    seconds: 5,
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                          }
-                                        : null,
-                                    tooltip: 'Test On-Device STT',
-                                  ),
-                                ],
                               ],
-                            ),
+                              _buildPrimaryButton(
+                                _hasText,
+                                isGenerating,
+                                stopGeneration,
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
           ),
-        ],
+        ),
       ),
+    );
+
+    if (brightness == Brightness.dark) {
+      shell = ClipRRect(
+        borderRadius: BorderRadius.circular(_composerRadius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: shell,
+        ),
+      );
+    }
+
+    return Container(
+      color: Colors.transparent,
+      padding: const EdgeInsets.only(
+        left: 0,
+        right: 0,
+        top: Spacing.xs,
+        bottom: 0,
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [shell]),
     );
   }
 
@@ -999,31 +760,28 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     );
   }
 
-  Widget _buildIconButton({
-    required IconData icon,
-    required VoidCallback? onTap,
-    required String tooltip,
-    bool isActive = false,
-  }) {
-    final Color iconColor = widget.enabled
-        ? (isActive
-              ? context.conduitTheme.buttonPrimary
-              : context.conduitTheme.textPrimary.withValues(
-                  alpha: Alpha.strong,
-                ))
-        : context.conduitTheme.textPrimary.withValues(alpha: Alpha.disabled);
-    return Tooltip(
-      message: tooltip,
-      child: IconButton(
-        onPressed: onTap,
-        padding: const EdgeInsets.all(Spacing.xs),
-        constraints: const BoxConstraints(
-          minWidth: TouchTarget.minimum,
-          minHeight: TouchTarget.minimum,
-        ),
-        splashRadius: TouchTarget.minimum / 2,
-        icon: Icon(icon, color: iconColor, size: IconSize.medium),
-      ),
+  List<Widget> _withHorizontalSpacing(List<Widget> children, double gap) {
+    if (children.length <= 1) {
+      return List<Widget>.from(children);
+    }
+    final result = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      result.add(children[i]);
+      if (i != children.length - 1) {
+        result.add(SizedBox(width: gap));
+      }
+    }
+    return result;
+  }
+
+  Widget _buildOverflowButton({required String tooltip}) {
+    final IconData icon = Platform.isIOS
+        ? CupertinoIcons.ellipsis
+        : Icons.more_horiz;
+    return _buildRoundButton(
+      icon: icon,
+      onTap: widget.enabled && !_isRecording ? _showOverflowSheet : null,
+      tooltip: tooltip,
     );
   }
 
@@ -1153,58 +911,56 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     VoidCallback? onTap,
     String? tooltip,
     bool isActive = false,
-    bool showBackground = true,
-    double? iconSize,
   }) {
+    const double buttonSize = TouchTarget.minimum;
+    final VoidCallback? callback = onTap;
+    final bool enabled = callback != null;
+    final Color borderColor = isActive
+        ? context.conduitTheme.buttonPrimary
+        : context.conduitTheme.cardBorder.withValues(
+            alpha: enabled ? Alpha.medium : Alpha.disabled,
+          );
+    final Color fillColor = isActive
+        ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.18)
+        : context.conduitTheme.cardBackground;
+    final Color iconColor = enabled
+        ? (isActive
+              ? context.conduitTheme.buttonPrimaryText
+              : context.conduitTheme.textPrimary.withValues(
+                  alpha: Alpha.strong,
+                ))
+        : context.conduitTheme.textPrimary.withValues(alpha: Alpha.disabled);
+
     return Tooltip(
       message: tooltip ?? '',
-      child: Material(
-        color: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppBorderRadius.xl),
-          side: BorderSide(
-            color: isActive
-                ? context.conduitTheme.buttonPrimary
-                : showBackground
-                ? context.conduitTheme.cardBorder
-                : Colors.transparent,
-            width: BorderWidth.regular,
-          ),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppBorderRadius.xl),
-          onTap: onTap == null
-              ? null
-              : () {
-                  HapticFeedback.selectionClick();
-                  onTap();
-                },
-          child: Container(
-            width: TouchTarget.minimum,
-            height: TouchTarget.minimum,
-            decoration: BoxDecoration(
-              color: isActive
-                  ? context.conduitTheme.buttonPrimary
-                  : showBackground
-                  ? context.conduitTheme.cardBackground
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(AppBorderRadius.xl),
-              boxShadow: (isActive || showBackground)
-                  ? ConduitShadows.button
-                  : null,
+      child: Opacity(
+        opacity: enabled ? 1.0 : Alpha.disabled,
+        child: IgnorePointer(
+          ignoring: !enabled,
+          child: Material(
+            color: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppBorderRadius.round),
+              side: BorderSide(color: borderColor, width: BorderWidth.thin),
             ),
-            child: Icon(
-              icon,
-              size: iconSize ?? IconSize.medium,
-              color: widget.enabled
-                  ? (isActive
-                        ? context.conduitTheme.buttonPrimaryText
-                        : context.conduitTheme.textPrimary.withValues(
-                            alpha: Alpha.strong,
-                          ))
-                  : context.conduitTheme.textPrimary.withValues(
-                      alpha: Alpha.disabled,
-                    ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppBorderRadius.round),
+              onTap: onTap == null
+                  ? null
+                  : () {
+                      HapticFeedback.selectionClick();
+                      onTap();
+                    },
+              child: Container(
+                width: buttonSize,
+                height: buttonSize,
+                decoration: BoxDecoration(
+                  color: fillColor,
+                  borderRadius: BorderRadius.circular(AppBorderRadius.round),
+                  boxShadow: ConduitShadows.button,
+                ),
+                child: Icon(icon, size: IconSize.medium, color: iconColor),
+              ),
             ),
           ),
         ),
@@ -1218,177 +974,248 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     required bool isActive,
     VoidCallback? onTap,
   }) {
+    final bool enabled = onTap != null;
+    final Brightness brightness = Theme.of(context).brightness;
+    final Color baseBackground = context.conduitTheme.cardBackground;
+    final Color background = isActive
+        ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.16)
+        : baseBackground.withValues(
+            alpha: brightness == Brightness.dark ? 0.18 : 0.12,
+          );
+    final Color outline = isActive
+        ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.8)
+        : context.conduitTheme.cardBorder.withValues(alpha: 0.6);
+    final Color contentColor = isActive
+        ? context.conduitTheme.buttonPrimary
+        : context.conduitTheme.textPrimary.withValues(
+            alpha: enabled ? Alpha.strong : Alpha.disabled,
+          );
+
     return Material(
       color: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppBorderRadius.xl),
-        side: BorderSide(
-          color: isActive
-              ? context.conduitTheme.buttonPrimary
-              : context.conduitTheme.cardBorder,
-          width: BorderWidth.regular,
-        ),
-      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppBorderRadius.xl),
+        borderRadius: BorderRadius.circular(AppBorderRadius.input),
         onTap: onTap == null
             ? null
             : () {
                 HapticFeedback.selectionClick();
                 onTap();
               },
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final textStyle = AppTypography.labelStyle.copyWith(
-              color: isActive
-                  ? context.conduitTheme.buttonPrimary
-                  : context.conduitTheme.textPrimary,
-            );
-
-            // Measure natural single-line text width
-            final textPainter = TextPainter(
-              text: TextSpan(text: label, style: textStyle),
-              maxLines: 1,
-              textDirection: Directionality.of(context),
-            )..layout();
-
-            const double horizontalPadding = Spacing.md * 2;
-            final double naturalWidth = textPainter.width + horizontalPadding;
-            final double maxAllowed = constraints.maxWidth.isFinite
-                ? constraints.maxWidth
-                : naturalWidth;
-            final double finalWidth = math.min(naturalWidth, maxAllowed);
-            final bool needsClamp = naturalWidth > maxAllowed;
-
-            final double innerTextWidth = math.max(
-              0.0,
-              finalWidth - horizontalPadding,
-            );
-
-            return Container(
-              width: finalWidth,
-              height: TouchTarget.comfortable, // exact height match
-              padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-              decoration: BoxDecoration(
-                // Subtle primary tint when active for clearer affordance
-                color: isActive
-                    ? context.conduitTheme.buttonPrimary.withValues(
-                        alpha: Alpha.buttonHover + 0.04,
-                      )
-                    : context.conduitTheme.cardBackground,
-                borderRadius: BorderRadius.circular(AppBorderRadius.xl),
-                // No elevation to match modal chips
-                boxShadow: ConduitShadows.button,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.sm,
+            vertical: Spacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(AppBorderRadius.input),
+            border: Border.all(color: outline, width: BorderWidth.thin),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: IconSize.medium, color: contentColor),
+              const SizedBox(width: Spacing.xs),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.labelStyle.copyWith(color: contentColor),
               ),
-              child: Center(
-                child: needsClamp
-                    ? SizedBox(
-                        width: innerTextWidth,
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          softWrap: false,
-                          textAlign: TextAlign.center,
-                          style: textStyle,
-                        ),
-                      )
-                    : Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        softWrap: false,
-                        textAlign: TextAlign.center,
-                        style: textStyle,
-                      ),
-              ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _showAttachmentOptions() {
+  void _showOverflowSheet() {
     HapticFeedback.selectionClick();
     final prevCanRequest = _focusNode.canRequestFocus;
     final wasFocused = _focusNode.hasFocus;
     _focusNode.canRequestFocus = false;
-    // Ensure keyboard is closed before presenting modal
     try {
       FocusScope.of(context).unfocus();
       SystemChannels.textInput.invokeMethod('TextInput.hide');
     } catch (_) {}
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: context.conduitTheme.surfaceBackground,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(AppBorderRadius.bottomSheet),
-          ),
-          border: Border.all(
-            color: context.conduitTheme.dividerColor,
-            width: BorderWidth.regular,
-          ),
-          boxShadow: ConduitShadows.modal,
-        ),
-        padding: const EdgeInsets.all(Spacing.bottomSheetPadding),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar (standardized)
-            const SheetHandle(),
-            const SizedBox(height: Spacing.lg),
+      builder: (modalContext) => Consumer(
+        builder: (innerContext, modalRef, _) {
+          final l10n = AppLocalizations.of(innerContext)!;
+          final theme = innerContext.conduitTheme;
 
-            // Options grid
-            Row(
+          final attachments = <Widget>[
+            _buildOverflowAction(
+              icon: Platform.isIOS ? CupertinoIcons.doc : Icons.attach_file,
+              label: l10n.file,
+              onTap: widget.onFileAttachment == null
+                  ? null
+                  : () {
+                      HapticFeedback.lightImpact();
+                      widget.onFileAttachment!.call();
+                    },
+            ),
+            _buildOverflowAction(
+              icon: Platform.isIOS ? CupertinoIcons.photo : Icons.image,
+              label: l10n.photo,
+              onTap: widget.onImageAttachment == null
+                  ? null
+                  : () {
+                      HapticFeedback.lightImpact();
+                      widget.onImageAttachment!.call();
+                    },
+            ),
+            _buildOverflowAction(
+              icon: Platform.isIOS ? CupertinoIcons.camera : Icons.camera_alt,
+              label: l10n.camera,
+              onTap: widget.onCameraCapture == null
+                  ? null
+                  : () {
+                      HapticFeedback.lightImpact();
+                      widget.onCameraCapture!.call();
+                    },
+            ),
+          ];
+
+          final featureTiles = <Widget>[];
+          final webSearchAvailable = modalRef.watch(webSearchAvailableProvider);
+          final webSearchEnabled = modalRef.watch(webSearchEnabledProvider);
+          if (webSearchAvailable) {
+            featureTiles.add(
+              _buildFeatureToggleTile(
+                icon: Platform.isIOS ? CupertinoIcons.search : Icons.search,
+                title: l10n.webSearch,
+                subtitle: l10n.webSearchDescription,
+                value: webSearchEnabled,
+                onChanged: (next) {
+                  modalRef.read(webSearchEnabledProvider.notifier).state = next;
+                },
+              ),
+            );
+          }
+
+          final imageGenAvailable = modalRef.watch(
+            imageGenerationAvailableProvider,
+          );
+          final imageGenEnabled = modalRef.watch(
+            imageGenerationEnabledProvider,
+          );
+          if (imageGenAvailable) {
+            featureTiles.add(
+              _buildFeatureToggleTile(
+                icon: Platform.isIOS ? CupertinoIcons.photo : Icons.image,
+                title: l10n.imageGeneration,
+                subtitle: l10n.imageGenerationDescription,
+                value: imageGenEnabled,
+                onChanged: (next) {
+                  modalRef.read(imageGenerationEnabledProvider.notifier).state =
+                      next;
+                },
+              ),
+            );
+          }
+
+          final selectedToolIds = modalRef.watch(selectedToolIdsProvider);
+          final toolsAsync = modalRef.watch(toolsListProvider);
+          final Widget toolsSection = toolsAsync.when(
+            data: (tools) {
+              if (tools.isEmpty) {
+                return _buildInfoCard('No tools available');
+              }
+              final tiles = tools.map((tool) {
+                final isSelected = selectedToolIds.contains(tool.id);
+                return _buildToolTile(
+                  tool: tool,
+                  selected: isSelected,
+                  onToggle: () {
+                    final current = List<String>.from(
+                      modalRef.read(selectedToolIdsProvider),
+                    );
+                    if (isSelected) {
+                      current.remove(tool.id);
+                    } else {
+                      current.add(tool.id);
+                    }
+                    modalRef.read(selectedToolIdsProvider.notifier).state =
+                        current;
+                  },
+                );
+              }).toList();
+              return Column(children: _withVerticalSpacing(tiles, Spacing.xxs));
+            },
+            loading: () => Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: BorderWidth.thin),
+              ),
+            ),
+            error: (error, stack) => _buildInfoCard('Failed to load tools'),
+          );
+
+          final bodyChildren = <Widget>[
+            const SheetHandle(),
+            const SizedBox(height: Spacing.md),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: _buildAttachmentOption(
-                    icon: Platform.isIOS
-                        ? CupertinoIcons.doc
-                        : Icons.attach_file,
-                    label: AppLocalizations.of(context)!.file,
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      Navigator.pop(context); // Close modal
-                      widget.onFileAttachment?.call();
-                    },
-                  ),
-                ),
-                const SizedBox(width: Spacing.md),
-                Expanded(
-                  child: _buildAttachmentOption(
-                    icon: Platform.isIOS ? CupertinoIcons.photo : Icons.image,
-                    label: AppLocalizations.of(context)!.photo,
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      Navigator.pop(context); // Close modal
-                      widget.onImageAttachment?.call();
-                    },
-                  ),
-                ),
-                const SizedBox(width: Spacing.md),
-                Expanded(
-                  child: _buildAttachmentOption(
-                    icon: Platform.isIOS
-                        ? CupertinoIcons.camera
-                        : Icons.camera_alt,
-                    label: AppLocalizations.of(context)!.camera,
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      Navigator.pop(context); // Close modal
-                      widget.onCameraCapture?.call();
-                    },
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var i = 0; i < attachments.length; i++) ...[
+                      if (i != 0) const SizedBox(width: Spacing.md),
+                      Expanded(child: attachments[i]),
+                    ],
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: Spacing.lg),
-          ],
-        ),
+          ];
+
+          if (featureTiles.isNotEmpty) {
+            bodyChildren
+              ..add(const SizedBox(height: Spacing.md))
+              ..addAll(_withVerticalSpacing(featureTiles, Spacing.xs));
+          }
+
+          bodyChildren
+            ..add(const SizedBox(height: Spacing.md))
+            ..add(_buildSectionLabel(l10n.tools))
+            ..add(toolsSection);
+
+          return Container(
+            decoration: BoxDecoration(
+              color: theme.surfaceBackground,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(AppBorderRadius.bottomSheet),
+              ),
+              border: Border.all(
+                color: theme.dividerColor,
+                width: BorderWidth.thin,
+              ),
+              boxShadow: ConduitShadows.modal,
+            ),
+            child: SafeArea(
+              top: false,
+              bottom: true,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  Spacing.modalPadding,
+                  Spacing.sm,
+                  Spacing.modalPadding,
+                  Spacing.modalPadding,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: bodyChildren,
+                ),
+              ),
+            ),
+          );
+        },
       ),
     ).whenComplete(() {
       if (mounted) {
@@ -1397,39 +1224,485 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             _ensureFocusedIfEnabled();
-            // Let focus naturally reopen the IME.
           });
         }
       }
     });
   }
 
-  void _showUnifiedToolsModal() {
-    HapticFeedback.selectionClick();
-    final prevCanRequest = _focusNode.canRequestFocus;
-    final wasFocused = _focusNode.hasFocus;
-    _focusNode.canRequestFocus = false;
-    // Ensure keyboard is closed before presenting modal
-    try {
-      FocusScope.of(context).unfocus();
-      SystemChannels.textInput.invokeMethod('TextInput.hide');
-    } catch (_) {}
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const UnifiedToolsModal(),
-    ).whenComplete(() {
-      if (mounted) {
-        _focusNode.canRequestFocus = prevCanRequest;
-        if (wasFocused && widget.enabled) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            _ensureFocusedIfEnabled();
-            // Let focus naturally reopen the IME.
-          });
-        }
+  List<Widget> _withVerticalSpacing(List<Widget> children, double gap) {
+    if (children.length <= 1) {
+      return List<Widget>.from(children);
+    }
+    final spaced = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      spaced.add(children[i]);
+      if (i != children.length - 1) {
+        spaced.add(SizedBox(height: gap));
       }
-    });
+    }
+    return spaced;
+  }
+
+  Widget _buildSectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.xs),
+      child: Text(
+        text,
+        style: AppTypography.labelStyle.copyWith(
+          color: context.conduitTheme.textSecondary.withValues(
+            alpha: Alpha.strong,
+          ),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureToggleTile({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final theme = context.conduitTheme;
+    final brightness = Theme.of(context).brightness;
+    final description = subtitle?.trim() ?? '';
+
+    final Color background = value
+        ? theme.buttonPrimary.withValues(
+            alpha: brightness == Brightness.dark ? 0.28 : 0.16,
+          )
+        : theme.surfaceContainer.withValues(
+            alpha: brightness == Brightness.dark ? 0.32 : 0.12,
+          );
+    final Color borderColor = value
+        ? theme.buttonPrimary.withValues(alpha: 0.7)
+        : theme.cardBorder.withValues(alpha: 0.55);
+
+    return Semantics(
+      button: true,
+      toggled: value,
+      label: title,
+      hint: description.isEmpty ? null : description,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppBorderRadius.input),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onChanged(!value);
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            margin: const EdgeInsets.symmetric(vertical: Spacing.xxs),
+            padding: const EdgeInsets.all(Spacing.md),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(AppBorderRadius.input),
+              border: Border.all(color: borderColor, width: BorderWidth.thin),
+              boxShadow: value ? ConduitShadows.low : const [],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildToolGlyph(icon: icon, selected: value, theme: theme),
+                const SizedBox(width: Spacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: AppTypography.bodyLargeStyle.copyWith(
+                                color: theme.textPrimary,
+                                fontWeight: value
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: Spacing.xs),
+                          _buildTogglePill(isOn: value, theme: theme),
+                        ],
+                      ),
+                      if (description.isNotEmpty) ...[
+                        const SizedBox(height: Spacing.xs),
+                        Text(
+                          description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodySmallStyle.copyWith(
+                            color: theme.textSecondary.withValues(
+                              alpha: Alpha.strong,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolTile({
+    required Tool tool,
+    required bool selected,
+    required VoidCallback onToggle,
+  }) {
+    final theme = context.conduitTheme;
+    final brightness = Theme.of(context).brightness;
+    final description = _toolDescriptionFor(tool);
+    final Color background = selected
+        ? theme.buttonPrimary.withValues(
+            alpha: brightness == Brightness.dark ? 0.28 : 0.16,
+          )
+        : theme.surfaceContainer.withValues(
+            alpha: brightness == Brightness.dark ? 0.32 : 0.12,
+          );
+    final Color borderColor = selected
+        ? theme.buttonPrimary.withValues(alpha: 0.7)
+        : theme.cardBorder.withValues(alpha: 0.55);
+
+    return Semantics(
+      button: true,
+      toggled: selected,
+      label: tool.name,
+      hint: description.isEmpty ? null : description,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppBorderRadius.input),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onToggle();
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            margin: const EdgeInsets.symmetric(vertical: Spacing.xxs),
+            padding: const EdgeInsets.all(Spacing.md),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(AppBorderRadius.input),
+              border: Border.all(color: borderColor, width: BorderWidth.thin),
+              boxShadow: selected ? ConduitShadows.low : const [],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildToolGlyph(
+                  icon: _toolIconFor(tool),
+                  selected: selected,
+                  theme: theme,
+                ),
+                const SizedBox(width: Spacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              tool.name,
+                              style: AppTypography.bodyLargeStyle.copyWith(
+                                color: theme.textPrimary,
+                                fontWeight: selected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: Spacing.xs),
+                          _buildTogglePill(isOn: selected, theme: theme),
+                        ],
+                      ),
+                      if (description.isNotEmpty) ...[
+                        const SizedBox(height: Spacing.xs),
+                        Text(
+                          description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodySmallStyle.copyWith(
+                            color: theme.textSecondary.withValues(
+                              alpha: Alpha.strong,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolGlyph({
+    required IconData icon,
+    required bool selected,
+    required ConduitThemeExtension theme,
+  }) {
+    final Color accentStart = theme.buttonPrimary.withValues(
+      alpha: selected ? Alpha.active : Alpha.hover,
+    );
+    final Color accentEnd = theme.buttonPrimary.withValues(
+      alpha: selected ? Alpha.highlight : Alpha.focus,
+    );
+    final Color iconColor = selected
+        ? theme.buttonPrimaryText
+        : theme.iconPrimary.withValues(alpha: Alpha.strong);
+
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [accentStart, accentEnd],
+        ),
+      ),
+      child: Icon(icon, color: iconColor, size: IconSize.modal),
+    );
+  }
+
+  String _toolDescriptionFor(Tool tool) {
+    final metaDescription = _extractMetaDescription(tool.meta);
+    if (metaDescription != null && metaDescription.isNotEmpty) {
+      return metaDescription;
+    }
+
+    final custom = tool.description?.trim();
+    if (custom != null && custom.isNotEmpty) {
+      return custom;
+    }
+
+    final name = tool.name.toLowerCase();
+    if (name.contains('search') || name.contains('browse')) {
+      return 'Search the web for fresh context to improve answers.';
+    }
+    if (name.contains('image') ||
+        name.contains('vision') ||
+        name.contains('media')) {
+      return 'Understand or generate imagery alongside your conversation.';
+    }
+    if (name.contains('code') ||
+        name.contains('python') ||
+        name.contains('notebook')) {
+      return 'Execute code snippets and return computed results inline.';
+    }
+    if (name.contains('calc') || name.contains('math')) {
+      return 'Perform precise math and calculations on demand.';
+    }
+    if (name.contains('file') || name.contains('document')) {
+      return 'Access and summarize your uploaded files during chat.';
+    }
+    if (name.contains('api') || name.contains('request')) {
+      return 'Trigger API requests and bring external data into the chat.';
+    }
+    return 'Enhance responses with specialized capabilities from this tool.';
+  }
+
+  String? _extractMetaDescription(Map<String, dynamic>? meta) {
+    if (meta == null || meta.isEmpty) return null;
+    final value = meta['description'];
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isNotEmpty) return trimmed;
+    }
+    return null;
+  }
+
+  Widget _buildTogglePill({
+    required bool isOn,
+    required ConduitThemeExtension theme,
+  }) {
+    final Color trackColor = isOn
+        ? theme.buttonPrimary.withValues(alpha: 0.9)
+        : theme.cardBorder.withValues(alpha: 0.5);
+    final Color thumbColor = isOn
+        ? theme.buttonPrimaryText
+        : theme.surfaceBackground.withValues(alpha: 0.9);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      width: 42,
+      height: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppBorderRadius.round),
+        color: trackColor,
+      ),
+      alignment: isOn ? Alignment.centerRight : Alignment.centerLeft,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        width: 18,
+        height: 18,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: thumbColor,
+          boxShadow: [
+            BoxShadow(
+              color: theme.buttonPrimary.withValues(alpha: 0.25),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _toolIconFor(Tool tool) {
+    final name = tool.name.toLowerCase();
+    if (name.contains('image') || name.contains('vision')) {
+      return Platform.isIOS ? CupertinoIcons.photo : Icons.image;
+    }
+    if (name.contains('code') || name.contains('python')) {
+      return Platform.isIOS
+          ? CupertinoIcons.chevron_left_slash_chevron_right
+          : Icons.code;
+    }
+    if (name.contains('calculator') || name.contains('math')) {
+      return Icons.calculate;
+    }
+    if (name.contains('file') || name.contains('document')) {
+      return Platform.isIOS ? CupertinoIcons.doc : Icons.description;
+    }
+    if (name.contains('api') || name.contains('request')) {
+      return Icons.cloud;
+    }
+    if (name.contains('search')) {
+      return Platform.isIOS ? CupertinoIcons.search : Icons.search;
+    }
+    return Platform.isIOS ? CupertinoIcons.square_grid_2x2 : Icons.extension;
+  }
+
+  Widget _buildInfoCard(String message) {
+    final theme = context.conduitTheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(Spacing.md),
+      decoration: BoxDecoration(
+        color: theme.cardBackground,
+        borderRadius: BorderRadius.circular(AppBorderRadius.input),
+        border: Border.all(
+          color: theme.cardBorder.withValues(alpha: 0.6),
+          width: BorderWidth.thin,
+        ),
+      ),
+      child: Text(
+        message,
+        style: AppTypography.bodyMediumStyle.copyWith(
+          color: theme.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOverflowAction({
+    required IconData icon,
+    required String label,
+    VoidCallback? onTap,
+  }) {
+    final theme = context.conduitTheme;
+    final brightness = Theme.of(context).brightness;
+    final VoidCallback? callback = onTap;
+    final bool enabled = callback != null;
+    final Color iconColor = enabled ? theme.buttonPrimary : theme.iconDisabled;
+    final Color textColor = enabled
+        ? theme.textPrimary
+        : theme.textPrimary.withValues(alpha: Alpha.disabled);
+    final Color background = theme.surfaceContainer.withValues(
+      alpha: brightness == Brightness.dark ? 0.45 : 0.92,
+    );
+    final Color borderColor = theme.cardBorder.withValues(
+      alpha: enabled ? 0.5 : 0.25,
+    );
+    final Color accent = theme.buttonPrimary.withValues(
+      alpha: enabled ? Alpha.selected : Alpha.hover,
+    );
+
+    return Opacity(
+      opacity: enabled ? 1.0 : Alpha.disabled,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppBorderRadius.card),
+          onTap: callback == null
+              ? null
+              : () {
+                  Navigator.of(context).pop();
+                  Future.microtask(callback);
+                },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.sm,
+              vertical: Spacing.md,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppBorderRadius.card),
+              border: Border.all(color: borderColor, width: BorderWidth.thin),
+              color: background,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        accent,
+                        theme.buttonPrimary.withValues(
+                          alpha: enabled ? Alpha.highlight : Alpha.hover,
+                        ),
+                      ],
+                    ),
+                  ),
+                  child: Icon(icon, color: iconColor, size: IconSize.modal),
+                ),
+                const SizedBox(height: Spacing.sm),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.bodySmallStyle.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   // --- Inline Voice Input ---
@@ -1518,54 +1791,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         content: Text(message),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
-  Widget _buildAttachmentOption({
-    required IconData icon,
-    required String label,
-    VoidCallback? onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-        onTap: onTap == null
-            ? null
-            : () {
-                HapticFeedback.selectionClick();
-                onTap();
-              },
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: context.conduitTheme.cardBackground,
-                borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-                border: Border.all(
-                  color: context.conduitTheme.cardBorder,
-                  width: BorderWidth.regular,
-                ),
-              ),
-              child: Icon(
-                icon,
-                color: context.conduitTheme.iconPrimary,
-                size: IconSize.xl,
-              ),
-            ),
-            const SizedBox(height: Spacing.sm),
-            Text(
-              label,
-              style: AppTypography.labelStyle.copyWith(
-                color: context.conduitTheme.textPrimary,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
