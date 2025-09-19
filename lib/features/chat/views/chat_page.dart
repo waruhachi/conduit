@@ -40,6 +40,7 @@ import '../../../shared/widgets/conduit_components.dart';
 import '../../../shared/widgets/middle_ellipsis_text.dart';
 import '../../../shared/widgets/modal_safe_area.dart';
 import '../../../core/services/settings_service.dart';
+import '../../../shared/utils/conversation_context_menu.dart';
 // Removed unused PlatformUtils import
 import '../../../core/services/platform_service.dart' as ps;
 import 'package:flutter/gestures.dart' show DragStartBehavior;
@@ -913,6 +914,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     // Use select to watch only connectivity status to reduce rebuilds
     final isOnline = ref.watch(isOnlineProvider.select((status) => status));
 
@@ -923,6 +925,28 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     // Watch reviewer mode and auto-select model if needed
     final isReviewerMode = ref.watch(reviewerModeProvider);
+
+    final omitProviderInModelName = ref.watch(
+      appSettingsProvider.select(
+        (settings) => settings.omitProviderInModelName,
+      ),
+    );
+    final conversationTitle = ref.watch(
+      activeConversationProvider.select((conv) => conv?.title),
+    );
+    final displayConversationTitle = (() {
+      final trimmed = conversationTitle?.trim();
+      if (trimmed != null && trimmed.isNotEmpty) {
+        return trimmed;
+      }
+      return l10n.newChat;
+    })();
+    final formattedModelName = selectedModel != null
+        ? _formatModelDisplayName(
+            selectedModel.name,
+            omitProvider: omitProviderInModelName,
+          )
+        : null;
 
     // Keyboard visibility
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
@@ -1023,7 +1047,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             elevation: Elevation.none,
             surfaceTintColor: Colors.transparent,
             shadowColor: Colors.transparent,
-            toolbarHeight: kToolbarHeight - 8,
+            toolbarHeight: kToolbarHeight + 8,
             centerTitle: true,
             titleSpacing: 0.0,
             leading: _isSelectionMode
@@ -1071,13 +1095,35 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         (models) => _showModelDropdown(context, ref, models),
                       );
                     },
+                    onLongPress: () {
+                      final conversation = ref.read(activeConversationProvider);
+                      if (conversation == null) return;
+                      showConversationContextMenu(
+                        context: context,
+                        ref: ref,
+                        conversation: conversation,
+                      );
+                    },
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        MiddleEllipsisText(
+                          displayConversationTitle,
+                          style: AppTypography.headlineSmallStyle.copyWith(
+                            color: context.conduitTheme.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 18,
+                            height: 1.3,
+                          ),
+                          textAlign: TextAlign.center,
+                          semanticsLabel: displayConversationTitle,
+                        ),
+                        const SizedBox(height: Spacing.xs),
                         Transform.translate(
                           offset: const Offset(0, 0),
                           child: SizedBox(
-                            height: 28,
+                            height: 24,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min,
@@ -1114,28 +1160,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                 ),
                                 const SizedBox(width: Spacing.xs),
                                 Flexible(
-                                  child: Builder(
-                                    builder: (context) {
-                                      final omitProvider = ref
-                                          .watch(appSettingsProvider)
-                                          .omitProviderInModelName;
-                                      final label = _formatModelDisplayName(
-                                        selectedModel.name,
-                                        omitProvider: omitProvider,
-                                      );
-                                      return MiddleEllipsisText(
-                                        label,
-                                        style: AppTypography.headlineSmallStyle
-                                            .copyWith(
-                                              color: context
-                                                  .conduitTheme
-                                                  .textPrimary,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                        textAlign: TextAlign.center,
-                                        semanticsLabel: label,
-                                      );
-                                    },
+                                  child: MiddleEllipsisText(
+                                    formattedModelName!,
+                                    style: AppTypography.small.copyWith(
+                                      color: context.conduitTheme.textSecondary,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.2,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                    semanticsLabel: formattedModelName,
                                   ),
                                 ),
                                 const SizedBox(width: Spacing.xs),
@@ -1169,7 +1202,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                             ),
                           ),
                         ),
-                        if (ref.watch(reviewerModeProvider))
+                        if (isReviewerMode)
                           Padding(
                             padding: const EdgeInsets.only(top: 2.0),
                             child: Container(
@@ -1210,13 +1243,35 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         (models) => _showModelDropdown(context, ref, models),
                       );
                     },
+                    onLongPress: () {
+                      final conversation = ref.read(activeConversationProvider);
+                      if (conversation == null) return;
+                      showConversationContextMenu(
+                        context: context,
+                        ref: ref,
+                        conversation: conversation,
+                      );
+                    },
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        MiddleEllipsisText(
+                          displayConversationTitle,
+                          style: AppTypography.headlineSmallStyle.copyWith(
+                            color: context.conduitTheme.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 18,
+                            height: 1.3,
+                          ),
+                          textAlign: TextAlign.center,
+                          semanticsLabel: displayConversationTitle,
+                        ),
+                        const SizedBox(height: Spacing.xs),
                         Transform.translate(
                           offset: const Offset(0, 0),
                           child: SizedBox(
-                            height: 28,
+                            height: 24,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min,
@@ -1253,17 +1308,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                 ),
                                 const SizedBox(width: Spacing.xs),
                                 Flexible(
-                                  child: Text(
-                                    'Choose Model',
-                                    style: AppTypography.headlineSmallStyle
-                                        .copyWith(
-                                          color:
-                                              context.conduitTheme.textPrimary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                  child: MiddleEllipsisText(
+                                    l10n.chooseModel,
+                                    style: AppTypography.small.copyWith(
+                                      color: context.conduitTheme.textSecondary,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.2,
+                                    ),
                                     textAlign: TextAlign.center,
+                                    semanticsLabel: l10n.chooseModel,
                                   ),
                                 ),
                                 const SizedBox(width: Spacing.xs),
@@ -1297,7 +1350,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                             ),
                           ),
                         ),
-                        if (ref.watch(reviewerModeProvider))
+                        if (isReviewerMode)
                           Padding(
                             padding: const EdgeInsets.only(top: 2.0),
                             child: Container(

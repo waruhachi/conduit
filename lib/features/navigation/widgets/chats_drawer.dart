@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../shared/theme/theme_extensions.dart';
-import '../../../shared/widgets/modal_safe_area.dart';
 import '../../chat/providers/chat_providers.dart' as chat;
 // import '../../files/views/files_page.dart';
 import '../../profile/views/profile_page.dart';
@@ -17,6 +16,7 @@ import '../../../shared/widgets/themed_dialogs.dart';
 import '../../../core/auth/auth_state_manager.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import '../../../core/utils/user_display_name.dart';
+import '../../../shared/utils/conversation_context_menu.dart';
 
 class ChatsDrawer extends ConsumerStatefulWidget {
   const ChatsDrawer({super.key});
@@ -798,62 +798,31 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     String folderId,
     String folderName,
   ) {
-    final theme = context.conduitTheme;
-    // Ensure consistent modal padding/insets across the app
-    // ignore: unnecessary_import
+    final l10n = AppLocalizations.of(context)!;
 
-    showModalBottomSheet(
+    showConduitContextMenu(
       context: context,
-      backgroundColor: theme.surfaceBackground,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppBorderRadius.lg),
+      actions: [
+        ConduitContextMenuAction(
+          cupertinoIcon: CupertinoIcons.pencil,
+          materialIcon: Icons.edit_rounded,
+          label: l10n.rename,
+          onBeforeClose: () => HapticFeedback.selectionClick(),
+          onSelected: () async {
+            await _renameFolder(context, folderId, folderName);
+          },
         ),
-      ),
-      builder: (sheetContext) {
-        return ModalSheetSafeArea(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.modalPadding,
-            vertical: Spacing.modalPadding,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(
-                  Platform.isIOS ? CupertinoIcons.pencil : Icons.edit_rounded,
-                  color: theme.iconPrimary,
-                ),
-                title: Text(
-                  AppLocalizations.of(context)!.rename,
-                  style: TextStyle(color: theme.textPrimary),
-                ),
-                onTap: () async {
-                  HapticFeedback.selectionClick();
-                  Navigator.pop(sheetContext);
-                  await _renameFolder(context, folderId, folderName);
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: Icon(
-                  Platform.isIOS ? CupertinoIcons.delete : Icons.delete_rounded,
-                  color: theme.error,
-                ),
-                title: Text(
-                  AppLocalizations.of(context)!.delete,
-                  style: TextStyle(color: theme.error),
-                ),
-                onTap: () async {
-                  HapticFeedback.mediumImpact();
-                  Navigator.pop(sheetContext);
-                  await _confirmAndDeleteFolder(context, folderId, folderName);
-                },
-              ),
-            ],
-          ),
-        );
-      },
+        ConduitContextMenuAction(
+          cupertinoIcon: CupertinoIcons.delete,
+          materialIcon: Icons.delete_rounded,
+          label: l10n.delete,
+          destructive: true,
+          onBeforeClose: () => HapticFeedback.mediumImpact(),
+          onSelected: () async {
+            await _confirmAndDeleteFolder(context, folderId, folderName);
+          },
+        ),
+      ],
     );
   }
 
@@ -1017,8 +986,11 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           : () => _selectConversation(context, conv.id),
       onLongPress: null,
       onMorePressed: () {
-        HapticFeedback.selectionClick();
-        _showConversationContextMenu(context, conv);
+        showConversationContextMenu(
+          context: context,
+          ref: ref,
+          conversation: conv,
+        );
       },
     );
 
@@ -1321,209 +1293,6 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       ),
     );
   }
-
-  void _showConversationContextMenu(BuildContext context, dynamic conv) {
-    final theme = context.conduitTheme;
-    final bool isPinned = conv.pinned == true;
-    final bool isArchived = conv.archived == true;
-
-    HapticFeedback.selectionClick();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: theme.surfaceBackground,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppBorderRadius.lg),
-        ),
-      ),
-      builder: (sheetContext) {
-        return ModalSheetSafeArea(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.modalPadding,
-            vertical: Spacing.modalPadding,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(
-                  isPinned
-                      ? (Platform.isIOS
-                            ? CupertinoIcons.pin_slash
-                            : Icons.push_pin_outlined)
-                      : (Platform.isIOS
-                            ? CupertinoIcons.pin_fill
-                            : Icons.push_pin_rounded),
-                  color: theme.iconPrimary,
-                ),
-                title: Text(
-                  isPinned
-                      ? AppLocalizations.of(context)!.unpin
-                      : AppLocalizations.of(context)!.pin,
-                  style: TextStyle(color: theme.textPrimary),
-                ),
-                onTap: () async {
-                  HapticFeedback.lightImpact();
-                  Navigator.pop(sheetContext);
-                  final pinErrorMessage = AppLocalizations.of(
-                    context,
-                  )!.failedToUpdatePin;
-                  try {
-                    await chat.pinConversation(ref, conv.id, !isPinned);
-                  } catch (_) {
-                    if (!mounted) return;
-                    UiUtils.showMessage(
-                      this.context,
-                      pinErrorMessage,
-                      isError: true,
-                    );
-                  }
-                },
-              ),
-              ListTile(
-                leading: Icon(
-                  isArchived
-                      ? (Platform.isIOS
-                            ? CupertinoIcons.archivebox_fill
-                            : Icons.unarchive_rounded)
-                      : (Platform.isIOS
-                            ? CupertinoIcons.archivebox
-                            : Icons.archive_rounded),
-                  color: theme.iconPrimary,
-                ),
-                title: Text(
-                  isArchived
-                      ? AppLocalizations.of(context)!.unarchive
-                      : AppLocalizations.of(context)!.archive,
-                  style: TextStyle(color: theme.textPrimary),
-                ),
-                onTap: () async {
-                  HapticFeedback.lightImpact();
-                  Navigator.pop(sheetContext);
-                  final archiveErrorMessage = AppLocalizations.of(
-                    context,
-                  )!.failedToUpdateArchive;
-                  try {
-                    await chat.archiveConversation(ref, conv.id, !isArchived);
-                  } catch (_) {
-                    if (!mounted) return;
-                    UiUtils.showMessage(
-                      this.context,
-                      archiveErrorMessage,
-                      isError: true,
-                    );
-                  }
-                },
-              ),
-              ListTile(
-                leading: Icon(
-                  Platform.isIOS ? CupertinoIcons.pencil : Icons.edit_rounded,
-                  color: theme.iconPrimary,
-                ),
-                title: Text(
-                  AppLocalizations.of(context)!.rename,
-                  style: TextStyle(color: theme.textPrimary),
-                ),
-                onTap: () async {
-                  HapticFeedback.selectionClick();
-                  Navigator.pop(sheetContext);
-                  await _renameConversation(context, conv.id, conv.title ?? '');
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: Icon(
-                  Platform.isIOS ? CupertinoIcons.delete : Icons.delete_rounded,
-                  color: theme.error,
-                ),
-                title: Text(
-                  AppLocalizations.of(context)!.delete,
-                  style: TextStyle(color: theme.error),
-                ),
-                onTap: () async {
-                  HapticFeedback.mediumImpact();
-                  Navigator.pop(sheetContext);
-                  await _confirmAndDeleteConversation(context, conv.id);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _renameConversation(
-    BuildContext context,
-    String conversationId,
-    String currentTitle,
-  ) async {
-    final l10n = AppLocalizations.of(context)!;
-    final newName = await ThemedDialogs.promptTextInput(
-      context,
-      title: l10n.renameChat,
-      hintText: l10n.enterChatName,
-      initialValue: currentTitle,
-      confirmText: l10n.save,
-      cancelText: l10n.cancel,
-    );
-    if (!mounted) return;
-    if (newName == null) return;
-    if (newName.isEmpty || newName == currentTitle) return;
-
-    final renameError = l10n.failedToRenameChat;
-    try {
-      final api = ref.read(apiServiceProvider);
-      if (api == null) throw Exception('No API service');
-      await api.updateConversation(conversationId, title: newName);
-      HapticFeedback.selectionClick();
-      // Reflect changes
-      ref.invalidate(conversationsProvider);
-      final active = ref.read(activeConversationProvider);
-      if (active?.id == conversationId) {
-        ref.read(activeConversationProvider.notifier).state = active!.copyWith(
-          title: newName,
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-      UiUtils.showMessage(this.context, renameError, isError: true);
-    }
-  }
-
-  Future<void> _confirmAndDeleteConversation(
-    BuildContext context,
-    String conversationId,
-  ) async {
-    final l10n = AppLocalizations.of(context)!;
-    final confirmed = await ThemedDialogs.confirm(
-      context,
-      title: l10n.deleteChatTitle,
-      message: l10n.deleteChatMessage,
-      confirmText: l10n.delete,
-      isDestructive: true,
-    );
-    if (!mounted) return;
-    if (!confirmed) return;
-
-    final deleteError = l10n.failedToDeleteChat;
-    try {
-      final api = ref.read(apiServiceProvider);
-      if (api == null) throw Exception('No API service');
-      await api.deleteConversation(conversationId);
-      HapticFeedback.mediumImpact();
-      // Clear if deleting active
-      final active = ref.read(activeConversationProvider);
-      if (active?.id == conversationId) {
-        ref.read(activeConversationProvider.notifier).state = null;
-        ref.read(chat.chatMessagesProvider.notifier).clearMessages();
-      }
-      ref.invalidate(conversationsProvider);
-    } catch (_) {
-      if (!mounted) return;
-      UiUtils.showMessage(this.context, deleteError, isError: true);
-    }
-  }
 }
 
 class _DragConversationData {
@@ -1596,7 +1365,7 @@ class _ConversationTileContent extends StatelessWidget {
     final theme = context.conduitTheme;
     final textStyle = AppTypography.standard.copyWith(
       color: theme.textPrimary,
-      fontWeight: FontWeight.w400,
+      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
       height: 1.4,
     );
 
@@ -1696,15 +1465,22 @@ class _ConversationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.conduitTheme;
-    final borderColor = selected
-        ? theme.navigationSelected
-        : pinned
-        ? theme.navigationSelected.withValues(alpha: 0.30)
-        : theme.surfaceContainerHighest.withValues(alpha: 0.40);
-    final backgroundColor = theme.surfaceContainer;
-    final highlightColor = theme.navigationSelectedBackground.withValues(
-      alpha: 0.45,
-    );
+    final brightness = Theme.of(context).brightness;
+    final borderRadius = BorderRadius.circular(AppBorderRadius.navigation);
+    final Color background = selected
+        ? theme.buttonPrimary.withValues(
+            alpha: brightness == Brightness.dark ? 0.28 : 0.16,
+          )
+        : theme.surfaceContainer;
+    final Color borderColor;
+    if (selected) {
+      borderColor = theme.buttonPrimary.withValues(alpha: 0.7);
+    } else if (pinned) {
+      borderColor = theme.buttonPrimary.withValues(alpha: 0.35);
+    } else {
+      borderColor = theme.surfaceContainerHighest.withValues(alpha: 0.40);
+    }
+    final List<BoxShadow> shadow = selected ? ConduitShadows.low : const [];
 
     Color? overlayForStates(Set<WidgetState> states) {
       if (states.contains(WidgetState.pressed)) {
@@ -1721,13 +1497,10 @@ class _ConversationTile extends StatelessWidget {
       selected: selected,
       button: true,
       child: Material(
-        color: backgroundColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.zero,
-          side: BorderSide(color: borderColor, width: BorderWidth.thin),
-        ),
+        color: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: borderRadius),
         child: InkWell(
-          borderRadius: BorderRadius.zero,
+          borderRadius: borderRadius,
           onTap: isLoading ? null : onTap,
           onLongPress: onLongPress,
           overlayColor: WidgetStateProperty.resolveWith(overlayForStates),
@@ -1735,8 +1508,10 @@ class _ConversationTile extends StatelessWidget {
             duration: const Duration(milliseconds: 160),
             curve: Curves.easeOut,
             decoration: BoxDecoration(
-              color: selected ? highlightColor : Colors.transparent,
-              borderRadius: BorderRadius.zero,
+              color: background,
+              borderRadius: borderRadius,
+              border: Border.all(color: borderColor, width: BorderWidth.thin),
+              boxShadow: shadow,
             ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(
