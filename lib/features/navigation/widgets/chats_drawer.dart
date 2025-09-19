@@ -70,12 +70,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
 
   Widget _buildRefreshableScrollable({required List<Widget> children}) {
     // Common padding used in both scrollable variants
-    const padding = EdgeInsets.fromLTRB(
-      Spacing.md,
-      Spacing.sm,
-      Spacing.md,
-      Spacing.md,
-    );
+    const padding = EdgeInsets.fromLTRB(0, Spacing.sm, 0, Spacing.md);
 
     if (Platform.isIOS) {
       // Use Cupertino-style pull-to-refresh on iOS
@@ -187,20 +182,21 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       controller: _searchController,
       focusNode: _searchFocusNode,
       onChanged: (_) => _onSearchChanged(),
-      style: TextStyle(
-        color: theme.inputText,
-        fontSize: AppTypography.bodyMedium,
-      ),
+      style: AppTypography.standard.copyWith(color: theme.inputText),
       decoration: InputDecoration(
+        isDense: true,
         hintText: AppLocalizations.of(context)!.searchConversations,
-        hintStyle: TextStyle(
+        hintStyle: AppTypography.standard.copyWith(
           color: theme.inputPlaceholder,
-          fontSize: AppTypography.bodyMedium,
         ),
         prefixIcon: Icon(
           Platform.isIOS ? CupertinoIcons.search : Icons.search,
           color: theme.iconSecondary,
           size: IconSize.input,
+        ),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: TouchTarget.minimum,
+          minHeight: TouchTarget.minimum,
         ),
         suffixIcon: _query.isNotEmpty
             ? IconButton(
@@ -218,6 +214,10 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                 ),
               )
             : null,
+        suffixIconConstraints: const BoxConstraints(
+          minWidth: TouchTarget.minimum,
+          minHeight: TouchTarget.minimum,
+        ),
         filled: true,
         fillColor: theme.inputBackground,
         border: OutlineInputBorder(
@@ -234,7 +234,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: Spacing.md,
-          vertical: Spacing.md,
+          vertical: Spacing.xs,
         ),
       ),
     );
@@ -296,9 +296,15 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
 
           final children = <Widget>[
             if (pinned.isNotEmpty) ...[
-              _buildSectionHeader(
-                AppLocalizations.of(context)!.pinned,
-                pinned.length,
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: Spacing.md,
+                  right: Spacing.md,
+                ),
+                child: _buildSectionHeader(
+                  AppLocalizations.of(context)!.pinned,
+                  pinned.length,
+                ),
               ),
               const SizedBox(height: Spacing.xs),
               ...pinned.map((conv) => _buildTileFor(conv)),
@@ -306,7 +312,13 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
             ],
 
             // Folders section (shown even if empty)
-            _buildFoldersSectionHeader(),
+            Padding(
+              padding: const EdgeInsets.only(
+                left: Spacing.md,
+                right: Spacing.md,
+              ),
+              child: _buildFoldersSectionHeader(),
+            ),
             const SizedBox(height: Spacing.xs),
             if (_isDragging && _draggingHasFolder) ...[
               _buildUnfileDropTarget(),
@@ -356,9 +368,15 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
             const SizedBox(height: Spacing.md),
 
             if (regular.isNotEmpty) ...[
-              _buildSectionHeader(
-                AppLocalizations.of(context)!.recent,
-                regular.length,
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: Spacing.md,
+                  right: Spacing.md,
+                ),
+                child: _buildSectionHeader(
+                  AppLocalizations.of(context)!.recent,
+                  regular.length,
+                ),
               ),
               const SizedBox(height: Spacing.xs),
               ...regular.map(_buildTileFor),
@@ -366,7 +384,10 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
 
             if (archived.isNotEmpty) ...[
               const SizedBox(height: Spacing.md),
-              _buildArchivedSection(archived),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+                child: _buildArchivedSection(archived),
+              ),
             ],
           ];
           return _buildRefreshableScrollable(children: children);
@@ -434,19 +455,28 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         final archived = list.where((c) => c.archived == true).toList();
 
         final children = <Widget>[
-          _buildSectionHeader('Results', list.length),
+          Padding(
+            padding: const EdgeInsets.only(left: Spacing.md, right: Spacing.md),
+            child: _buildSectionHeader('Results', list.length),
+          ),
           const SizedBox(height: Spacing.xs),
           if (pinned.isNotEmpty) ...[
-            _buildSectionHeader(
-              AppLocalizations.of(context)!.pinned,
-              pinned.length,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+              child: _buildSectionHeader(
+                AppLocalizations.of(context)!.pinned,
+                pinned.length,
+              ),
             ),
             const SizedBox(height: Spacing.xs),
             ...pinned.map((conv) => _buildTileFor(conv)),
             const SizedBox(height: Spacing.md),
           ],
           // Folders section (shown even if empty)
-          _buildFoldersSectionHeader(),
+          Padding(
+            padding: const EdgeInsets.only(left: Spacing.md, right: Spacing.md),
+            child: _buildFoldersSectionHeader(),
+          ),
           const SizedBox(height: Spacing.xs),
           if (_isDragging && _draggingHasFolder) ...[
             _buildUnfileDropTarget(),
@@ -491,16 +521,22 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
               ),
           const SizedBox(height: Spacing.md),
           if (regular.isNotEmpty) ...[
-            _buildSectionHeader(
-              AppLocalizations.of(context)!.recent,
-              regular.length,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+              child: _buildSectionHeader(
+                AppLocalizations.of(context)!.recent,
+                regular.length,
+              ),
             ),
             const SizedBox(height: Spacing.xs),
             ...regular.map(_buildTileFor),
           ],
           if (archived.isNotEmpty) ...[
             const SizedBox(height: Spacing.md),
-            _buildArchivedSection(archived),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+              child: _buildArchivedSection(archived),
+            ),
           ],
         ];
         return _buildRefreshableScrollable(children: children);
@@ -645,21 +681,31 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         }
       },
       builder: (context, candidateData, rejectedData) {
+        final baseColor = theme.surfaceContainer;
+        final hoverColor = theme.buttonPrimary.withValues(alpha: 0.08);
+        final borderColor = isHover
+            ? theme.buttonPrimary.withValues(alpha: 0.60)
+            : theme.surfaceContainerHighest.withValues(alpha: 0.40);
+
+        Color? overlayForStates(Set<WidgetState> states) {
+          if (states.contains(WidgetState.pressed)) {
+            return theme.buttonPrimary.withValues(alpha: Alpha.buttonPressed);
+          }
+          if (states.contains(WidgetState.hovered) ||
+              states.contains(WidgetState.focused)) {
+            return theme.buttonPrimary.withValues(alpha: Alpha.hover);
+          }
+          return Colors.transparent;
+        }
+
         return Material(
-          color: isHover
-              ? theme.buttonPrimary.withValues(alpha: 0.08)
-              : theme.surfaceContainer.withValues(alpha: 0.05),
+          color: isHover ? hoverColor : baseColor,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppBorderRadius.md),
-            side: BorderSide(
-              color: isHover
-                  ? theme.buttonPrimary.withValues(alpha: 0.6)
-                  : theme.dividerColor,
-              width: BorderWidth.regular,
-            ),
+            borderRadius: BorderRadius.zero,
+            side: BorderSide(color: borderColor, width: BorderWidth.thin),
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(AppBorderRadius.md),
+            borderRadius: BorderRadius.zero,
             onTap: () {
               final current = {...ref.read(_expandedFoldersProvider)};
               current[folderId] = !isExpanded;
@@ -669,53 +715,75 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
               HapticFeedback.selectionClick();
               _showFolderContextMenu(context, folderId, name);
             },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.md,
-                vertical: Spacing.sm,
+            overlayColor: WidgetStateProperty.resolveWith(overlayForStates),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: TouchTarget.listItem,
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    isExpanded
-                        ? (Platform.isIOS
-                              ? CupertinoIcons.folder_open
-                              : Icons.folder_open)
-                        : (Platform.isIOS
-                              ? CupertinoIcons.folder
-                              : Icons.folder),
-                    color: theme.iconPrimary,
-                    size: IconSize.listItem,
-                  ),
-                  const SizedBox(width: Spacing.sm),
-                  Expanded(
-                    child: Text(
-                      name,
-                      style: AppTypography.standard.copyWith(
-                        color: theme.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    '$count',
-                    style: AppTypography.bodySmallStyle.copyWith(
-                      color: theme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(width: Spacing.xs),
-                  Icon(
-                    isExpanded
-                        ? (Platform.isIOS
-                              ? CupertinoIcons.chevron_up
-                              : Icons.expand_less)
-                        : (Platform.isIOS
-                              ? CupertinoIcons.chevron_down
-                              : Icons.expand_more),
-                    color: theme.iconSecondary,
-                    size: IconSize.listItem,
-                  ),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.md,
+                  vertical: Spacing.xs,
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final hasFiniteWidth = constraints.maxWidth.isFinite;
+                    final textFit = hasFiniteWidth
+                        ? FlexFit.tight
+                        : FlexFit.loose;
+
+                    return Row(
+                      mainAxisSize: hasFiniteWidth
+                          ? MainAxisSize.max
+                          : MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isExpanded
+                              ? (Platform.isIOS
+                                    ? CupertinoIcons.folder_open
+                                    : Icons.folder_open)
+                              : (Platform.isIOS
+                                    ? CupertinoIcons.folder
+                                    : Icons.folder),
+                          color: theme.iconPrimary,
+                          size: IconSize.listItem,
+                        ),
+                        const SizedBox(width: Spacing.sm),
+                        Flexible(
+                          fit: textFit,
+                          child: Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.standard.copyWith(
+                              color: theme.textPrimary,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: Spacing.sm),
+                        Text(
+                          '$count',
+                          style: AppTypography.standard.copyWith(
+                            color: theme.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(width: Spacing.xs),
+                        Icon(
+                          isExpanded
+                              ? (Platform.isIOS
+                                    ? CupertinoIcons.chevron_up
+                                    : Icons.expand_less)
+                              : (Platform.isIOS
+                                    ? CupertinoIcons.chevron_down
+                                    : Icons.expand_more),
+                          color: theme.iconSecondary,
+                          size: IconSize.listItem,
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -929,9 +997,11 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     final bool isLoadingSelected =
         (_pendingConversationId == conv.id) &&
         (ref.watch(chat.isLoadingConversationProvider) == true);
+    final bool isPinned = conv.pinned == true;
+
     final tile = _ConversationTile(
       title: title,
-      pinned: conv.pinned == true,
+      pinned: isPinned,
       selected: isActive,
       isLoading: isLoadingSelected,
       onTap: _isLoadingConversation
@@ -943,6 +1013,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         _showConversationContextMenu(context, conv);
       },
     );
+
     return Padding(
       padding: EdgeInsets.only(
         bottom: Spacing.xs,
@@ -951,41 +1022,10 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       child: LongPressDraggable<_DragConversationData>(
         data: _DragConversationData(id: conv.id, title: title),
         dragAnchorStrategy: pointerDragAnchorStrategy,
-        feedback: Material(
-          color: Colors.transparent,
-          elevation: 6,
-          borderRadius: BorderRadius.circular(AppBorderRadius.md),
-          child: Opacity(
-            opacity: 0.9,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.md,
-                vertical: Spacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: theme.cardBackground,
-                borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                border: Border.all(
-                  color: theme.dividerColor,
-                  width: BorderWidth.regular,
-                ),
-                boxShadow: ConduitShadows.card,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Platform.isIOS
-                        ? CupertinoIcons.chat_bubble_2
-                        : Icons.chat_bubble_outline,
-                    size: IconSize.listItem,
-                  ),
-                  const SizedBox(width: Spacing.xs),
-                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
-          ),
+        feedback: _ConversationDragFeedback(
+          title: title,
+          pinned: isPinned,
+          theme: theme,
         ),
         childWhenDragging: Opacity(
           opacity: 0.5,
@@ -1017,60 +1057,97 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Material(
-          color: theme.surfaceContainer.withValues(alpha: 0.05),
+          color: show
+              ? theme.navigationSelectedBackground
+              : theme.surfaceContainer,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppBorderRadius.md),
+            borderRadius: BorderRadius.zero,
             side: BorderSide(
-              color: theme.dividerColor,
-              width: BorderWidth.regular,
+              color: show
+                  ? theme.navigationSelected
+                  : theme.surfaceContainerHighest.withValues(alpha: 0.40),
+              width: BorderWidth.thin,
             ),
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(AppBorderRadius.md),
+            borderRadius: BorderRadius.zero,
             onTap: () => ref.read(_showArchivedProvider.notifier).state = !show,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.md,
-                vertical: Spacing.sm,
+            overlayColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.pressed)) {
+                return theme.buttonPrimary.withValues(
+                  alpha: Alpha.buttonPressed,
+                );
+              }
+              if (states.contains(WidgetState.hovered) ||
+                  states.contains(WidgetState.focused)) {
+                return theme.buttonPrimary.withValues(alpha: Alpha.hover);
+              }
+              return Colors.transparent;
+            }),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: TouchTarget.listItem,
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    Platform.isIOS
-                        ? CupertinoIcons.archivebox
-                        : Icons.archive_rounded,
-                    color: theme.iconPrimary,
-                    size: IconSize.listItem,
-                  ),
-                  const SizedBox(width: Spacing.sm),
-                  Expanded(
-                    child: Text(
-                      AppLocalizations.of(context)!.archived,
-                      style: AppTypography.bodyLargeStyle.copyWith(
-                        color: theme.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    '${archived.length}',
-                    style: AppTypography.bodySmallStyle.copyWith(
-                      color: theme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(width: Spacing.xs),
-                  Icon(
-                    show
-                        ? (Platform.isIOS
-                              ? CupertinoIcons.chevron_up
-                              : Icons.expand_less)
-                        : (Platform.isIOS
-                              ? CupertinoIcons.chevron_down
-                              : Icons.expand_more),
-                    color: theme.iconSecondary,
-                    size: IconSize.listItem,
-                  ),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.md,
+                  vertical: Spacing.xs,
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final hasFiniteWidth = constraints.maxWidth.isFinite;
+                    final textFit = hasFiniteWidth
+                        ? FlexFit.tight
+                        : FlexFit.loose;
+
+                    return Row(
+                      mainAxisSize: hasFiniteWidth
+                          ? MainAxisSize.max
+                          : MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Platform.isIOS
+                              ? CupertinoIcons.archivebox
+                              : Icons.archive_rounded,
+                          color: theme.iconPrimary,
+                          size: IconSize.listItem,
+                        ),
+                        const SizedBox(width: Spacing.sm),
+                        Flexible(
+                          fit: textFit,
+                          child: Text(
+                            AppLocalizations.of(context)!.archived,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.standard.copyWith(
+                              color: theme.textPrimary,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: Spacing.sm),
+                        Text(
+                          '${archived.length}',
+                          style: AppTypography.standard.copyWith(
+                            color: theme.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(width: Spacing.xs),
+                        Icon(
+                          show
+                              ? (Platform.isIOS
+                                    ? CupertinoIcons.chevron_up
+                                    : Icons.expand_less)
+                              : (Platform.isIOS
+                                    ? CupertinoIcons.chevron_down
+                                    : Icons.expand_more),
+                          color: theme.iconSecondary,
+                          size: IconSize.listItem,
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -1212,14 +1289,21 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                       ],
                     ),
                   ),
-                  TextButton(
+                  IconButton(
+                    tooltip: AppLocalizations.of(context)!.manage,
                     onPressed: () {
                       Navigator.of(context).maybePop();
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const ProfilePage()),
                       );
                     },
-                    child: Text(AppLocalizations.of(context)!.manage),
+                    icon: Icon(
+                      Platform.isIOS
+                          ? CupertinoIcons.settings
+                          : Icons.settings_rounded,
+                      color: theme.iconSecondary,
+                      size: IconSize.listItem,
+                    ),
                   ),
                 ],
               ),
@@ -1436,6 +1520,148 @@ class _DragConversationData {
   const _DragConversationData({required this.id, required this.title});
 }
 
+class _ConversationDragFeedback extends StatelessWidget {
+  final String title;
+  final bool pinned;
+  final ConduitThemeExtension theme;
+
+  const _ConversationDragFeedback({
+    required this.title,
+    required this.pinned,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = pinned
+        ? theme.navigationSelected.withValues(alpha: 0.35)
+        : theme.surfaceContainerHighest.withValues(alpha: 0.45);
+
+    return Material(
+      color: Colors.transparent,
+      elevation: Elevation.low,
+      borderRadius: BorderRadius.zero,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: TouchTarget.listItem),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.md,
+          vertical: Spacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: theme.surfaceContainer,
+          borderRadius: BorderRadius.zero,
+          border: Border.all(color: borderColor, width: BorderWidth.thin),
+        ),
+        child: _ConversationTileContent(
+          title: title,
+          pinned: pinned,
+          selected: false,
+          isLoading: false,
+          onMorePressed: null,
+        ),
+      ),
+    );
+  }
+}
+
+class _ConversationTileContent extends StatelessWidget {
+  final String title;
+  final bool pinned;
+  final bool selected;
+  final bool isLoading;
+  final VoidCallback? onMorePressed;
+
+  const _ConversationTileContent({
+    required this.title,
+    required this.pinned,
+    required this.selected,
+    required this.isLoading,
+    this.onMorePressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.conduitTheme;
+    final textStyle = AppTypography.standard.copyWith(
+      color: theme.textPrimary,
+      fontWeight: FontWeight.w400,
+      height: 1.4,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final hasFiniteWidth = constraints.maxWidth.isFinite;
+        final textFit = hasFiniteWidth ? FlexFit.tight : FlexFit.loose;
+
+        final trailing = <Widget>[];
+        if (pinned) {
+          trailing.addAll([
+            const SizedBox(width: Spacing.xs),
+            Icon(
+              Platform.isIOS ? CupertinoIcons.pin_fill : Icons.push_pin_rounded,
+              color: theme.iconSecondary,
+              size: IconSize.xs,
+            ),
+          ]);
+        }
+
+        if (isLoading) {
+          trailing.addAll([
+            const SizedBox(width: Spacing.sm),
+            SizedBox(
+              width: IconSize.sm,
+              height: IconSize.sm,
+              child: CircularProgressIndicator(
+                strokeWidth: BorderWidth.medium,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  theme.loadingIndicator,
+                ),
+              ),
+            ),
+          ]);
+        } else if (onMorePressed != null) {
+          trailing.addAll([
+            const SizedBox(width: Spacing.sm),
+            IconButton(
+              iconSize: IconSize.sm,
+              visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(
+                minWidth: TouchTarget.listItem,
+                minHeight: TouchTarget.listItem,
+              ),
+              icon: Icon(
+                Platform.isIOS
+                    ? CupertinoIcons.ellipsis
+                    : Icons.more_vert_rounded,
+                color: theme.iconSecondary,
+              ),
+              onPressed: onMorePressed,
+              tooltip: AppLocalizations.of(context)!.more,
+            ),
+          ]);
+        }
+
+        return Row(
+          mainAxisSize: hasFiniteWidth ? MainAxisSize.max : MainAxisSize.min,
+          children: [
+            Flexible(
+              fit: textFit,
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textStyle,
+              ),
+            ),
+            ...trailing,
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _ConversationTile extends StatelessWidget {
   final String title;
   final bool pinned;
@@ -1458,102 +1684,66 @@ class _ConversationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.conduitTheme;
-    final Color selectedBackground = theme.buttonPrimary.withValues(
-      alpha: 0.10,
-    ); // subtle highlight
-    final Color selectedBorder = theme.buttonPrimary.withValues(alpha: 0.60);
+    final borderColor = selected
+        ? theme.navigationSelected
+        : pinned
+        ? theme.navigationSelected.withValues(alpha: 0.30)
+        : theme.surfaceContainerHighest.withValues(alpha: 0.40);
+    final backgroundColor = theme.surfaceContainer;
+    final highlightColor = theme.navigationSelectedBackground.withValues(
+      alpha: 0.45,
+    );
+
+    Color? overlayForStates(Set<WidgetState> states) {
+      if (states.contains(WidgetState.pressed)) {
+        return theme.buttonPrimary.withValues(alpha: Alpha.buttonPressed);
+      }
+      if (states.contains(WidgetState.focused) ||
+          states.contains(WidgetState.hovered)) {
+        return theme.buttonPrimary.withValues(alpha: Alpha.hover);
+      }
+      return Colors.transparent;
+    }
 
     return Semantics(
       selected: selected,
       button: true,
       child: Material(
-        color: selected ? selectedBackground : Colors.transparent,
+        color: backgroundColor,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppBorderRadius.md),
-          side: BorderSide(
-            color: selected ? selectedBorder : theme.dividerColor,
-            width: BorderWidth.regular,
-          ),
+          borderRadius: BorderRadius.zero,
+          side: BorderSide(color: borderColor, width: BorderWidth.thin),
         ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          borderRadius: BorderRadius.zero,
           onTap: isLoading ? null : onTap,
           onLongPress: onLongPress,
-          child: Stack(
-            children: [
-              // Left accent bar for active conversation
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 160),
-                curve: Curves.easeOut,
-                left: 0,
-                top: 0,
-                bottom: 0,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  width: selected ? 3.0 : 0.0,
-                  decoration: BoxDecoration(
-                    color: theme.buttonPrimary,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(AppBorderRadius.md),
-                      bottomLeft: Radius.circular(AppBorderRadius.md),
-                    ),
-                  ),
-                ),
+          overlayColor: WidgetStateProperty.resolveWith(overlayForStates),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: selected ? highlightColor : Colors.transparent,
+              borderRadius: BorderRadius.zero,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: TouchTarget.listItem,
               ),
-              Padding(
+              child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: Spacing.md,
-                  vertical: Spacing.sm,
+                  vertical: Spacing.xs,
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.standard.copyWith(
-                          color: theme.textPrimary,
-                          fontWeight: selected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: Spacing.xs),
-                    if (isLoading)
-                      SizedBox(
-                        width: IconSize.sm,
-                        height: IconSize.sm,
-                        child: CircularProgressIndicator(
-                          strokeWidth: BorderWidth.medium,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            theme.loadingIndicator,
-                          ),
-                        ),
-                      )
-                    else if (onMorePressed != null)
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: TouchTarget.listItem,
-                          minHeight: TouchTarget.listItem,
-                        ),
-                        icon: Icon(
-                          Platform.isIOS
-                              ? CupertinoIcons.ellipsis
-                              : Icons.more_vert_rounded,
-                          color: theme.iconSecondary,
-                          size: IconSize.listItem,
-                        ),
-                        onPressed: onMorePressed,
-                        tooltip: AppLocalizations.of(context)!.more,
-                      ),
-                  ],
+                child: _ConversationTileContent(
+                  title: title,
+                  pinned: pinned,
+                  selected: selected,
+                  isLoading: isLoading,
+                  onMorePressed: onMorePressed,
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),

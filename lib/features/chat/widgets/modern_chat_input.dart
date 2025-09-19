@@ -331,9 +331,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     final Brightness brightness = Theme.of(context).brightness;
     final bool isActive = _focusNode.hasFocus || _hasText;
     final Color composerSurface = context.conduitTheme.inputBackground;
-    final Color shellBackground = brightness == Brightness.dark
-        ? composerSurface.withValues(alpha: 0.78)
-        : composerSurface;
     final Color placeholderBase = context.conduitTheme.inputPlaceholder;
     final Color placeholderFocused = context.conduitTheme.inputText.withValues(
       alpha: 0.64,
@@ -429,7 +426,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
-        color: shellBackground,
+        color: brightness == Brightness.dark
+            ? composerSurface.withValues(alpha: 0.78)
+            : composerSurface,
         borderRadius: BorderRadius.circular(_composerRadius),
         border: Border.all(color: outlineColor, width: BorderWidth.thin),
         boxShadow: [
@@ -465,7 +464,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                       child: Container(
                         padding: const EdgeInsets.all(Spacing.sm),
                         decoration: BoxDecoration(
-                          color: shellBackground,
+                          color: Colors.transparent,
                           borderRadius: BorderRadius.circular(_composerRadius),
                         ),
                         child: Row(
@@ -600,14 +599,17 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                                     ? FontStyle.italic
                                                     : FontStyle.normal,
                                               ),
-                                              filled: true,
-                                              fillColor: shellBackground,
+                                              filled: false,
                                               border: InputBorder.none,
                                               enabledBorder: InputBorder.none,
                                               focusedBorder: InputBorder.none,
                                               errorBorder: InputBorder.none,
                                               disabledBorder: InputBorder.none,
-                                              contentPadding: EdgeInsets.zero,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: Spacing.sm,
+                                                    vertical: Spacing.sm,
+                                                  ),
                                               isDense: true,
                                               alignLabelWithHint: true,
                                             ),

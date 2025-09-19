@@ -190,12 +190,6 @@ final apiServiceProvider = Provider<ApiService?>((ref) {
         );
       };
 
-      // Initialize with any existing token immediately
-      final token = ref.read(authTokenProvider3);
-      if (token != null && token.isNotEmpty) {
-        apiService.updateAuthToken(token);
-      }
-
       return apiService;
     },
     orElse: () => null,

@@ -1010,7 +1010,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           drawerEdgeDragWidth: MediaQuery.of(context).size.width * 0.5,
           drawerScrimColor: Colors.black.withValues(alpha: 0.32),
           drawer: Drawer(
-            width: (MediaQuery.of(context).size.width * 0.88).clamp(
+            width: (MediaQuery.of(context).size.width * 0.80).clamp(
               280.0,
               420.0,
             ),
