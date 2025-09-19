@@ -40,6 +40,7 @@ class AppCustomizationPage extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: context.conduitTheme.surfaceBackground,
         elevation: Elevation.none,
+        toolbarHeight: kToolbarHeight - 8,
         leading: IconButton(
           icon: Icon(
             UiUtils.platformIcon(

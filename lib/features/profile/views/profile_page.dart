@@ -40,6 +40,7 @@ class ProfilePage extends ConsumerWidget {
           appBar: AppBar(
             backgroundColor: context.conduitTheme.surfaceBackground,
             elevation: Elevation.none,
+            toolbarHeight: kToolbarHeight - 8,
             automaticallyImplyLeading: false,
             leading: IconButton(
               icon: Icon(
@@ -52,7 +53,7 @@ class ProfilePage extends ConsumerWidget {
               onPressed: () => Navigator.of(context).maybePop(),
               tooltip: AppLocalizations.of(context)!.back,
             ),
-            toolbarHeight: kToolbarHeight,
+            // keep reduced height only once
             titleSpacing: 0.0,
             title: Text(
               AppLocalizations.of(context)!.you,
@@ -100,6 +101,7 @@ class ProfilePage extends ConsumerWidget {
           appBar: AppBar(
             backgroundColor: context.conduitTheme.surfaceBackground,
             elevation: Elevation.none,
+            toolbarHeight: kToolbarHeight - 8,
             automaticallyImplyLeading: false,
             leading: IconButton(
               icon: Icon(
@@ -132,6 +134,7 @@ class ProfilePage extends ConsumerWidget {
           appBar: AppBar(
             backgroundColor: context.conduitTheme.surfaceBackground,
             elevation: Elevation.none,
+            toolbarHeight: kToolbarHeight - 8,
             automaticallyImplyLeading: false,
             leading: IconButton(
               icon: Icon(
