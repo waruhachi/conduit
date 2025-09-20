@@ -587,8 +587,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                             textInputAction: sendOnEnter
                                                 ? TextInputAction.send
                                                 : TextInputAction.newline,
-                                            autofillHints:
-                                                const <String>[],
+                                            autofillHints: const <String>[],
                                             showCursor: true,
                                             scrollPadding:
                                                 const EdgeInsets.only(
@@ -1159,7 +1158,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
           final bodyChildren = <Widget>[
             const SheetHandle(),
-            const SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.sm),
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -1167,7 +1166,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     for (var i = 0; i < attachments.length; i++) ...[
-                      if (i != 0) const SizedBox(width: Spacing.md),
+                      if (i != 0) const SizedBox(width: Spacing.sm),
                       Expanded(child: attachments[i]),
                     ],
                   ],
@@ -1178,12 +1177,12 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
           if (featureTiles.isNotEmpty) {
             bodyChildren
-              ..add(const SizedBox(height: Spacing.md))
-              ..addAll(_withVerticalSpacing(featureTiles, Spacing.xs));
+              ..add(const SizedBox(height: Spacing.sm))
+              ..addAll(_withVerticalSpacing(featureTiles, Spacing.xxs));
           }
 
           bodyChildren
-            ..add(const SizedBox(height: Spacing.md))
+            ..add(const SizedBox(height: Spacing.sm))
             ..add(_buildSectionLabel(l10n.tools))
             ..add(toolsSection);
 
@@ -1219,8 +1218,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                   0.9,
                 );
               }
-              final double computedMin = math.min(0.25, computedMax);
-              final double computedInitial = math.min(0.4, computedMax);
+              final double computedMin = math.min(0.2, computedMax);
+              final double computedInitial = math.min(0.34, computedMax);
 
               return Stack(
                 children: [
@@ -1252,6 +1251,12 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                           boxShadow: ConduitShadows.modal,
                         ),
                         child: ModalSheetSafeArea(
+                          padding: const EdgeInsets.fromLTRB(
+                            Spacing.md,
+                            Spacing.xs,
+                            Spacing.md,
+                            Spacing.md,
+                          ),
                           child: SingleChildScrollView(
                             controller: scrollController,
                             padding: EdgeInsets.zero,
@@ -1300,7 +1305,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
   Widget _buildSectionLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: Spacing.xs),
+      padding: const EdgeInsets.only(bottom: Spacing.xxs),
       child: Text(
         text,
         style: AppTypography.labelStyle.copyWith(
@@ -1352,7 +1357,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             margin: const EdgeInsets.symmetric(vertical: Spacing.xxs),
-            padding: const EdgeInsets.all(Spacing.md),
+            padding: const EdgeInsets.all(Spacing.sm),
             decoration: BoxDecoration(
               color: background,
               borderRadius: BorderRadius.circular(AppBorderRadius.input),
@@ -1363,7 +1368,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 _buildToolGlyph(icon: icon, selected: value, theme: theme),
-                const SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.xs),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1393,7 +1398,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                     ],
                   ),
                 ),
-                const SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.xs),
                 _buildTogglePill(isOn: value, theme: theme),
               ],
             ),
@@ -1439,7 +1444,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             margin: const EdgeInsets.symmetric(vertical: Spacing.xxs),
-            padding: const EdgeInsets.all(Spacing.md),
+            padding: const EdgeInsets.all(Spacing.sm),
             decoration: BoxDecoration(
               color: background,
               borderRadius: BorderRadius.circular(AppBorderRadius.input),
@@ -1454,7 +1459,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                   selected: selected,
                   theme: theme,
                 ),
-                const SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.xs),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1486,7 +1491,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                     ],
                   ),
                 ),
-                const SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.xs),
                 _buildTogglePill(isOn: selected, theme: theme),
               ],
             ),
@@ -1512,8 +1517,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         : theme.iconPrimary.withValues(alpha: Alpha.strong);
 
     return Container(
-      width: 44,
-      height: 44,
+      width: 36,
+      height: 36,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
@@ -1701,8 +1706,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(
-              horizontal: Spacing.sm,
-              vertical: Spacing.md,
+              horizontal: Spacing.xs,
+              vertical: Spacing.sm,
             ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppBorderRadius.card),
@@ -1713,8 +1718,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
@@ -1730,11 +1735,11 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                   ),
                   child: Icon(icon, color: iconColor, size: IconSize.modal),
                 ),
-                const SizedBox(height: Spacing.sm),
+                const SizedBox(height: Spacing.xs),
                 Text(
                   label,
                   textAlign: TextAlign.center,
-                  style: AppTypography.bodySmallStyle.copyWith(
+                  style: AppTypography.captionStyle.copyWith(
                     fontWeight: FontWeight.w600,
                     color: textColor,
                   ),

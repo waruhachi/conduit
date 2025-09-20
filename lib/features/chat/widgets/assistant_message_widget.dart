@@ -457,7 +457,11 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   Widget _buildDocumentationMessage() {
     return Container(
           width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 16, left: 12, right: 12),
+          margin: const EdgeInsets.only(
+            bottom: 16,
+            left: Spacing.xs,
+            right: Spacing.xs,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
