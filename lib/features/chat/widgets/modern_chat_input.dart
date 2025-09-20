@@ -587,6 +587,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                             textInputAction: sendOnEnter
                                                 ? TextInputAction.send
                                                 : TextInputAction.newline,
+                                            autofillHints:
+                                                const <String>[],
                                             showCursor: true,
                                             scrollPadding:
                                                 const EdgeInsets.only(

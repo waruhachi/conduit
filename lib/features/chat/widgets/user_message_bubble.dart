@@ -520,6 +520,8 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
                                                 controller: _editController,
                                                 maxLines: null,
                                                 padding: EdgeInsets.zero,
+                                                autofillHints:
+                                                    const <String>[],
                                                 style: AppTypography
                                                     .chatMessageStyle
                                                     .copyWith(
@@ -534,6 +536,8 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
                                             : TextField(
                                                 controller: _editController,
                                                 maxLines: null,
+                                                autofillHints:
+                                                    const <String>[],
                                                 style: AppTypography
                                                     .chatMessageStyle
                                                     .copyWith(
