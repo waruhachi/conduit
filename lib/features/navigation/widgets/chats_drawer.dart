@@ -16,7 +16,12 @@ import '../../../shared/widgets/themed_dialogs.dart';
 import '../../../core/auth/auth_state_manager.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import '../../../core/utils/user_display_name.dart';
+import '../../../core/utils/model_icon_utils.dart';
+import '../../../core/utils/user_avatar_utils.dart';
 import '../../../shared/utils/conversation_context_menu.dart';
+import '../../../shared/widgets/user_avatar.dart';
+import '../../../shared/widgets/model_avatar.dart';
+import '../../../core/models/model.dart';
 
 class ChatsDrawer extends ConsumerStatefulWidget {
   const ChatsDrawer({super.key});
@@ -955,11 +960,41 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         (ref.watch(chat.isLoadingConversationProvider) == true);
     final bool isPinned = conv.pinned == true;
 
+    Model? model;
+    final modelId = (conv.model is String && (conv.model as String).isNotEmpty)
+        ? conv.model as String
+        : null;
+    if (modelId != null) {
+      final modelsAsync = ref.watch(modelsProvider);
+      model = modelsAsync.maybeWhen(
+        data: (models) {
+          for (final m in models) {
+            if (m.id == modelId) return m;
+          }
+          return null;
+        },
+        orElse: () => null,
+      );
+    }
+
+    final api = ref.watch(apiServiceProvider);
+    final modelIconUrl = resolveModelIconUrlForModel(api, model);
+
+    Widget? leading;
+    if (modelId != null) {
+      leading = ModelAvatar(
+        size: 28,
+        imageUrl: modelIconUrl,
+        label: model?.name ?? modelId,
+      );
+    }
+
     final tile = _ConversationTile(
       title: title,
       pinned: isPinned,
       selected: isActive,
       isLoading: isLoadingSelected,
+      leading: leading,
       onTap: _isLoadingConversation
           ? null
           : () => _selectConversation(context, conv.id),
@@ -1180,6 +1215,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     );
     final dynamic authUser = ref.watch(authUserProvider);
     final user = userFromProfile ?? authUser;
+    final api = ref.watch(apiServiceProvider);
 
     String initialFor(String name) {
       if (name.isEmpty) return 'U';
@@ -1189,6 +1225,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
 
     final displayName = deriveUserDisplayName(user);
     final initial = initialFor(displayName);
+    final avatarUrl = resolveUserAvatarUrlForUser(api, user);
     return Padding(
       padding: const EdgeInsets.fromLTRB(Spacing.sm, 0, Spacing.sm, Spacing.sm),
       child: Column(
@@ -1216,7 +1253,6 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                     width: IconSize.xl,
                     height: IconSize.xl,
                     decoration: BoxDecoration(
-                      color: theme.buttonPrimary.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(
                         AppBorderRadius.avatar,
                       ),
@@ -1225,13 +1261,11 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                         width: BorderWidth.thin,
                       ),
                     ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      initial,
-                      style: AppTypography.bodyLargeStyle.copyWith(
-                        color: theme.buttonPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    clipBehavior: Clip.antiAlias,
+                    child: UserAvatar(
+                      size: IconSize.xl,
+                      imageUrl: avatarUrl,
+                      fallbackText: initial,
                     ),
                   ),
                   const SizedBox(width: Spacing.xs),
@@ -1332,6 +1366,7 @@ class _ConversationTileContent extends StatelessWidget {
   final bool selected;
   final bool isLoading;
   final VoidCallback? onMorePressed;
+  final Widget? leading;
 
   const _ConversationTileContent({
     required this.title,
@@ -1339,6 +1374,7 @@ class _ConversationTileContent extends StatelessWidget {
     required this.selected,
     required this.isLoading,
     this.onMorePressed,
+    this.leading,
   });
 
   @override
@@ -1407,6 +1443,14 @@ class _ConversationTileContent extends StatelessWidget {
         return Row(
           mainAxisSize: hasFiniteWidth ? MainAxisSize.max : MainAxisSize.min,
           children: [
+            if (leading != null) ...[
+              SizedBox(
+                width: TouchTarget.listItem,
+                height: TouchTarget.listItem,
+                child: Center(child: leading!),
+              ),
+              const SizedBox(width: Spacing.sm),
+            ],
             Flexible(
               fit: textFit,
               child: Text(
@@ -1429,6 +1473,7 @@ class _ConversationTile extends StatelessWidget {
   final bool pinned;
   final bool selected;
   final bool isLoading;
+  final Widget? leading;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onMorePressed;
@@ -1438,6 +1483,7 @@ class _ConversationTile extends StatelessWidget {
     required this.pinned,
     required this.selected,
     required this.isLoading,
+    this.leading,
     required this.onTap,
     this.onLongPress,
     this.onMorePressed,
@@ -1504,6 +1550,7 @@ class _ConversationTile extends StatelessWidget {
                   selected: selected,
                   isLoading: isLoading,
                   onMorePressed: onMorePressed,
+                  leading: leading,
                 ),
               ),
             ),

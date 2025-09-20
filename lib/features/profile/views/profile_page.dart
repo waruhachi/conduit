@@ -18,11 +18,18 @@ import '../../../core/providers/app_providers.dart';
 import '../../auth/providers/unified_auth_providers.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/models/model.dart';
+import '../../../core/services/api_service.dart';
+import '../../../core/models/user.dart' as models;
 import 'dart:async';
 import 'dart:io';
 import '../../chat/views/chat_page_helpers.dart';
 import 'app_customization_page.dart';
 import '../../../shared/widgets/modal_safe_area.dart';
+import '../../../core/utils/user_display_name.dart';
+import '../../../core/utils/user_avatar_utils.dart';
+import '../../../core/utils/model_icon_utils.dart';
+import '../../../shared/widgets/user_avatar.dart';
+import '../../../shared/widgets/model_avatar.dart';
 
 /// Profile page (You tab) showing user info and main actions
 /// Enhanced with production-grade design tokens for better cohesion
@@ -32,6 +39,7 @@ class ProfilePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    final api = ref.watch(apiServiceProvider);
 
     return ErrorBoundary(
       child: user.when(
@@ -70,7 +78,7 @@ class ProfilePage extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Profile Header - Enhanced with better spacing and animations
-                _buildProfileHeader(userData)
+                _buildProfileHeader(context, userData, api)
                     .animate()
                     .fadeIn(duration: AnimationDuration.pageTransition)
                     .slideY(
@@ -171,48 +179,85 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildProfileHeader(dynamic user) {
-    return Builder(
-      builder: (context) => ConduitCard(
-        padding: const EdgeInsets.all(Spacing.cardPadding),
-        child: Row(
-          children: [
-            // Enhanced avatar with better sizing and shadows
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppBorderRadius.avatar),
-                boxShadow: ConduitShadows.card,
-              ),
-              child: ConduitAvatar(
-                size: IconSize.avatar,
-                text: user?.name?.substring(0, 1) ?? 'U',
-              ),
+  Widget _buildProfileHeader(
+    BuildContext context,
+    dynamic user,
+    ApiService? api,
+  ) {
+    final displayName = deriveUserDisplayName(user);
+    final characters = displayName.characters;
+    final initial = characters.isNotEmpty
+        ? characters.first.toUpperCase()
+        : 'U';
+    final avatarUrl = resolveUserAvatarUrlForUser(api, user);
+
+    String? extractEmail(dynamic source) {
+      if (source is models.User) {
+        return source.email;
+      }
+      if (source is Map) {
+        final value = source['email'];
+        if (value is String && value.trim().isNotEmpty) {
+          return value.trim();
+        }
+        final nested = source['user'];
+        if (nested is Map) {
+          final nestedValue = nested['email'];
+          if (nestedValue is String && nestedValue.trim().isNotEmpty) {
+            return nestedValue.trim();
+          }
+        }
+      }
+      return null;
+    }
+
+    final email = extractEmail(user) ?? 'No email';
+
+    return ConduitCard(
+      padding: const EdgeInsets.all(Spacing.cardPadding),
+      child: Row(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppBorderRadius.avatar),
+              boxShadow: ConduitShadows.card,
             ),
-            const SizedBox(width: Spacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    user?.name ?? 'User',
-                    style: context.conduitTheme.headingMedium?.copyWith(
-                      color: context.conduitTheme.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: Spacing.sm),
-                  Text(
-                    user?.email ?? 'No email',
-                    style: context.conduitTheme.bodyMedium?.copyWith(
-                      color: context.conduitTheme.textSecondary,
-                    ),
-                  ),
-                  // Status badge removed per design update
-                ],
-              ),
+            child: UserAvatar(
+              size: IconSize.avatar,
+              imageUrl: avatarUrl,
+              fallbackText: initial,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: Spacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  style:
+                      context.conduitTheme.headingMedium?.copyWith(
+                        color: context.conduitTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ) ??
+                      TextStyle(
+                        color: context.conduitTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: Spacing.sm),
+                Text(
+                  email,
+                  style:
+                      context.conduitTheme.bodyMedium?.copyWith(
+                        color: context.conduitTheme.textSecondary,
+                      ) ??
+                      TextStyle(color: context.conduitTheme.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -333,6 +378,7 @@ class ProfilePage extends ConsumerWidget {
   Widget _buildDefaultModelTile(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(appSettingsProvider);
     final modelsAsync = ref.watch(modelsProvider);
+    final api = ref.watch(apiServiceProvider);
 
     return modelsAsync.when(
       data: (models) {
@@ -346,12 +392,23 @@ class ProfilePage extends ConsumerWidget {
                 ),
         );
 
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: Spacing.listItemPadding,
-            vertical: Spacing.sm,
-          ),
-          leading: Container(
+        final selectedModelExplicit = settings.defaultModel != null;
+        final modelIconUrl = selectedModelExplicit
+            ? resolveModelIconUrlForModel(api, currentModel)
+            : null;
+        final modelLabel = selectedModelExplicit
+            ? currentModel.name
+            : AppLocalizations.of(context)!.autoSelect;
+
+        Widget leading;
+        if (selectedModelExplicit) {
+          leading = ModelAvatar(
+            size: 32,
+            imageUrl: modelIconUrl,
+            label: currentModel.name,
+          );
+        } else {
+          leading = Container(
             padding: const EdgeInsets.all(Spacing.sm),
             decoration: BoxDecoration(
               color: context.conduitTheme.buttonPrimary.withValues(
@@ -361,13 +418,21 @@ class ProfilePage extends ConsumerWidget {
             ),
             child: Icon(
               UiUtils.platformIcon(
-                ios: CupertinoIcons.cube_box,
-                android: Icons.psychology,
+                ios: CupertinoIcons.wand_stars,
+                android: Icons.auto_awesome,
               ),
               color: context.conduitTheme.buttonPrimary,
               size: IconSize.medium,
             ),
+          );
+        }
+
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: Spacing.listItemPadding,
+            vertical: Spacing.sm,
           ),
+          leading: leading,
           title: Text(
             AppLocalizations.of(context)!.defaultModel,
             style: context.conduitTheme.bodyLarge?.copyWith(
@@ -376,9 +441,7 @@ class ProfilePage extends ConsumerWidget {
             ),
           ),
           subtitle: Text(
-            settings.defaultModel != null
-                ? currentModel.name
-                : AppLocalizations.of(context)!.autoSelect,
+            modelLabel,
             style: context.conduitTheme.bodySmall?.copyWith(
               color: context.conduitTheme.textSecondary,
             ),
@@ -943,6 +1006,28 @@ class _DefaultModelBottomSheetState
     required bool isAutoSelect,
     required VoidCallback onTap,
   }) {
+    final api = ref.watch(apiServiceProvider);
+
+    final Widget leading;
+    if (isAutoSelect) {
+      leading = Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: context.conduitTheme.buttonPrimary.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        ),
+        child: Icon(
+          Platform.isIOS ? CupertinoIcons.wand_stars : Icons.auto_awesome,
+          color: context.conduitTheme.buttonPrimary,
+          size: 16,
+        ),
+      );
+    } else {
+      final iconUrl = resolveModelIconUrlForModel(api, model);
+      leading = ModelAvatar(size: 32, imageUrl: iconUrl, label: model.name);
+    }
+
     return PressableScale(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppBorderRadius.md),
@@ -976,27 +1061,7 @@ class _DefaultModelBottomSheetState
           ),
           child: Row(
             children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: context.conduitTheme.buttonPrimary.withValues(
-                    alpha: 0.15,
-                  ),
-                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                ),
-                child: Icon(
-                  isAutoSelect
-                      ? (Platform.isIOS
-                            ? CupertinoIcons.wand_stars
-                            : Icons.auto_awesome)
-                      : (Platform.isIOS
-                            ? CupertinoIcons.cube
-                            : Icons.psychology),
-                  color: context.conduitTheme.buttonPrimary,
-                  size: 16,
-                ),
-              ),
+              leading,
               const SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(

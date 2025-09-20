@@ -69,6 +69,48 @@ sealed class Model with _$Model {
         ?.map((e) => e.toString())
         .toList();
 
+    final baseMetadata = Map<String, dynamic>.from(
+      (json['metadata'] as Map<String, dynamic>?) ?? const {},
+    );
+
+    final metaSection = json['meta'] as Map<String, dynamic>?;
+    final infoSection = json['info'] as Map<String, dynamic>?;
+
+    String? profileImage = json['profile_image_url'] as String?;
+    profileImage ??= baseMetadata['profile_image_url'] as String?;
+    profileImage ??= metaSection?['profile_image_url'] as String?;
+    profileImage ??=
+        (infoSection?['meta'] as Map<String, dynamic>?)?['profile_image_url']
+            as String?;
+
+    final mergedMetadata = <String, dynamic>{
+      ...baseMetadata,
+      if (json['canonical_slug'] != null)
+        'canonical_slug':
+            baseMetadata['canonical_slug'] ?? json['canonical_slug'],
+      if (json['created'] != null)
+        'created': baseMetadata['created'] ?? json['created'],
+      if (json['connection_type'] != null)
+        'connection_type':
+            baseMetadata['connection_type'] ?? json['connection_type'],
+    };
+
+    if (profileImage != null && profileImage.isNotEmpty) {
+      mergedMetadata['profile_image_url'] = profileImage;
+    }
+
+    if (metaSection != null) {
+      final existing =
+          (mergedMetadata['meta'] as Map<String, dynamic>?) ?? const {};
+      mergedMetadata['meta'] = {...existing, ...metaSection};
+    }
+
+    if (infoSection != null) {
+      final existingInfo =
+          (mergedMetadata['info'] as Map<String, dynamic>?) ?? const {};
+      mergedMetadata['info'] = {...existingInfo, ...infoSection};
+    }
+
     return Model(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -83,11 +125,7 @@ sealed class Model with _$Model {
         'context_length': json['context_length'],
         'supported_parameters': supportedParamsList ?? supportedParams,
       },
-      metadata: {
-        'canonical_slug': json['canonical_slug'],
-        'created': json['created'],
-        'connection_type': json['connection_type'],
-      },
+      metadata: mergedMetadata,
     );
   }
 }

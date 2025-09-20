@@ -14,11 +14,13 @@ import 'enhanced_image_attachment.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import 'enhanced_attachment.dart';
 import 'package:conduit/shared/widgets/chat_action_button.dart';
+import '../../../shared/widgets/model_avatar.dart';
 
 class AssistantMessageWidget extends ConsumerStatefulWidget {
   final dynamic message;
   final bool isStreaming;
   final String? modelName;
+  final String? modelIconUrl;
   final VoidCallback? onCopy;
   final VoidCallback? onRegenerate;
   final VoidCallback? onLike;
@@ -29,6 +31,7 @@ class AssistantMessageWidget extends ConsumerStatefulWidget {
     required this.message,
     this.isStreaming = false,
     this.modelName,
+    this.modelIconUrl,
     this.onCopy,
     this.onRegenerate,
     this.onLike,
@@ -87,8 +90,9 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
       _updateTypingIndicatorGate();
     }
 
-    // Rebuild cached avatar if model name changes
-    if (oldWidget.modelName != widget.modelName) {
+    // Rebuild cached avatar if model name or icon changes
+    if (oldWidget.modelName != widget.modelName ||
+        oldWidget.modelIconUrl != widget.modelIconUrl) {
       _buildCachedAvatar();
     }
   }
@@ -409,28 +413,36 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   }
 
   void _buildCachedAvatar() {
-    _cachedAvatar = Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Container(
+    final theme = context.conduitTheme;
+    final iconUrl = widget.modelIconUrl?.trim();
+    final hasIcon = iconUrl != null && iconUrl.isNotEmpty;
+
+    final Widget leading = hasIcon
+        ? ModelAvatar(size: 20, imageUrl: iconUrl, label: widget.modelName)
+        : Container(
             width: 20,
             height: 20,
             decoration: BoxDecoration(
-              color: context.conduitTheme.buttonPrimary,
+              color: theme.buttonPrimary,
               borderRadius: BorderRadius.circular(AppBorderRadius.small),
             ),
             child: Icon(
               Icons.auto_awesome,
-              color: context.conduitTheme.buttonPrimaryText,
+              color: theme.buttonPrimaryText,
               size: 12,
             ),
-          ),
+          );
+
+    _cachedAvatar = Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          leading,
           const SizedBox(width: Spacing.xs),
           Text(
             widget.modelName ?? 'Assistant',
             style: TextStyle(
-              color: context.conduitTheme.textSecondary,
+              color: theme.textSecondary,
               fontSize: AppTypography.bodySmall,
               fontWeight: FontWeight.w500,
               letterSpacing: 0.1,

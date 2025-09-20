@@ -14,6 +14,7 @@ import '../../../core/auth/auth_state_manager.dart';
 import '../providers/chat_providers.dart';
 import '../../../core/utils/debug_logger.dart';
 import '../../../core/utils/user_display_name.dart';
+import '../../../core/utils/model_icon_utils.dart';
 
 import '../widgets/modern_chat_input.dart';
 import '../widgets/user_message_bubble.dart';
@@ -41,6 +42,7 @@ import '../../../shared/widgets/middle_ellipsis_text.dart';
 import '../../../shared/widgets/modal_safe_area.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../shared/utils/conversation_context_menu.dart';
+import '../../../shared/widgets/model_avatar.dart';
 // Removed unused PlatformUtils import
 import '../../../core/services/platform_service.dart' as ps;
 import 'package:flutter/gestures.dart' show DragStartBehavior;
@@ -699,6 +701,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       return _buildEmptyState(Theme.of(context));
     }
 
+    final apiService = ref.watch(apiServiceProvider);
+
     return OptimizedList<ChatMessage>(
       key: const ValueKey('actual_messages'),
       scrollController: _scrollController,
@@ -717,6 +721,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
         // Resolve a friendly model display name for message headers
         String? displayModelName;
+        Model? matchedModel;
         final rawModel = message.model;
         if (rawModel != null && rawModel.isNotEmpty) {
           final omitProvider = ref
@@ -730,6 +735,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               final match = models.firstWhere(
                 (m) => m.id == rawModel || m.name == rawModel,
               );
+              matchedModel = match;
               displayModelName = _formatModelDisplayName(
                 match.name,
                 omitProvider: omitProvider,
@@ -749,6 +755,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             );
           }
         }
+
+        final modelIconUrl = resolveModelIconUrlForModel(
+          apiService,
+          matchedModel,
+        );
 
         // Wrap message in selection container if in selection mode
         Widget messageWidget;
@@ -770,6 +781,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             message: message,
             isStreaming: isStreaming,
             modelName: displayModelName,
+            modelIconUrl: modelIconUrl,
             onCopy: () => _copyMessage(message.content),
             onRegenerate: () => _regenerateMessage(message),
           );
@@ -917,7 +929,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final l10n = AppLocalizations.of(context)!;
     // Use select to watch only connectivity status to reduce rebuilds
     final isOnline = ref.watch(isOnlineProvider.select((status) => status));
-
     // Use select to watch only the selected model to reduce rebuilds
     final selectedModel = ref.watch(
       selectedModelProvider.select((model) => model),
@@ -1819,6 +1830,8 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
+    final api = ref.watch(apiServiceProvider);
+    final iconUrl = resolveModelIconUrlForModel(api, model);
     return PressableScale(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppBorderRadius.md),
@@ -1852,21 +1865,7 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
           ),
           child: Row(
             children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: context.conduitTheme.buttonPrimary.withValues(
-                    alpha: 0.15,
-                  ),
-                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                ),
-                child: Icon(
-                  Platform.isIOS ? CupertinoIcons.cube : Icons.psychology,
-                  color: context.conduitTheme.buttonPrimary,
-                  size: 16,
-                ),
-              ),
+              ModelAvatar(size: 32, imageUrl: iconUrl, label: model.name),
               const SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
