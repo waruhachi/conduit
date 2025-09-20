@@ -543,6 +543,27 @@ Future<String> _preseedAssistantAndPersist(
   return assistantMessageId;
 }
 
+String? _extractSystemPromptFromSettings(Map<String, dynamic>? settings) {
+  if (settings == null) return null;
+
+  final rootValue = settings['system'];
+  if (rootValue is String) {
+    final trimmed = rootValue.trim();
+    if (trimmed.isNotEmpty) return trimmed;
+  }
+
+  final ui = settings['ui'];
+  if (ui is Map<String, dynamic>) {
+    final uiValue = ui['system'];
+    if (uiValue is String) {
+      final trimmed = uiValue.trim();
+      if (trimmed.isNotEmpty) return trimmed;
+    }
+  }
+
+  return null;
+}
+
 // Start a new chat (unified function for both "New Chat" button and home screen)
 void startNewChat(dynamic ref) {
   // Clear active conversation
@@ -763,13 +784,7 @@ Future<void> regenerateMessage(
     String? userSystemPrompt;
     try {
       userSettingsData = await api!.getUserSettings();
-      final systemValue = userSettingsData?['system'];
-      if (systemValue is String) {
-        final trimmed = systemValue.trim();
-        if (trimmed.isNotEmpty) {
-          userSystemPrompt = trimmed;
-        }
-      }
+      userSystemPrompt = _extractSystemPromptFromSettings(userSettingsData);
     } catch (_) {}
 
     if ((activeConversation.systemPrompt == null ||
@@ -1106,13 +1121,7 @@ Future<void> _sendMessageInternal(
   if (!reviewerMode && api != null) {
     try {
       userSettingsData = await api.getUserSettings();
-      final systemValue = userSettingsData?['system'];
-      if (systemValue is String) {
-        final trimmed = systemValue.trim();
-        if (trimmed.isNotEmpty) {
-          userSystemPrompt = trimmed;
-        }
-      }
+      userSystemPrompt = _extractSystemPromptFromSettings(userSettingsData);
     } catch (_) {}
   }
 
