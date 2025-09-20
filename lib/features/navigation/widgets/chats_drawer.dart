@@ -146,28 +146,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
               Spacing.md,
               Spacing.sm,
             ),
-            child: Row(
-              children: [
-                Expanded(child: _buildSearchField(context)),
-                const SizedBox(width: Spacing.sm),
-                IconButton(
-                  icon: Icon(
-                    Platform.isIOS ? CupertinoIcons.create : Icons.add_comment,
-                    color: theme.iconPrimary,
-                    size: IconSize.lg,
-                  ),
-                  onPressed: () {
-                    chat.startNewChat(ref);
-                    if (mounted) Navigator.of(context).maybePop();
-                  },
-                  tooltip: AppLocalizations.of(context)!.newChat,
-                  constraints: const BoxConstraints(
-                    minWidth: TouchTarget.comfortable,
-                    minHeight: TouchTarget.comfortable,
-                  ),
-                ),
-              ],
-            ),
+            child: Row(children: [Expanded(child: _buildSearchField(context))]),
           ),
           Expanded(child: _buildConversationList(context)),
           Divider(height: 1, color: theme.dividerColor),
@@ -1218,7 +1197,10 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           if (user != null) ...[
             const SizedBox(height: Spacing.sm),
             Container(
-              padding: const EdgeInsets.all(Spacing.sm),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.sm,
+                vertical: Spacing.xs,
+              ),
               decoration: BoxDecoration(
                 color: theme.surfaceContainer.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(AppBorderRadius.md),
@@ -1231,8 +1213,8 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
               child: Row(
                 children: [
                   Container(
-                    width: IconSize.avatar,
-                    height: IconSize.avatar,
+                    width: IconSize.xl,
+                    height: IconSize.xl,
                     decoration: BoxDecoration(
                       color: theme.buttonPrimary.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(
@@ -1252,7 +1234,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: Spacing.sm),
+                  const SizedBox(width: Spacing.xs),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1261,7 +1243,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                           displayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTypography.standard.copyWith(
+                          style: AppTypography.bodySmallStyle.copyWith(
                             color: theme.textPrimary,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1314,14 +1296,13 @@ class _ConversationDragFeedback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = pinned
-        ? theme.navigationSelected.withValues(alpha: 0.35)
-        : theme.surfaceContainerHighest.withValues(alpha: 0.45);
+    final borderRadius = BorderRadius.circular(AppBorderRadius.navigation);
+    final borderColor = theme.surfaceContainerHighest.withValues(alpha: 0.40);
 
     return Material(
       color: Colors.transparent,
       elevation: Elevation.low,
-      borderRadius: BorderRadius.zero,
+      borderRadius: borderRadius,
       child: Container(
         constraints: const BoxConstraints(minHeight: TouchTarget.listItem),
         padding: const EdgeInsets.symmetric(
@@ -1330,7 +1311,7 @@ class _ConversationDragFeedback extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: theme.surfaceContainer,
-          borderRadius: BorderRadius.zero,
+          borderRadius: borderRadius,
           border: Border.all(color: borderColor, width: BorderWidth.thin),
         ),
         child: _ConversationTileContent(
@@ -1472,14 +1453,9 @@ class _ConversationTile extends StatelessWidget {
             alpha: brightness == Brightness.dark ? 0.28 : 0.16,
           )
         : theme.surfaceContainer;
-    final Color borderColor;
-    if (selected) {
-      borderColor = theme.buttonPrimary.withValues(alpha: 0.7);
-    } else if (pinned) {
-      borderColor = theme.buttonPrimary.withValues(alpha: 0.35);
-    } else {
-      borderColor = theme.surfaceContainerHighest.withValues(alpha: 0.40);
-    }
+    final Color borderColor = selected
+        ? theme.buttonPrimary.withValues(alpha: 0.7)
+        : theme.surfaceContainerHighest.withValues(alpha: 0.40);
     final List<BoxShadow> shadow = selected ? ConduitShadows.low : const [];
 
     Color? overlayForStates(Set<WidgetState> states) {

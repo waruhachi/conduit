@@ -333,6 +333,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     final Brightness brightness = Theme.of(context).brightness;
     final bool isActive = _focusNode.hasFocus || _hasText;
     final Color composerSurface = context.conduitTheme.inputBackground;
+    final Color composerBackground = brightness == Brightness.dark
+        ? composerSurface.withValues(alpha: 0.78)
+        : context.conduitTheme.surfaceContainerHighest;
     final Color placeholderBase = context.conduitTheme.inputPlaceholder;
     final Color placeholderFocused = context.conduitTheme.inputText.withValues(
       alpha: 0.64,
@@ -428,9 +431,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
-        color: brightness == Brightness.dark
-            ? composerSurface.withValues(alpha: 0.78)
-            : composerSurface,
+        color: composerBackground,
         borderRadius: BorderRadius.circular(_composerRadius),
         border: Border.all(color: outlineColor, width: BorderWidth.thin),
         boxShadow: [
@@ -462,9 +463,19 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.all(Spacing.sm),
+                      padding: const EdgeInsets.fromLTRB(
+                        Spacing.sm,
+                        Spacing.xs,
+                        Spacing.sm,
+                        Spacing.xs,
+                      ),
                       child: Container(
-                        padding: const EdgeInsets.all(Spacing.sm),
+                        padding: const EdgeInsets.fromLTRB(
+                          Spacing.sm,
+                          Spacing.xs,
+                          Spacing.sm,
+                          Spacing.xs,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.transparent,
                           borderRadius: BorderRadius.circular(_composerRadius),
@@ -555,6 +566,13 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                                 factor,
                                               )!;
 
+                                          final FontWeight recordingWeight =
+                                              _isRecording
+                                              ? FontWeight.w500
+                                              : FontWeight.w400;
+                                          final TextStyle baseChatStyle =
+                                              AppTypography.chatMessageStyle;
+
                                           return TextField(
                                             controller: _controller,
                                             focusNode: _focusNode,
@@ -576,27 +594,20 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                                 ),
                                             keyboardAppearance: brightness,
                                             cursorColor: animatedTextColor,
-                                            style: AppTypography.bodyLargeStyle
-                                                .copyWith(
-                                                  color: animatedTextColor,
-                                                  fontStyle: _isRecording
-                                                      ? FontStyle.italic
-                                                      : FontStyle.normal,
-                                                  fontWeight: _isRecording
-                                                      ? FontWeight.w500
-                                                      : FontWeight.w400,
-                                                ),
+                                            style: baseChatStyle.copyWith(
+                                              color: animatedTextColor,
+                                              fontStyle: _isRecording
+                                                  ? FontStyle.italic
+                                                  : FontStyle.normal,
+                                              fontWeight: recordingWeight,
+                                            ),
                                             decoration: InputDecoration(
                                               hintText: AppLocalizations.of(
                                                 context,
                                               )!.messageHintText,
-                                              hintStyle: TextStyle(
+                                              hintStyle: baseChatStyle.copyWith(
                                                 color: animatedPlaceholder,
-                                                fontSize:
-                                                    AppTypography.bodyLarge,
-                                                fontWeight: _isRecording
-                                                    ? FontWeight.w500
-                                                    : FontWeight.w400,
+                                                fontWeight: recordingWeight,
                                                 fontStyle: _isRecording
                                                     ? FontStyle.italic
                                                     : FontStyle.normal,
@@ -610,7 +621,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                               contentPadding:
                                                   const EdgeInsets.symmetric(
                                                     horizontal: Spacing.sm,
-                                                    vertical: Spacing.sm,
+                                                    vertical: Spacing.xs,
                                                   ),
                                               isDense: true,
                                               alignLabelWithHint: true,
@@ -647,6 +658,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                         children: [
                           _buildOverflowButton(
                             tooltip: AppLocalizations.of(context)!.more,
+                            webSearchActive: webSearchEnabled,
+                            imageGenerationActive: imageGenEnabled,
+                            toolsActive: selectedToolIds.isNotEmpty,
                           ),
                           const SizedBox(width: Spacing.xs),
                           Expanded(
@@ -705,12 +719,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
     return Container(
       color: Colors.transparent,
-      padding: const EdgeInsets.only(
-        left: 0,
-        right: 0,
-        top: Spacing.xs,
-        bottom: 0,
-      ),
+      padding: EdgeInsets.zero,
       child: Column(mainAxisSize: MainAxisSize.min, children: [shell]),
     );
   }
@@ -778,14 +787,61 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     return result;
   }
 
-  Widget _buildOverflowButton({required String tooltip}) {
-    final IconData icon = Platform.isIOS
-        ? CupertinoIcons.ellipsis
-        : Icons.more_horiz;
-    return _buildRoundButton(
-      icon: icon,
-      onTap: widget.enabled && !_isRecording ? _showOverflowSheet : null,
-      tooltip: tooltip,
+  Widget _buildOverflowButton({
+    required String tooltip,
+    required bool webSearchActive,
+    required bool imageGenerationActive,
+    required bool toolsActive,
+  }) {
+    final bool enabled = widget.enabled && !_isRecording;
+
+    IconData icon;
+    Color? activeColor;
+    if (webSearchActive) {
+      icon = Platform.isIOS ? CupertinoIcons.search : Icons.search;
+      activeColor = context.conduitTheme.buttonPrimary;
+    } else if (imageGenerationActive) {
+      icon = Platform.isIOS ? CupertinoIcons.photo : Icons.image;
+      activeColor = context.conduitTheme.buttonPrimary;
+    } else if (toolsActive) {
+      icon = Platform.isIOS ? CupertinoIcons.wrench : Icons.build;
+      activeColor = context.conduitTheme.buttonPrimary;
+    } else {
+      icon = Platform.isIOS ? CupertinoIcons.add : Icons.add;
+      activeColor = null;
+    }
+
+    const double iconSize = IconSize.large;
+
+    final Color iconColor = !enabled
+        ? context.conduitTheme.textPrimary.withValues(alpha: Alpha.disabled)
+        : (activeColor ??
+              context.conduitTheme.textPrimary.withValues(alpha: Alpha.strong));
+
+    return Tooltip(
+      message: tooltip,
+      child: Opacity(
+        opacity: enabled ? 1.0 : Alpha.disabled,
+        child: SizedBox(
+          width: TouchTarget.minimum,
+          height: TouchTarget.minimum,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppBorderRadius.round),
+              onTap: enabled
+                  ? () {
+                      HapticFeedback.selectionClick();
+                      _showOverflowSheet();
+                    }
+                  : null,
+              child: Center(
+                child: Icon(icon, size: iconSize, color: iconColor),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -902,68 +958,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                           alpha: Alpha.disabled,
                         ),
                 ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRoundButton({
-    required IconData icon,
-    VoidCallback? onTap,
-    String? tooltip,
-    bool isActive = false,
-  }) {
-    const double buttonSize = TouchTarget.minimum;
-    final VoidCallback? callback = onTap;
-    final bool enabled = callback != null;
-    final Color borderColor = isActive
-        ? context.conduitTheme.buttonPrimary
-        : context.conduitTheme.cardBorder.withValues(
-            alpha: enabled ? Alpha.medium : Alpha.disabled,
-          );
-    final Color fillColor = isActive
-        ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.18)
-        : context.conduitTheme.cardBackground;
-    final Color iconColor = enabled
-        ? (isActive
-              ? context.conduitTheme.buttonPrimaryText
-              : context.conduitTheme.textPrimary.withValues(
-                  alpha: Alpha.strong,
-                ))
-        : context.conduitTheme.textPrimary.withValues(alpha: Alpha.disabled);
-
-    return Tooltip(
-      message: tooltip ?? '',
-      child: Opacity(
-        opacity: enabled ? 1.0 : Alpha.disabled,
-        child: IgnorePointer(
-          ignoring: !enabled,
-          child: Material(
-            color: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppBorderRadius.round),
-              side: BorderSide(color: borderColor, width: BorderWidth.thin),
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(AppBorderRadius.round),
-              onTap: onTap == null
-                  ? null
-                  : () {
-                      HapticFeedback.selectionClick();
-                      onTap();
-                    },
-              child: Container(
-                width: buttonSize,
-                height: buttonSize,
-                decoration: BoxDecoration(
-                  color: fillColor,
-                  borderRadius: BorderRadius.circular(AppBorderRadius.round),
-                  boxShadow: ConduitShadows.button,
-                ),
-                child: Icon(icon, size: IconSize.medium, color: iconColor),
               ),
             ),
           ),

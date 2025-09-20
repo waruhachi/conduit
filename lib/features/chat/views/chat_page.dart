@@ -934,19 +934,32 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final conversationTitle = ref.watch(
       activeConversationProvider.select((conv) => conv?.title),
     );
-    final displayConversationTitle = (() {
-      final trimmed = conversationTitle?.trim();
-      if (trimmed != null && trimmed.isNotEmpty) {
-        return trimmed;
-      }
-      return l10n.newChat;
-    })();
+    final trimmedConversationTitle = conversationTitle?.trim();
+    final displayConversationTitle =
+        (trimmedConversationTitle != null &&
+            trimmedConversationTitle.isNotEmpty)
+        ? trimmedConversationTitle
+        : null;
     final formattedModelName = selectedModel != null
         ? _formatModelDisplayName(
             selectedModel.name,
             omitProvider: omitProviderInModelName,
           )
         : null;
+    final modelLabel = formattedModelName ?? l10n.chooseModel;
+    final hasConversationTitle = displayConversationTitle != null;
+    final TextStyle modelTextStyle = hasConversationTitle
+        ? AppTypography.small.copyWith(
+            color: context.conduitTheme.textSecondary,
+            fontWeight: FontWeight.w600,
+            height: 1.2,
+          )
+        : AppTypography.headlineSmallStyle.copyWith(
+            color: context.conduitTheme.textPrimary,
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+            height: 1.3,
+          );
 
     // Keyboard visibility
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
@@ -1060,16 +1073,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     onPressed: _clearSelection,
                   )
                 : Builder(
-                    builder: (ctx) => GestureDetector(
-                      onTap: () {
-                        // Open left drawer instead of bottom sheet
-                        Scaffold.of(ctx).openDrawer();
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                          left: Spacing.inputPadding,
-                        ),
-                        child: Icon(
+                    builder: (ctx) => Padding(
+                      padding: const EdgeInsets.only(
+                        left: Spacing.inputPadding,
+                      ),
+                      child: IconButton(
+                        onPressed: () {
+                          // Open left drawer instead of bottom sheet
+                          Scaffold.of(ctx).openDrawer();
+                        },
+                        icon: Icon(
                           Platform.isIOS
                               ? CupertinoIcons.line_horizontal_3
                               : Icons.menu,
@@ -1085,155 +1098,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     style: AppTypography.headlineSmallStyle.copyWith(
                       color: context.conduitTheme.textPrimary,
                       fontWeight: FontWeight.w500,
-                    ),
-                  )
-                : selectedModel != null
-                ? GestureDetector(
-                    onTap: () {
-                      final modelsAsync = ref.read(modelsProvider);
-                      modelsAsync.whenData(
-                        (models) => _showModelDropdown(context, ref, models),
-                      );
-                    },
-                    onLongPress: () {
-                      final conversation = ref.read(activeConversationProvider);
-                      if (conversation == null) return;
-                      showConversationContextMenu(
-                        context: context,
-                        ref: ref,
-                        conversation: conversation,
-                      );
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        MiddleEllipsisText(
-                          displayConversationTitle,
-                          style: AppTypography.headlineSmallStyle.copyWith(
-                            color: context.conduitTheme.textPrimary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 18,
-                            height: 1.3,
-                          ),
-                          textAlign: TextAlign.center,
-                          semanticsLabel: displayConversationTitle,
-                        ),
-                        const SizedBox(height: Spacing.xs),
-                        Transform.translate(
-                          offset: const Offset(0, 0),
-                          child: SizedBox(
-                            height: 24,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Opacity(
-                                  opacity: 0.0,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: Spacing.xs,
-                                      vertical: Spacing.xxs,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: context
-                                          .conduitTheme
-                                          .surfaceBackground
-                                          .withValues(alpha: 0.3),
-                                      borderRadius: BorderRadius.circular(
-                                        AppBorderRadius.badge,
-                                      ),
-                                      border: Border.all(
-                                        color:
-                                            context.conduitTheme.dividerColor,
-                                        width: BorderWidth.thin,
-                                      ),
-                                    ),
-                                    child: Icon(
-                                      Platform.isIOS
-                                          ? CupertinoIcons.chevron_down
-                                          : Icons.keyboard_arrow_down,
-                                      color: context.conduitTheme.iconSecondary,
-                                      size: IconSize.small,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: Spacing.xs),
-                                Flexible(
-                                  child: MiddleEllipsisText(
-                                    formattedModelName!,
-                                    style: AppTypography.small.copyWith(
-                                      color: context.conduitTheme.textSecondary,
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.2,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                    semanticsLabel: formattedModelName,
-                                  ),
-                                ),
-                                const SizedBox(width: Spacing.xs),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: Spacing.xs,
-                                    vertical: Spacing.xxs,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: context
-                                        .conduitTheme
-                                        .surfaceBackground
-                                        .withValues(alpha: 0.3),
-                                    borderRadius: BorderRadius.circular(
-                                      AppBorderRadius.badge,
-                                    ),
-                                    border: Border.all(
-                                      color: context.conduitTheme.dividerColor,
-                                      width: BorderWidth.thin,
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    Platform.isIOS
-                                        ? CupertinoIcons.chevron_down
-                                        : Icons.keyboard_arrow_down,
-                                    color: context.conduitTheme.iconSecondary,
-                                    size: IconSize.small,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        if (isReviewerMode)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2.0),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: Spacing.sm,
-                                vertical: 1.0,
-                              ),
-                              decoration: BoxDecoration(
-                                color: context.conduitTheme.success.withValues(
-                                  alpha: 0.1,
-                                ),
-                                borderRadius: BorderRadius.circular(
-                                  AppBorderRadius.badge,
-                                ),
-                                border: Border.all(
-                                  color: context.conduitTheme.success
-                                      .withValues(alpha: 0.3),
-                                  width: BorderWidth.thin,
-                                ),
-                              ),
-                              child: Text(
-                                'REVIEWER MODE',
-                                style: AppTypography.captionStyle.copyWith(
-                                  color: context.conduitTheme.success,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 9,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
                     ),
                   )
                 : GestureDetector(
@@ -1256,23 +1120,40 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        MiddleEllipsisText(
-                          displayConversationTitle,
-                          style: AppTypography.headlineSmallStyle.copyWith(
-                            color: context.conduitTheme.textPrimary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 18,
-                            height: 1.3,
-                          ),
-                          textAlign: TextAlign.center,
-                          semanticsLabel: displayConversationTitle,
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 250),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          child: displayConversationTitle != null
+                              ? Column(
+                                  key: const ValueKey<bool>(true),
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    MiddleEllipsisText(
+                                      displayConversationTitle,
+                                      style: AppTypography.headlineSmallStyle
+                                          .copyWith(
+                                            color: context
+                                                .conduitTheme
+                                                .textPrimary,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 18,
+                                            height: 1.3,
+                                          ),
+                                      textAlign: TextAlign.center,
+                                      semanticsLabel: displayConversationTitle,
+                                    ),
+                                    const SizedBox(height: Spacing.xs),
+                                  ],
+                                )
+                              : const SizedBox.shrink(
+                                  key: ValueKey<bool>(false),
+                                ),
                         ),
-                        const SizedBox(height: Spacing.xs),
                         Transform.translate(
                           offset: const Offset(0, 0),
-                          child: SizedBox(
-                            height: 24,
-                            child: Row(
+                          child: () {
+                            final row = Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -1309,14 +1190,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                 const SizedBox(width: Spacing.xs),
                                 Flexible(
                                   child: MiddleEllipsisText(
-                                    l10n.chooseModel,
-                                    style: AppTypography.small.copyWith(
-                                      color: context.conduitTheme.textSecondary,
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.2,
-                                    ),
+                                    modelLabel,
+                                    style: modelTextStyle,
                                     textAlign: TextAlign.center,
-                                    semanticsLabel: l10n.chooseModel,
+                                    semanticsLabel: modelLabel,
                                   ),
                                 ),
                                 const SizedBox(width: Spacing.xs),
@@ -1347,8 +1224,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                   ),
                                 ),
                               ],
-                            ),
-                          ),
+                            );
+                            return hasConversationTitle
+                                ? SizedBox(height: 24, child: row)
+                                : row;
+                          }(),
                         ),
                         if (isReviewerMode)
                           Padding(
