@@ -13,7 +13,9 @@ import 'dart:ui';
 import 'dart:math' as math;
 import '../providers/chat_providers.dart';
 import '../../tools/providers/tools_providers.dart';
+import '../../prompts/providers/prompts_providers.dart';
 import '../../../core/models/tool.dart';
+import '../../../core/models/prompt.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/services/settings_service.dart';
 import '../../chat/services/voice_input_service.dart';
@@ -28,6 +30,30 @@ class _SendMessageIntent extends Intent {
 
 class _InsertNewlineIntent extends Intent {
   const _InsertNewlineIntent();
+}
+
+class _SelectNextPromptIntent extends Intent {
+  const _SelectNextPromptIntent();
+}
+
+class _SelectPreviousPromptIntent extends Intent {
+  const _SelectPreviousPromptIntent();
+}
+
+class _DismissPromptIntent extends Intent {
+  const _DismissPromptIntent();
+}
+
+class _PromptCommandMatch {
+  const _PromptCommandMatch({
+    required this.command,
+    required this.start,
+    required this.end,
+  });
+
+  final String command;
+  final int start;
+  final int end;
 }
 
 class ModernChatInput extends ConsumerStatefulWidget {
@@ -71,6 +97,10 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   String _baseTextAtStart = '';
   bool _isDeactivated = false;
   int _lastHandledFocusTick = 0;
+  bool _showPromptOverlay = false;
+  String _currentPromptCommand = '';
+  TextRange? _currentPromptRange;
+  int _promptSelectionIndex = 0;
 
   @override
   void initState() {
@@ -91,16 +121,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
     // Removed ref.listen here; it must be used from build in this Riverpod version
 
-    // Listen for text changes and update only when emptiness flips
-    _controller.addListener(() {
-      final has = _controller.text.trim().isNotEmpty;
-      if (has != _hasText) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || _isDeactivated) return;
-          setState(() => _hasText = has);
-        });
-      }
-    });
+    // Listen for text and selection changes in the composer
+    _controller.addListener(_handleComposerChanged);
 
     // Publish focus changes to listeners
     _focusNode.addListener(() {
@@ -122,6 +144,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     try {
       ref.read(composerHasFocusProvider.notifier).state = false;
     } catch (_) {}
+    _controller.removeListener(_handleComposerChanged);
     _controller.dispose();
     _focusNode.dispose();
     _voiceStreamSubscription?.cancel();
@@ -190,6 +213,362 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     );
     // Ensure field stays focused
     _ensureFocusedIfEnabled();
+  }
+
+  static final RegExp _promptCommandBoundary = RegExp(r'\s');
+
+  void _handleComposerChanged() {
+    if (!mounted || _isDeactivated) return;
+
+    final String text = _controller.text;
+    final TextSelection selection = _controller.selection;
+    final bool hasText = text.trim().isNotEmpty;
+    final _PromptCommandMatch? match = _resolvePromptCommand(
+      text,
+      selection,
+      widget.enabled,
+    );
+    final bool shouldShow = match != null;
+    final bool wasShowing = _showPromptOverlay;
+    final String previousCommand = _currentPromptCommand;
+
+    bool needsUpdate = hasText != _hasText || shouldShow != _showPromptOverlay;
+
+    if (!needsUpdate) {
+      if (match != null) {
+        final TextRange? range = _currentPromptRange;
+        needsUpdate =
+            previousCommand != match.command ||
+            range == null ||
+            range.start != match.start ||
+            range.end != match.end;
+      } else {
+        needsUpdate =
+            _currentPromptCommand.isNotEmpty || _currentPromptRange != null;
+      }
+    }
+
+    if (!needsUpdate) return;
+
+    setState(() {
+      _hasText = hasText;
+      if (match != null) {
+        if (previousCommand != match.command) {
+          _promptSelectionIndex = 0;
+        }
+        _currentPromptCommand = match.command;
+        _currentPromptRange = TextRange(start: match.start, end: match.end);
+        _showPromptOverlay = true;
+      } else {
+        _currentPromptCommand = '';
+        _currentPromptRange = null;
+        _promptSelectionIndex = 0;
+        _showPromptOverlay = false;
+      }
+    });
+
+    if (!wasShowing && shouldShow) {
+      // Trigger prompt fetch lazily when overlay first appears
+      ref.read(promptsListProvider.future);
+    }
+  }
+
+  _PromptCommandMatch? _resolvePromptCommand(
+    String text,
+    TextSelection selection,
+    bool enabled,
+  ) {
+    if (!enabled) return null;
+    if (!selection.isValid || !selection.isCollapsed) return null;
+
+    final int cursor = selection.start;
+    if (cursor < 0 || cursor > text.length) return null;
+    if (cursor == 0) return null;
+
+    int start = cursor;
+    while (start > 0) {
+      final String previous = text.substring(start - 1, start);
+      if (_promptCommandBoundary.hasMatch(previous)) {
+        break;
+      }
+      start--;
+    }
+
+    final String candidate = text.substring(start, cursor);
+    if (candidate.isEmpty || !candidate.startsWith('/')) {
+      return null;
+    }
+
+    return _PromptCommandMatch(command: candidate, start: start, end: cursor);
+  }
+
+  List<Prompt> _filterPrompts(List<Prompt> prompts) {
+    if (prompts.isEmpty) return const <Prompt>[];
+    final String query = _currentPromptCommand.toLowerCase();
+
+    final List<Prompt> filtered =
+        prompts
+            .where(
+              (prompt) =>
+                  prompt.command.toLowerCase().contains(query.trim()) &&
+                  prompt.content.isNotEmpty,
+            )
+            .toList()
+          ..sort((a, b) {
+            final int titleCompare = a.title.toLowerCase().compareTo(
+              b.title.toLowerCase(),
+            );
+            if (titleCompare != 0) return titleCompare;
+            return a.command.toLowerCase().compareTo(b.command.toLowerCase());
+          });
+
+    return filtered;
+  }
+
+  void _movePromptSelection(int delta) {
+    final AsyncValue<List<Prompt>> promptsAsync = ref.read(promptsListProvider);
+    final List<Prompt>? prompts = promptsAsync.value;
+    if (prompts == null || prompts.isEmpty) return;
+
+    final List<Prompt> filtered = _filterPrompts(prompts);
+    if (filtered.isEmpty) return;
+
+    int newIndex = _promptSelectionIndex + delta;
+    if (newIndex < 0) {
+      newIndex = 0;
+    } else if (newIndex >= filtered.length) {
+      newIndex = filtered.length - 1;
+    }
+    if (newIndex == _promptSelectionIndex) return;
+
+    setState(() {
+      _promptSelectionIndex = newIndex;
+    });
+  }
+
+  void _confirmPromptSelection() {
+    final AsyncValue<List<Prompt>> promptsAsync = ref.read(promptsListProvider);
+    final List<Prompt>? prompts = promptsAsync.value;
+    if (prompts == null || prompts.isEmpty) return;
+
+    final List<Prompt> filtered = _filterPrompts(prompts);
+    if (filtered.isEmpty) return;
+
+    int index = _promptSelectionIndex;
+    if (index < 0) {
+      index = 0;
+    } else if (index >= filtered.length) {
+      index = filtered.length - 1;
+    }
+    _applyPrompt(filtered[index]);
+  }
+
+  void _applyPrompt(Prompt prompt) {
+    final TextRange? range = _currentPromptRange;
+    if (range == null) return;
+
+    final String text = _controller.text;
+    final String before = text.substring(0, range.start);
+    final String after = text.substring(range.end);
+    final String content = prompt.content;
+    final int caret = before.length + content.length;
+
+    _controller.value = TextEditingValue(
+      text: '$before$content$after',
+      selection: TextSelection.collapsed(offset: caret),
+      composing: TextRange.empty,
+    );
+
+    _ensureFocusedIfEnabled();
+
+    setState(() {
+      _showPromptOverlay = false;
+      _currentPromptCommand = '';
+      _currentPromptRange = null;
+      _promptSelectionIndex = 0;
+    });
+  }
+
+  void _hidePromptOverlay() {
+    if (!_showPromptOverlay) return;
+    setState(() {
+      _showPromptOverlay = false;
+      _currentPromptCommand = '';
+      _currentPromptRange = null;
+      _promptSelectionIndex = 0;
+    });
+  }
+
+  Widget _buildPromptOverlay(BuildContext context) {
+    final Brightness brightness = Theme.of(context).brightness;
+    final overlayColor = context.conduitTheme.cardBackground;
+    final borderColor = context.conduitTheme.cardBorder.withValues(
+      alpha: brightness == Brightness.dark ? 0.6 : 0.4,
+    );
+
+    final AsyncValue<List<Prompt>> promptsAsync = ref.watch(
+      promptsListProvider,
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: overlayColor,
+        borderRadius: BorderRadius.circular(AppBorderRadius.card),
+        border: Border.all(color: borderColor, width: BorderWidth.thin),
+        boxShadow: [
+          BoxShadow(
+            color: context.conduitTheme.cardShadow.withValues(
+              alpha: brightness == Brightness.dark ? 0.28 : 0.16,
+            ),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
+        ],
+      ),
+      child: promptsAsync.when(
+        data: (prompts) {
+          final List<Prompt> filtered = _filterPrompts(prompts);
+          if (filtered.isEmpty) {
+            return _buildPromptOverlayPlaceholder(
+              context,
+              Icon(
+                Icons.inbox_outlined,
+                size: IconSize.medium,
+                color: context.conduitTheme.textSecondary.withValues(
+                  alpha: Alpha.medium,
+                ),
+              ),
+              AppLocalizations.of(context)!.noResults,
+            );
+          }
+
+          int activeIndex = _promptSelectionIndex;
+          if (activeIndex < 0) {
+            activeIndex = 0;
+          } else if (activeIndex >= filtered.length) {
+            activeIndex = filtered.length - 1;
+          }
+
+          return ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 240),
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
+              shrinkWrap: true,
+              physics: const ClampingScrollPhysics(),
+              itemCount: filtered.length,
+              separatorBuilder: (context, index) =>
+                  const SizedBox(height: Spacing.xxs),
+              itemBuilder: (context, index) {
+                final prompt = filtered[index];
+                final bool isSelected = index == activeIndex;
+                final Color highlight = isSelected
+                    ? context.conduitTheme.navigationSelectedBackground
+                          .withValues(alpha: 0.4)
+                    : Colors.transparent;
+
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppBorderRadius.card),
+                    onTap: () => _applyPrompt(prompt),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: highlight,
+                        borderRadius: BorderRadius.circular(
+                          AppBorderRadius.card,
+                        ),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Spacing.sm,
+                        vertical: Spacing.xs,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            prompt.command,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: context.conduitTheme.textPrimary,
+                                ),
+                          ),
+                          if (prompt.title.trim().isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: Spacing.xxs),
+                              child: Text(
+                                prompt.title,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: context.conduitTheme.textSecondary,
+                                    ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+        loading: () => _buildPromptOverlayPlaceholder(
+          context,
+          SizedBox(
+            width: IconSize.large,
+            height: IconSize.large,
+            child: CircularProgressIndicator(
+              strokeWidth: BorderWidth.regular,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                context.conduitTheme.loadingIndicator,
+              ),
+            ),
+          ),
+          null,
+        ),
+        error: (error, stackTrace) => _buildPromptOverlayPlaceholder(
+          context,
+          Icon(
+            Icons.error_outline,
+            size: IconSize.medium,
+            color: context.conduitTheme.error,
+          ),
+          null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPromptOverlayPlaceholder(
+    BuildContext context,
+    Widget leading,
+    String? message,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.sm,
+        vertical: Spacing.md,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          leading,
+          if (message != null) ...[
+            const SizedBox(width: Spacing.sm),
+            Flexible(
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: context.conduitTheme.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   @override
@@ -380,6 +759,16 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (_showPromptOverlay)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          Spacing.sm,
+                          0,
+                          Spacing.sm,
+                          Spacing.xs,
+                        ),
+                        child: _buildPromptOverlay(context),
+                      ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(
                         Spacing.sm,
@@ -439,6 +828,20 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                             )] =
                                             const _InsertNewlineIntent();
                                       }
+                                      if (_showPromptOverlay) {
+                                        map[LogicalKeySet(
+                                              LogicalKeyboardKey.arrowDown,
+                                            )] =
+                                            const _SelectNextPromptIntent();
+                                        map[LogicalKeySet(
+                                              LogicalKeyboardKey.arrowUp,
+                                            )] =
+                                            const _SelectPreviousPromptIntent();
+                                        map[LogicalKeySet(
+                                              LogicalKeyboardKey.escape,
+                                            )] =
+                                            const _DismissPromptIntent();
+                                      }
                                       return map;
                                     }(),
                                     child: Actions(
@@ -446,6 +849,10 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                         _SendMessageIntent:
                                             CallbackAction<_SendMessageIntent>(
                                               onInvoke: (intent) {
+                                                if (_showPromptOverlay) {
+                                                  _confirmPromptSelection();
+                                                  return null;
+                                                }
                                                 _sendMessage();
                                                 return null;
                                               },
@@ -456,6 +863,33 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                                             >(
                                               onInvoke: (intent) {
                                                 _insertNewline();
+                                                return null;
+                                              },
+                                            ),
+                                        _SelectNextPromptIntent:
+                                            CallbackAction<
+                                              _SelectNextPromptIntent
+                                            >(
+                                              onInvoke: (intent) {
+                                                _movePromptSelection(1);
+                                                return null;
+                                              },
+                                            ),
+                                        _SelectPreviousPromptIntent:
+                                            CallbackAction<
+                                              _SelectPreviousPromptIntent
+                                            >(
+                                              onInvoke: (intent) {
+                                                _movePromptSelection(-1);
+                                                return null;
+                                              },
+                                            ),
+                                        _DismissPromptIntent:
+                                            CallbackAction<
+                                              _DismissPromptIntent
+                                            >(
+                                              onInvoke: (intent) {
+                                                _hidePromptOverlay();
                                                 return null;
                                               },
                                             ),
