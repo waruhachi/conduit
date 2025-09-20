@@ -483,6 +483,18 @@ class ApiService {
       'DEBUG: Parsed conversation $id: pinned=$pinned, archived=$archived',
     );
 
+    String? systemPrompt;
+    final chatObject = chatData['chat'] as Map<String, dynamic>?;
+    if (chatObject != null) {
+      final systemValue = chatObject['system'];
+      if (systemValue is String && systemValue.trim().isNotEmpty) {
+        systemPrompt = systemValue;
+      }
+    } else if (chatData['system'] is String) {
+      final systemValue = (chatData['system'] as String).trim();
+      if (systemValue.isNotEmpty) systemPrompt = systemValue;
+    }
+
     // For the list endpoint, we don't get the full chat messages
     // We'll need to fetch individual chats later if needed
     return Conversation(
@@ -490,6 +502,7 @@ class ApiService {
       title: title,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      systemPrompt: systemPrompt,
       pinned: pinned,
       archived: archived,
       shareId: shareId,
@@ -532,6 +545,16 @@ class ApiService {
 
     // Parse messages from the 'chat' object or top-level messages
     final chatObject = chatData['chat'] as Map<String, dynamic>?;
+    String? systemPrompt;
+    if (chatObject != null) {
+      final systemValue = chatObject['system'];
+      if (systemValue is String && systemValue.trim().isNotEmpty) {
+        systemPrompt = systemValue;
+      }
+    } else if (chatData['system'] is String) {
+      final systemValue = (chatData['system'] as String).trim();
+      if (systemValue.isNotEmpty) systemPrompt = systemValue;
+    }
     final messages = <ChatMessage>[];
 
     // Extract model from chat.models array
@@ -663,6 +686,7 @@ class ApiService {
       createdAt: createdAt,
       updatedAt: updatedAt,
       model: model,
+      systemPrompt: systemPrompt,
       pinned: pinned,
       archived: archived,
       shareId: shareId,
@@ -1031,6 +1055,8 @@ class ApiService {
         'id': '',
         'title': title,
         'models': model != null ? [model] : [],
+        if (systemPrompt != null && systemPrompt.trim().isNotEmpty)
+          'system': systemPrompt,
         'params': {},
         'history': {
           'messages': messagesMap,
@@ -1155,6 +1181,8 @@ class ApiService {
       'chat': {
         if (title != null) 'title': title, // Include the title if provided
         'models': model != null ? [model] : [],
+        if (systemPrompt != null && systemPrompt.trim().isNotEmpty)
+          'system': systemPrompt,
         'messages': messagesArray,
         'history': {
           'messages': messagesMap,

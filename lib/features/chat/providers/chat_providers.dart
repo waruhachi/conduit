@@ -482,6 +482,7 @@ Future<String> _preseedAssistantAndPersist(
   dynamic ref, {
   String? existingAssistantId,
   required String modelId,
+  String? systemPrompt,
 }) async {
   final api = ref.read(apiServiceProvider);
   final activeConv = ref.read(activeConversationProvider);
@@ -525,11 +526,16 @@ Future<String> _preseedAssistantAndPersist(
   // Persist the skeleton to the server so the web client sees a correct chain
   try {
     if (api != null && activeConv != null) {
+      final resolvedSystemPrompt = (systemPrompt != null &&
+              systemPrompt.trim().isNotEmpty)
+          ? systemPrompt.trim()
+          : activeConv.systemPrompt;
       final current = ref.read(chatMessagesProvider);
       await api.updateConversationWithMessages(
         activeConv.id,
         current,
         model: modelId,
+        systemPrompt: resolvedSystemPrompt,
       );
     }
   } catch (_) {}
@@ -711,7 +717,7 @@ Future<void> regenerateMessage(
     throw Exception('No API service or model selected');
   }
 
-  final activeConversation = ref.read(activeConversationProvider);
+  var activeConversation = ref.read(activeConversationProvider);
   if (activeConversation == null) {
     throw Exception('No active conversation');
   }
@@ -753,6 +759,28 @@ Future<void> regenerateMessage(
 
   // For real API, proceed with regeneration using existing conversation messages
   try {
+    Map<String, dynamic>? userSettingsData;
+    String? userSystemPrompt;
+    try {
+      userSettingsData = await api!.getUserSettings();
+      final systemValue = userSettingsData?['system'];
+      if (systemValue is String) {
+        final trimmed = systemValue.trim();
+        if (trimmed.isNotEmpty) {
+          userSystemPrompt = trimmed;
+        }
+      }
+    } catch (_) {}
+
+    if ((activeConversation.systemPrompt == null ||
+            activeConversation.systemPrompt!.trim().isEmpty) &&
+        (userSystemPrompt?.isNotEmpty ?? false)) {
+      final updated =
+          activeConversation.copyWith(systemPrompt: userSystemPrompt);
+      ref.read(activeConversationProvider.notifier).state = updated;
+      activeConversation = updated;
+    }
+
     // Include selected tool ids so provider-native tool calling is triggered
     final selectedToolIds = ref.read(selectedToolIdsProvider);
     // Get conversation history for context (excluding the removed assistant message)
@@ -787,10 +815,28 @@ Future<void> regenerateMessage(
       }
     }
 
+    final conversationSystemPrompt = activeConversation.systemPrompt?.trim();
+    final effectiveSystemPrompt = (conversationSystemPrompt != null &&
+            conversationSystemPrompt.isNotEmpty)
+        ? conversationSystemPrompt
+        : userSystemPrompt;
+    if (effectiveSystemPrompt != null && effectiveSystemPrompt.isNotEmpty) {
+      final hasSystemMessage = conversationMessages.any(
+        (m) => (m['role']?.toString().toLowerCase() ?? '') == 'system',
+      );
+      if (!hasSystemMessage) {
+        conversationMessages.insert(
+          0,
+          {'role': 'system', 'content': effectiveSystemPrompt},
+        );
+      }
+    }
+
     // Pre-seed assistant skeleton and persist chain
     final String assistantMessageId = await _preseedAssistantAndPersist(
       ref,
       modelId: selectedModel.id,
+      systemPrompt: effectiveSystemPrompt,
     );
 
     // Feature toggles
@@ -912,14 +958,13 @@ Future<void> regenerateMessage(
 
     // Resolve tool servers from user settings (if any)
     List<Map<String, dynamic>>? toolServers;
-    try {
-      final userSettings = await api!.getUserSettings();
-      final ui = userSettings['ui'] as Map<String, dynamic>?;
-      final rawServers = ui != null ? (ui['toolServers'] as List?) : null;
-      if (rawServers != null && rawServers.isNotEmpty) {
+    final uiSettings = userSettingsData?['ui'] as Map<String, dynamic>?;
+    final rawServers = uiSettings != null ? (uiSettings['toolServers'] as List?) : null;
+    if (rawServers != null && rawServers.isNotEmpty) {
+      try {
         toolServers = await _resolveToolServers(rawServers, api);
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
 
     // Background tasks parity with Web client (safe defaults)
     bool shouldGenerateTitle = false;
@@ -1056,6 +1101,21 @@ Future<void> _sendMessageInternal(
     throw Exception('No API service or model selected');
   }
 
+  Map<String, dynamic>? userSettingsData;
+  String? userSystemPrompt;
+  if (!reviewerMode && api != null) {
+    try {
+      userSettingsData = await api.getUserSettings();
+      final systemValue = userSettingsData?['system'];
+      if (systemValue is String) {
+        final trimmed = systemValue.trim();
+        if (trimmed.isNotEmpty) {
+          userSystemPrompt = trimmed;
+        }
+      }
+    } catch (_) {}
+  }
+
   // Check if we need to create a new conversation first
   var activeConversation = ref.read(activeConversationProvider);
 
@@ -1077,6 +1137,7 @@ Future<void> _sendMessageInternal(
       title: 'New Chat',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
+      systemPrompt: userSystemPrompt,
       messages: [userMessage], // Include the user message
     );
 
@@ -1091,9 +1152,11 @@ Future<void> _sendMessageInternal(
           title: 'New Chat',
           messages: [userMessage], // Include the first message in creation
           model: selectedModel.id,
+          systemPrompt: userSystemPrompt,
         );
         final updatedConversation = localConversation.copyWith(
           id: serverConversation.id,
+          systemPrompt: serverConversation.systemPrompt ?? userSystemPrompt,
           messages: serverConversation.messages.isNotEmpty
               ? serverConversation.messages
               : [userMessage],
@@ -1129,6 +1192,15 @@ Future<void> _sendMessageInternal(
   } else {
     // Add user message to existing conversation
     ref.read(chatMessagesProvider.notifier).addMessage(userMessage);
+  }
+
+  if (activeConversation != null &&
+      (activeConversation.systemPrompt == null ||
+          activeConversation.systemPrompt!.trim().isEmpty) &&
+      (userSystemPrompt?.isNotEmpty ?? false)) {
+    final updated = activeConversation.copyWith(systemPrompt: userSystemPrompt);
+    ref.read(activeConversationProvider.notifier).state = updated;
+    activeConversation = updated;
   }
 
   // We'll add the assistant message placeholder after we get the message ID from the API (or immediately in reviewer mode)
@@ -1234,6 +1306,23 @@ Future<void> _sendMessageInternal(
     }
   }
 
+  final conversationSystemPrompt = activeConversation?.systemPrompt?.trim();
+  final effectiveSystemPrompt = (conversationSystemPrompt != null &&
+          conversationSystemPrompt.isNotEmpty)
+      ? conversationSystemPrompt
+      : userSystemPrompt;
+  if (effectiveSystemPrompt != null && effectiveSystemPrompt.isNotEmpty) {
+    final hasSystemMessage = conversationMessages.any(
+      (m) => (m['role']?.toString().toLowerCase() ?? '') == 'system',
+    );
+    if (!hasSystemMessage) {
+      conversationMessages.insert(
+        0,
+        {'role': 'system', 'content': effectiveSystemPrompt},
+      );
+    }
+  }
+
   // Check feature toggles for API (gated by server availability)
   final webSearchEnabled =
       ref.read(webSearchEnabledProvider) &&
@@ -1270,6 +1359,7 @@ Future<void> _sendMessageInternal(
           activeConvForSeed.id,
           msgsForSeed,
           model: selectedModel.id,
+          systemPrompt: effectiveSystemPrompt,
         );
       }
     } catch (_) {}
@@ -1378,14 +1468,13 @@ Future<void> _sendMessageInternal(
 
     // Resolve tool servers from user settings (if any)
     List<Map<String, dynamic>>? toolServers;
-    try {
-      final userSettings = await api.getUserSettings();
-      final ui = userSettings['ui'] as Map<String, dynamic>?;
-      final rawServers = ui != null ? (ui['toolServers'] as List?) : null;
-      if (rawServers != null && rawServers.isNotEmpty) {
+    final uiSettings = userSettingsData?['ui'] as Map<String, dynamic>?;
+    final rawServers = uiSettings != null ? (uiSettings['toolServers'] as List?) : null;
+    if (rawServers != null && rawServers.isNotEmpty) {
+      try {
         toolServers = await _resolveToolServers(rawServers, api);
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
 
     // Background tasks parity with Web client (safe defaults)
     // Enable title/tags generation on the very first user turn of a new chat.
