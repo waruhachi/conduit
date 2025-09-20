@@ -1290,6 +1290,18 @@ abstract class AppLocalizations {
   /// **'Copy'**
   String get copy;
 
+  /// Action to play the assistant message using text to speech
+  ///
+  /// In en, this message translates to:
+  /// **'Listen'**
+  String get ttsListen;
+
+  /// Action to stop text to speech playback
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
+  String get ttsStop;
+
   /// Action to edit an item/message.
   ///
   /// In en, this message translates to:

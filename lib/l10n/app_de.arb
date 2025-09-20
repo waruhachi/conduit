@@ -217,6 +217,8 @@
   "imageGeneration": "Bildgenerierung",
   "imageGenerationDescription": "Bilder aus deinen Prompts erstellen.",
   "copy": "Kopieren",
+  "ttsListen": "Anhören",
+  "ttsStop": "Stoppen",
   "edit": "Bearbeiten",
   "regenerate": "Neu generieren",
   "noConversationsYet": "Noch keine Unterhaltungen"

@@ -10,6 +10,7 @@ import '../../../shared/widgets/markdown/streaming_markdown_widget.dart';
 import '../../../core/utils/reasoning_parser.dart';
 import '../../../core/utils/message_segments.dart';
 import '../../../core/utils/tool_calls_parser.dart';
+import '../providers/text_to_speech_provider.dart';
 import 'enhanced_image_attachment.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import 'enhanced_attachment.dart';
@@ -54,6 +55,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   Widget? _cachedAvatar;
   bool _allowTypingIndicator = false;
   Timer? _typingGateTimer;
+  String _ttsPlainText = '';
   // press state handled by shared ChatActionButton
 
   @override
@@ -154,8 +156,12 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
       }
     }
 
+    final segments = out.isEmpty ? [MessageSegment.text(raw)] : out;
+    final speechText = _buildTtsPlainText(segments, raw);
+
     setState(() {
-      _segments = out.isEmpty ? [MessageSegment.text(raw)] : out;
+      _segments = segments;
+      _ttsPlainText = speechText;
     });
     _updateTypingIndicatorGate();
   }
@@ -177,6 +183,73 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     } else {
       _allowTypingIndicator = false;
     }
+  }
+
+  String get _messageId {
+    try {
+      final dynamic idValue = widget.message.id;
+      if (idValue == null) {
+        return '';
+      }
+      return idValue.toString();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  String _buildTtsPlainText(List<MessageSegment> segments, String fallback) {
+    if (segments.isEmpty) {
+      return _sanitizeForSpeech(fallback);
+    }
+
+    final buffer = StringBuffer();
+    for (final segment in segments) {
+      if (!segment.isText) {
+        continue;
+      }
+      final text = segment.text ?? '';
+      final sanitized = _sanitizeForSpeech(text);
+      if (sanitized.isEmpty) {
+        continue;
+      }
+      if (buffer.isNotEmpty) {
+        buffer.writeln();
+        buffer.writeln();
+      }
+      buffer.write(sanitized);
+    }
+
+    final result = buffer.toString().trim();
+    if (result.isEmpty) {
+      return _sanitizeForSpeech(fallback);
+    }
+    return result;
+  }
+
+  String _sanitizeForSpeech(String input) {
+    if (input.isEmpty) {
+      return '';
+    }
+
+    var text = input;
+    text = text.replaceAll(RegExp(r'```'), ' ');
+    text = text.replaceAll(RegExp(r'`'), '');
+    text = text.replaceAll(RegExp(r'!\[(.*?)\]\((.*?)\)'), r'$1');
+    text = text.replaceAll(RegExp(r'\[(.*?)\]\((.*?)\)'), r'$1');
+    text = text.replaceAll(RegExp(r'\*\*'), '');
+    text = text.replaceAll(RegExp(r'__'), '');
+    text = text.replaceAll(RegExp(r'\*'), '');
+    text = text.replaceAll(RegExp(r'_'), '');
+    text = text.replaceAll(RegExp(r'~'), '');
+    text = text.replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), '');
+    text = text.replaceAll(RegExp(r'^>\s?', multiLine: true), '');
+    text = text.replaceAll('&nbsp;', ' ');
+    text = text.replaceAll('&amp;', '&');
+    text = text.replaceAll('&lt;', '<');
+    text = text.replaceAll('&gt;', '>');
+    text = text.replaceAll(RegExp(r'[ \t]{2,}'), ' ');
+    text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    return text.trim();
   }
 
   // No streaming-specific markdown fixes needed here; handled by Markdown widget
@@ -888,21 +961,65 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   }
 
   Widget _buildActionButtons() {
+    final l10n = AppLocalizations.of(context)!;
+    final ttsState = ref.watch(textToSpeechControllerProvider);
+    final messageId = _messageId;
+    final hasSpeechText = _ttsPlainText.trim().isNotEmpty;
     final isErrorMessage =
         widget.message.content.contains('⚠️') ||
         widget.message.content.contains('Error') ||
         widget.message.content.contains('timeout') ||
         widget.message.content.contains('retry options');
 
+    final isActiveMessage = ttsState.activeMessageId == messageId;
+    final isSpeaking =
+        isActiveMessage && ttsState.status == TtsPlaybackStatus.speaking;
+    final isPaused =
+        isActiveMessage && ttsState.status == TtsPlaybackStatus.paused;
+    final isBusy =
+        isActiveMessage &&
+        (ttsState.status == TtsPlaybackStatus.loading ||
+            ttsState.status == TtsPlaybackStatus.initializing);
+    final bool disableDueToStreaming = widget.isStreaming && !isActiveMessage;
+    final bool ttsAvailable = !ttsState.initialized || ttsState.available;
+    final bool showStopState =
+        isActiveMessage && (isSpeaking || isPaused || isBusy);
+    final bool shouldShowTtsButton = hasSpeechText && messageId.isNotEmpty;
+    final bool canStartTts =
+        shouldShowTtsButton && !disableDueToStreaming && ttsAvailable;
+
+    VoidCallback? ttsOnTap;
+    if (showStopState || canStartTts) {
+      ttsOnTap = () {
+        if (messageId.isEmpty) {
+          return;
+        }
+        ref
+            .read(textToSpeechControllerProvider.notifier)
+            .toggleForMessage(messageId: messageId, text: _ttsPlainText);
+      };
+    }
+
+    final IconData listenIcon = Platform.isIOS
+        ? CupertinoIcons.speaker_2_fill
+        : Icons.volume_up;
+    final IconData stopIcon = Platform.isIOS
+        ? CupertinoIcons.stop_fill
+        : Icons.stop;
+    final IconData ttsIcon = showStopState ? stopIcon : listenIcon;
+    final String ttsLabel = showStopState ? l10n.ttsStop : l10n.ttsListen;
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
+        if (shouldShowTtsButton)
+          _buildActionButton(icon: ttsIcon, label: ttsLabel, onTap: ttsOnTap),
         _buildActionButton(
           icon: Platform.isIOS
               ? CupertinoIcons.doc_on_clipboard
               : Icons.content_copy,
-          label: AppLocalizations.of(context)!.copy,
+          label: l10n.copy,
           onTap: widget.onCopy,
         ),
         if (isErrorMessage) ...[
@@ -910,13 +1027,13 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
             icon: Platform.isIOS
                 ? CupertinoIcons.arrow_clockwise
                 : Icons.refresh,
-            label: AppLocalizations.of(context)!.retry,
+            label: l10n.retry,
             onTap: widget.onRegenerate,
           ),
         ] else ...[
           _buildActionButton(
             icon: Platform.isIOS ? CupertinoIcons.refresh : Icons.refresh,
-            label: AppLocalizations.of(context)!.regenerate,
+            label: l10n.regenerate,
             onTap: widget.onRegenerate,
           ),
         ],

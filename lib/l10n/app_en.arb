@@ -441,6 +441,14 @@
   "@imageGenerationDescription": {"description": "Explains creating images via model prompts."},
   "copy": "Copy",
   "@copy": {"description": "Action to copy text to clipboard."},
+  "ttsListen": "Listen",
+  "@ttsListen": {
+    "description": "Action to play the assistant message using text to speech"
+  },
+  "ttsStop": "Stop",
+  "@ttsStop": {
+    "description": "Action to stop text to speech playback"
+  },
   "edit": "Edit",
   "@edit": {"description": "Action to edit an item/message."},
   "regenerate": "Regenerate",

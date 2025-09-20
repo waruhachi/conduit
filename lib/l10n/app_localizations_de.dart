@@ -659,6 +659,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get copy => 'Kopieren';
 
   @override
+  String get ttsListen => 'Anhören';
+
+  @override
+  String get ttsStop => 'Stoppen';
+
+  @override
   String get edit => 'Bearbeiten';
 
   @override

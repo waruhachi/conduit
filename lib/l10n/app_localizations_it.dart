@@ -656,6 +656,12 @@ class AppLocalizationsIt extends AppLocalizations {
   String get copy => 'Copia';
 
   @override
+  String get ttsListen => 'Ascolta';
+
+  @override
+  String get ttsStop => 'Interrompi';
+
+  @override
   String get edit => 'Modifica';
 
   @override

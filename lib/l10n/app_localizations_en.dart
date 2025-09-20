@@ -654,6 +654,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get copy => 'Copy';
 
   @override
+  String get ttsListen => 'Listen';
+
+  @override
+  String get ttsStop => 'Stop';
+
+  @override
   String get edit => 'Edit';
 
   @override
