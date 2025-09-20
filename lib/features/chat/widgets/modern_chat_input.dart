@@ -52,89 +52,7 @@ class ModernChatInput extends ConsumerStatefulWidget {
   ConsumerState<ModernChatInput> createState() => _ModernChatInputState();
 }
 
-class _MicButton extends StatelessWidget {
-  final bool isRecording;
-  final int intensity; // 0..10
-  final VoidCallback? onTap;
-  final String tooltip;
-
-  const _MicButton({
-    required this.isRecording,
-    required this.intensity,
-    required this.onTap,
-    required this.tooltip,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final Color iconColor = isRecording
-        ? context.conduitTheme.buttonPrimaryText
-        : context.conduitTheme.textPrimary.withValues(alpha: Alpha.strong);
-    final double normalized = (intensity.clamp(0, 10)) / 10.0;
-
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: onTap == null
-              ? null
-              : () {
-                  HapticFeedback.selectionClick();
-                  onTap!();
-                },
-          child: SizedBox(
-            width: TouchTarget.minimum,
-            height: TouchTarget.minimum,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  width: TouchTarget.minimum * 0.74,
-                  height: TouchTarget.minimum * 0.74,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isRecording
-                        ? context.conduitTheme.buttonPrimary.withValues(
-                            alpha: 0.12 + (0.14 * normalized),
-                          )
-                        : Colors.transparent,
-                    boxShadow: isRecording
-                        ? [
-                            BoxShadow(
-                              color: context.conduitTheme.buttonPrimary
-                                  .withValues(
-                                    alpha: 0.22 + (0.18 * normalized),
-                                  ),
-                              blurRadius: 14 + (8 * normalized),
-                              spreadRadius: 2 + (normalized * 2),
-                            ),
-                          ]
-                        : const [],
-                  ),
-                ),
-                AnimatedScale(
-                  scale: isRecording ? 1.05 + (normalized * 0.05) : 1.0,
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  child: Icon(
-                    Platform.isIOS ? CupertinoIcons.mic_fill : Icons.mic,
-                    size: IconSize.medium,
-                    color: iconColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
+// (Removed legacy _MicButton; inline mic logic now lives in primary button)
 
 class _ModernChatInputState extends ConsumerState<ModernChatInput>
     with TickerProviderStateMixin {
@@ -147,9 +65,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   bool _hasText = false; // track locally without rebuilding on each keystroke
   StreamSubscription<String>? _voiceStreamSubscription;
   late VoiceInputService _voiceService;
-  StreamSubscription<int>? _intensitySub;
+  StreamSubscription<int>?
+  _intensitySub; // removed usage; will be cleaned fully
   StreamSubscription<String>? _textSub;
-  int _intensity = 0; // 0..10 from service
   String _baseTextAtStart = '';
   bool _isDeactivated = false;
   int _lastHandledFocusTick = 0;
@@ -650,10 +568,10 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(
-                        Spacing.inputPadding,
+                        Spacing.inputPadding - Spacing.xs,
                         0,
-                        Spacing.inputPadding,
-                        Spacing.sm,
+                        Spacing.lg + Spacing.xs,
+                        0,
                       ),
                       child: Row(
                         children: [
@@ -685,14 +603,11 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (voiceAvailable) ...[
-                                _buildVoiceButton(voiceAvailable),
-                                const SizedBox(width: Spacing.xs),
-                              ],
                               _buildPrimaryButton(
                                 _hasText,
                                 isGenerating,
                                 stopGeneration,
+                                voiceAvailable,
                               ),
                             ],
                           ),
@@ -725,54 +640,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     );
   }
 
-  Widget _buildVoiceButton(bool voiceAvailable) {
-    if (!voiceAvailable) {
-      return const SizedBox.shrink();
-    }
-    return Builder(
-      builder: (context) {
-        const double buttonSize = TouchTarget.minimum;
-        final double t = _isRecording ? (_intensity.clamp(0, 10) / 10.0) : 0.0;
-        final double ringMaxExtra = 16.0;
-        final double ringSize = buttonSize + (ringMaxExtra * t);
-        final double ringOpacity = _isRecording ? 0.15 + (0.35 * t) : 0.0;
-
-        return SizedBox(
-          width: buttonSize,
-          height: buttonSize,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
-                width: ringSize,
-                height: ringSize,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: context.conduitTheme.buttonPrimary.withValues(
-                    alpha: ringOpacity,
-                  ),
-                ),
-              ),
-              Transform.scale(
-                scale: _isRecording
-                    ? 1.0 + (_intensity.clamp(0, 10) / 200)
-                    : 1.0,
-                child: _MicButton(
-                  isRecording: _isRecording,
-                  intensity: _intensity,
-                  onTap: (widget.enabled && voiceAvailable)
-                      ? _toggleVoice
-                      : null,
-                  tooltip: AppLocalizations.of(context)!.voiceInput,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  // (Removed legacy _buildVoiceButton; mic functionality moved to primary button)
 
   List<Widget> _withHorizontalSpacing(List<Widget> children, double gap) {
     if (children.length <= 1) {
@@ -850,6 +718,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     bool hasText,
     bool isGenerating,
     void Function() stopGeneration,
+    bool voiceAvailable,
   ) {
     // Compact 44px touch target, circular radius, md icon size
     const double buttonSize = TouchTarget.minimum; // 44.0
@@ -912,52 +781,117 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       );
     }
 
-    // Default SEND variant
+    // If there's text, render SEND variant; otherwise render MIC variant
+    if (hasText) {
+      return Tooltip(
+        message: enabled
+            ? AppLocalizations.of(context)!.sendMessage
+            : AppLocalizations.of(context)!.send,
+        child: Opacity(
+          opacity: enabled ? Alpha.primary : Alpha.disabled,
+          child: IgnorePointer(
+            ignoring: !enabled,
+            child: Material(
+              color: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(radius),
+                side: BorderSide(
+                  color: enabled
+                      ? context.conduitTheme.buttonPrimary
+                      : context.conduitTheme.cardBorder.withValues(
+                          alpha: Alpha.medium,
+                        ),
+                  width: BorderWidth.regular,
+                ),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(radius),
+                onTap: enabled
+                    ? () {
+                        PlatformUtils.lightHaptic();
+                        _sendMessage();
+                      }
+                    : null,
+                child: Container(
+                  width: buttonSize,
+                  height: buttonSize,
+                  decoration: BoxDecoration(
+                    color: enabled
+                        ? context.conduitTheme.buttonPrimary
+                        : context.conduitTheme.cardBackground,
+                    borderRadius: BorderRadius.circular(radius),
+                    boxShadow: ConduitShadows.button,
+                  ),
+                  child: Icon(
+                    Platform.isIOS
+                        ? CupertinoIcons.arrow_up
+                        : Icons.arrow_upward,
+                    size: IconSize.medium,
+                    color: enabled
+                        ? context.conduitTheme.buttonPrimaryText
+                        : context.conduitTheme.textPrimary.withValues(
+                            alpha: Alpha.disabled,
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // MIC variant when no text is present
+    final bool enabledMic = widget.enabled && voiceAvailable;
     return Tooltip(
-      message: enabled
-          ? AppLocalizations.of(context)!.sendMessage
-          : AppLocalizations.of(context)!.send,
+      message: AppLocalizations.of(context)!.voiceInput,
       child: Opacity(
-        opacity: enabled ? Alpha.primary : Alpha.disabled,
+        opacity: enabledMic ? Alpha.primary : Alpha.disabled,
         child: IgnorePointer(
-          ignoring: !enabled,
+          ignoring: !enabledMic,
           child: Material(
             color: Colors.transparent,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(radius),
               side: BorderSide(
-                color: enabled
-                    ? context.conduitTheme.cardBorder
+                color: _isRecording
+                    ? context.conduitTheme.buttonPrimary
                     : context.conduitTheme.cardBorder.withValues(
-                        alpha: Alpha.medium,
+                        alpha: enabledMic ? Alpha.strong : Alpha.medium,
                       ),
                 width: BorderWidth.regular,
               ),
             ),
             child: InkWell(
               borderRadius: BorderRadius.circular(radius),
-              onTap: enabled
+              onTap: enabledMic
                   ? () {
-                      PlatformUtils.lightHaptic();
-                      _sendMessage();
+                      HapticFeedback.selectionClick();
+                      _toggleVoice();
                     }
                   : null,
               child: Container(
                 width: buttonSize,
                 height: buttonSize,
                 decoration: BoxDecoration(
-                  color: context.conduitTheme.cardBackground,
+                  color: _isRecording
+                      ? context.conduitTheme.buttonPrimary.withValues(
+                          alpha: Alpha.buttonPressed,
+                        )
+                      : context.conduitTheme.cardBackground,
                   borderRadius: BorderRadius.circular(radius),
                   boxShadow: ConduitShadows.button,
                 ),
                 child: Icon(
-                  Platform.isIOS ? CupertinoIcons.arrow_up : Icons.arrow_upward,
+                  Platform.isIOS ? CupertinoIcons.mic_fill : Icons.mic,
                   size: IconSize.medium,
-                  color: enabled
-                      ? context.conduitTheme.textPrimary
-                      : context.conduitTheme.textPrimary.withValues(
-                          alpha: Alpha.disabled,
-                        ),
+                  color: _isRecording
+                      ? context.conduitTheme.buttonPrimary
+                      : (enabledMic
+                            ? context.conduitTheme.textPrimary
+                            : context.conduitTheme.textPrimary.withValues(
+                                alpha: Alpha.disabled,
+                              )),
                 ),
               ),
             ),
@@ -1781,10 +1715,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         _baseTextAtStart = _controller.text;
       });
       _intensitySub?.cancel();
-      _intensitySub = _voiceService.intensityStream.listen((value) {
-        if (!mounted) return;
-        setState(() => _intensity = value);
-      });
+      // intensity stream no longer used for UI; stop listening
       _textSub?.cancel();
       _textSub = stream.listen(
         (text) async {
