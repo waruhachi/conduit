@@ -43,129 +43,24 @@ class ProfilePage extends ConsumerWidget {
 
     return ErrorBoundary(
       child: user.when(
-        data: (userData) => Scaffold(
-          backgroundColor: context.conduitTheme.surfaceBackground,
-          appBar: AppBar(
-            backgroundColor: context.conduitTheme.surfaceBackground,
-            elevation: Elevation.none,
-            toolbarHeight: kToolbarHeight - 8,
-            automaticallyImplyLeading: false,
-            leading: IconButton(
-              icon: Icon(
-                UiUtils.platformIcon(
-                  ios: CupertinoIcons.back,
-                  android: Icons.arrow_back,
-                ),
-                color: context.conduitTheme.textPrimary,
-              ),
-              onPressed: () => Navigator.of(context).maybePop(),
-              tooltip: AppLocalizations.of(context)!.back,
-            ),
-            // keep reduced height only once
-            titleSpacing: 0.0,
-            title: Text(
-              AppLocalizations.of(context)!.you,
-              style: AppTypography.headlineSmallStyle.copyWith(
-                color: context.conduitTheme.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            centerTitle: true,
-          ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(Spacing.pagePadding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Profile Header - Enhanced with better spacing and animations
-                _buildProfileHeader(context, userData, api)
-                    .animate()
-                    .fadeIn(duration: AnimationDuration.pageTransition)
-                    .slideY(
-                      begin: 0.1,
-                      end: 0,
-                      curve: AnimationCurves.pageTransition,
-                    ),
-                const SizedBox(height: Spacing.sectionGap),
-
-                // Account Section - Enhanced with improved spacing
-                _buildAccountSection(context, ref)
-                    .animate()
-                    .fadeIn(
-                      delay: AnimationDelay.short,
-                      duration: AnimationDuration.pageTransition,
-                    )
-                    .slideY(
-                      begin: 0.1,
-                      end: 0,
-                      curve: AnimationCurves.pageTransition,
-                    ),
-              ],
-            ),
-          ),
+        data: (userData) => _buildScaffold(
+          context,
+          body: _buildProfileBody(context, ref, userData, api),
         ),
-        loading: () => Scaffold(
-          backgroundColor: context.conduitTheme.surfaceBackground,
-          appBar: AppBar(
-            backgroundColor: context.conduitTheme.surfaceBackground,
-            elevation: Elevation.none,
-            toolbarHeight: kToolbarHeight - 8,
-            automaticallyImplyLeading: false,
-            leading: IconButton(
-              icon: Icon(
-                UiUtils.platformIcon(
-                  ios: CupertinoIcons.back,
-                  android: Icons.arrow_back,
-                ),
-                color: context.conduitTheme.textPrimary,
-              ),
-              onPressed: () => Navigator.of(context).maybePop(),
-              tooltip: AppLocalizations.of(context)!.back,
-            ),
-            title: Text(
-              AppLocalizations.of(context)!.you,
-              style: AppTypography.headlineSmallStyle.copyWith(
-                color: context.conduitTheme.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            centerTitle: true,
-          ),
-          body: Center(
-            child: ImprovedLoadingState(
+        loading: () => _buildScaffold(
+          context,
+          body: _buildCenteredState(
+            context,
+            ImprovedLoadingState(
               message: AppLocalizations.of(context)!.loadingProfile,
             ),
           ),
         ),
-        error: (error, stack) => Scaffold(
-          backgroundColor: context.conduitTheme.surfaceBackground,
-          appBar: AppBar(
-            backgroundColor: context.conduitTheme.surfaceBackground,
-            elevation: Elevation.none,
-            toolbarHeight: kToolbarHeight - 8,
-            automaticallyImplyLeading: false,
-            leading: IconButton(
-              icon: Icon(
-                UiUtils.platformIcon(
-                  ios: CupertinoIcons.back,
-                  android: Icons.arrow_back,
-                ),
-                color: context.conduitTheme.textPrimary,
-              ),
-              onPressed: () => Navigator.of(context).maybePop(),
-              tooltip: AppLocalizations.of(context)!.back,
-            ),
-            title: Text(
-              AppLocalizations.of(context)!.you,
-              style: AppTypography.headlineSmallStyle.copyWith(
-                color: context.conduitTheme.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            centerTitle: true,
-          ),
-          body: Center(
-            child: ImprovedEmptyState(
+        error: (error, stack) => _buildScaffold(
+          context,
+          body: _buildCenteredState(
+            context,
+            ImprovedEmptyState(
               title: AppLocalizations.of(context)!.unableToLoadProfile,
               subtitle: AppLocalizations.of(context)!.pleaseCheckConnection,
               icon: UiUtils.platformIcon(
@@ -175,6 +70,97 @@ class ProfilePage extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Scaffold _buildScaffold(BuildContext context, {required Widget body}) {
+    return Scaffold(
+      backgroundColor: context.conduitTheme.surfaceBackground,
+      appBar: _buildAppBar(context),
+      body: body,
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final canPop = ModalRoute.of(context)?.canPop ?? false;
+    return AppBar(
+      backgroundColor: context.conduitTheme.surfaceBackground,
+      surfaceTintColor: Colors.transparent,
+      elevation: Elevation.none,
+      toolbarHeight: kToolbarHeight,
+      automaticallyImplyLeading: false,
+      leading: canPop
+          ? IconButton(
+              icon: Icon(
+                UiUtils.platformIcon(
+                  ios: CupertinoIcons.back,
+                  android: Icons.arrow_back,
+                ),
+                color: context.conduitTheme.iconPrimary,
+              ),
+              onPressed: () => Navigator.of(context).maybePop(),
+              tooltip: AppLocalizations.of(context)!.back,
+            )
+          : null,
+      titleSpacing: 0,
+      title: Text(
+        AppLocalizations.of(context)!.you,
+        style: AppTypography.headlineSmallStyle.copyWith(
+          color: context.conduitTheme.textPrimary,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      centerTitle: true,
+    );
+  }
+
+  Widget _buildCenteredState(BuildContext context, Widget child) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(Spacing.pagePadding),
+        child: Center(child: child),
+      ),
+    );
+  }
+
+  Widget _buildProfileBody(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic userData,
+    ApiService? api,
+  ) {
+    return SafeArea(
+      child: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.pagePadding,
+          vertical: Spacing.pagePadding,
+        ),
+        children: [
+          _buildProfileHeader(context, userData, api)
+              .animate()
+              .fadeIn(duration: AnimationDuration.pageTransition)
+              .slideY(
+                begin: 0.1,
+                end: 0,
+                curve: AnimationCurves.pageTransition,
+              ),
+          const SizedBox(height: Spacing.sectionGap),
+          _buildAccountSection(context, ref)
+              .animate()
+              .fadeIn(
+                delay: AnimationDelay.short,
+                duration: AnimationDuration.pageTransition,
+              )
+              .slideY(
+                begin: 0.08,
+                end: 0,
+                curve: AnimationCurves.pageTransition,
+              ),
+        ],
       ),
     );
   }
@@ -212,50 +198,128 @@ class ProfilePage extends ConsumerWidget {
     }
 
     final email = extractEmail(user) ?? 'No email';
+    final theme = context.conduitTheme;
+    final accent = theme.buttonPrimary;
 
-    return ConduitCard(
+    return Container(
       padding: const EdgeInsets.all(Spacing.cardPadding),
-      child: Row(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            accent.withValues(alpha: 0.22),
+            accent.withValues(alpha: 0.06),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppBorderRadius.extraLarge),
+        border: Border.all(
+          color: accent.withValues(alpha: 0.18),
+          width: BorderWidth.thin,
+        ),
+        boxShadow: ConduitShadows.medium,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppBorderRadius.avatar),
-              boxShadow: ConduitShadows.card,
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.sm,
+              vertical: Spacing.xs,
             ),
-            child: UserAvatar(
-              size: IconSize.avatar,
-              imageUrl: avatarUrl,
-              fallbackText: initial,
+            decoration: BoxDecoration(
+              color: theme.surfaceBackground.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(AppBorderRadius.pill),
+            ),
+            child: Text(
+              AppLocalizations.of(context)!.account,
+              style:
+                  theme.caption?.copyWith(
+                    color: theme.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ) ??
+                  TextStyle(
+                    color: theme.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
           ),
-          const SizedBox(width: Spacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  displayName,
-                  style:
-                      context.conduitTheme.headingMedium?.copyWith(
-                        color: context.conduitTheme.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ) ??
-                      TextStyle(
-                        color: context.conduitTheme.textPrimary,
-                        fontWeight: FontWeight.w600,
+          const SizedBox(height: Spacing.lg),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppBorderRadius.avatar),
+                  boxShadow: ConduitShadows.high,
+                ),
+                child: UserAvatar(
+                  size: IconSize.huge,
+                  imageUrl: avatarUrl,
+                  fallbackText: initial,
+                ),
+              ),
+              const SizedBox(width: Spacing.lg),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      style:
+                          theme.headingMedium?.copyWith(
+                            color: theme.textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ) ??
+                          TextStyle(
+                            color: theme.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 22,
+                          ),
+                    ),
+                    const SizedBox(height: Spacing.sm),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Spacing.md,
+                        vertical: Spacing.xs,
                       ),
+                      decoration: BoxDecoration(
+                        color: theme.surfaceBackground.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(
+                          AppBorderRadius.round,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            UiUtils.platformIcon(
+                              ios: CupertinoIcons.envelope,
+                              android: Icons.mail_outline,
+                            ),
+                            size: IconSize.small,
+                            color: theme.textSecondary,
+                          ),
+                          const SizedBox(width: Spacing.xs),
+                          Flexible(
+                            child: Text(
+                              email,
+                              style:
+                                  theme.bodySmall?.copyWith(
+                                    color: theme.textSecondary,
+                                  ) ??
+                                  TextStyle(color: theme.textSecondary),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: Spacing.sm),
-                Text(
-                  email,
-                  style:
-                      context.conduitTheme.bodyMedium?.copyWith(
-                        color: context.conduitTheme.textSecondary,
-                      ) ??
-                      TextStyle(color: context.conduitTheme.textSecondary),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -263,6 +327,37 @@ class ProfilePage extends ConsumerWidget {
   }
 
   Widget _buildAccountSection(BuildContext context, WidgetRef ref) {
+    final items = [
+      _buildDefaultModelTile(context, ref),
+      _buildAccountOption(
+        context,
+        icon: UiUtils.platformIcon(
+          ios: CupertinoIcons.slider_horizontal_3,
+          android: Icons.tune,
+        ),
+        title: AppLocalizations.of(context)!.appCustomization,
+        subtitle: AppLocalizations.of(context)!.appCustomizationSubtitle,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const AppCustomizationPage()),
+          );
+        },
+      ),
+      _buildAboutTile(context),
+      _buildAccountOption(
+        context,
+        icon: UiUtils.platformIcon(
+          ios: CupertinoIcons.square_arrow_left,
+          android: Icons.logout,
+        ),
+        title: AppLocalizations.of(context)!.signOut,
+        subtitle: AppLocalizations.of(context)!.endYourSession,
+        onTap: () => _signOut(context, ref),
+        isDestructive: true,
+        showChevron: false,
+      ),
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -272,106 +367,42 @@ class ProfilePage extends ConsumerWidget {
             color: context.conduitTheme.textPrimary,
           ),
         ),
-        const SizedBox(height: Spacing.md),
-        ConduitCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              _buildDefaultModelTile(context, ref),
-              Divider(color: context.conduitTheme.dividerColor, height: 1),
-              _buildAccountOption(
-                icon: UiUtils.platformIcon(
-                  ios: CupertinoIcons.slider_horizontal_3,
-                  android: Icons.tune,
-                ),
-                title: AppLocalizations.of(context)!.appCustomization,
-                subtitle: AppLocalizations.of(
-                  context,
-                )!.appCustomizationSubtitle,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const AppCustomizationPage(),
-                    ),
-                  );
-                },
-              ),
-              Divider(color: context.conduitTheme.dividerColor, height: 1),
-              _buildAboutTile(context),
-              Divider(color: context.conduitTheme.dividerColor, height: 1),
-              _buildAccountOption(
-                icon: UiUtils.platformIcon(
-                  ios: CupertinoIcons.square_arrow_left,
-                  android: Icons.logout,
-                ),
-                title: AppLocalizations.of(context)!.signOut,
-                subtitle: AppLocalizations.of(context)!.endYourSession,
-                onTap: () => _signOut(context, ref),
-                isDestructive: true,
-              ),
-            ],
-          ),
-        ),
+        const SizedBox(height: Spacing.sm),
+        for (var i = 0; i < items.length; i++) ...[
+          items[i],
+          if (i != items.length - 1) const SizedBox(height: Spacing.md),
+        ],
       ],
     );
   }
 
-  Widget _buildAccountOption({
+  Widget _buildAccountOption(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
     bool isDestructive = false,
+    bool showChevron = true,
   }) {
-    return Builder(
-      builder: (context) => ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: Spacing.listItemPadding,
-          vertical: Spacing.sm,
-        ),
-        leading: Container(
-          padding: const EdgeInsets.all(Spacing.sm),
-          decoration: BoxDecoration(
-            color: isDestructive
-                ? context.conduitTheme.error.withValues(alpha: Alpha.highlight)
-                : context.conduitTheme.buttonPrimary.withValues(
-                    alpha: Alpha.highlight,
-                  ),
-            borderRadius: BorderRadius.circular(AppBorderRadius.small),
-          ),
-          child: Icon(
-            icon,
-            color: isDestructive
-                ? context.conduitTheme.error
-                : context.conduitTheme.buttonPrimary,
-            size: IconSize.medium,
-          ),
-        ),
-        title: Text(
-          title,
-          style: context.conduitTheme.bodyLarge?.copyWith(
-            color: isDestructive
-                ? context.conduitTheme.error
-                : context.conduitTheme.textPrimary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: context.conduitTheme.bodySmall?.copyWith(
-            color: context.conduitTheme.textSecondary,
-          ),
-        ),
-        trailing: Icon(
-          UiUtils.platformIcon(
-            ios: CupertinoIcons.chevron_right,
-            android: Icons.chevron_right,
-          ),
-          color: context.conduitTheme.iconSecondary,
-          size: IconSize.small,
-        ),
-        onTap: onTap,
-      ),
+    final theme = context.conduitTheme;
+    final color = isDestructive ? theme.error : theme.buttonPrimary;
+    return _ProfileSettingTile(
+      onTap: onTap,
+      isDestructive: isDestructive,
+      leading: _buildIconBadge(context, icon, color: color),
+      title: title,
+      subtitle: subtitle,
+      trailing: showChevron
+          ? Icon(
+              UiUtils.platformIcon(
+                ios: CupertinoIcons.chevron_right,
+                android: Icons.chevron_right,
+              ),
+              color: theme.iconSecondary,
+              size: IconSize.small,
+            )
+          : null,
     );
   }
 
@@ -400,135 +431,117 @@ class ProfilePage extends ConsumerWidget {
             ? currentModel.name
             : AppLocalizations.of(context)!.autoSelect;
 
+        final theme = context.conduitTheme;
+
         Widget leading;
         if (selectedModelExplicit) {
-          leading = ModelAvatar(
-            size: 32,
-            imageUrl: modelIconUrl,
-            label: currentModel.name,
+          leading = Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: theme.surfaceBackground.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(AppBorderRadius.medium),
+              border: Border.all(
+                color: theme.cardBorder,
+                width: BorderWidth.thin,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: ModelAvatar(
+              size: 32,
+              imageUrl: modelIconUrl,
+              label: currentModel.name,
+            ),
           );
         } else {
-          leading = Container(
-            padding: const EdgeInsets.all(Spacing.sm),
-            decoration: BoxDecoration(
-              color: context.conduitTheme.buttonPrimary.withValues(
-                alpha: Alpha.highlight,
-              ),
-              borderRadius: BorderRadius.circular(AppBorderRadius.small),
+          leading = _buildIconBadge(
+            context,
+            UiUtils.platformIcon(
+              ios: CupertinoIcons.wand_stars,
+              android: Icons.auto_awesome,
             ),
-            child: Icon(
-              UiUtils.platformIcon(
-                ios: CupertinoIcons.wand_stars,
-                android: Icons.auto_awesome,
-              ),
-              color: context.conduitTheme.buttonPrimary,
-              size: IconSize.medium,
-            ),
+            color: theme.buttonPrimary,
           );
         }
 
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: Spacing.listItemPadding,
-            vertical: Spacing.sm,
-          ),
+        return _ProfileSettingTile(
           leading: leading,
-          title: Text(
-            AppLocalizations.of(context)!.defaultModel,
-            style: context.conduitTheme.bodyLarge?.copyWith(
-              color: context.conduitTheme.textPrimary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          subtitle: Text(
-            modelLabel,
-            style: context.conduitTheme.bodySmall?.copyWith(
-              color: context.conduitTheme.textSecondary,
-            ),
-          ),
-          trailing: Icon(
-            UiUtils.platformIcon(
-              ios: CupertinoIcons.chevron_right,
-              android: Icons.chevron_right,
-            ),
-            color: context.conduitTheme.iconSecondary,
-            size: IconSize.small,
-          ),
+          title: AppLocalizations.of(context)!.defaultModel,
+          subtitle: modelLabel,
           onTap: () => _showModelSelector(context, ref, models),
         );
       },
-      loading: () => ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: Spacing.listItemPadding,
-          vertical: Spacing.sm,
+      loading: () => _ProfileSettingTile(
+        leading: _buildIconBadge(
+          context,
+          UiUtils.platformIcon(
+            ios: CupertinoIcons.cube_box,
+            android: Icons.psychology,
+          ),
+          color: context.conduitTheme.buttonPrimary,
         ),
-        leading: Container(
-          padding: const EdgeInsets.all(Spacing.sm),
-          decoration: BoxDecoration(
-            color: context.conduitTheme.buttonPrimary.withValues(
-              alpha: Alpha.highlight,
+        title: AppLocalizations.of(context)!.defaultModel,
+        subtitle: AppLocalizations.of(context)!.loadingModels,
+        showChevron: false,
+        trailing: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              context.conduitTheme.buttonPrimary,
             ),
-            borderRadius: BorderRadius.circular(AppBorderRadius.small),
-          ),
-          child: Icon(
-            UiUtils.platformIcon(
-              ios: CupertinoIcons.cube_box,
-              android: Icons.psychology,
-            ),
-            color: context.conduitTheme.buttonPrimary,
-            size: IconSize.medium,
-          ),
-        ),
-        title: Text(
-          AppLocalizations.of(context)!.defaultModel,
-          style: context.conduitTheme.bodyLarge?.copyWith(
-            color: context.conduitTheme.textPrimary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        subtitle: Text(
-          AppLocalizations.of(context)!.loadingModels,
-          style: context.conduitTheme.bodySmall?.copyWith(
-            color: context.conduitTheme.textSecondary,
           ),
         ),
       ),
-      error: (error, stack) => ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: Spacing.listItemPadding,
-          vertical: Spacing.sm,
-        ),
-        leading: Container(
-          padding: const EdgeInsets.all(Spacing.sm),
-          decoration: BoxDecoration(
-            color: context.conduitTheme.error.withValues(
-              alpha: Alpha.highlight,
-            ),
-            borderRadius: BorderRadius.circular(AppBorderRadius.small),
+      error: (error, stack) => _ProfileSettingTile(
+        leading: _buildIconBadge(
+          context,
+          UiUtils.platformIcon(
+            ios: CupertinoIcons.exclamationmark_triangle,
+            android: Icons.error_outline,
           ),
-          child: Icon(
+          color: context.conduitTheme.error,
+        ),
+        title: AppLocalizations.of(context)!.defaultModel,
+        subtitle: AppLocalizations.of(context)!.failedToLoadModels,
+        isDestructive: true,
+        showChevron: false,
+        onTap: () => ref.invalidate(modelsProvider),
+        trailing: IconButton(
+          onPressed: () => ref.invalidate(modelsProvider),
+          tooltip: AppLocalizations.of(context)!.retry,
+          icon: Icon(
             UiUtils.platformIcon(
-              ios: CupertinoIcons.exclamationmark_triangle,
-              android: Icons.error_outline,
+              ios: CupertinoIcons.refresh,
+              android: Icons.refresh,
             ),
             color: context.conduitTheme.error,
-            size: IconSize.medium,
-          ),
-        ),
-        title: Text(
-          AppLocalizations.of(context)!.defaultModel,
-          style: context.conduitTheme.bodyLarge?.copyWith(
-            color: context.conduitTheme.textPrimary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        subtitle: Text(
-          AppLocalizations.of(context)!.failedToLoadModels,
-          style: context.conduitTheme.bodySmall?.copyWith(
-            color: context.conduitTheme.error,
+            size: IconSize.small,
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildIconBadge(
+    BuildContext context,
+    IconData icon, {
+    required Color color,
+  }) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: Alpha.highlight),
+        borderRadius: BorderRadius.circular(AppBorderRadius.medium),
+        border: Border.all(
+          color: color.withValues(alpha: 0.2),
+          width: BorderWidth.thin,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Icon(icon, color: color, size: IconSize.large),
     );
   }
 
@@ -536,6 +549,7 @@ class ProfilePage extends ConsumerWidget {
 
   Widget _buildAboutTile(BuildContext context) {
     return _buildAccountOption(
+      context,
       icon: UiUtils.platformIcon(
         ios: CupertinoIcons.info,
         android: Icons.info_outline,
@@ -663,6 +677,87 @@ class ProfilePage extends ConsumerWidget {
     if (confirm) {
       await ref.read(authActionsProvider).logout();
     }
+  }
+}
+
+class _ProfileSettingTile extends StatelessWidget {
+  const _ProfileSettingTile({
+    required this.leading,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+    this.trailing,
+    this.isDestructive = false,
+    this.showChevron = true,
+  });
+
+  final Widget leading;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+  final Widget? trailing;
+  final bool isDestructive;
+  final bool showChevron;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.conduitTheme;
+    final textColor = isDestructive ? theme.error : theme.textPrimary;
+    final subtitleColor = isDestructive
+        ? theme.error.withValues(alpha: 0.85)
+        : theme.textSecondary;
+
+    return ConduitCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.listItemPadding,
+        vertical: Spacing.md,
+      ),
+      onTap: onTap,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          leading,
+          const SizedBox(width: Spacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style:
+                      theme.bodyLarge?.copyWith(
+                        color: textColor,
+                        fontWeight: FontWeight.w600,
+                      ) ??
+                      TextStyle(color: textColor, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: Spacing.textSpacing),
+                Text(
+                  subtitle,
+                  style:
+                      theme.bodySmall?.copyWith(color: subtitleColor) ??
+                      TextStyle(color: subtitleColor),
+                ),
+              ],
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: Spacing.md),
+            trailing!,
+          ] else if (showChevron && onTap != null) ...[
+            const SizedBox(width: Spacing.md),
+            Icon(
+              UiUtils.platformIcon(
+                ios: CupertinoIcons.chevron_right,
+                android: Icons.chevron_right,
+              ),
+              color: theme.iconSecondary,
+              size: IconSize.small,
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

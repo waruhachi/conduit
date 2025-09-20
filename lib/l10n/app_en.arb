@@ -532,6 +532,8 @@
   "@appCustomization": {"description": "Title of the customization settings page."},
   "appCustomizationSubtitle": "Personalize how names and UI display",
   "@appCustomizationSubtitle": {"description": "Subtitle shown under App Customization tile and page header."},
+  "quickActionsDescription": "Pick up to two shortcuts to pin near the composer",
+  "@quickActionsDescription": {"description": "Helper text explaining quick action pill selection in customization."},
   "display": "Display",
   "@display": {"description": "Section header for visual and layout related settings."},
   "realtime": "Realtime",

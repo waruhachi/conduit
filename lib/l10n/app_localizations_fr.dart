@@ -793,6 +793,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Personnalisez l\'affichage des noms et de l\'UI';
 
   @override
+  String get quickActionsDescription =>
+      'Choisissez jusqu\'à deux raccourcis à épingler près du champ de saisie';
+
+  @override
   String get display => 'Affichage';
 
   @override

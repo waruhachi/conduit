@@ -778,6 +778,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appCustomizationSubtitle => 'Personalize how names and UI display';
 
   @override
+  String get quickActionsDescription =>
+      'Pick up to two shortcuts to pin near the composer';
+
+  @override
   String get display => 'Display';
 
   @override

@@ -265,6 +265,7 @@
   ,
   "appCustomization": "App-Anpassung",
   "appCustomizationSubtitle": "Personalisieren, wie Namen und UI angezeigt werden",
+  "quickActionsDescription": "Wähle bis zu zwei Schnellzugriffe, die neben dem Eingabefeld angepinnt werden",
   "display": "Anzeige",
   "realtime": "Echtzeit",
   "hideProviderInModelNames": "Anbieter in Modellnamen ausblenden",

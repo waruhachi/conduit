@@ -785,6 +785,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'Personalisieren, wie Namen und UI angezeigt werden';
 
   @override
+  String get quickActionsDescription =>
+      'Wähle bis zu zwei Schnellzugriffe, die neben dem Eingabefeld angepinnt werden';
+
+  @override
   String get display => 'Anzeige';
 
   @override

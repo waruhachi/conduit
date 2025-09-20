@@ -265,6 +265,7 @@
   ,
   "appCustomization": "Personnalisation de l'app",
   "appCustomizationSubtitle": "Personnalisez l'affichage des noms et de l'UI",
+  "quickActionsDescription": "Choisissez jusqu'à deux raccourcis à épingler près du champ de saisie",
   "display": "Affichage",
   "realtime": "Temps réel",
   "hideProviderInModelNames": "Masquer le fournisseur dans les noms de modèles",

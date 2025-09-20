@@ -265,6 +265,7 @@
   ,
   "appCustomization": "Personalizzazione app",
   "appCustomizationSubtitle": "Personalizza la visualizzazione dei nomi e dell'UI",
+  "quickActionsDescription": "Scegli fino a due scorciatoie da fissare vicino al campo di input",
   "display": "Schermo",
   "realtime": "Tempo reale",
   "hideProviderInModelNames": "Nascondi provider nei nomi dei modelli",

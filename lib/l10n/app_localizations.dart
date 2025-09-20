@@ -1506,6 +1506,12 @@ abstract class AppLocalizations {
   /// **'Personalize how names and UI display'**
   String get appCustomizationSubtitle;
 
+  /// Helper text explaining quick action pill selection in customization.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick up to two shortcuts to pin near the composer'**
+  String get quickActionsDescription;
+
   /// Section header for visual and layout related settings.
   ///
   /// In en, this message translates to:

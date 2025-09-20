@@ -34,563 +34,467 @@ class AppCustomizationPage extends ConsumerWidget {
       return AppLocalizations.of(context)!.currentlyUsingLightTheme;
     }();
     final locale = ref.watch(localeProvider);
+    final currentLanguageCode = locale?.languageCode ?? 'system';
+    final languageLabel = _resolveLanguageLabel(context, currentLanguageCode);
 
     return Scaffold(
       backgroundColor: context.conduitTheme.surfaceBackground,
-      appBar: AppBar(
-        backgroundColor: context.conduitTheme.surfaceBackground,
-        elevation: Elevation.none,
-        toolbarHeight: kToolbarHeight - 8,
-        leading: IconButton(
-          icon: Icon(
-            UiUtils.platformIcon(
-              ios: CupertinoIcons.back,
-              android: Icons.arrow_back,
-            ),
-            color: context.conduitTheme.textPrimary,
+      appBar: _buildAppBar(context),
+      body: SafeArea(
+        child: ListView(
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
           ),
-          onPressed: () => Navigator.of(context).maybePop(),
-          tooltip: AppLocalizations.of(context)!.back,
-        ),
-        title: Text(
-          AppLocalizations.of(context)!.appCustomization,
-          style: AppTypography.headlineSmallStyle.copyWith(
-            color: context.conduitTheme.textPrimary,
-            fontWeight: FontWeight.w600,
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.pagePadding,
+            vertical: Spacing.pagePadding,
           ),
-        ),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(Spacing.pagePadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              AppLocalizations.of(context)!.display,
-              style: context.conduitTheme.headingSmall?.copyWith(
-                color: context.conduitTheme.textPrimary,
-              ),
+            _buildDisplaySection(
+              context,
+              ref,
+              themeMode,
+              themeDescription,
+              currentLanguageCode,
+              languageLabel,
+              settings,
             ),
-            const SizedBox(height: Spacing.md),
-            ConduitCard(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  // Theme mode dropdown
-                  ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.listItemPadding,
-                      vertical: Spacing.sm,
-                    ),
-                    leading: Container(
-                      padding: const EdgeInsets.all(Spacing.sm),
-                      decoration: BoxDecoration(
-                        color: context.conduitTheme.buttonPrimary.withValues(
-                          alpha: Alpha.highlight,
-                        ),
-                        borderRadius: BorderRadius.circular(
-                          AppBorderRadius.small,
-                        ),
-                      ),
-                      child: Icon(
-                        UiUtils.platformIcon(
-                          ios: CupertinoIcons.moon_stars,
-                          android: Icons.dark_mode,
-                        ),
-                        color: context.conduitTheme.buttonPrimary,
-                        size: IconSize.medium,
-                      ),
-                    ),
-                    title: Text(
-                      AppLocalizations.of(context)!.darkMode,
-                      style: context.conduitTheme.bodyLarge?.copyWith(
-                        color: context.conduitTheme.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    subtitle: Text(
-                      themeDescription,
-                      style: context.conduitTheme.bodySmall?.copyWith(
-                        color: context.conduitTheme.textSecondary,
-                      ),
-                    ),
-                    trailing: DropdownButtonHideUnderline(
-                      child: DropdownButton<ThemeMode>(
-                        value: themeMode,
-                        onChanged: (mode) {
-                          if (mode == null) return;
-                          ref.read(themeModeProvider.notifier).setTheme(mode);
-                        },
-                        items: [
-                          DropdownMenuItem(
-                            value: ThemeMode.system,
-                            child: Text(AppLocalizations.of(context)!.system),
-                          ),
-                          DropdownMenuItem(
-                            value: ThemeMode.light,
-                            child: Text(
-                              AppLocalizations.of(context)!.themeLight,
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: ThemeMode.dark,
-                            child: Text(
-                              AppLocalizations.of(context)!.themeDark,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Divider(color: context.conduitTheme.dividerColor, height: 1),
-
-                  // App language selector
-                  Builder(
-                    builder: (context) {
-                      final currentCode = locale?.languageCode ?? 'system';
-                      final label = () {
-                        switch (currentCode) {
-                          case 'en':
-                            return 'English';
-                          case 'de':
-                            return 'Deutsch';
-                          case 'fr':
-                            return 'Français';
-                          case 'it':
-                            return 'Italiano';
-                          default:
-                            return 'System';
-                        }
-                      }();
-
-                      return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: Spacing.listItemPadding,
-                          vertical: Spacing.sm,
-                        ),
-                        leading: Container(
-                          padding: const EdgeInsets.all(Spacing.sm),
-                          decoration: BoxDecoration(
-                            color: context.conduitTheme.buttonPrimary
-                                .withValues(alpha: Alpha.highlight),
-                            borderRadius: BorderRadius.circular(
-                              AppBorderRadius.small,
-                            ),
-                          ),
-                          child: Icon(
-                            UiUtils.platformIcon(
-                              ios: CupertinoIcons.globe,
-                              android: Icons.language,
-                            ),
-                            color: context.conduitTheme.buttonPrimary,
-                            size: IconSize.medium,
-                          ),
-                        ),
-                        title: Text(
-                          AppLocalizations.of(context)!.appLanguage,
-                          style: context.conduitTheme.bodyLarge?.copyWith(
-                            color: context.conduitTheme.textPrimary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        subtitle: Text(
-                          label,
-                          style: context.conduitTheme.bodySmall?.copyWith(
-                            color: context.conduitTheme.textSecondary,
-                          ),
-                        ),
-                        trailing: Icon(
-                          UiUtils.platformIcon(
-                            ios: CupertinoIcons.chevron_right,
-                            android: Icons.chevron_right,
-                          ),
-                          color: context.conduitTheme.iconSecondary,
-                          size: IconSize.small,
-                        ),
-                        onTap: () async {
-                          final selected = await _showLanguageSelector(
-                            context,
-                            currentCode,
-                          );
-                          if (selected != null) {
-                            if (selected == 'system') {
-                              await ref
-                                  .read(localeProvider.notifier)
-                                  .setLocale(null);
-                            } else {
-                              await ref
-                                  .read(localeProvider.notifier)
-                                  .setLocale(Locale(selected));
-                            }
-                          }
-                        },
-                      );
-                    },
-                  ),
-                  Divider(color: context.conduitTheme.dividerColor, height: 1),
-
-                  SwitchListTile.adaptive(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.listItemPadding,
-                      vertical: Spacing.sm,
-                    ),
-                    // Use platform defaults for switch colors to match theme
-                    value: settings.omitProviderInModelName,
-                    title: Text(
-                      AppLocalizations.of(context)!.hideProviderInModelNames,
-                      style: context.conduitTheme.bodyLarge?.copyWith(
-                        color: context.conduitTheme.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    subtitle: Text(
-                      AppLocalizations.of(
-                        context,
-                      )!.hideProviderInModelNamesDescription,
-                      style: context.conduitTheme.bodySmall?.copyWith(
-                        color: context.conduitTheme.textSecondary,
-                      ),
-                    ),
-                    onChanged: (v) {
-                      ref
-                          .read(appSettingsProvider.notifier)
-                          .setOmitProviderInModelName(v);
-                    },
-                    secondary: Container(
-                      padding: const EdgeInsets.all(Spacing.sm),
-                      decoration: BoxDecoration(
-                        color: context.conduitTheme.buttonPrimary.withValues(
-                          alpha: Alpha.highlight,
-                        ),
-                        borderRadius: BorderRadius.circular(
-                          AppBorderRadius.small,
-                        ),
-                      ),
-                      child: Icon(
-                        Platform.isIOS
-                            ? CupertinoIcons.textformat
-                            : Icons.text_fields,
-                        color: context.conduitTheme.buttonPrimary,
-                        size: IconSize.medium,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: Spacing.lg),
-            // Quick pills (Web / Image Gen)
-            Text(
-              AppLocalizations.of(context)!.onboardQuickTitle,
-              style: context.conduitTheme.headingSmall?.copyWith(
-                color: context.conduitTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: Spacing.md),
-            Consumer(
-              builder: (context, ref, _) {
-                final selectedRaw = ref.watch(
-                  appSettingsProvider.select((s) => s.quickPills),
-                );
-                final toolsAsync = ref.watch(toolsListProvider);
-                final tools = toolsAsync.maybeWhen(
-                  data: (t) => t,
-                  orElse: () => const <Tool>[],
-                );
-                final allowed = <String>{
-                  'web',
-                  'image',
-                  ...tools.map((t) => t.id),
-                };
-                // Sanitize persisted selection
-                final selected = selectedRaw
-                    .where((id) => allowed.contains(id))
-                    .take(2)
-                    .toList();
-                if (selected.length != selectedRaw.length) {
-                  // Persist sanitized list asynchronously
-                  Future.microtask(
-                    () => ref
-                        .read(appSettingsProvider.notifier)
-                        .setQuickPills(selected),
-                  );
-                }
-                final int selectedCount = selected.length;
-
-                void toggle(String id) async {
-                  final current = List<String>.from(selected);
-                  if (current.contains(id)) {
-                    current.remove(id);
-                  } else {
-                    if (current.length >= 2) return; // enforce max 2
-                    current.add(id);
-                  }
-                  await ref
-                      .read(appSettingsProvider.notifier)
-                      .setQuickPills(current);
-                }
-
-                // Build dynamic tool chips list once
-                final List<Widget> dynamicToolChips = ref
-                    .watch(toolsListProvider)
-                    .maybeWhen<List<Widget>>(
-                      data: (tools) => tools.map((Tool t) {
-                        final isSel = selected.contains(t.id);
-                        final canSelect = selectedCount < 2 || isSel;
-                        return ConduitChip(
-                          label: t.name,
-                          icon: Icons.extension,
-                          isSelected: isSel,
-                          onTap: canSelect ? () => toggle(t.id) : null,
-                        );
-                      }).toList(),
-                      orElse: () => const <Widget>[],
-                    );
-
-                return ConduitCard(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Spacing.listItemPadding,
-                    vertical: Spacing.sm,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              AppLocalizations.of(
-                                context,
-                              )!.appCustomizationSubtitle,
-                              style: context.conduitTheme.bodySmall?.copyWith(
-                                color: context.conduitTheme.textSecondary,
-                              ),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: selected.isEmpty
-                                ? null
-                                : () async {
-                                    await ref
-                                        .read(appSettingsProvider.notifier)
-                                        .setQuickPills(const []);
-                                  },
-                            child: Text(AppLocalizations.of(context)!.clear),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: Spacing.sm),
-                      Wrap(
-                        spacing: Spacing.sm,
-                        runSpacing: Spacing.sm,
-                        children: [
-                          ConduitChip(
-                            label: AppLocalizations.of(context)!.web,
-                            icon: Platform.isIOS
-                                ? CupertinoIcons.search
-                                : Icons.search,
-                            isSelected: selected.contains('web'),
-                            onTap:
-                                (selectedCount < 2 || selected.contains('web'))
-                                ? () => toggle('web')
-                                : null,
-                          ),
-                          ConduitChip(
-                            label: AppLocalizations.of(context)!.imageGen,
-                            icon: Platform.isIOS
-                                ? CupertinoIcons.photo
-                                : Icons.image,
-                            isSelected: selected.contains('image'),
-                            onTap:
-                                (selectedCount < 2 ||
-                                    selected.contains('image'))
-                                ? () => toggle('image')
-                                : null,
-                          ),
-                          // Dynamic tools from server
-                          ...dynamicToolChips,
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-
-            const SizedBox(height: Spacing.lg),
-            // Chat input behavior
-            Text(
-              'Chat',
-              style: context.conduitTheme.headingSmall?.copyWith(
-                color: context.conduitTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: Spacing.md),
-            ConduitCard(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.listItemPadding,
-                      vertical: Spacing.sm,
-                    ),
-                    leading: Container(
-                      padding: const EdgeInsets.all(Spacing.sm),
-                      decoration: BoxDecoration(
-                        color: context.conduitTheme.buttonPrimary.withValues(
-                          alpha: Alpha.highlight,
-                        ),
-                        borderRadius: BorderRadius.circular(
-                          AppBorderRadius.small,
-                        ),
-                      ),
-                      child: Icon(
-                        Platform.isIOS
-                            ? CupertinoIcons.paperplane
-                            : Icons.keyboard_return,
-                        color: context.conduitTheme.buttonPrimary,
-                        size: IconSize.medium,
-                      ),
-                    ),
-                    title: Text(
-                      'Send on Enter',
-                      style: context.conduitTheme.bodyLarge?.copyWith(
-                        color: context.conduitTheme.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Enter sends (soft keyboard). Cmd/Ctrl+Enter also available',
-                      style: context.conduitTheme.bodySmall?.copyWith(
-                        color: context.conduitTheme.textSecondary,
-                      ),
-                    ),
-                    trailing: Switch.adaptive(
-                      value: settings.sendOnEnter,
-                      onChanged: (v) => ref
-                          .read(appSettingsProvider.notifier)
-                          .setSendOnEnter(v),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: Spacing.lg),
-            Text(
-              AppLocalizations.of(context)!.realtime,
-              style: context.conduitTheme.headingSmall?.copyWith(
-                color: context.conduitTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: Spacing.md),
-            ConduitCard(
-              padding: EdgeInsets.zero,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.listItemPadding,
-                      vertical: Spacing.sm,
-                    ),
-                    leading: Container(
-                      padding: const EdgeInsets.all(Spacing.sm),
-                      decoration: BoxDecoration(
-                        color: context.conduitTheme.buttonPrimary.withValues(
-                          alpha: Alpha.highlight,
-                        ),
-                        borderRadius: BorderRadius.circular(
-                          AppBorderRadius.small,
-                        ),
-                      ),
-                      child: Icon(
-                        Platform.isIOS
-                            ? CupertinoIcons.waveform
-                            : Icons.sync_alt,
-                        color: context.conduitTheme.buttonPrimary,
-                        size: IconSize.medium,
-                      ),
-                    ),
-                    title: Text(
-                      AppLocalizations.of(context)!.transportMode,
-                      style: context.conduitTheme.bodyLarge?.copyWith(
-                        color: context.conduitTheme.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      AppLocalizations.of(context)!.transportModeDescription,
-                      style: context.conduitTheme.bodySmall?.copyWith(
-                        color: context.conduitTheme.textSecondary,
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      Spacing.listItemPadding,
-                      0,
-                      Spacing.listItemPadding,
-                      Spacing.md,
-                    ),
-                    child: DropdownButtonFormField<String>(
-                      initialValue: settings.socketTransportMode,
-                      onChanged: (v) async {
-                        if (v == null) return;
-                        await ref
-                            .read(appSettingsProvider.notifier)
-                            .setSocketTransportMode(v);
-                      },
-                      items: [
-                        DropdownMenuItem(
-                          value: 'auto',
-                          child: Text(
-                            AppLocalizations.of(context)!.transportModeAuto,
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value: 'ws',
-                          child: Text(
-                            AppLocalizations.of(context)!.transportModeWs,
-                          ),
-                        ),
-                      ],
-                      decoration: InputDecoration(
-                        labelText: AppLocalizations.of(context)!.mode,
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      Spacing.listItemPadding,
-                      0,
-                      Spacing.listItemPadding,
-                      Spacing.md,
-                    ),
-                    child: Text(
-                      settings.socketTransportMode == 'auto'
-                          ? AppLocalizations.of(context)!.transportModeAutoInfo
-                          : AppLocalizations.of(context)!.transportModeWsInfo,
-                      style: context.conduitTheme.caption?.copyWith(
-                        color: context.conduitTheme.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(height: Spacing.sectionGap),
+            _buildQuickPillsSection(context, ref, settings),
+            const SizedBox(height: Spacing.sectionGap),
+            _buildChatSection(context, ref, settings),
           ],
         ),
       ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final canPop = ModalRoute.of(context)?.canPop ?? false;
+    return AppBar(
+      backgroundColor: context.conduitTheme.surfaceBackground,
+      surfaceTintColor: Colors.transparent,
+      elevation: Elevation.none,
+      toolbarHeight: kToolbarHeight,
+      automaticallyImplyLeading: false,
+      leading: canPop
+          ? IconButton(
+              icon: Icon(
+                UiUtils.platformIcon(
+                  ios: CupertinoIcons.back,
+                  android: Icons.arrow_back,
+                ),
+                color: context.conduitTheme.iconPrimary,
+              ),
+              onPressed: () => Navigator.of(context).maybePop(),
+              tooltip: AppLocalizations.of(context)!.back,
+            )
+          : null,
+      titleSpacing: 0,
+      title: Text(
+        AppLocalizations.of(context)!.appCustomization,
+        style: AppTypography.headlineSmallStyle.copyWith(
+          color: context.conduitTheme.textPrimary,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      centerTitle: true,
+    );
+  }
+
+  Widget _buildDisplaySection(
+    BuildContext context,
+    WidgetRef ref,
+    ThemeMode themeMode,
+    String themeDescription,
+    String currentLanguageCode,
+    String languageLabel,
+    AppSettings settings,
+  ) {
+    final theme = context.conduitTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          AppLocalizations.of(context)!.display,
+          style:
+              theme.headingSmall?.copyWith(color: theme.textPrimary) ??
+              TextStyle(color: theme.textPrimary, fontSize: 18),
+        ),
+        const SizedBox(height: Spacing.sm),
+        _buildThemeSelector(context, ref, themeMode, themeDescription),
+        const SizedBox(height: Spacing.md),
+        _CustomizationTile(
+          leading: _buildIconBadge(
+            context,
+            UiUtils.platformIcon(
+              ios: CupertinoIcons.globe,
+              android: Icons.language,
+            ),
+            color: theme.buttonPrimary,
+          ),
+          title: AppLocalizations.of(context)!.appLanguage,
+          subtitle: languageLabel,
+          onTap: () async {
+            final selected = await _showLanguageSelector(
+              context,
+              currentLanguageCode,
+            );
+            if (selected == null) return;
+            if (selected == 'system') {
+              await ref.read(localeProvider.notifier).setLocale(null);
+            } else {
+              await ref
+                  .read(localeProvider.notifier)
+                  .setLocale(Locale(selected));
+            }
+          },
+        ),
+        const SizedBox(height: Spacing.md),
+        _CustomizationTile(
+          leading: _buildIconBadge(
+            context,
+            Platform.isIOS ? CupertinoIcons.textformat : Icons.text_fields,
+            color: theme.buttonPrimary,
+          ),
+          title: AppLocalizations.of(context)!.hideProviderInModelNames,
+          subtitle: AppLocalizations.of(
+            context,
+          )!.hideProviderInModelNamesDescription,
+          trailing: Switch.adaptive(
+            value: settings.omitProviderInModelName,
+            onChanged: (v) => ref
+                .read(appSettingsProvider.notifier)
+                .setOmitProviderInModelName(v),
+          ),
+          showChevron: false,
+          onTap: () => ref
+              .read(appSettingsProvider.notifier)
+              .setOmitProviderInModelName(!settings.omitProviderInModelName),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildThemeSelector(
+    BuildContext context,
+    WidgetRef ref,
+    ThemeMode themeMode,
+    String themeDescription,
+  ) {
+    final theme = context.conduitTheme;
+
+    return ConduitCard(
+      padding: const EdgeInsets.all(Spacing.cardPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildIconBadge(
+                context,
+                UiUtils.platformIcon(
+                  ios: CupertinoIcons.moon_stars,
+                  android: Icons.dark_mode,
+                ),
+                color: theme.buttonPrimary,
+              ),
+              const SizedBox(width: Spacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      AppLocalizations.of(context)!.darkMode,
+                      style:
+                          theme.bodyLarge?.copyWith(
+                            color: theme.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ) ??
+                          TextStyle(
+                            color: theme.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: Spacing.textSpacing),
+                    Text(
+                      themeDescription,
+                      style:
+                          theme.bodySmall?.copyWith(
+                            color: theme.textSecondary,
+                          ) ??
+                          TextStyle(color: theme.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Spacing.md),
+          Wrap(
+            spacing: Spacing.sm,
+            runSpacing: Spacing.sm,
+            children: [
+              _buildThemeChip(
+                context,
+                ref,
+                mode: ThemeMode.system,
+                isSelected: themeMode == ThemeMode.system,
+                label: AppLocalizations.of(context)!.system,
+                icon: UiUtils.platformIcon(
+                  ios: CupertinoIcons.sparkles,
+                  android: Icons.auto_mode,
+                ),
+              ),
+              _buildThemeChip(
+                context,
+                ref,
+                mode: ThemeMode.light,
+                isSelected: themeMode == ThemeMode.light,
+                label: AppLocalizations.of(context)!.themeLight,
+                icon: UiUtils.platformIcon(
+                  ios: CupertinoIcons.sun_max,
+                  android: Icons.light_mode,
+                ),
+              ),
+              _buildThemeChip(
+                context,
+                ref,
+                mode: ThemeMode.dark,
+                isSelected: themeMode == ThemeMode.dark,
+                label: AppLocalizations.of(context)!.themeDark,
+                icon: UiUtils.platformIcon(
+                  ios: CupertinoIcons.moon_fill,
+                  android: Icons.dark_mode,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildThemeChip(
+    BuildContext context,
+    WidgetRef ref, {
+    required ThemeMode mode,
+    required bool isSelected,
+    required String label,
+    required IconData icon,
+  }) {
+    return ConduitChip(
+      label: label,
+      icon: icon,
+      isSelected: isSelected,
+      onTap: () => ref.read(themeModeProvider.notifier).setTheme(mode),
+    );
+  }
+
+  Widget _buildQuickPillsSection(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settings,
+  ) {
+    final theme = context.conduitTheme;
+    final selectedRaw = ref.watch(
+      appSettingsProvider.select((s) => s.quickPills),
+    );
+    final toolsAsync = ref.watch(toolsListProvider);
+    final tools = toolsAsync.maybeWhen(
+      data: (value) => value,
+      orElse: () => const <Tool>[],
+    );
+    final allowed = <String>{'web', 'image', ...tools.map((t) => t.id)};
+
+    final selected = selectedRaw
+        .where((id) => allowed.contains(id))
+        .take(2)
+        .toList();
+    if (selected.length != selectedRaw.length) {
+      Future.microtask(
+        () => ref.read(appSettingsProvider.notifier).setQuickPills(selected),
+      );
+    }
+
+    final selectedCount = selected.length;
+
+    Future<void> toggle(String id) async {
+      final next = List<String>.from(selected);
+      if (next.contains(id)) {
+        next.remove(id);
+      } else {
+        if (next.length >= 2) return;
+        next.add(id);
+      }
+      await ref.read(appSettingsProvider.notifier).setQuickPills(next);
+    }
+
+    List<Widget> buildToolChips() {
+      return tools.map((tool) {
+        final isSelected = selected.contains(tool.id);
+        final canSelect = selectedCount < 2 || isSelected;
+        return ConduitChip(
+          label: tool.name,
+          icon: Icons.extension,
+          isSelected: isSelected,
+          onTap: canSelect ? () => toggle(tool.id) : null,
+        );
+      }).toList();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          AppLocalizations.of(context)!.onboardQuickTitle,
+          style:
+              theme.headingSmall?.copyWith(color: theme.textPrimary) ??
+              TextStyle(color: theme.textPrimary, fontSize: 18),
+        ),
+        const SizedBox(height: Spacing.sm),
+        ConduitCard(
+          padding: const EdgeInsets.all(Spacing.cardPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildIconBadge(
+                    context,
+                    UiUtils.platformIcon(
+                      ios: CupertinoIcons.bolt,
+                      android: Icons.flash_on,
+                    ),
+                    color: theme.buttonPrimary,
+                  ),
+                  const SizedBox(width: Spacing.md),
+                  Expanded(
+                    child: Text(
+                      AppLocalizations.of(context)!.quickActionsDescription,
+                      style:
+                          theme.bodySmall?.copyWith(
+                            color: theme.textSecondary,
+                          ) ??
+                          TextStyle(color: theme.textSecondary),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: selected.isEmpty
+                        ? null
+                        : () => ref
+                              .read(appSettingsProvider.notifier)
+                              .setQuickPills(const []),
+                    child: Text(AppLocalizations.of(context)!.clear),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Spacing.md),
+              Wrap(
+                spacing: Spacing.sm,
+                runSpacing: Spacing.sm,
+                children: [
+                  ConduitChip(
+                    label: AppLocalizations.of(context)!.web,
+                    icon: Platform.isIOS ? CupertinoIcons.search : Icons.search,
+                    isSelected: selected.contains('web'),
+                    onTap: (selectedCount < 2 || selected.contains('web'))
+                        ? () => toggle('web')
+                        : null,
+                  ),
+                  ConduitChip(
+                    label: AppLocalizations.of(context)!.imageGen,
+                    icon: Platform.isIOS ? CupertinoIcons.photo : Icons.image,
+                    isSelected: selected.contains('image'),
+                    onTap: (selectedCount < 2 || selected.contains('image'))
+                        ? () => toggle('image')
+                        : null,
+                  ),
+                  ...buildToolChips(),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChatSection(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settings,
+  ) {
+    final theme = context.conduitTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Chat',
+          style:
+              theme.headingSmall?.copyWith(color: theme.textPrimary) ??
+              TextStyle(color: theme.textPrimary, fontSize: 18),
+        ),
+        const SizedBox(height: Spacing.sm),
+        _CustomizationTile(
+          leading: _buildIconBadge(
+            context,
+            Platform.isIOS ? CupertinoIcons.paperplane : Icons.keyboard_return,
+            color: theme.buttonPrimary,
+          ),
+          title: 'Send on Enter',
+          subtitle:
+              'Enter sends (soft keyboard). Cmd/Ctrl+Enter also available',
+          trailing: Switch.adaptive(
+            value: settings.sendOnEnter,
+            onChanged: (value) =>
+                ref.read(appSettingsProvider.notifier).setSendOnEnter(value),
+          ),
+          showChevron: false,
+          onTap: () => ref
+              .read(appSettingsProvider.notifier)
+              .setSendOnEnter(!settings.sendOnEnter),
+        ),
+      ],
+    );
+  }
+
+  String _resolveLanguageLabel(BuildContext context, String code) {
+    switch (code) {
+      case 'en':
+        return AppLocalizations.of(context)!.english;
+      case 'de':
+        return AppLocalizations.of(context)!.deutsch;
+      case 'fr':
+        return AppLocalizations.of(context)!.francais;
+      case 'it':
+        return AppLocalizations.of(context)!.italiano;
+      default:
+        return AppLocalizations.of(context)!.system;
+    }
+  }
+
+  Widget _buildIconBadge(
+    BuildContext context,
+    IconData icon, {
+    required Color color,
+  }) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: Alpha.highlight),
+        borderRadius: BorderRadius.circular(AppBorderRadius.medium),
+        border: Border.all(
+          color: color.withValues(alpha: 0.2),
+          width: BorderWidth.thin,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Icon(icon, color: color, size: IconSize.large),
     );
   }
 
@@ -642,6 +546,83 @@ class AppCustomizationPage extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CustomizationTile extends StatelessWidget {
+  const _CustomizationTile({
+    required this.leading,
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+    this.onTap,
+    this.showChevron = true,
+  });
+
+  final Widget leading;
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final bool showChevron;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.conduitTheme;
+    return ConduitCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.listItemPadding,
+        vertical: Spacing.md,
+      ),
+      onTap: onTap,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          leading,
+          const SizedBox(width: Spacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style:
+                      theme.bodyLarge?.copyWith(
+                        color: theme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ) ??
+                      TextStyle(
+                        color: theme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: Spacing.textSpacing),
+                Text(
+                  subtitle,
+                  style:
+                      theme.bodySmall?.copyWith(color: theme.textSecondary) ??
+                      TextStyle(color: theme.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: Spacing.md),
+            trailing!,
+          ] else if (showChevron && onTap != null) ...[
+            const SizedBox(width: Spacing.md),
+            Icon(
+              UiUtils.platformIcon(
+                ios: CupertinoIcons.chevron_right,
+                android: Icons.chevron_right,
+              ),
+              color: theme.iconSecondary,
+              size: IconSize.small,
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -782,6 +782,10 @@ class AppLocalizationsIt extends AppLocalizations {
       'Personalizza la visualizzazione dei nomi e dell\'UI';
 
   @override
+  String get quickActionsDescription =>
+      'Scegli fino a due scorciatoie da fissare vicino al campo di input';
+
+  @override
   String get display => 'Schermo';
 
   @override
