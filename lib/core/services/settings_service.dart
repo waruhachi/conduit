@@ -20,9 +20,11 @@ class SettingsService {
   static const String _voiceHoldToTalkKey = 'voice_hold_to_talk';
   static const String _voiceAutoSendKey = 'voice_auto_send_final';
   // Realtime transport preference
-  static const String _socketTransportModeKey = 'socket_transport_mode'; // 'auto' or 'ws'
+  static const String _socketTransportModeKey =
+      'socket_transport_mode'; // 'auto' or 'ws'
   // Quick pill visibility selections (max 2)
-  static const String _quickPillsKey = 'quick_pills'; // StringList of identifiers e.g. ['web','image','tools']
+  static const String _quickPillsKey =
+      'quick_pills'; // StringList of identifiers e.g. ['web','image','tools']
   // Chat input behavior
   static const String _sendOnEnterKey = 'send_on_enter';
 
@@ -335,9 +337,14 @@ class AppSettings {
       highContrast: highContrast ?? this.highContrast,
       largeText: largeText ?? this.largeText,
       darkMode: darkMode ?? this.darkMode,
-      defaultModel: defaultModel is _DefaultValue ? this.defaultModel : defaultModel as String?,
-      omitProviderInModelName: omitProviderInModelName ?? this.omitProviderInModelName,
-      voiceLocaleId: voiceLocaleId is _DefaultValue ? this.voiceLocaleId : voiceLocaleId as String?,
+      defaultModel: defaultModel is _DefaultValue
+          ? this.defaultModel
+          : defaultModel as String?,
+      omitProviderInModelName:
+          omitProviderInModelName ?? this.omitProviderInModelName,
+      voiceLocaleId: voiceLocaleId is _DefaultValue
+          ? this.voiceLocaleId
+          : voiceLocaleId as String?,
       voiceHoldToTalk: voiceHoldToTalk ?? this.voiceHoldToTalk,
       voiceAutoSendFinal: voiceAutoSendFinal ?? this.voiceAutoSendFinal,
       socketTransportMode: socketTransportMode ?? this.socketTransportMode,
@@ -363,7 +370,7 @@ class AppSettings {
         other.voiceAutoSendFinal == voiceAutoSendFinal &&
         other.sendOnEnter == sendOnEnter &&
         _listEquals(other.quickPills, quickPills);
-        // socketTransportMode intentionally not included in == to avoid frequent rebuilds
+    // socketTransportMode intentionally not included in == to avoid frequent rebuilds
   }
 
   @override
@@ -397,18 +404,27 @@ bool _listEquals(List<String> a, List<String> b) {
 }
 
 /// Provider for app settings
-final appSettingsProvider =
-    StateNotifierProvider<AppSettingsNotifier, AppSettings>(
-      (ref) => AppSettingsNotifier(),
-    );
+final appSettingsProvider = NotifierProvider<AppSettingsNotifier, AppSettings>(
+  AppSettingsNotifier.new,
+);
 
-class AppSettingsNotifier extends StateNotifier<AppSettings> {
-  AppSettingsNotifier() : super(const AppSettings()) {
-    _loadSettings();
+class AppSettingsNotifier extends Notifier<AppSettings> {
+  bool _initialized = false;
+
+  @override
+  AppSettings build() {
+    if (!_initialized) {
+      _initialized = true;
+      Future.microtask(_loadSettings);
+    }
+    return const AppSettings();
   }
 
   Future<void> _loadSettings() async {
     final settings = await SettingsService.loadSettings();
+    if (!ref.mounted) {
+      return;
+    }
     state = settings;
   }
 

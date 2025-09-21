@@ -92,7 +92,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   void startNewChat() {
     // Clear current conversation
     ref.read(chatMessagesProvider.notifier).clearMessages();
-    ref.read(activeConversationProvider.notifier).state = null;
+    ref.read(activeConversationProvider.notifier).clear();
 
     // Scroll to top
     if (_scrollController.hasClients) {
@@ -140,7 +140,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           'Default provider failed, selecting first model directly',
         );
         // Fallback: select the first available model
-        ref.read(selectedModelProvider.notifier).state = models.first;
+        ref.read(selectedModelProvider.notifier).set(models.first);
         DebugLogger.log('Fallback model selected: ${models.first.name}');
       }
     } catch (e) {
@@ -220,7 +220,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         );
 
         if (!mounted) return;
-        ref.read(activeConversationProvider.notifier).state = welcomeConv;
+        ref.read(activeConversationProvider.notifier).set(welcomeConv);
         debugPrint('Auto-loaded demo conversation');
         return;
       }
@@ -296,7 +296,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         }
         if (models.isNotEmpty) {
           selectedModel = models.first;
-          ref.read(selectedModelProvider.notifier).state = selectedModel;
+          ref.read(selectedModelProvider.notifier).set(selectedModel);
         }
       } catch (_) {
         // If models cannot be resolved, bail out without sending
@@ -1007,12 +1007,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         if (!mounted) return;
         final current = ref.read(inputFocusTriggerProvider);
         // Immediate focus bump
-        ref.read(inputFocusTriggerProvider.notifier).state = current + 1;
+        ref
+            .read(inputFocusTriggerProvider.notifier)
+            .set(current + 1);
         // Second bump shortly after to overcome route/IME timing
         Future.delayed(const Duration(milliseconds: 120), () {
           if (!mounted) return;
           final cur2 = ref.read(inputFocusTriggerProvider);
-          ref.read(inputFocusTriggerProvider.notifier).state = cur2 + 1;
+          ref.read(inputFocusTriggerProvider.notifier).set(cur2 + 1);
         });
       });
       _didStartupFocus = true;
@@ -1326,9 +1328,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                             try {
                               final full = await api.getConversation(active.id);
                               ref
-                                      .read(activeConversationProvider.notifier)
-                                      .state =
-                                  full;
+                                  .read(activeConversationProvider.notifier)
+                                  .set(full);
                             } catch (e) {
                               debugPrint(
                                 'DEBUG: Failed to refresh conversation: $e',
@@ -1507,7 +1508,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       if (hadFocus) {
         // Bump focus trigger to restore composer focus + IME
         final cur = ref.read(inputFocusTriggerProvider);
-        ref.read(inputFocusTriggerProvider.notifier).state = cur + 1;
+        ref.read(inputFocusTriggerProvider.notifier).set(cur + 1);
       }
     });
   }
@@ -1789,11 +1790,8 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
                                     onTap: () {
                                       HapticFeedback.selectionClick();
                                       widget.ref
-                                              .read(
-                                                selectedModelProvider.notifier,
-                                              )
-                                              .state =
-                                          model;
+                                          .read(selectedModelProvider.notifier)
+                                          .set(model);
                                       Navigator.pop(context);
                                     },
                                   );

@@ -49,7 +49,7 @@ class TaskWorker {
           final api = _ref.read(apiServiceProvider);
           if (api != null) {
             final conv = await api.getConversation(task.conversationId!);
-            _ref.read(activeConversationProvider.notifier).state = conv;
+            _ref.read(activeConversationProvider.notifier).set(conv);
           }
         } catch (_) {
           // If loading fails, proceed; send flow can create a new conversation
@@ -167,7 +167,7 @@ class TaskWorker {
           (active == null || active.id != task.conversationId)) {
         try {
           final conv = await api.getConversation(task.conversationId!);
-          _ref.read(activeConversationProvider.notifier).state = conv;
+          _ref.read(activeConversationProvider.notifier).set(conv);
         } catch (_) {}
       }
     } catch (_) {}
@@ -225,7 +225,7 @@ class TaskWorker {
           (active == null || active.id != task.conversationId)) {
         try {
           final conv = await api.getConversation(task.conversationId!);
-          _ref.read(activeConversationProvider.notifier).state = conv;
+          _ref.read(activeConversationProvider.notifier).set(conv);
         } catch (_) {}
       }
     } catch (_) {}
@@ -233,10 +233,10 @@ class TaskWorker {
     // Temporarily enable image-generation background flow for this send
     final prev = _ref.read(chat.imageGenerationEnabledProvider);
     try {
-      _ref.read(chat.imageGenerationEnabledProvider.notifier).state = true;
+      _ref.read(chat.imageGenerationEnabledProvider.notifier).set(true);
       await chat.sendMessageFromService(_ref, task.prompt, null, null);
     } finally {
-      _ref.read(chat.imageGenerationEnabledProvider.notifier).state = prev;
+      _ref.read(chat.imageGenerationEnabledProvider.notifier).set(prev);
     }
   }
 
@@ -368,7 +368,7 @@ class TaskWorker {
             title: title.length > 100 ? '${title.substring(0, 100)}...' : title,
             updatedAt: DateTime.now(),
           );
-          _ref.read(activeConversationProvider.notifier).state = updated;
+          _ref.read(activeConversationProvider.notifier).set(updated);
           // Do not push full messages to server; skip remote update.
           // Optionally refresh list to reflect server-side title when it’s generated there.
           _ref.invalidate(conversationsProvider);

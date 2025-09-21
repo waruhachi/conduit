@@ -8,4 +8,14 @@ final toolsListProvider = FutureProvider<List<Tool>>((ref) async {
   return await toolsService.getTools();
 });
 
-final selectedToolIdsProvider = StateProvider<List<String>>((ref) => []);
+final selectedToolIdsProvider =
+    NotifierProvider<SelectedToolIdsNotifier, List<String>>(
+      SelectedToolIdsNotifier.new,
+    );
+
+class SelectedToolIdsNotifier extends Notifier<List<String>> {
+  @override
+  List<String> build() => [];
+
+  void set(List<String> ids) => state = List<String>.from(ids);
+}

@@ -23,90 +23,155 @@ const bool kSocketVerboseLogging = false;
 
 // Chat messages for current conversation
 final chatMessagesProvider =
-    StateNotifierProvider<ChatMessagesNotifier, List<ChatMessage>>((ref) {
-      return ChatMessagesNotifier(ref);
-    });
+    NotifierProvider<ChatMessagesNotifier, List<ChatMessage>>(
+      ChatMessagesNotifier.new,
+    );
 
 // Loading state for conversation (used to show chat skeletons during fetch)
-final isLoadingConversationProvider = StateProvider<bool>((ref) => false);
+final isLoadingConversationProvider =
+    NotifierProvider<IsLoadingConversationNotifier, bool>(
+      IsLoadingConversationNotifier.new,
+    );
 
 // Prefilled input text (e.g., when sharing text from other apps)
-final prefilledInputTextProvider = StateProvider<String?>((ref) => null);
+final prefilledInputTextProvider =
+    NotifierProvider<PrefilledInputTextNotifier, String?>(
+      PrefilledInputTextNotifier.new,
+    );
 
 // Trigger to request focus on the chat input (increment to signal)
-final inputFocusTriggerProvider = StateProvider<int>((ref) => 0);
+final inputFocusTriggerProvider =
+    NotifierProvider<InputFocusTriggerNotifier, int>(
+      InputFocusTriggerNotifier.new,
+    );
 
 // Whether the chat composer currently has focus
-final composerHasFocusProvider = StateProvider<bool>((ref) => false);
+final composerHasFocusProvider = NotifierProvider<ComposerFocusNotifier, bool>(
+  ComposerFocusNotifier.new,
+);
 
-class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
-  final Ref _ref;
+class IsLoadingConversationNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+class PrefilledInputTextNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? value) => state = value;
+
+  void clear() => state = null;
+}
+
+class InputFocusTriggerNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void set(int value) => state = value;
+
+  int increment() {
+    final next = state + 1;
+    state = next;
+    return next;
+  }
+}
+
+class ComposerFocusNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   StreamSubscription? _messageStream;
   ProviderSubscription? _conversationListener;
   final List<StreamSubscription> _subscriptions = [];
   // Activity-based watchdog to prevent stuck typing indicator
   InactivityWatchdog? _typingWatchdog;
 
-  ChatMessagesNotifier(this._ref) : super([]) {
-    // Load messages when conversation changes with proper cleanup
-    _conversationListener = _ref.listen(activeConversationProvider, (
-      previous,
-      next,
-    ) {
-      debugPrint('Conversation changed: ${previous?.id} -> ${next?.id}');
+  bool _initialized = false;
 
-      // Only react when the conversation actually changes
-      if (previous?.id == next?.id) {
-        // If same conversation but server updated it (e.g., title/content), avoid overwriting
-        // locally streamed assistant content with an outdated server copy.
-        if (previous?.updatedAt != next?.updatedAt) {
-          final serverMessages = next?.messages ?? const [];
-          // Primary rule: adopt server messages when there are strictly more of them.
-          if (serverMessages.length > state.length) {
-            state = serverMessages;
-            return;
-          }
+  @override
+  List<ChatMessage> build() {
+    if (!_initialized) {
+      _initialized = true;
+      _conversationListener = ref.listen(activeConversationProvider, (
+        previous,
+        next,
+      ) {
+        debugPrint('Conversation changed: ${previous?.id} -> ${next?.id}');
 
-          // Secondary rule: if counts are equal but the last assistant message grew,
-          // adopt the server copy to recover from missed socket events.
-          if (serverMessages.isNotEmpty && state.isNotEmpty) {
-            final serverLast = serverMessages.last;
-            final localLast = state.last;
-            final serverText = serverLast.content.trim();
-            final localText = localLast.content.trim();
-            final sameLastId = serverLast.id == localLast.id;
-            final isAssistant = serverLast.role == 'assistant';
-            final serverHasMore =
-                serverText.isNotEmpty && serverText.length > localText.length;
-            final localEmptyButServerHas =
-                localText.isEmpty && serverText.isNotEmpty;
-            if (sameLastId &&
-                isAssistant &&
-                (serverHasMore || localEmptyButServerHas)) {
+        // Only react when the conversation actually changes
+        if (previous?.id == next?.id) {
+          // If same conversation but server updated it (e.g., title/content), avoid overwriting
+          // locally streamed assistant content with an outdated server copy.
+          if (previous?.updatedAt != next?.updatedAt) {
+            final serverMessages = next?.messages ?? const [];
+            // Primary rule: adopt server messages when there are strictly more of them.
+            if (serverMessages.length > state.length) {
               state = serverMessages;
               return;
             }
+
+            // Secondary rule: if counts are equal but the last assistant message grew,
+            // adopt the server copy to recover from missed socket events.
+            if (serverMessages.isNotEmpty && state.isNotEmpty) {
+              final serverLast = serverMessages.last;
+              final localLast = state.last;
+              final serverText = serverLast.content.trim();
+              final localText = localLast.content.trim();
+              final sameLastId = serverLast.id == localLast.id;
+              final isAssistant = serverLast.role == 'assistant';
+              final serverHasMore =
+                  serverText.isNotEmpty && serverText.length > localText.length;
+              final localEmptyButServerHas =
+                  localText.isEmpty && serverText.isNotEmpty;
+              if (sameLastId &&
+                  isAssistant &&
+                  (serverHasMore || localEmptyButServerHas)) {
+                state = serverMessages;
+                return;
+              }
+            }
           }
+          return;
         }
-        return;
-      }
 
-      // Cancel any existing message stream when switching conversations
-      _cancelMessageStream();
-      // Also cancel typing guard on conversation switch
-      _cancelTypingGuard();
+        // Cancel any existing message stream when switching conversations
+        _cancelMessageStream();
+        // Also cancel typing guard on conversation switch
+        _cancelTypingGuard();
 
-      if (next != null) {
-        state = next.messages;
+        if (next != null) {
+          state = next.messages;
 
-        // Update selected model if conversation has a different model
-        _updateModelForConversation(next);
-      } else {
-        state = [];
-      }
-    });
+          // Update selected model if conversation has a different model
+          _updateModelForConversation(next);
+        } else {
+          state = [];
+        }
+      });
 
-    // ProviderSubscription will be cleaned up in dispose method
+      ref.onDispose(() {
+        for (final subscription in _subscriptions) {
+          subscription.cancel();
+        }
+        _subscriptions.clear();
+
+        _cancelMessageStream();
+        _cancelTypingGuard();
+
+        _conversationListener?.close();
+        _conversationListener = null;
+      });
+    }
+
+    final activeConversation = ref.read(activeConversationProvider);
+    return activeConversation?.messages ?? const [];
   }
 
   void _addSubscription(StreamSubscription subscription) {
@@ -137,8 +202,8 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
             // Attempt a soft recovery: if content is still empty, try fetching final content from server
             if ((last.content).trim().isEmpty) {
               try {
-                final apiSvc = _ref.read(apiServiceProvider);
-                final activeConv = _ref.read(activeConversationProvider);
+                final apiSvc = ref.read(apiServiceProvider);
+                final activeConv = ref.read(activeConversationProvider);
                 final msgId = last.id;
                 final chatId = activeConv?.id;
                 if (apiSvc != null && chatId != null && chatId.isNotEmpty) {
@@ -228,9 +293,9 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
           final isImageGenFlow = (meta['imageGenerationFlow'] == true);
 
           // Also consult global toggles if metadata not present
-          final globalWebSearch = _ref.read(webSearchEnabledProvider);
-          final webSearchAvailable = _ref.read(webSearchAvailableProvider);
-          final globalImageGen = _ref.read(imageGenerationEnabledProvider);
+          final globalWebSearch = ref.read(webSearchEnabledProvider);
+          final webSearchAvailable = ref.read(webSearchAvailableProvider);
+          final globalImageGen = ref.read(imageGenerationEnabledProvider);
 
           // Extend guard windows to tolerate long reasoning/tools (> 1 min)
           if (isWebSearchFlow || (globalWebSearch && webSearchAvailable)) {
@@ -262,13 +327,13 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
       return;
     }
 
-    final currentSelectedModel = _ref.read(selectedModelProvider);
+    final currentSelectedModel = ref.read(selectedModelProvider);
 
     // If the conversation's model is different from the currently selected one
     if (currentSelectedModel?.id != conversation.model) {
       // Get available models to find the matching one
       try {
-        final models = await _ref.read(modelsProvider.future);
+        final models = await ref.read(modelsProvider.future);
 
         if (models.isEmpty) {
           return;
@@ -281,7 +346,7 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
 
         if (conversationModel != null) {
           // Update the selected model
-          _ref.read(selectedModelProvider.notifier).state = conversationModel;
+          ref.read(selectedModelProvider.notifier).set(conversationModel);
         } else {
           // Model not found in available models - silently continue
         }
@@ -447,32 +512,8 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
     // can pick up updated titles and ordering once streaming completes.
     // Best-effort: ignore if ref lifecycle/context prevents invalidation.
     try {
-      _ref.invalidate(conversationsProvider);
+      ref.invalidate(conversationsProvider);
     } catch (_) {}
-  }
-
-  @override
-  void dispose() {
-    debugPrint(
-      'ChatMessagesNotifier disposing - ${_subscriptions.length} subscriptions',
-    );
-
-    // Cancel all tracked subscriptions
-    for (final subscription in _subscriptions) {
-      subscription.cancel();
-    }
-    _subscriptions.clear();
-
-    // Cancel message stream specifically
-    _cancelMessageStream();
-    // Cancel any active typing guard
-    _cancelTypingGuard();
-
-    // Cancel conversation listener specifically
-    _conversationListener?.close();
-    _conversationListener = null;
-
-    super.dispose();
   }
 }
 
@@ -526,8 +567,8 @@ Future<String> _preseedAssistantAndPersist(
   // Persist the skeleton to the server so the web client sees a correct chain
   try {
     if (api != null && activeConv != null) {
-      final resolvedSystemPrompt = (systemPrompt != null &&
-              systemPrompt.trim().isNotEmpty)
+      final resolvedSystemPrompt =
+          (systemPrompt != null && systemPrompt.trim().isNotEmpty)
           ? systemPrompt.trim()
           : activeConv.systemPrompt;
       final current = ref.read(chatMessagesProvider);
@@ -567,45 +608,92 @@ String? _extractSystemPromptFromSettings(Map<String, dynamic>? settings) {
 // Start a new chat (unified function for both "New Chat" button and home screen)
 void startNewChat(dynamic ref) {
   // Clear active conversation
-  ref.read(activeConversationProvider.notifier).state = null;
+  ref.read(activeConversationProvider.notifier).clear();
 
   // Clear messages
   ref.read(chatMessagesProvider.notifier).clearMessages();
 }
 
 // Available tools provider
-final availableToolsProvider = StateProvider<List<String>>((ref) => []);
+final availableToolsProvider =
+    NotifierProvider<AvailableToolsNotifier, List<String>>(
+      AvailableToolsNotifier.new,
+    );
 
 // Web search enabled state for API-based web search
-final webSearchEnabledProvider = StateProvider<bool>((ref) => false);
+final webSearchEnabledProvider =
+    NotifierProvider<WebSearchEnabledNotifier, bool>(
+      WebSearchEnabledNotifier.new,
+    );
 
 // Image generation enabled state - behaves like web search
-final imageGenerationEnabledProvider = StateProvider<bool>((ref) => false);
+final imageGenerationEnabledProvider =
+    NotifierProvider<ImageGenerationEnabledNotifier, bool>(
+      ImageGenerationEnabledNotifier.new,
+    );
 
 // Vision capable models provider
-final visionCapableModelsProvider = StateProvider<List<String>>((ref) {
-  final selectedModel = ref.watch(selectedModelProvider);
-  if (selectedModel == null) return [];
-
-  // Check if the model supports vision (multimodal)
-  if (selectedModel.isMultimodal == true) {
-    return [selectedModel.id];
-  }
-
-  // For now, assume all models support vision unless explicitly marked
-  // This can be enhanced with proper model capability detection
-  return [selectedModel.id];
-});
+final visionCapableModelsProvider =
+    NotifierProvider<VisionCapableModelsNotifier, List<String>>(
+      VisionCapableModelsNotifier.new,
+    );
 
 // File upload capable models provider
-final fileUploadCapableModelsProvider = StateProvider<List<String>>((ref) {
-  final selectedModel = ref.watch(selectedModelProvider);
-  if (selectedModel == null) return [];
+final fileUploadCapableModelsProvider =
+    NotifierProvider<FileUploadCapableModelsNotifier, List<String>>(
+      FileUploadCapableModelsNotifier.new,
+    );
 
-  // For now, assume all models support file upload
-  // This can be enhanced with proper model capability detection
-  return [selectedModel.id];
-});
+class AvailableToolsNotifier extends Notifier<List<String>> {
+  @override
+  List<String> build() => [];
+
+  void set(List<String> tools) => state = List<String>.from(tools);
+}
+
+class WebSearchEnabledNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+class ImageGenerationEnabledNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+class VisionCapableModelsNotifier extends Notifier<List<String>> {
+  @override
+  List<String> build() {
+    final selectedModel = ref.watch(selectedModelProvider);
+    if (selectedModel == null) {
+      return [];
+    }
+
+    if (selectedModel.isMultimodal == true) {
+      return [selectedModel.id];
+    }
+
+    // For now, assume all models support vision unless explicitly marked
+    return [selectedModel.id];
+  }
+}
+
+class FileUploadCapableModelsNotifier extends Notifier<List<String>> {
+  @override
+  List<String> build() {
+    final selectedModel = ref.watch(selectedModelProvider);
+    if (selectedModel == null) {
+      return [];
+    }
+
+    // For now, assume all models support file upload
+    return [selectedModel.id];
+  }
+}
 
 // Helper function to validate file size
 bool validateFileSize(int fileSize, int? maxSizeMB) {
@@ -790,9 +878,10 @@ Future<void> regenerateMessage(
     if ((activeConversation.systemPrompt == null ||
             activeConversation.systemPrompt!.trim().isEmpty) &&
         (userSystemPrompt?.isNotEmpty ?? false)) {
-      final updated =
-          activeConversation.copyWith(systemPrompt: userSystemPrompt);
-      ref.read(activeConversationProvider.notifier).state = updated;
+      final updated = activeConversation.copyWith(
+        systemPrompt: userSystemPrompt,
+      );
+      ref.read(activeConversationProvider.notifier).set(updated);
       activeConversation = updated;
     }
 
@@ -831,7 +920,8 @@ Future<void> regenerateMessage(
     }
 
     final conversationSystemPrompt = activeConversation.systemPrompt?.trim();
-    final effectiveSystemPrompt = (conversationSystemPrompt != null &&
+    final effectiveSystemPrompt =
+        (conversationSystemPrompt != null &&
             conversationSystemPrompt.isNotEmpty)
         ? conversationSystemPrompt
         : userSystemPrompt;
@@ -840,10 +930,10 @@ Future<void> regenerateMessage(
         (m) => (m['role']?.toString().toLowerCase() ?? '') == 'system',
       );
       if (!hasSystemMessage) {
-        conversationMessages.insert(
-          0,
-          {'role': 'system', 'content': effectiveSystemPrompt},
-        );
+        conversationMessages.insert(0, {
+          'role': 'system',
+          'content': effectiveSystemPrompt,
+        });
       }
     }
 
@@ -974,7 +1064,9 @@ Future<void> regenerateMessage(
     // Resolve tool servers from user settings (if any)
     List<Map<String, dynamic>>? toolServers;
     final uiSettings = userSettingsData?['ui'] as Map<String, dynamic>?;
-    final rawServers = uiSettings != null ? (uiSettings['toolServers'] as List?) : null;
+    final rawServers = uiSettings != null
+        ? (uiSettings['toolServers'] as List?)
+        : null;
     if (rawServers != null && rawServers.isNotEmpty) {
       try {
         toolServers = await _resolveToolServers(rawServers, api);
@@ -1151,7 +1243,7 @@ Future<void> _sendMessageInternal(
     );
 
     // Set as active conversation locally
-    ref.read(activeConversationProvider.notifier).state = localConversation;
+    ref.read(activeConversationProvider.notifier).set(localConversation);
     activeConversation = localConversation;
 
     if (!reviewerMode) {
@@ -1170,8 +1262,7 @@ Future<void> _sendMessageInternal(
               ? serverConversation.messages
               : [userMessage],
         );
-        ref.read(activeConversationProvider.notifier).state =
-            updatedConversation;
+        ref.read(activeConversationProvider.notifier).set(updatedConversation);
         activeConversation = updatedConversation;
 
         // Set messages in the messages provider to keep UI in sync
@@ -1208,7 +1299,7 @@ Future<void> _sendMessageInternal(
           activeConversation.systemPrompt!.trim().isEmpty) &&
       (userSystemPrompt?.isNotEmpty ?? false)) {
     final updated = activeConversation.copyWith(systemPrompt: userSystemPrompt);
-    ref.read(activeConversationProvider.notifier).state = updated;
+    ref.read(activeConversationProvider.notifier).set(updated);
     activeConversation = updated;
   }
 
@@ -1316,8 +1407,8 @@ Future<void> _sendMessageInternal(
   }
 
   final conversationSystemPrompt = activeConversation?.systemPrompt?.trim();
-  final effectiveSystemPrompt = (conversationSystemPrompt != null &&
-          conversationSystemPrompt.isNotEmpty)
+  final effectiveSystemPrompt =
+      (conversationSystemPrompt != null && conversationSystemPrompt.isNotEmpty)
       ? conversationSystemPrompt
       : userSystemPrompt;
   if (effectiveSystemPrompt != null && effectiveSystemPrompt.isNotEmpty) {
@@ -1325,10 +1416,10 @@ Future<void> _sendMessageInternal(
       (m) => (m['role']?.toString().toLowerCase() ?? '') == 'system',
     );
     if (!hasSystemMessage) {
-      conversationMessages.insert(
-        0,
-        {'role': 'system', 'content': effectiveSystemPrompt},
-      );
+      conversationMessages.insert(0, {
+        'role': 'system',
+        'content': effectiveSystemPrompt,
+      });
     }
   }
 
@@ -1478,7 +1569,9 @@ Future<void> _sendMessageInternal(
     // Resolve tool servers from user settings (if any)
     List<Map<String, dynamic>>? toolServers;
     final uiSettings = userSettingsData?['ui'] as Map<String, dynamic>?;
-    final rawServers = uiSettings != null ? (uiSettings['toolServers'] as List?) : null;
+    final rawServers = uiSettings != null
+        ? (uiSettings['toolServers'] as List?)
+        : null;
     if (rawServers != null && rawServers.isNotEmpty) {
       try {
         toolServers = await _resolveToolServers(rawServers, api);
@@ -2377,8 +2470,9 @@ Future<void> _sendMessageInternal(
                     updatedAt: DateTime.now(),
                   );
 
-                  ref.read(activeConversationProvider.notifier).state =
-                      updatedConversation;
+                  ref
+                      .read(activeConversationProvider.notifier)
+                      .set(updatedConversation);
                 } else {
                   // Keep local messages and only refresh conversations list
                   ref.invalidate(conversationsProvider);
@@ -2614,7 +2708,7 @@ Future<void> _checkForTitleInBackground(
               title: updatedConv.title,
               updatedAt: DateTime.now(),
             );
-            ref.read(activeConversationProvider.notifier).state = updated;
+            ref.read(activeConversationProvider.notifier).set(updated);
 
             // Refresh the conversations list
             ref.invalidate(conversationsProvider);
@@ -2679,7 +2773,7 @@ Future<void> _saveConversationLocally(dynamic ref) async {
     }
 
     await storage.setString('conversations', jsonEncode(conversations));
-    ref.read(activeConversationProvider.notifier).state = updatedConversation;
+    ref.read(activeConversationProvider.notifier).set(updatedConversation);
     ref.invalidate(conversationsProvider);
   } catch (e) {
     // Handle local storage errors silently
@@ -2723,8 +2817,9 @@ Future<void> pinConversation(
     // Update active conversation if it's the one being pinned
     final activeConversation = ref.read(activeConversationProvider);
     if (activeConversation?.id == conversationId) {
-      ref.read(activeConversationProvider.notifier).state = activeConversation!
-          .copyWith(pinned: pinned);
+      ref
+          .read(activeConversationProvider.notifier)
+          .set(activeConversation!.copyWith(pinned: pinned));
     }
   } catch (e) {
     debugPrint('Error ${pinned ? 'pinning' : 'unpinning'} conversation: $e');
@@ -2743,7 +2838,7 @@ Future<void> archiveConversation(
 
   // Update local state first
   if (activeConversation?.id == conversationId && archived) {
-    ref.read(activeConversationProvider.notifier).state = null;
+    ref.read(activeConversationProvider.notifier).clear();
     ref.read(chatMessagesProvider.notifier).clearMessages();
   }
 
@@ -2761,7 +2856,7 @@ Future<void> archiveConversation(
 
     // If server operation failed and we archived locally, restore the conversation
     if (activeConversation?.id == conversationId && archived) {
-      ref.read(activeConversationProvider.notifier).state = activeConversation;
+      ref.read(activeConversationProvider.notifier).set(activeConversation);
       // Messages will be restored through the listener
     }
 
@@ -2796,7 +2891,7 @@ Future<void> cloneConversation(WidgetRef ref, String conversationId) async {
     final clonedConversation = await api.cloneConversation(conversationId);
 
     // Set the cloned conversation as active
-    ref.read(activeConversationProvider.notifier).state = clonedConversation;
+    ref.read(activeConversationProvider.notifier).set(clonedConversation);
     // Load messages through the listener mechanism
     // The ChatMessagesNotifier will automatically load messages when activeConversation changes
 
@@ -2841,7 +2936,7 @@ final regenerateLastMessageProvider = Provider<Future<void> Function()>((ref) {
       final prev = ref.read(imageGenerationEnabledProvider);
       try {
         // Force image generation enabled during regeneration
-        ref.read(imageGenerationEnabledProvider.notifier).state = true;
+        ref.read(imageGenerationEnabledProvider.notifier).set(true);
         await regenerateMessage(
           ref,
           lastUserMessage.content,
@@ -2849,7 +2944,7 @@ final regenerateLastMessageProvider = Provider<Future<void> Function()>((ref) {
         );
       } finally {
         // restore previous state
-        ref.read(imageGenerationEnabledProvider.notifier).state = prev;
+        ref.read(imageGenerationEnabledProvider.notifier).set(prev);
       }
       return;
     }

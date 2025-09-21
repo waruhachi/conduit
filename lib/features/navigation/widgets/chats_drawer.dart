@@ -43,10 +43,12 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
   bool _draggingHasFolder = false;
 
   // UI state providers for sections
-  static final _showArchivedProvider = StateProvider<bool>((ref) => false);
-  static final _expandedFoldersProvider = StateProvider<Map<String, bool>>(
-    (ref) => {},
-  );
+  static final _showArchivedProvider =
+      NotifierProvider<_ShowArchivedNotifier, bool>(_ShowArchivedNotifier.new);
+  static final _expandedFoldersProvider =
+      NotifierProvider<_ExpandedFoldersNotifier, Map<String, bool>>(
+        _ExpandedFoldersNotifier.new,
+      );
 
   Future<void> _refreshChats() async {
     try {
@@ -694,7 +696,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
             onTap: () {
               final current = {...ref.read(_expandedFoldersProvider)};
               current[folderId] = !isExpanded;
-              ref.read(_expandedFoldersProvider.notifier).state = current;
+              ref.read(_expandedFoldersProvider.notifier).set(current);
             },
             onLongPress: () {
               HapticFeedback.selectionClick();
@@ -1065,7 +1067,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           ),
           child: InkWell(
             borderRadius: BorderRadius.zero,
-            onTap: () => ref.read(_showArchivedProvider.notifier).state = !show,
+            onTap: () => ref.read(_showArchivedProvider.notifier).set(!show),
             overlayColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.pressed)) {
                 return theme.buttonPrimary.withValues(
@@ -1163,11 +1165,11 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     final container = ProviderScope.containerOf(context, listen: false);
     try {
       // Mark global loading to show skeletons in chat
-      container.read(chat.isLoadingConversationProvider.notifier).state = true;
+      container.read(chat.isLoadingConversationProvider.notifier).set(true);
       _pendingConversationId = id;
 
       // Immediately clear current chat to show loading skeleton in the chat view
-      container.read(activeConversationProvider.notifier).state = null;
+      container.read(activeConversationProvider.notifier).clear();
       container.read(chat.chatMessagesProvider.notifier).clearMessages();
 
       // Close the drawer immediately for faster perceived performance
@@ -1185,21 +1187,22 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       final api = container.read(apiServiceProvider);
       if (api != null) {
         final full = await api.getConversation(id);
-        container.read(activeConversationProvider.notifier).state = full;
+        container.read(activeConversationProvider.notifier).set(full);
       } else {
         // Fallback: use the lightweight item to update the active conversation
-        container
-            .read(activeConversationProvider.notifier)
-            .state = (await container.read(
-          conversationsProvider.future,
-        )).firstWhere((c) => c.id == id);
+        container.read(activeConversationProvider.notifier).set(
+              (await container.read(
+                conversationsProvider.future,
+              ))
+                  .firstWhere((c) => c.id == id),
+            );
       }
 
       // Clear loading after data is ready
-      container.read(chat.isLoadingConversationProvider.notifier).state = false;
+      container.read(chat.isLoadingConversationProvider.notifier).set(false);
       _pendingConversationId = null;
     } catch (_) {
-      container.read(chat.isLoadingConversationProvider.notifier).state = false;
+      container.read(chat.isLoadingConversationProvider.notifier).set(false);
       _pendingConversationId = null;
     } finally {
       if (mounted) setState(() => _isLoadingConversation = false);
@@ -1309,6 +1312,20 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       ),
     );
   }
+}
+
+class _ShowArchivedNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+class _ExpandedFoldersNotifier extends Notifier<Map<String, bool>> {
+  @override
+  Map<String, bool> build() => {};
+
+  void set(Map<String, bool> value) => state = Map<String, bool>.from(value);
 }
 
 class _DragConversationData {

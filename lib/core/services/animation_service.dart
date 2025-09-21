@@ -208,12 +208,29 @@ class AnimationService {
 enum PageTransitionType { fade, slide, scale }
 
 /// Provider for reduced motion preference
-final reducedMotionProvider = StateProvider<bool>((ref) => false);
+final reducedMotionProvider = NotifierProvider<ReducedMotionNotifier, bool>(
+  ReducedMotionNotifier.new,
+);
 
 /// Provider for animation performance settings
-final animationPerformanceProvider = StateProvider<AnimationPerformance>((ref) {
-  return AnimationPerformance.adaptive;
-});
+final animationPerformanceProvider =
+    NotifierProvider<AnimationPerformanceNotifier, AnimationPerformance>(
+      AnimationPerformanceNotifier.new,
+    );
+
+class ReducedMotionNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+class AnimationPerformanceNotifier extends Notifier<AnimationPerformance> {
+  @override
+  AnimationPerformance build() => AnimationPerformance.adaptive;
+
+  void set(AnimationPerformance performance) => state = performance;
+}
 
 /// Animation performance levels
 enum AnimationPerformance {
@@ -225,8 +242,8 @@ enum AnimationPerformance {
 
 /// Provider for managing animation settings
 final animationSettingsProvider =
-    StateNotifierProvider<AnimationSettingsNotifier, AnimationSettings>(
-      (ref) => AnimationSettingsNotifier(),
+    NotifierProvider<AnimationSettingsNotifier, AnimationSettings>(
+      AnimationSettingsNotifier.new,
     );
 
 class AnimationSettings {
@@ -253,8 +270,9 @@ class AnimationSettings {
   }
 }
 
-class AnimationSettingsNotifier extends StateNotifier<AnimationSettings> {
-  AnimationSettingsNotifier() : super(const AnimationSettings());
+class AnimationSettingsNotifier extends Notifier<AnimationSettings> {
+  @override
+  AnimationSettings build() => const AnimationSettings();
 
   void setReduceMotion(bool reduce) {
     state = state.copyWith(reduceMotion: reduce);

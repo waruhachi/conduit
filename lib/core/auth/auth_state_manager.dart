@@ -78,23 +78,28 @@ enum AuthStatus {
 }
 
 /// Unified auth state manager - single source of truth for all auth operations
-class AuthStateManager extends StateNotifier<AuthState> {
-  AuthStateManager(this._ref)
-    : super(const AuthState(status: AuthStatus.initial)) {
-    _initialize();
-  }
-
-  final Ref _ref;
+class AuthStateManager extends Notifier<AuthState> {
   final AuthCacheManager _cacheManager = AuthCacheManager();
   // Prevent overlapping silent-login attempts from multiple triggers
   Future<bool>? _silentLoginFuture;
+  bool _initialized = false;
+
+  @override
+  AuthState build() {
+    if (!_initialized) {
+      _initialized = true;
+      Future.microtask(_initialize);
+    }
+
+    return const AuthState(status: AuthStatus.initial);
+  }
 
   /// Initialize auth state from storage
   Future<void> _initialize() async {
     state = state.copyWith(status: AuthStatus.loading, isLoading: true);
 
     try {
-      final storage = _ref.read(optimizedStorageServiceProvider);
+      final storage = ref.read(optimizedStorageServiceProvider);
       final token = await storage.getAuthToken();
 
       if (token != null && token.isNotEmpty) {
@@ -171,7 +176,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
 
       // Ensure API service is available
       await _ensureApiServiceAvailable();
-      final api = _ref.read(apiServiceProvider);
+      final api = ref.read(apiServiceProvider);
       if (api == null) {
         throw Exception('No server connection available');
       }
@@ -192,12 +197,12 @@ class AuthStateManager extends StateNotifier<AuthState> {
         await api.getCurrentUser(); // Just validate, don't store user data yet
 
         // Save token to storage
-        final storage = _ref.read(optimizedStorageServiceProvider);
+        final storage = ref.read(optimizedStorageServiceProvider);
         await storage.saveAuthToken(tokenStr);
 
         // Save API key if requested (for convenience, though less secure than credentials)
         if (rememberCredentials) {
-          final activeServer = await _ref.read(activeServerProvider.future);
+          final activeServer = await ref.read(activeServerProvider.future);
           if (activeServer != null) {
             // Store API key as a special credential type
             await storage.saveCredentials(
@@ -260,7 +265,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
     try {
       // Ensure API service is available (active server/provider rebuild race)
       await _ensureApiServiceAvailable();
-      final api = _ref.read(apiServiceProvider);
+      final api = ref.read(apiServiceProvider);
       if (api == null) {
         throw Exception('No server connection available');
       }
@@ -280,12 +285,12 @@ class AuthStateManager extends StateNotifier<AuthState> {
       }
 
       // Save token to storage
-      final storage = _ref.read(optimizedStorageServiceProvider);
+      final storage = ref.read(optimizedStorageServiceProvider);
       await storage.saveAuthToken(tokenStr);
 
       // Save credentials if requested
       if (rememberCredentials) {
-        final activeServer = await _ref.read(activeServerProvider.future);
+        final activeServer = await ref.read(activeServerProvider.future);
         if (activeServer != null) {
           await storage.saveCredentials(
             serverId: activeServer.id,
@@ -332,7 +337,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
   }) async {
     final end = DateTime.now().add(timeout);
     while (DateTime.now().isBefore(end)) {
-      final api = _ref.read(apiServiceProvider);
+      final api = ref.read(apiServiceProvider);
       if (api != null) return;
       await Future.delayed(const Duration(milliseconds: 50));
     }
@@ -363,7 +368,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
     );
 
     try {
-      final storage = _ref.read(optimizedStorageServiceProvider);
+      final storage = ref.read(optimizedStorageServiceProvider);
       final savedCredentials = await storage.getSavedCredentials();
 
       if (savedCredentials == null) {
@@ -381,10 +386,10 @@ class AuthStateManager extends StateNotifier<AuthState> {
 
       // Set active server if needed
       await storage.setActiveServerId(serverId);
-      _ref.invalidate(activeServerProvider);
+      ref.invalidate(activeServerProvider);
 
       // Wait for server connection
-      final activeServer = await _ref.read(activeServerProvider.future);
+      final activeServer = await ref.read(activeServerProvider.future);
       if (activeServer == null) {
         await storage.setActiveServerId(null);
         state = state.copyWith(
@@ -411,7 +416,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
           e.toString().contains('403') ||
           e.toString().contains('authentication') ||
           e.toString().contains('unauthorized')) {
-        final storage = _ref.read(optimizedStorageServiceProvider);
+        final storage = ref.read(optimizedStorageServiceProvider);
         await storage.deleteSavedCredentials();
       }
 
@@ -434,7 +439,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
     }
 
     // Clear token from storage
-    final storage = _ref.read(optimizedStorageServiceProvider);
+    final storage = ref.read(optimizedStorageServiceProvider);
     await storage.deleteAuthToken();
 
     // Update state
@@ -461,7 +466,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
 
     try {
       // Call server logout if possible
-      final api = _ref.read(apiServiceProvider);
+      final api = ref.read(apiServiceProvider);
       if (api != null) {
         try {
           await api.logout();
@@ -471,7 +476,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
       }
 
       // Clear all local auth data
-      final storage = _ref.read(optimizedStorageServiceProvider);
+      final storage = ref.read(optimizedStorageServiceProvider);
       await storage.clearAuthData();
 
       // Update state
@@ -524,7 +529,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
   /// Load complete user data from server
   Future<void> _loadServerUserData() async {
     try {
-      final api = _ref.read(apiServiceProvider);
+      final api = ref.read(apiServiceProvider);
       if (api != null && state.isAuthenticated) {
         // Check if we already have user data from token validation
         if (state.user != null) {
@@ -546,7 +551,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
 
   /// Update API service with current token
   void _updateApiServiceToken(String token) {
-    final api = _ref.read(apiServiceProvider);
+    final api = ref.read(apiServiceProvider);
     api?.updateAuthToken(token);
   }
 
@@ -582,7 +587,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
 
     // Server validation (async with timeout)
     try {
-      final api = _ref.read(apiServiceProvider);
+      final api = ref.read(apiServiceProvider);
       if (api == null) {
         debugPrint('DEBUG: No API service available for token validation');
         return formatResult.isValid; // Fall back to format validation
@@ -630,7 +635,7 @@ class AuthStateManager extends StateNotifier<AuthState> {
     }
 
     try {
-      final storage = _ref.read(optimizedStorageServiceProvider);
+      final storage = ref.read(optimizedStorageServiceProvider);
       final hasCredentials = await storage.hasCredentials();
 
       // Cache the result
@@ -668,10 +673,9 @@ class AuthStateManager extends StateNotifier<AuthState> {
 }
 
 /// Provider for the unified auth state manager
-final authStateManagerProvider =
-    StateNotifierProvider<AuthStateManager, AuthState>((ref) {
-      return AuthStateManager(ref);
-    });
+final authStateManagerProvider = NotifierProvider<AuthStateManager, AuthState>(
+  AuthStateManager.new,
+);
 
 /// Computed providers for common auth state queries
 final isAuthenticatedProvider = Provider<bool>((ref) {

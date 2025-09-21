@@ -9,4 +9,14 @@ final promptsListProvider = FutureProvider<List<Prompt>>((ref) async {
   return promptsService.getPrompts();
 });
 
-final activePromptCommandProvider = StateProvider<String?>((ref) => null);
+final activePromptCommandProvider =
+    NotifierProvider<ActivePromptCommandNotifier, String?>(
+      ActivePromptCommandNotifier.new,
+    );
+
+class ActivePromptCommandNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? command) => state = command;
+}

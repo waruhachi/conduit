@@ -16,19 +16,37 @@ import '../utils/debug_logger.dart';
 enum _ConversationWarmupStatus { idle, warming, complete }
 
 final _conversationWarmupStatusProvider =
-    StateProvider<_ConversationWarmupStatus>(
-      (ref) => _ConversationWarmupStatus.idle,
+    NotifierProvider<
+      _ConversationWarmupStatusNotifier,
+      _ConversationWarmupStatus
+    >(_ConversationWarmupStatusNotifier.new);
+
+final _conversationWarmupLastAttemptProvider =
+    NotifierProvider<_ConversationWarmupLastAttemptNotifier, DateTime?>(
+      _ConversationWarmupLastAttemptNotifier.new,
     );
 
-final _conversationWarmupLastAttemptProvider = StateProvider<DateTime?>(
-  (ref) => null,
-);
+class _ConversationWarmupStatusNotifier
+    extends Notifier<_ConversationWarmupStatus> {
+  @override
+  _ConversationWarmupStatus build() => _ConversationWarmupStatus.idle;
+
+  void set(_ConversationWarmupStatus status) => state = status;
+}
+
+class _ConversationWarmupLastAttemptNotifier extends Notifier<DateTime?> {
+  @override
+  DateTime? build() => null;
+
+  void set(DateTime? value) => state = value;
+}
 
 void _scheduleConversationWarmup(Ref ref, {bool force = false}) {
   final navState = ref.read(authNavigationStateProvider);
   if (navState != AuthNavigationState.authenticated) {
-    ref.read(_conversationWarmupStatusProvider.notifier).state =
-        _ConversationWarmupStatus.idle;
+    ref
+        .read(_conversationWarmupStatusProvider.notifier)
+        .set(_ConversationWarmupStatus.idle);
     return;
   }
 
@@ -38,7 +56,7 @@ void _scheduleConversationWarmup(Ref ref, {bool force = false}) {
   }
 
   final statusController = ref.read(_conversationWarmupStatusProvider.notifier);
-  final status = statusController.state;
+  final status = ref.read(_conversationWarmupStatusProvider);
 
   if (!force) {
     if (status == _ConversationWarmupStatus.warming ||
@@ -56,28 +74,28 @@ void _scheduleConversationWarmup(Ref ref, {bool force = false}) {
       now.difference(lastAttempt) < const Duration(seconds: 30)) {
     return;
   }
-  ref.read(_conversationWarmupLastAttemptProvider.notifier).state = now;
+  ref.read(_conversationWarmupLastAttemptProvider.notifier).set(now);
 
-  statusController.state = _ConversationWarmupStatus.warming;
+  statusController.set(_ConversationWarmupStatus.warming);
 
   Future.microtask(() async {
     try {
       final existing = ref.read(conversationsProvider);
       if (existing.hasValue) {
-        statusController.state = _ConversationWarmupStatus.complete;
+        statusController.set(_ConversationWarmupStatus.complete);
         return;
       }
       if (existing.hasError) {
         ref.invalidate(conversationsProvider);
       }
       final conversations = await ref.read(conversationsProvider.future);
-      statusController.state = _ConversationWarmupStatus.complete;
+      statusController.set(_ConversationWarmupStatus.complete);
       DebugLogger.info(
         'Background chats warmup fetched ${conversations.length} conversations',
       );
     } catch (error) {
       DebugLogger.warning('Background chats warmup failed: $error');
-      statusController.state = _ConversationWarmupStatus.idle;
+      statusController.set(_ConversationWarmupStatus.idle);
     }
   });
 }
@@ -148,8 +166,9 @@ final appStartupFlowProvider = Provider<void>((ref) {
       });
     } else {
       // Reset warmup state when leaving authenticated flow
-      ref.read(_conversationWarmupStatusProvider.notifier).state =
-          _ConversationWarmupStatus.idle;
+      ref
+          .read(_conversationWarmupStatusProvider.notifier)
+          .set(_ConversationWarmupStatus.idle);
     }
   });
 
@@ -167,8 +186,9 @@ final appStartupFlowProvider = Provider<void>((ref) {
   ) {
     final wasReady = previous?.hasValue == true || previous?.hasError == true;
     if (wasReady && next.isLoading) {
-      ref.read(_conversationWarmupStatusProvider.notifier).state =
-          _ConversationWarmupStatus.idle;
+      ref
+          .read(_conversationWarmupStatusProvider.notifier)
+          .set(_ConversationWarmupStatus.idle);
       Future.microtask(() => _scheduleConversationWarmup(ref, force: true));
     }
   });
@@ -195,8 +215,9 @@ class _ForegroundRefreshObserver extends WidgetsBindingObserver {
       Future.microtask(() {
         try {
           _ref.invalidate(conversationsProvider);
-          _ref.read(_conversationWarmupStatusProvider.notifier).state =
-              _ConversationWarmupStatus.idle;
+          _ref
+              .read(_conversationWarmupStatusProvider.notifier)
+              .set(_ConversationWarmupStatus.idle);
         } catch (_) {}
         _scheduleConversationWarmup(_ref, force: true);
       });

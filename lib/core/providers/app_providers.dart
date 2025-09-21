@@ -63,28 +63,24 @@ final optimizedStorageServiceProvider = Provider<OptimizedStorageService>((
 });
 
 // Theme provider
-final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((
-  ref,
-) {
-  final storage = ref.watch(optimizedStorageServiceProvider);
-  return ThemeModeNotifier(storage);
-});
+final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
+  ThemeModeNotifier.new,
+);
 
-class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  final OptimizedStorageService _storage;
+class ThemeModeNotifier extends Notifier<ThemeMode> {
+  late final OptimizedStorageService _storage;
 
-  ThemeModeNotifier(this._storage) : super(ThemeMode.system) {
-    _loadTheme();
-  }
-
-  void _loadTheme() {
-    final mode = _storage.getThemeMode();
-    if (mode != null) {
-      state = ThemeMode.values.firstWhere(
-        (e) => e.toString() == mode,
+  @override
+  ThemeMode build() {
+    _storage = ref.watch(optimizedStorageServiceProvider);
+    final storedMode = _storage.getThemeMode();
+    if (storedMode != null) {
+      return ThemeMode.values.firstWhere(
+        (e) => e.toString() == storedMode,
         orElse: () => ThemeMode.system,
       );
     }
+    return ThemeMode.system;
   }
 
   void setTheme(ThemeMode mode) {
@@ -94,25 +90,21 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
 }
 
 // Locale provider
-final localeProvider = StateNotifierProvider<LocaleNotifier, Locale?>((ref) {
-  final storage = ref.watch(optimizedStorageServiceProvider);
-  return LocaleNotifier(storage);
-});
+final localeProvider = NotifierProvider<LocaleNotifier, Locale?>(
+  LocaleNotifier.new,
+);
 
-class LocaleNotifier extends StateNotifier<Locale?> {
-  final OptimizedStorageService _storage;
+class LocaleNotifier extends Notifier<Locale?> {
+  late final OptimizedStorageService _storage;
 
-  LocaleNotifier(this._storage) : super(null) {
-    _loadLocale();
-  }
-
-  void _loadLocale() {
+  @override
+  Locale? build() {
+    _storage = ref.watch(optimizedStorageServiceProvider);
     final code = _storage.getLocaleCode();
     if (code != null && code.isNotEmpty) {
-      state = Locale(code);
-    } else {
-      state = null; // system
+      return Locale(code);
     }
+    return null; // system default
   }
 
   Future<void> setLocale(Locale? locale) async {
@@ -325,17 +317,38 @@ final modelsProvider = FutureProvider<List<Model>>((ref) async {
   }
 });
 
-final selectedModelProvider = StateProvider<Model?>((ref) => null);
+final selectedModelProvider = NotifierProvider<SelectedModelNotifier, Model?>(
+  SelectedModelNotifier.new,
+);
 
 // Track if the current model selection is manual (user-selected) or automatic (default)
-final isManualModelSelectionProvider = StateProvider<bool>((ref) => false);
+final isManualModelSelectionProvider =
+    NotifierProvider<IsManualModelSelectionNotifier, bool>(
+      IsManualModelSelectionNotifier.new,
+    );
+
+class SelectedModelNotifier extends Notifier<Model?> {
+  @override
+  Model? build() => null;
+
+  void set(Model? model) => state = model;
+
+  void clear() => state = null;
+}
+
+class IsManualModelSelectionNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
 
 // Listen for settings changes and reset manual selection when default model changes
 final _settingsWatcherProvider = Provider<void>((ref) {
   ref.listen<AppSettings>(appSettingsProvider, (previous, next) {
     if (previous?.defaultModel != next.defaultModel) {
       // Reset manual selection when default model changes
-      ref.read(isManualModelSelectionProvider.notifier).state = false;
+      ref.read(isManualModelSelectionProvider.notifier).set(false);
     }
   });
 });
@@ -376,7 +389,7 @@ final defaultModelAutoSelectionProvider = Provider<void>((ref) {
             (models.isNotEmpty ? models.first : null);
 
         if (selected != null) {
-          ref.read(selectedModelProvider.notifier).state = selected;
+          ref.read(selectedModelProvider.notifier).set(selected);
           foundation.debugPrint(
             'DEBUG: Auto-applied default model (by ID): ${selected.name}',
           );
@@ -391,7 +404,17 @@ final defaultModelAutoSelectionProvider = Provider<void>((ref) {
 });
 
 // Cache timestamp for conversations to prevent rapid re-fetches
-final _conversationsCacheTimestamp = StateProvider<DateTime?>((ref) => null);
+final _conversationsCacheTimestamp =
+    NotifierProvider<_ConversationsCacheTimestampNotifier, DateTime?>(
+      _ConversationsCacheTimestampNotifier.new,
+    );
+
+class _ConversationsCacheTimestampNotifier extends Notifier<DateTime?> {
+  @override
+  DateTime? build() => null;
+
+  void set(DateTime? timestamp) => state = timestamp;
+}
 
 // Conversation providers - Now using correct OpenWebUI API with caching
 final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
@@ -585,7 +608,7 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
       );
 
       // Update cache timestamp
-      ref.read(_conversationsCacheTimestamp.notifier).state = DateTime.now();
+      ref.read(_conversationsCacheTimestamp.notifier).set(DateTime.now());
 
       return sortedConversations;
     } catch (e) {
@@ -597,7 +620,7 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
       );
 
       // Update cache timestamp
-      ref.read(_conversationsCacheTimestamp.notifier).state = DateTime.now();
+      ref.read(_conversationsCacheTimestamp.notifier).set(DateTime.now());
 
       return conversations; // Return original conversations if folder fetch fails
     }
@@ -618,7 +641,19 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
   }
 });
 
-final activeConversationProvider = StateProvider<Conversation?>((ref) => null);
+final activeConversationProvider =
+    NotifierProvider<ActiveConversationNotifier, Conversation?>(
+      ActiveConversationNotifier.new,
+    );
+
+class ActiveConversationNotifier extends Notifier<Conversation?> {
+  @override
+  Conversation? build() => null;
+
+  void set(Conversation? conversation) => state = conversation;
+
+  void clear() => state = null;
+}
 
 // Provider to load full conversation with messages
 final loadConversationProvider = FutureProvider.family<Conversation, String>((
@@ -662,7 +697,7 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
     if (models.isNotEmpty) {
       final defaultModel = models.first;
       if (!ref.read(isManualModelSelectionProvider)) {
-        ref.read(selectedModelProvider.notifier).state = defaultModel;
+        ref.read(selectedModelProvider.notifier).set(defaultModel);
         foundation.debugPrint(
           'DEBUG: Auto-selected demo model: ${defaultModel.name}',
         );
@@ -692,7 +727,7 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
             name: storedDefaultId,
             supportsStreaming: true,
           );
-          ref.read(selectedModelProvider.notifier).state = placeholder;
+          ref.read(selectedModelProvider.notifier).set(placeholder);
         }
         // Reconcile against real models in background
         Future.microtask(() async {
@@ -709,7 +744,7 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
             }
             resolved ??= models.isNotEmpty ? models.first : null;
             if (resolved != null && !ref.read(isManualModelSelectionProvider)) {
-              ref.read(selectedModelProvider.notifier).state = resolved;
+              ref.read(selectedModelProvider.notifier).set(resolved);
               foundation.debugPrint(
                 'DEBUG: Reconciled default model to ${resolved.name}',
               );
@@ -730,7 +765,7 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
             name: serverDefault,
             supportsStreaming: true,
           );
-          ref.read(selectedModelProvider.notifier).state = placeholder;
+          ref.read(selectedModelProvider.notifier).set(placeholder);
         }
         // Reconcile against real models in background
         Future.microtask(() async {
@@ -747,7 +782,7 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
             }
             resolved ??= models.isNotEmpty ? models.first : null;
             if (resolved != null && !ref.read(isManualModelSelectionProvider)) {
-              ref.read(selectedModelProvider.notifier).state = resolved;
+              ref.read(selectedModelProvider.notifier).set(resolved);
               foundation.debugPrint(
                 'DEBUG: Reconciled server default to ${resolved.name}',
               );
@@ -766,7 +801,7 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
     }
     final selectedModel = models.first;
     if (!ref.read(isManualModelSelectionProvider)) {
-      ref.read(selectedModelProvider.notifier).state = selectedModel;
+      ref.read(selectedModelProvider.notifier).set(selectedModel);
       foundation.debugPrint(
         'DEBUG: Set default model (fallback): ${selectedModel.name}',
       );
@@ -806,7 +841,16 @@ final backgroundModelLoadProvider = Provider<void>((ref) {
 });
 
 // Search query provider
-final searchQueryProvider = StateProvider<String>((ref) => '');
+final searchQueryProvider = NotifierProvider<SearchQueryNotifier, String>(
+  SearchQueryNotifier.new,
+);
+
+class SearchQueryNotifier extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void set(String query) => state = query;
+}
 
 // Server-side search provider for chats
 final serverSearchProvider = FutureProvider.family<List<Conversation>, String>((
@@ -1002,17 +1046,29 @@ final archivedConversationsProvider = Provider<List<Conversation>>((ref) {
 });
 
 // Reviewer mode provider (persisted)
-final reviewerModeProvider = StateNotifierProvider<ReviewerModeNotifier, bool>(
-  (ref) => ReviewerModeNotifier(ref.watch(optimizedStorageServiceProvider)),
+final reviewerModeProvider = NotifierProvider<ReviewerModeNotifier, bool>(
+  ReviewerModeNotifier.new,
 );
 
-class ReviewerModeNotifier extends StateNotifier<bool> {
-  final OptimizedStorageService _storage;
-  ReviewerModeNotifier(this._storage) : super(false) {
-    _load();
+class ReviewerModeNotifier extends Notifier<bool> {
+  late final OptimizedStorageService _storage;
+  bool _initialized = false;
+
+  @override
+  bool build() {
+    _storage = ref.watch(optimizedStorageServiceProvider);
+    if (!_initialized) {
+      _initialized = true;
+      Future.microtask(_load);
+    }
+    return false;
   }
+
   Future<void> _load() async {
     final enabled = await _storage.getReviewerMode();
+    if (!ref.mounted) {
+      return;
+    }
     state = enabled;
   }
 

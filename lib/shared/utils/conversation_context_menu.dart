@@ -224,9 +224,9 @@ Future<void> _renameConversation(
     ref.invalidate(conversationsProvider);
     final active = ref.read(activeConversationProvider);
     if (active?.id == conversationId) {
-      ref.read(activeConversationProvider.notifier).state = active!.copyWith(
-        title: newName,
-      );
+      ref
+          .read(activeConversationProvider.notifier)
+          .set(active!.copyWith(title: newName));
     }
   } catch (_) {
     if (!context.mounted) return;
@@ -259,7 +259,7 @@ Future<void> _confirmAndDeleteConversation(
     HapticFeedback.mediumImpact();
     final active = ref.read(activeConversationProvider);
     if (active?.id == conversationId) {
-      ref.read(activeConversationProvider.notifier).state = null;
+      ref.read(activeConversationProvider.notifier).clear();
       ref.read(chat.chatMessagesProvider.notifier).clearMessages();
     }
     ref.invalidate(conversationsProvider);

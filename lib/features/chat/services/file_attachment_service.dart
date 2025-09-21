@@ -498,8 +498,9 @@ final fileAttachmentServiceProvider = Provider<dynamic>((ref) {
 });
 
 // State notifier for managing attached files
-class AttachedFilesNotifier extends StateNotifier<List<FileUploadState>> {
-  AttachedFilesNotifier() : super([]);
+class AttachedFilesNotifier extends Notifier<List<FileUploadState>> {
+  @override
+  List<FileUploadState> build() => [];
 
   void addFiles(List<File> files) {
     final newStates = files
@@ -536,6 +537,6 @@ class AttachedFilesNotifier extends StateNotifier<List<FileUploadState>> {
 }
 
 final attachedFilesProvider =
-    StateNotifierProvider<AttachedFilesNotifier, List<FileUploadState>>((ref) {
-      return AttachedFilesNotifier();
-    });
+    NotifierProvider<AttachedFilesNotifier, List<FileUploadState>>(
+      AttachedFilesNotifier.new,
+    );

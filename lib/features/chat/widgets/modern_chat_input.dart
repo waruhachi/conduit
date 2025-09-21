@@ -115,7 +115,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         _controller.text = text;
         _controller.selection = TextSelection.collapsed(offset: text.length);
         // Clear after applying so it doesn't re-apply on rebuilds
-        ref.read(prefilledInputTextProvider.notifier).state = null;
+        ref.read(prefilledInputTextProvider.notifier).clear();
       }
     });
 
@@ -131,7 +131,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         final hasFocus = _focusNode.hasFocus;
         // Publish composer focus state
         try {
-          ref.read(composerHasFocusProvider.notifier).state = hasFocus;
+          ref.read(composerHasFocusProvider.notifier).set(hasFocus);
         } catch (_) {}
       });
     });
@@ -142,7 +142,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   @override
   void dispose() {
     try {
-      ref.read(composerHasFocusProvider.notifier).state = false;
+      ref.read(composerHasFocusProvider.notifier).set(false);
     } catch (_) {}
     _controller.removeListener(_handleComposerChanged);
     _controller.dispose();
@@ -583,7 +583,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
           offset: incoming.length,
         );
         try {
-          ref.read(prefilledInputTextProvider.notifier).state = null;
+          ref.read(prefilledInputTextProvider.notifier).clear();
         } catch (_) {}
       });
     });
@@ -658,7 +658,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
             : Icons.search;
         void handleTap() {
           final notifier = ref.read(webSearchEnabledProvider.notifier);
-          notifier.state = !webSearchEnabled;
+          notifier.set(!webSearchEnabled);
         }
 
         quickPills.add(
@@ -676,7 +676,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
             : Icons.image;
         void handleTap() {
           final notifier = ref.read(imageGenerationEnabledProvider.notifier);
-          notifier.state = !imageGenEnabled;
+          notifier.set(!imageGenEnabled);
         }
 
         quickPills.add(
@@ -709,7 +709,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
             } else {
               current.add(id);
             }
-            ref.read(selectedToolIdsProvider.notifier).state = current;
+            ref.read(selectedToolIdsProvider.notifier).set(current);
           }
 
           quickPills.add(
@@ -1459,7 +1459,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                 subtitle: l10n.webSearchDescription,
                 value: webSearchEnabled,
                 onChanged: (next) {
-                  modalRef.read(webSearchEnabledProvider.notifier).state = next;
+                  modalRef.read(webSearchEnabledProvider.notifier).set(next);
                 },
               ),
             );
@@ -1479,8 +1479,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                 subtitle: l10n.imageGenerationDescription,
                 value: imageGenEnabled,
                 onChanged: (next) {
-                  modalRef.read(imageGenerationEnabledProvider.notifier).state =
-                      next;
+                  modalRef
+                      .read(imageGenerationEnabledProvider.notifier)
+                      .set(next);
                 },
               ),
             );
@@ -1507,8 +1508,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                     } else {
                       current.add(tool.id);
                     }
-                    modalRef.read(selectedToolIdsProvider.notifier).state =
-                        current;
+                    modalRef
+                        .read(selectedToolIdsProvider.notifier)
+                        .set(current);
                   },
                 );
               }).toList();

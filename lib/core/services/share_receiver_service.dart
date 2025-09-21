@@ -25,7 +25,17 @@ class SharedPayload {
 }
 
 /// Holds a pending shared payload until the app is ready (e.g., authed + model loaded)
-final pendingSharedPayloadProvider = StateProvider<SharedPayload?>((_) => null);
+final pendingSharedPayloadProvider =
+    NotifierProvider<PendingSharedPayloadNotifier, SharedPayload?>(
+      PendingSharedPayloadNotifier.new,
+    );
+
+class PendingSharedPayloadNotifier extends Notifier<SharedPayload?> {
+  @override
+  SharedPayload? build() => null;
+
+  void set(SharedPayload? payload) => state = payload;
+}
 
 /// Initializes listening to OS share intents and handles them
 final shareReceiverInitializerProvider = Provider<void>((ref) {
@@ -45,7 +55,7 @@ final shareReceiverInitializerProvider = Provider<void>((ref) {
         model != null &&
         isOnChatRoute) {
       _processPayload(ref, pending);
-      ref.read(pendingSharedPayloadProvider.notifier).state = null;
+      ref.read(pendingSharedPayloadProvider.notifier).set(null);
     }
   }
 
@@ -70,7 +80,7 @@ final shareReceiverInitializerProvider = Provider<void>((ref) {
       final dynamic media = await handler.getInitialSharedMedia();
       final payload = _toPayload(media);
       if (payload.hasAnything) {
-        ref.read(pendingSharedPayloadProvider.notifier).state = payload;
+        ref.read(pendingSharedPayloadProvider.notifier).set(payload);
         maybeProcessPending();
       }
     } catch (e) {
@@ -83,7 +93,7 @@ final shareReceiverInitializerProvider = Provider<void>((ref) {
     try {
       final payload = _toPayload(media);
       if (payload.hasAnything) {
-        ref.read(pendingSharedPayloadProvider.notifier).state = payload;
+        ref.read(pendingSharedPayloadProvider.notifier).set(payload);
         maybeProcessPending();
       }
     } catch (e) {
@@ -178,10 +188,10 @@ Future<void> _processPayload(Ref ref, SharedPayload payload) async {
     // Prefill text in the composer (do not auto-send) and request focus
     final text = payload.text?.trim();
     if (text != null && text.isNotEmpty) {
-      ref.read(prefilledInputTextProvider.notifier).state = text;
+      ref.read(prefilledInputTextProvider.notifier).set(text);
       // Bump focus trigger to ensure input focuses after navigation/build
       final current = ref.read(inputFocusTriggerProvider);
-      ref.read(inputFocusTriggerProvider.notifier).state = current + 1;
+      ref.read(inputFocusTriggerProvider.notifier).set(current + 1);
     }
     // Do NOT create a server chat here. The chat is created on first send
     // (with server syncing + title generation) in chat_providers.dart.

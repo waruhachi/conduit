@@ -523,16 +523,41 @@ final messageBatchServiceProvider = Provider<MessageBatchService>((ref) {
 });
 
 /// Provider for selected messages (for batch operations)
-final selectedMessagesProvider = StateProvider<Set<String>>((ref) {
-  return <String>{};
-});
+final selectedMessagesProvider =
+    NotifierProvider<SelectedMessagesNotifier, Set<String>>(
+      SelectedMessagesNotifier.new,
+    );
 
 /// Provider for batch operation mode
-final batchModeProvider = StateProvider<bool>((ref) {
-  return false;
-});
+final batchModeProvider = NotifierProvider<BatchModeNotifier, bool>(
+  BatchModeNotifier.new,
+);
 
 /// Provider for message filter
-final messageFilterProvider = StateProvider<MessageFilter?>((ref) {
-  return null;
-});
+final messageFilterProvider =
+    NotifierProvider<MessageFilterNotifier, MessageFilter?>(
+      MessageFilterNotifier.new,
+    );
+
+class SelectedMessagesNotifier extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => <String>{};
+
+  void set(Set<String> messages) => state = Set<String>.from(messages);
+
+  void clear() => state = <String>{};
+}
+
+class BatchModeNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+class MessageFilterNotifier extends Notifier<MessageFilter?> {
+  @override
+  MessageFilter? build() => null;
+
+  void set(MessageFilter? filter) => state = filter;
+}
