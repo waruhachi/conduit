@@ -120,6 +120,16 @@ class TextToSpeechController extends StateNotifier<TextToSpeechState> {
       return;
     }
 
+    final isCurrentlyActive =
+        state.activeMessageId == messageId &&
+        state.status != TtsPlaybackStatus.idle &&
+        state.status != TtsPlaybackStatus.error;
+
+    if (isCurrentlyActive) {
+      await stop();
+      return;
+    }
+
     final available = await _ensureInitialized();
     if (!available) {
       if (!mounted) {
@@ -130,15 +140,6 @@ class TextToSpeechController extends StateNotifier<TextToSpeechState> {
         errorMessage: 'Text-to-speech unavailable',
         clearActiveMessageId: true,
       );
-      return;
-    }
-
-    final isCurrentlyActive =
-        state.activeMessageId == messageId &&
-        state.status != TtsPlaybackStatus.idle;
-
-    if (isCurrentlyActive) {
-      await stop();
       return;
     }
 
