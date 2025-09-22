@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/models/server_config.dart';
 import '../../../core/providers/app_providers.dart';
@@ -136,10 +137,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
 
         DebugLogger.auth('Navigating to chat page');
         // Navigate directly to chat page on successful authentication
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          Routes.chat,
-          (route) => false, // Remove all previous routes
-        );
+        context.go(Routes.chat);
       }
     });
 

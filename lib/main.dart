@@ -1,25 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'core/services/navigation_service.dart';
 import 'core/widgets/error_boundary.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/providers/app_providers.dart';
+import 'core/router/app_router.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/theme_extensions.dart';
 import 'shared/widgets/offline_indicator.dart';
-import 'features/auth/views/connect_signin_page.dart';
 import 'features/auth/providers/unified_auth_providers.dart';
 import 'core/auth/auth_state_manager.dart';
 import 'core/utils/debug_logger.dart';
 
 import 'package:conduit/l10n/app_localizations.dart';
-import 'features/chat/views/chat_page.dart';
-import 'features/navigation/views/splash_launcher_page.dart';
 import 'core/services/share_receiver_service.dart';
 import 'core/providers/app_startup_providers.dart';
+import 'core/models/server_config.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,46 +62,97 @@ class ConduitApp extends ConsumerStatefulWidget {
 
 class _ConduitAppState extends ConsumerState<ConduitApp> {
   bool _attemptedSilentAutoLogin = false;
+  ProviderSubscription<AuthNavigationState>? _authNavSubscription;
+  ProviderSubscription<AsyncValue<ServerConfig?>>? _activeServerSubscription;
   @override
   void initState() {
     super.initState();
     // Defer heavy provider initialization to after first frame to render UI sooner
     WidgetsBinding.instance.addPostFrameCallback((_) => _initializeAppState());
-  }
 
-  Widget _buildInitialLoadingSkeleton(BuildContext context) {
-    // Replace skeleton with branded splash during initialization
-    return const SplashLauncherPage();
+    _authNavSubscription = ref.listenManual<AuthNavigationState>(
+      authNavigationStateProvider,
+      (previous, next) {
+        if (next == AuthNavigationState.needsLogin) {
+          _maybeAttemptSilentLogin();
+        } else {
+          _attemptedSilentAutoLogin = false;
+        }
+      },
+    );
+
+    _activeServerSubscription = ref.listenManual<AsyncValue<ServerConfig?>>(
+      activeServerProvider,
+      (previous, next) {
+        next.when(
+          data: (server) {
+            if (server != null) {
+              _maybeAttemptSilentLogin();
+            }
+          },
+          loading: () {},
+          error: (error, stackTrace) {},
+        );
+      },
+    );
+
+    Future.microtask(_maybeAttemptSilentLogin);
   }
 
   void _initializeAppState() {
-    // Initialize unified auth state manager and API integration synchronously
-    // This ensures auth state is loaded before first widget build
     DebugLogger.auth('Initializing unified auth system');
 
-    // Initialize auth state manager (will handle token validation automatically)
     ref.read(authStateManagerProvider);
-
-    // Ensure API service auth integration is active
     ref.read(authApiIntegrationProvider);
-
-    // Initialize auto-selection listener for default model changes in settings
     ref.read(defaultModelAutoSelectionProvider);
-
-    // Initialize OS share receiver so users can share text/files to Conduit
     ref.read(shareReceiverInitializerProvider);
   }
 
   @override
+  void dispose() {
+    _authNavSubscription?.close();
+    _activeServerSubscription?.close();
+    super.dispose();
+  }
+
+  void _maybeAttemptSilentLogin() {
+    if (_attemptedSilentAutoLogin) return;
+
+    final authState = ref.read(authNavigationStateProvider);
+    if (authState != AuthNavigationState.needsLogin) {
+      return;
+    }
+
+    final activeServerAsync = ref.read(activeServerProvider);
+    final hasActiveServer = activeServerAsync.maybeWhen(
+      data: (server) => server != null,
+      orElse: () => false,
+    );
+
+    if (!hasActiveServer) {
+      return;
+    }
+
+    _attemptedSilentAutoLogin = true;
+
+    Future.microtask(() async {
+      try {
+        final hasCreds = await ref.read(hasSavedCredentialsProvider2.future);
+        if (hasCreds) {
+          await ref.read(authActionsProvider).silentLogin();
+        }
+      } catch (_) {
+        // Ignore silent login errors; fall back to manual login.
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Use select to watch only the specific themeMode property to reduce rebuilds
     final themeMode = ref.watch(themeModeProvider.select((mode) => mode));
+    final router = ref.watch(goRouterProvider);
+    ref.watch(appStartupFlowProvider);
 
-    // Reduced debug noise - only log when necessary
-    // debugPrint('DEBUG: Building app');
-
-    // Determine the current theme based on themeMode
-    // Default to Conduit brand theme globally
     final currentTheme = themeMode == ThemeMode.dark
         ? AppTheme.conduitDarkTheme
         : themeMode == ThemeMode.light
@@ -118,18 +167,18 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
       theme: currentTheme,
       duration: AnimationDuration.medium,
       child: ErrorBoundary(
-        child: MaterialApp(
+        child: MaterialApp.router(
+          routerConfig: router,
           onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
           theme: AppTheme.conduitLightTheme,
           darkTheme: AppTheme.conduitDarkTheme,
           themeMode: themeMode,
           debugShowCheckedModeBanner: false,
-          navigatorKey: NavigationService.navigatorKey,
           locale: locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           localeListResolutionCallback: (deviceLocales, supported) {
-            if (locale != null) return locale; // User override wins
+            if (locale != null) return locale;
             if (deviceLocales == null || deviceLocales.isEmpty) {
               return supported.first;
             }
@@ -141,161 +190,19 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
             return supported.first;
           },
           builder: (context, child) {
-            // Apply edge-to-edge inset handling and responsive design
+            final mediaQuery = MediaQuery.of(context);
             return MediaQuery(
-              data: MediaQuery.of(context).copyWith(
-                // Ensure proper text scaling for edge-to-edge
-                textScaler: MediaQuery.of(
-                  context,
-                ).textScaler.clamp(minScaleFactor: 0.8, maxScaleFactor: 1.3),
+              data: mediaQuery.copyWith(
+                textScaler: mediaQuery.textScaler.clamp(
+                  minScaleFactor: 0.8,
+                  maxScaleFactor: 1.3,
+                ),
               ),
               child: OfflineIndicator(child: child ?? const SizedBox.shrink()),
             );
           },
-          home: _getInitialPageWithReactiveState(),
-          onGenerateRoute: NavigationService.generateRoute,
-          navigatorObservers: [_NavigationObserver()],
         ),
       ),
     );
-  }
-
-  Widget _getInitialPageWithReactiveState() {
-    return Consumer(
-      builder: (context, ref, child) {
-        // Watch for server connection state changes
-        final activeServerAsync = ref.watch(activeServerProvider);
-        final reviewerMode = ref.watch(reviewerModeProvider);
-
-        if (reviewerMode) {
-          // In reviewer mode, skip server/auth flows and go to chat
-          NavigationService.setCurrentRoute(Routes.chat);
-          return const ChatPage();
-        }
-
-        return activeServerAsync.when(
-          data: (activeServer) {
-            if (activeServer == null) {
-              return const ConnectAndSignInPage();
-            }
-
-            // Server is connected, now check authentication reactively
-            final authNavState = ref.watch(authNavigationStateProvider);
-
-            if (authNavState == AuthNavigationState.needsLogin) {
-              // Try one-shot silent login if credentials are saved
-              if (!_attemptedSilentAutoLogin) {
-                _attemptedSilentAutoLogin = true;
-                Future.microtask(() async {
-                  try {
-                    final hasCreds = await ref.read(
-                      hasSavedCredentialsProvider2.future,
-                    );
-                    if (hasCreds) {
-                      await ref.read(authActionsProvider).silentLogin();
-                    }
-                  } catch (_) {
-                    // Ignore errors, fallback to showing unified page
-                  }
-                });
-              }
-              return const ConnectAndSignInPage();
-            }
-
-            if (authNavState == AuthNavigationState.loading) {
-              return _buildInitialLoadingSkeleton(context);
-            }
-
-            if (authNavState == AuthNavigationState.error) {
-              return _buildErrorState(
-                ref.watch(authErrorProvider3) ??
-                    AppLocalizations.of(context)!.errorMessage,
-              );
-            }
-
-            // User is authenticated, navigate directly to chat page
-            // Kick off and keep app startup/background task flow alive
-            ref.watch(appStartupFlowProvider);
-
-            // Set the current route for navigation tracking
-            NavigationService.setCurrentRoute(Routes.chat);
-
-            return const ChatPage();
-          },
-          loading: () => _buildInitialLoadingSkeleton(context),
-          error: (error, stackTrace) {
-            DebugLogger.error('Server provider error', error);
-            return _buildErrorState(
-              AppLocalizations.of(context)!.unableToConnectServer,
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // Background initialization moved to app-based task flow provider
-
-  Widget _buildErrorState(String error) {
-    return Scaffold(
-      backgroundColor: context.conduitTheme.surfaceBackground,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(Spacing.lg),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: IconSize.xxl + Spacing.md,
-                color: context.conduitTheme.error,
-              ),
-              const SizedBox(height: Spacing.md),
-              Text(
-                AppLocalizations.of(context)!.initializationFailed,
-                style: TextStyle(
-                  fontSize: AppTypography.headlineLarge,
-                  fontWeight: FontWeight.bold,
-                  color: context.conduitTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: Spacing.sm),
-              Text(
-                error,
-                style: TextStyle(color: context.conduitTheme.textSecondary),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: Spacing.lg),
-              ElevatedButton(
-                onPressed: () {
-                  // Restart the app
-                  WidgetsBinding.instance.reassembleApplication();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: context.conduitTheme.buttonPrimary,
-                  foregroundColor: context.conduitTheme.buttonPrimaryText,
-                ),
-                child: Text(AppLocalizations.of(context)!.retry),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavigationObserver extends NavigatorObserver {
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    super.didPush(route, previousRoute);
-    // Log navigation for debugging and analytics
-    DebugLogger.navigation('Pushed: ${route.settings.name}');
-  }
-
-  @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    super.didPop(route, previousRoute);
-    DebugLogger.navigation('Popped: ${route.settings.name}');
   }
 }

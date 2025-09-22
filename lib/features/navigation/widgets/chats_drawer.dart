@@ -5,13 +5,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import '../../chat/providers/chat_providers.dart' as chat;
 // import '../../files/views/files_page.dart';
-import '../../profile/views/profile_page.dart';
 import '../../../shared/utils/ui_utils.dart';
+import '../../../core/services/navigation_service.dart';
 import '../../../shared/widgets/themed_dialogs.dart';
 import '../../../core/auth/auth_state_manager.dart';
 import 'package:conduit/l10n/app_localizations.dart';
@@ -1190,11 +1191,12 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         container.read(activeConversationProvider.notifier).set(full);
       } else {
         // Fallback: use the lightweight item to update the active conversation
-        container.read(activeConversationProvider.notifier).set(
+        container
+            .read(activeConversationProvider.notifier)
+            .set(
               (await container.read(
                 conversationsProvider.future,
-              ))
-                  .firstWhere((c) => c.id == id),
+              )).firstWhere((c) => c.id == id),
             );
       }
 
@@ -1292,9 +1294,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                     tooltip: AppLocalizations.of(context)!.manage,
                     onPressed: () {
                       Navigator.of(context).maybePop();
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ProfilePage()),
-                      );
+                      context.pushNamed(RouteNames.profile);
                     },
                     icon: Icon(
                       Platform.isIOS

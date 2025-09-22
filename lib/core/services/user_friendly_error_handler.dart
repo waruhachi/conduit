@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import '../../shared/theme/theme_extensions.dart';
+import 'navigation_service.dart';
 
 /// User-friendly error messages and recovery actions
 class UserFriendlyErrorHandler {
@@ -483,7 +484,7 @@ class ErrorCard extends StatelessWidget {
         break;
       case ErrorActionType.signIn:
         // Navigate to sign in page
-        Navigator.of(context).pushReplacementNamed('/login');
+        NavigationService.navigateToServerConnection();
         break;
       case ErrorActionType.openSettings:
         // Open app settings - would need platform-specific implementation

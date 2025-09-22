@@ -1,67 +1,70 @@
 import 'package:flutter/material.dart';
-// ThemedDialogs handles theming; no direct use of extensions here
-import '../../features/auth/views/connect_signin_page.dart';
-import '../../features/chat/views/chat_page.dart';
-import '../../features/files/views/workspace_page.dart';
-import '../../features/profile/views/profile_page.dart';
+import 'package:go_router/go_router.dart';
 import '../../shared/widgets/themed_dialogs.dart';
-import 'package:conduit/l10n/app_localizations.dart';
 
-/// Service for handling navigation throughout the app
+/// Service for handling navigation throughout the app.
+///
+/// With GoRouter in place, this class mostly provides convenient wrappers
+/// around the global router so existing callers can trigger navigation
+/// without directly depending on BuildContext.
 class NavigationService {
   static final GlobalKey<NavigatorState> navigatorKey =
-      GlobalKey<NavigatorState>();
+      GlobalKey<NavigatorState>(debugLabel: 'rootNavigator');
+
+  static GoRouter? _router;
+
+  static GoRouter get router {
+    final router = _router;
+    if (router == null) {
+      throw StateError('GoRouter has not been attached to NavigationService.');
+    }
+    return router;
+  }
+
+  static void attachRouter(GoRouter router) {
+    _router = router;
+  }
 
   static NavigatorState? get navigator => navigatorKey.currentState;
   static BuildContext? get context => navigatorKey.currentContext;
 
-  static final List<String> _navigationStack = [];
-  static String? _currentRoute;
+  /// The current location reported by GoRouter.
+  static String? get currentRoute {
+    final router = _router;
+    if (router == null) return null;
+    return router.routeInformationProvider.value.uri.toString();
+  }
 
-  /// Get current route
-  static String? get currentRoute => _currentRoute;
-
-  /// Get navigation stack
-  static List<String> get navigationStack =>
-      List.unmodifiable(_navigationStack);
-
-  /// Navigate to a specific route
+  /// Navigate to a specific route path.
   static Future<void> navigateTo(String routeName) async {
-    if (_currentRoute != routeName) {
-      _navigationStack.add(routeName);
-      _currentRoute = routeName;
-    }
+    final router = _router;
+    if (router == null) return;
+    router.go(routeName);
   }
 
-  /// Navigate back with optional result
+  /// Navigate back with an optional result payload.
   static void goBack<T>([T? result]) {
-    if (navigator?.canPop() == true) {
-      if (_navigationStack.isNotEmpty) {
-        _navigationStack.removeLast();
-      }
-      _currentRoute = _navigationStack.isNotEmpty
-          ? _navigationStack.last
-          : null;
-      navigator?.pop<T>(result);
+    final router = _router;
+    if (router?.canPop() == true) {
+      router!.pop(result);
     }
   }
 
-  /// Check if can navigate back
-  static bool canGoBack() {
-    return navigator?.canPop() == true;
-  }
+  /// Check whether the router can pop the current route.
+  static bool canGoBack() => _router?.canPop() ?? false;
 
-  /// Show confirmation dialog before navigation
+  /// Show confirmation dialog before navigation.
   static Future<bool> confirmNavigation({
     required String title,
     required String message,
     String confirmText = 'Continue',
     String cancelText = 'Cancel',
   }) async {
-    if (context == null) return false;
+    final ctx = context;
+    if (ctx == null) return false;
 
     final result = await ThemedDialogs.confirm(
-      context!,
+      ctx,
       title: title,
       message: message,
       confirmText: confirmText,
@@ -72,95 +75,40 @@ class NavigationService {
     return result;
   }
 
-  /// Navigate to chat
-  static Future<void> navigateToChat() {
-    return navigateTo(Routes.chat);
-  }
+  static Future<void> navigateToChat() => navigateTo(Routes.chat);
+  static Future<void> navigateToLogin() => navigateTo(Routes.serverConnection);
+  static Future<void> navigateToProfile() => navigateTo(Routes.profile);
+  static Future<void> navigateToServerConnection() =>
+      navigateTo(Routes.serverConnection);
 
-  /// Navigate to login
-  static Future<void> navigateToLogin() {
-    return navigateTo(Routes.login);
-  }
-
-  /// Navigate to profile
-  static Future<void> navigateToProfile() {
-    return navigateTo(Routes.profile);
-  }
-
-  /// Navigate to server connection
-  static Future<void> navigateToServerConnection() {
-    return navigateTo(Routes.serverConnection);
-  }
-
-  // Chats list is now provided as a left drawer in ChatPage
-
-  /// Clear navigation stack (useful for logout)
+  /// Clear navigation history. With GoRouter this becomes a simple go call.
   static void clearNavigationStack() {
-    _navigationStack.clear();
-    _currentRoute = null;
-  }
-
-  /// Set current route (useful for initial app state)
-  static void setCurrentRoute(String routeName) {
-    _currentRoute = routeName;
-    if (!_navigationStack.contains(routeName)) {
-      _navigationStack.add(routeName);
-    }
-  }
-
-  /// Generate routes
-  static Route<dynamic>? generateRoute(RouteSettings settings) {
-    Widget page;
-
-    switch (settings.name) {
-      // Removed tabbed main navigation
-
-      case Routes.chat:
-        page = const ChatPage();
-        break;
-
-      case Routes.login:
-        page = const ConnectAndSignInPage();
-        break;
-
-      case Routes.profile:
-        page = const ProfilePage();
-        break;
-
-      case Routes.serverConnection:
-        page = const ConnectAndSignInPage();
-        break;
-
-      case Routes.workspace:
-        page = const WorkspacePage();
-        break;
-
-      // chats list route removed (replaced by drawer)
-
-      // Removed navigation drawer route
-
-      default:
-        page = Builder(
-          builder: (context) => Scaffold(
-            body: Center(
-              child: Text(
-                AppLocalizations.of(context)!
-                    .routeNotFound(settings.name ?? ''),
-              ),
-            ),
-          ),
-        );
-    }
-
-    return MaterialPageRoute(builder: (_) => page, settings: settings);
+    final router = _router;
+    if (router == null) return;
+    router.go(Routes.serverConnection);
   }
 }
 
-/// Route names
+/// Route path definitions used across the app.
 class Routes {
+  static const String splash = '/splash';
   static const String chat = '/chat';
   static const String login = '/login';
-  static const String profile = '/profile';
   static const String serverConnection = '/server-connection';
+  static const String authentication = '/authentication';
+  static const String profile = '/profile';
+  static const String appCustomization = '/profile/customization';
   static const String workspace = '/workspace';
+}
+
+/// Friendly names for GoRouter routes to support context.pushNamed.
+class RouteNames {
+  static const String splash = 'splash';
+  static const String chat = 'chat';
+  static const String login = 'login';
+  static const String serverConnection = 'server-connection';
+  static const String authentication = 'authentication';
+  static const String profile = 'profile';
+  static const String appCustomization = 'app-customization';
+  static const String workspace = 'workspace';
 }

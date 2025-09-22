@@ -4,6 +4,7 @@ import '../../../shared/theme/theme_extensions.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:conduit/l10n/app_localizations.dart';
@@ -15,6 +16,7 @@ import '../../../shared/widgets/themed_dialogs.dart';
 import '../../../shared/widgets/sheet_handle.dart';
 import '../../../shared/widgets/conduit_components.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/services/navigation_service.dart';
 import '../../auth/providers/unified_auth_providers.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/models/model.dart';
@@ -23,7 +25,6 @@ import '../../../core/models/user.dart' as models;
 import 'dart:async';
 import 'dart:io';
 import '../../chat/views/chat_page_helpers.dart';
-import 'app_customization_page.dart';
 import '../../../shared/widgets/modal_safe_area.dart';
 import '../../../core/utils/user_display_name.dart';
 import '../../../core/utils/user_avatar_utils.dart';
@@ -338,9 +339,7 @@ class ProfilePage extends ConsumerWidget {
         title: AppLocalizations.of(context)!.appCustomization,
         subtitle: AppLocalizations.of(context)!.appCustomizationSubtitle,
         onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const AppCustomizationPage()),
-          );
+          context.pushNamed(RouteNames.appCustomization);
         },
       ),
       _buildAboutTile(context),
