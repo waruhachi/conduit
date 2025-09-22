@@ -561,17 +561,14 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Display attachments (images use EnhancedImageAttachment; non-images use card)
-                    if (widget.message.attachmentIds != null &&
-                        widget.message.attachmentIds!.isNotEmpty) ...[
-                      _buildAttachmentItems(),
-                      const SizedBox(height: Spacing.md),
-                    ],
-
-                    // Display generated images from files property - OUTSIDE AnimatedSwitcher to prevent fade issues
+                    // Display attachments - prioritize files array over attachmentIds to avoid duplication
                     if (widget.message.files != null &&
                         widget.message.files!.isNotEmpty) ...[
-                      _buildGeneratedImages(),
+                      _buildFilesFromArray(),
+                      const SizedBox(height: Spacing.md),
+                    ] else if (widget.message.attachmentIds != null &&
+                        widget.message.attachmentIds!.isNotEmpty) ...[
+                      _buildAttachmentItems(),
                       const SizedBox(height: Spacing.md),
                     ],
 
@@ -767,30 +764,57 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     );
   }
 
-  Widget _buildGeneratedImages() {
+  Widget _buildFilesFromArray() {
     if (widget.message.files == null || widget.message.files!.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    // Filter for image files
-    final imageFiles = widget.message.files!
+    final allFiles = widget.message.files!;
+
+    // Separate images and non-image files
+    final imageFiles = allFiles
         .where((file) => file['type'] == 'image')
         .toList();
+    final nonImageFiles = allFiles
+        .where((file) => file['type'] != 'image')
+        .toList();
 
-    if (imageFiles.isEmpty) {
+    final widgets = <Widget>[];
+
+    // Add images first
+    if (imageFiles.isNotEmpty) {
+      widgets.add(_buildImagesFromFiles(imageFiles));
+    }
+
+    // Add non-image files
+    if (nonImageFiles.isNotEmpty) {
+      if (widgets.isNotEmpty) {
+        widgets.add(const SizedBox(height: Spacing.sm));
+      }
+      widgets.add(_buildNonImageFiles(nonImageFiles));
+    }
+
+    if (widgets.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: widgets,
+    );
+  }
+
+  Widget _buildImagesFromFiles(List<dynamic> imageFiles) {
     final imageCount = imageFiles.length;
 
-    // Display generated images using EnhancedImageAttachment for consistency
+    // Display images using EnhancedImageAttachment for consistency
     // Use AnimatedSwitcher for smooth transitions
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       switchInCurve: Curves.easeInOut,
       child: imageCount == 1
           ? Container(
-              key: ValueKey('gen_single_${imageFiles[0]['url']}'),
+              key: ValueKey('file_single_${imageFiles[0]['url']}'),
               child: Builder(
                 builder: (context) {
                   final imageUrl = imageFiles[0]['url'] as String?;
@@ -812,7 +836,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
             )
           : Wrap(
               key: ValueKey(
-                'gen_multi_${imageFiles.map((f) => f['url']).join('_')}',
+                'file_multi_${imageFiles.map((f) => f['url']).join('_')}',
               ),
               spacing: Spacing.sm,
               runSpacing: Spacing.sm,
@@ -833,6 +857,38 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                 );
               }).toList(),
             ),
+    );
+  }
+
+  Widget _buildNonImageFiles(List<dynamic> nonImageFiles) {
+    return Wrap(
+      spacing: Spacing.sm,
+      runSpacing: Spacing.sm,
+      children: nonImageFiles.map<Widget>((file) {
+        final fileUrl = file['url'] as String?;
+
+        if (fileUrl == null) return const SizedBox.shrink();
+
+        // Extract file ID from URL if it's in the format /api/v1/files/{id}/content
+        String attachmentId = fileUrl;
+        if (fileUrl.contains('/api/v1/files/') &&
+            fileUrl.contains('/content')) {
+          final fileIdMatch = RegExp(
+            r'/api/v1/files/([^/]+)/content',
+          ).firstMatch(fileUrl);
+          if (fileIdMatch != null) {
+            attachmentId = fileIdMatch.group(1)!;
+          }
+        }
+
+        return EnhancedAttachment(
+          key: ValueKey('file_attachment_$attachmentId'),
+          attachmentId: attachmentId,
+          isMarkdownFormat: true,
+          constraints: const BoxConstraints(maxWidth: 300, maxHeight: 100),
+          disableAnimation: widget.isStreaming,
+        );
+      }).toList(),
     );
   }
 

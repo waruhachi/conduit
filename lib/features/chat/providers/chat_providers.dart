@@ -525,9 +525,6 @@ Future<String> _preseedAssistantAndPersist(
   required String modelId,
   String? systemPrompt,
 }) async {
-  final api = ref.read(apiServiceProvider);
-  final activeConv = ref.read(activeConversationProvider);
-
   // Choose id: reuse existing if provided, else create new
   final String assistantMessageId =
       (existingAssistantId != null && existingAssistantId.isNotEmpty)
@@ -564,22 +561,26 @@ Future<String> _preseedAssistantAndPersist(
     } catch (_) {}
   }
 
-  // Persist the skeleton to the server so the web client sees a correct chain
+  // Sync conversation state to ensure WebUI can load conversation history
   try {
+    final api = ref.read(apiServiceProvider);
+    final activeConv = ref.read(activeConversationProvider);
     if (api != null && activeConv != null) {
       final resolvedSystemPrompt =
           (systemPrompt != null && systemPrompt.trim().isNotEmpty)
           ? systemPrompt.trim()
           : activeConv.systemPrompt;
       final current = ref.read(chatMessagesProvider);
-      await api.updateConversationWithMessages(
+      await api.syncConversationMessages(
         activeConv.id,
         current,
         model: modelId,
         systemPrompt: resolvedSystemPrompt,
       );
     }
-  } catch (_) {}
+  } catch (_) {
+    // Non-critical - continue if sync fails
+  }
 
   return assistantMessageId;
 }
@@ -708,6 +709,47 @@ bool validateFileCount(int currentCount, int newFilesCount, int? maxCount) {
   return (currentCount + newFilesCount) <= maxCount;
 }
 
+// Helper function to build files array from attachment IDs
+Future<List<Map<String, dynamic>>?> _buildFilesArrayFromAttachments(
+  dynamic api,
+  List<String> attachmentIds,
+) async {
+  final filesArray = <Map<String, dynamic>>[];
+
+  for (final attachmentId in attachmentIds) {
+    try {
+      final fileInfo = await api.getFileInfo(attachmentId);
+      final fileName = fileInfo['filename'] ?? fileInfo['name'] ?? 'Unknown';
+      final fileSize = fileInfo['size'];
+
+      // Check if it's an image
+      final ext = fileName.toLowerCase().split('.').last;
+      final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext);
+
+      // Add all files to the files array for WebUI display
+      // Note: This is for storage/display, not for API message sending
+      filesArray.add({
+        'type': isImage ? 'image' : 'file',
+        'id': attachmentId, // Required for RAG system to lookup file content
+        'url': '/api/v1/files/$attachmentId/content',
+        'name': fileName,
+        if (fileSize != null) 'size': fileSize,
+      });
+    } catch (_) {
+      // If we can't get file info, assume it's a non-image file
+      // Images should be handled in the content array anyway
+      filesArray.add({
+        'type': 'file',
+        'id': attachmentId, // Required for RAG system to lookup file content
+        'url': '/api/v1/files/$attachmentId/content',
+        'name': 'Unknown',
+      });
+    }
+  }
+
+  return filesArray.isNotEmpty ? filesArray : null;
+}
+
 // Helper function to get file content as base64
 Future<String?> _getFileAsBase64(dynamic api, String fileId) async {
   // Check if this is already a data URL (for images)
@@ -758,44 +800,57 @@ Future<Map<String, dynamic>> _buildMessagePayloadWithAttachments({
   required List<String> attachmentIds,
 }) async {
   final List<Map<String, dynamic>> contentArray = [];
-  final List<Map<String, dynamic>> nonImageFiles = [];
 
   if (cleanedText.isNotEmpty) {
     contentArray.add({'type': 'text', 'text': cleanedText});
   }
 
+  // Collect all files in OpenWebUI format for the files array
+  final allFiles = <Map<String, dynamic>>[];
+
   for (final attachmentId in attachmentIds) {
     try {
+      final fileInfo = await api.getFileInfo(attachmentId);
+      final fileName = fileInfo['filename'] ?? fileInfo['name'] ?? 'Unknown';
+      final fileSize = fileInfo['size'];
+
       final base64Data = await _getFileAsBase64(api, attachmentId);
       if (base64Data != null) {
+        // This is an image file - add to content array only
         if (base64Data.startsWith('data:')) {
           contentArray.add({
             'type': 'image_url',
             'image_url': {'url': base64Data},
           });
         } else {
-          if (!attachmentId.startsWith('data:')) {
-            final fileInfo = await api.getFileInfo(attachmentId);
-            final fileName = fileInfo['filename'] ?? '';
-            final ext = fileName.toLowerCase().split('.').last;
-
-            String mimeType = 'image/png';
-            if (ext == 'jpg' || ext == 'jpeg') {
-              mimeType = 'image/jpeg';
-            } else if (ext == 'gif') {
-              mimeType = 'image/gif';
-            } else if (ext == 'webp') {
-              mimeType = 'image/webp';
-            }
-
-            contentArray.add({
-              'type': 'image_url',
-              'image_url': {'url': 'data:$mimeType;base64,$base64Data'},
-            });
+          final ext = fileName.toLowerCase().split('.').last;
+          String mimeType = 'image/png';
+          if (ext == 'jpg' || ext == 'jpeg') {
+            mimeType = 'image/jpeg';
+          } else if (ext == 'gif') {
+            mimeType = 'image/gif';
+          } else if (ext == 'webp') {
+            mimeType = 'image/webp';
           }
+
+          final dataUrl = 'data:$mimeType;base64,$base64Data';
+          contentArray.add({
+            'type': 'image_url',
+            'image_url': {'url': dataUrl},
+          });
         }
+
+        // Note: Images are handled in content array above, no need to duplicate in files array
+        // This prevents duplicate display in the WebUI
       } else {
-        nonImageFiles.add({'id': attachmentId, 'type': 'file'});
+        // This is a non-image file
+        allFiles.add({
+          'type': 'file',
+          'id': attachmentId, // Required for RAG system to lookup file content
+          'url': '/api/v1/files/$attachmentId/content',
+          'name': fileName,
+          if (fileSize != null) 'size': fileSize,
+        });
       }
     } catch (_) {
       // Swallow and continue to keep regeneration robust
@@ -806,8 +861,8 @@ Future<Map<String, dynamic>> _buildMessagePayloadWithAttachments({
     'role': role,
     'content': contentArray.isNotEmpty ? contentArray : cleanedText,
   };
-  if (nonImageFiles.isNotEmpty) {
-    messageMap['files'] = nonImageFiles;
+  if (allFiles.isNotEmpty) {
+    messageMap['files'] = allFiles;
   }
   return messageMap;
 }
@@ -1221,6 +1276,13 @@ Future<void> _sendMessageInternal(
   var activeConversation = ref.read(activeConversationProvider);
 
   // Create user message first
+  List<Map<String, dynamic>>? userFiles;
+  if (attachments != null &&
+      attachments.isNotEmpty &&
+      !reviewerMode &&
+      api != null) {
+    userFiles = await _buildFilesArrayFromAttachments(api, attachments);
+  }
 
   final userMessage = ChatMessage(
     id: const Uuid().v4(),
@@ -1229,6 +1291,7 @@ Future<void> _sendMessageInternal(
     timestamp: DateTime.now(),
     model: selectedModel.id,
     attachmentIds: attachments,
+    files: userFiles,
   );
 
   if (activeConversation == null) {
@@ -1450,19 +1513,21 @@ Future<void> _sendMessageInternal(
     );
     ref.read(chatMessagesProvider.notifier).addMessage(assistantPlaceholder);
 
-    // Persist skeleton chain to server so web can load correct history
+    // Sync conversation state to ensure WebUI can load conversation history
     try {
       final activeConvForSeed = ref.read(activeConversationProvider);
       if (activeConvForSeed != null) {
         final msgsForSeed = ref.read(chatMessagesProvider);
-        await api.updateConversationWithMessages(
+        await api.syncConversationMessages(
           activeConvForSeed.id,
           msgsForSeed,
           model: selectedModel.id,
           systemPrompt: effectiveSystemPrompt,
         );
       }
-    } catch (_) {}
+    } catch (_) {
+      // Non-critical - continue if sync fails
+    }
     // Use the model's actual supported parameters if available
     final supportedParams =
         selectedModel.supportedParameters ??

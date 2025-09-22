@@ -64,7 +64,9 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
       duration: AnimationDuration.messageSlide,
       vsync: this,
     );
-    _editController = TextEditingController(text: widget.message?.content ?? '');
+    _editController = TextEditingController(
+      text: widget.message?.content ?? '',
+    );
   }
 
   Widget _buildUserAttachmentImages() {
@@ -88,23 +90,50 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
       return const SizedBox.shrink();
     }
 
-    final imageFiles = widget.message.files!
+    final allFiles = widget.message.files!;
+
+    // Separate images and non-image files
+    final imageFiles = allFiles
         .where(
           (file) =>
               file is Map && file['type'] == 'image' && file['url'] != null,
         )
         .toList();
+    final nonImageFiles = allFiles
+        .where(
+          (file) =>
+              file is Map && file['type'] != 'image' && file['url'] != null,
+        )
+        .toList();
 
-    if (imageFiles.isEmpty) {
+    final widgets = <Widget>[];
+
+    // Add images first
+    if (imageFiles.isNotEmpty) {
+      widgets.add(
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          switchInCurve: Curves.easeInOut,
+          child: _buildFileImageLayout(imageFiles, imageFiles.length),
+        ),
+      );
+    }
+
+    // Add non-image files
+    if (nonImageFiles.isNotEmpty) {
+      if (widgets.isNotEmpty) {
+        widgets.add(const SizedBox(height: Spacing.xs));
+      }
+      widgets.add(_buildUserNonImageFiles(nonImageFiles));
+    }
+
+    if (widgets.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final imageCount = imageFiles.length;
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      switchInCurve: Curves.easeInOut,
-      child: _buildFileImageLayout(imageFiles, imageCount),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: widgets,
     );
   }
 
@@ -394,6 +423,47 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
     }
   }
 
+  Widget _buildUserNonImageFiles(List<dynamic> nonImageFiles) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Flexible(
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            spacing: Spacing.xs,
+            runSpacing: Spacing.xs,
+            children: nonImageFiles.map<Widget>((file) {
+              final fileUrl = file['url'] as String?;
+
+              if (fileUrl == null) return const SizedBox.shrink();
+
+              // Extract file ID from URL if it's in the format /api/v1/files/{id}/content
+              String attachmentId = fileUrl;
+              if (fileUrl.contains('/api/v1/files/') &&
+                  fileUrl.contains('/content')) {
+                final fileIdMatch = RegExp(
+                  r'/api/v1/files/([^/]+)/content',
+                ).firstMatch(fileUrl);
+                if (fileIdMatch != null) {
+                  attachmentId = fileIdMatch.group(1)!;
+                }
+              }
+
+              return EnhancedAttachment(
+                key: ValueKey('user_file_attachment_$attachmentId'),
+                attachmentId: attachmentId,
+                isMarkdownFormat: false,
+                isUserMessage: true,
+                constraints: const BoxConstraints(maxWidth: 280, maxHeight: 80),
+                disableAnimation: widget.isStreaming,
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
   // Assistant-only helpers removed; this widget renders only user bubbles.
 
   @override
@@ -429,14 +499,14 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
         widget.message.attachmentIds != null &&
         widget.message.attachmentIds!.isNotEmpty;
     final hasText = widget.message.content.isNotEmpty;
-    final hasGeneratedImages =
+    final hasFilesFromArray =
         widget.message.files != null &&
-        (widget.message.files as List).any(
-          (f) => f is Map && f['type'] == 'image' && f['url'] != null,
-        );
+        (widget.message.files as List).any((f) => f is Map && f['url'] != null);
     // Prefer input/textPrimary colors during inline editing to avoid low contrast
     final inlineEditTextColor = context.conduitTheme.textPrimary;
-    final inlineEditFill = context.conduitTheme.surfaceContainer.withValues(alpha: 0.92);
+    final inlineEditFill = context.conduitTheme.surfaceContainer.withValues(
+      alpha: 0.92,
+    );
 
     return GestureDetector(
           onLongPress: () => _toggleActions(),
@@ -452,8 +522,12 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 // Display images outside and above the text bubble (iMessage style)
-                if (hasImages) ...[_buildUserAttachmentImages()],
-                if (hasGeneratedImages) ...[_buildUserFileImages()],
+                // Prioritize files array over attachmentIds to avoid duplication
+                if (hasFilesFromArray) ...[
+                  _buildUserFileImages(),
+                ] else if (hasImages) ...[
+                  _buildUserAttachmentImages(),
+                ],
 
                 // Display text bubble if there's text content
                 if (hasText) const SizedBox(height: Spacing.xs),
@@ -504,9 +578,14 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
                                     child: DecoratedBox(
                                       decoration: BoxDecoration(
                                         color: inlineEditFill,
-                                        borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+                                        borderRadius: BorderRadius.circular(
+                                          AppBorderRadius.sm,
+                                        ),
                                         border: Border.all(
-                                          color: context.conduitTheme.inputBorderFocused.withValues(alpha: 0.6),
+                                          color: context
+                                              .conduitTheme
+                                              .inputBorderFocused
+                                              .withValues(alpha: 0.6),
                                           width: BorderWidth.thin,
                                         ),
                                       ),
@@ -520,38 +599,41 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
                                                 controller: _editController,
                                                 maxLines: null,
                                                 padding: EdgeInsets.zero,
-                                                autofillHints:
-                                                    const <String>[],
+                                                autofillHints: const <String>[],
                                                 style: AppTypography
                                                     .chatMessageStyle
                                                     .copyWith(
-                                                  color: inlineEditTextColor,
-                                                ),
-                                                decoration: const BoxDecoration(),
+                                                      color:
+                                                          inlineEditTextColor,
+                                                    ),
+                                                decoration:
+                                                    const BoxDecoration(),
                                                 cursorColor: context
-                                                    .conduitTheme.buttonPrimary,
+                                                    .conduitTheme
+                                                    .buttonPrimary,
                                                 onSubmitted: (_) =>
                                                     _saveInlineEdit(),
                                               )
                                             : TextField(
                                                 controller: _editController,
                                                 maxLines: null,
-                                                autofillHints:
-                                                    const <String>[],
+                                                autofillHints: const <String>[],
                                                 style: AppTypography
                                                     .chatMessageStyle
                                                     .copyWith(
-                                                  color: inlineEditTextColor,
-                                                ),
+                                                      color:
+                                                          inlineEditTextColor,
+                                                    ),
                                                 decoration:
                                                     const InputDecoration(
-                                                  isCollapsed: true,
-                                                  border: InputBorder.none,
-                                                  contentPadding:
-                                                      EdgeInsets.zero,
-                                                ),
+                                                      isCollapsed: true,
+                                                      border: InputBorder.none,
+                                                      contentPadding:
+                                                          EdgeInsets.zero,
+                                                    ),
                                                 cursorColor: context
-                                                    .conduitTheme.buttonPrimary,
+                                                    .conduitTheme
+                                                    .buttonPrimary,
                                                 onSubmitted: (_) =>
                                                     _saveInlineEdit(),
                                               ),
@@ -562,18 +644,19 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
                                     widget.message.content,
                                     style: AppTypography.chatMessageStyle
                                         .copyWith(
-                                      color: context
-                                          .conduitTheme.chatBubbleUserText,
-                                    ),
+                                          color: context
+                                              .conduitTheme
+                                              .chatBubbleUserText,
+                                        ),
                                     softWrap: true,
                                     textAlign: TextAlign.left,
                                     textHeightBehavior:
                                         const TextHeightBehavior(
-                                      applyHeightToFirstAscent: false,
-                                      applyHeightToLastDescent: false,
-                                      leadingDistribution:
-                                          TextLeadingDistribution.even,
-                                    ),
+                                          applyHeightToFirstAscent: false,
+                                          applyHeightToLastDescent: false,
+                                          leadingDistribution:
+                                              TextLeadingDistribution.even,
+                                        ),
                                   ),
                           ),
                         ),
@@ -633,8 +716,7 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
           ),
         ] else ...[
           _buildActionButton(
-            icon:
-                Platform.isIOS ? CupertinoIcons.pencil : Icons.edit_outlined,
+            icon: Platform.isIOS ? CupertinoIcons.pencil : Icons.edit_outlined,
             label: AppLocalizations.of(context)!.edit,
             onTap: widget.onEdit ?? _startInlineEdit,
           ),
@@ -693,7 +775,8 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
 
         // Enqueue edited text as a new message
         final activeConv = ref.read(activeConversationProvider);
-        final List<String>? attachments = (widget.message.attachmentIds != null &&
+        final List<String>? attachments =
+            (widget.message.attachmentIds != null &&
                 (widget.message.attachmentIds as List).isNotEmpty)
             ? List<String>.from(widget.message.attachmentIds as List)
             : null;

@@ -788,24 +788,44 @@ class ApiService {
     if (effectiveFiles != null) {
       final filesList = effectiveFiles as List;
 
-      // Separate user uploads (with file_id) from generated images (with type and url)
+      // Handle different file formats from OpenWebUI
       final userAttachments = <String>[];
-      final generatedFiles = <Map<String, dynamic>>[];
+      final allFiles = <Map<String, dynamic>>[];
 
       for (final file in filesList) {
         if (file is Map) {
           if (file['file_id'] != null) {
-            // User uploaded file
+            // User uploaded file with file_id (legacy format)
             userAttachments.add(file['file_id'] as String);
-          } else if (file['type'] == 'image' && file['url'] != null) {
-            // Generated image
-            generatedFiles.add({'type': file['type'], 'url': file['url']});
+          } else if (file['type'] != null && file['url'] != null) {
+            // File with type and url (OpenWebUI format)
+            final fileMap = <String, dynamic>{
+              'type': file['type'],
+              'url': file['url'],
+            };
+
+            // Add optional fields if present
+            if (file['name'] != null) fileMap['name'] = file['name'];
+            if (file['size'] != null) fileMap['size'] = file['size'];
+
+            allFiles.add(fileMap);
+
+            // If this is a user-uploaded file (URL contains file ID), also extract the ID
+            final url = file['url'] as String;
+            if (url.contains('/api/v1/files/') && url.contains('/content')) {
+              final fileIdMatch = RegExp(
+                r'/api/v1/files/([^/]+)/content',
+              ).firstMatch(url);
+              if (fileIdMatch != null) {
+                userAttachments.add(fileIdMatch.group(1)!);
+              }
+            }
           }
         }
       }
 
       attachmentIds = userAttachments.isNotEmpty ? userAttachments : null;
-      files = generatedFiles.isNotEmpty ? generatedFiles : null;
+      files = allFiles.isNotEmpty ? allFiles : null;
     }
 
     return ChatMessage(
@@ -1084,8 +1104,8 @@ class ApiService {
     return _parseFullOpenWebUIChat(responseData);
   }
 
-  // Update conversation with full chat data including all messages
-  Future<void> updateConversationWithMessages(
+  // Sync conversation messages to ensure WebUI can load conversation history
+  Future<void> syncConversationMessages(
     String conversationId,
     List<ChatMessage> messages, {
     String? title,
@@ -1093,7 +1113,7 @@ class ApiService {
     String? systemPrompt,
   }) async {
     debugPrint(
-      'DEBUG: Updating conversation $conversationId with ${messages.length} messages',
+      'DEBUG: Syncing conversation $conversationId with ${messages.length} messages',
     );
 
     // Build messages map and array in OpenWebUI format
@@ -1105,21 +1125,11 @@ class ApiService {
     for (final msg in messages) {
       final messageId = msg.id;
 
-      // Build message for messages map (history.messages)
-      final List<Map<String, dynamic>> combinedFilesMap = [];
-      if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty) {
-        for (final id in msg.attachmentIds!) {
-          if (id.startsWith('data:') || id.startsWith('http')) {
-            combinedFilesMap.add({'type': 'image', 'url': id});
-          } else {
-            combinedFilesMap.add({'file_id': id});
-          }
-        }
-      }
-      if (msg.files != null && msg.files!.isNotEmpty) {
-        combinedFilesMap.addAll(msg.files!);
-      }
+      // Use the properly formatted files array for WebUI display
+      // The msg.files array already contains all attachments in the correct format
+      final List<Map<String, dynamic>> combinedFilesMap = msg.files ?? [];
 
+      // Build message for messages map (history.messages)
       messagesMap[messageId] = {
         'id': messageId,
         'parentId': previousId,
@@ -1141,21 +1151,10 @@ class ApiService {
         (messagesMap[previousId]['childrenIds'] as List).add(messageId);
       }
 
-      // Build message for messages array
-      final List<Map<String, dynamic>> combinedFilesArray = [];
-      if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty) {
-        for (final id in msg.attachmentIds!) {
-          if (id.startsWith('data:') || id.startsWith('http')) {
-            combinedFilesArray.add({'type': 'image', 'url': id});
-          } else {
-            combinedFilesArray.add({'file_id': id});
-          }
-        }
-      }
-      if (msg.files != null && msg.files!.isNotEmpty) {
-        combinedFilesArray.addAll(msg.files!);
-      }
+      // Use the same properly formatted files array for messages array
+      final List<Map<String, dynamic>> combinedFilesArray = msg.files ?? [];
 
+      // Build message for messages array
       messagesArray.add({
         'id': messageId,
         'parentId': previousId,
@@ -1193,12 +1192,12 @@ class ApiService {
       },
     };
 
-    debugPrint('DEBUG: Updating chat with OpenWebUI format data using POST');
+    debugPrint('DEBUG: Syncing chat with OpenWebUI format data using POST');
 
     // OpenWebUI uses POST not PUT for updating chats
     await _dio.post('/api/v1/chats/$conversationId', data: chatData);
 
-    DebugLogger.log('Update conversation response received successfully');
+    DebugLogger.log('Sync conversation response received successfully');
   }
 
   Future<void> updateConversation(
