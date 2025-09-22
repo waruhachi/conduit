@@ -1045,11 +1045,24 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           // Keep any local persistence only.
 
           if (context.mounted) {
-            final canPopNavigator = Navigator.of(context).canPop();
-            if (canPopNavigator) {
-              Navigator.of(context).pop();
+            final navigator = Navigator.of(context);
+            if (navigator.canPop()) {
+              navigator.pop();
             } else {
-              SystemNavigator.pop();
+              final shouldExit = await ThemedDialogs.confirm(
+                context,
+                title: l10n.appTitle,
+                message: l10n.endYourSession,
+                confirmText: l10n.confirm,
+                cancelText: l10n.cancel,
+                isDestructive: Platform.isAndroid,
+              );
+
+              if (!shouldExit || !context.mounted) return;
+
+              if (Platform.isAndroid) {
+                SystemNavigator.pop();
+              }
             }
           }
         },

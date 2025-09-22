@@ -195,7 +195,7 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
               data: mediaQuery.copyWith(
                 textScaler: mediaQuery.textScaler.clamp(
                   minScaleFactor: 0.8,
-                  maxScaleFactor: 1.3,
+                  maxScaleFactor: 2.0,
                 ),
               ),
               child: OfflineIndicator(child: child ?? const SizedBox.shrink()),

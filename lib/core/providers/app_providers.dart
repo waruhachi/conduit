@@ -126,10 +126,13 @@ final activeServerProvider = FutureProvider<ServerConfig?>((ref) async {
 
   if (activeId == null || configs.isEmpty) return null;
 
-  return configs.firstWhere(
-    (config) => config.id == activeId,
-    orElse: () => configs.first,
-  );
+  for (final config in configs) {
+    if (config.id == activeId) {
+      return config;
+    }
+  }
+
+  return null;
 });
 
 final serverConnectionStateProvider = Provider<bool>((ref) {

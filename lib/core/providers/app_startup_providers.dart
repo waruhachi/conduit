@@ -8,6 +8,7 @@ import '../../features/auth/providers/unified_auth_providers.dart';
 import '../services/navigation_service.dart';
 import '../models/conversation.dart';
 import '../services/background_streaming_handler.dart';
+import '../services/persistent_streaming_service.dart';
 import '../../features/onboarding/views/onboarding_sheet.dart';
 import '../../shared/theme/theme_extensions.dart';
 import '../services/connectivity_service.dart';
@@ -123,6 +124,10 @@ final appStartupFlowProvider = Provider<void>((ref) {
 
   // Keep Socket.IO connection alive in background within platform limits
   ref.watch(socketPersistenceProvider);
+
+  // Ensure persistent streaming uses the shared connectivity service
+  final connectivityService = ref.watch(connectivityServiceProvider);
+  PersistentStreamingService().attachConnectivityService(connectivityService);
 
   // Warm the conversations list in the background as soon as possible
   Future.microtask(() => _scheduleConversationWarmup(ref));

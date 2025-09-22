@@ -384,7 +384,25 @@ class AuthStateManager extends Notifier<AuthState> {
       final username = savedCredentials['username']!;
       final password = savedCredentials['password']!;
 
-      // Set active server if needed
+      // Ensure the saved server still exists before switching
+      final serverConfigs = await ref.read(serverConfigsProvider.future);
+      final hasServer = serverConfigs.any((config) => config.id == serverId);
+
+      if (!hasServer) {
+        await storage.deleteSavedCredentials();
+        await storage.setActiveServerId(null);
+        ref.invalidate(serverConfigsProvider);
+        ref.invalidate(activeServerProvider);
+
+        state = state.copyWith(
+          status: AuthStatus.error,
+          error: 'Saved server configuration is no longer available. Please reconnect.',
+          isLoading: false,
+        );
+        return false;
+      }
+
+      // Set active server once we know it exists
       await storage.setActiveServerId(serverId);
       ref.invalidate(activeServerProvider);
 

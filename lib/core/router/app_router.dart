@@ -10,7 +10,6 @@ import '../../features/auth/views/authentication_page.dart';
 import '../../features/auth/views/connect_signin_page.dart';
 import '../../features/auth/views/server_connection_page.dart';
 import '../../features/chat/views/chat_page.dart';
-import '../../features/files/views/workspace_page.dart';
 import '../../features/navigation/views/splash_launcher_page.dart';
 import '../../features/profile/views/app_customization_page.dart';
 import '../../features/profile/views/profile_page.dart';
@@ -146,11 +145,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       path: Routes.appCustomization,
       name: RouteNames.appCustomization,
       builder: (context, state) => const AppCustomizationPage(),
-    ),
-    GoRoute(
-      path: Routes.workspace,
-      name: RouteNames.workspace,
-      builder: (context, state) => const WorkspacePage(),
     ),
   ];
 

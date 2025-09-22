@@ -64,7 +64,6 @@ class OptimizedList<T> extends ConsumerStatefulWidget {
 class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
   late ScrollController _scrollController;
   bool _isLoadingMore = false;
-  final Set<int> _visibleIndices = {};
 
   @override
   void initState() {
@@ -139,11 +138,16 @@ class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
     // Build the list
     Widget listWidget;
 
+    final ScrollPhysics effectivePhysics = widget.physics ??
+        (widget.onRefresh != null
+            ? const AlwaysScrollableScrollPhysics()
+            : const ClampingScrollPhysics());
+
     if (widget.separatorBuilder != null) {
       listWidget = ListView.separated(
         controller: _scrollController,
         padding: widget.padding,
-        physics: widget.physics ?? const AlwaysScrollableScrollPhysics(),
+        physics: effectivePhysics,
         keyboardDismissBehavior: widget.keyboardDismissBehavior,
         shrinkWrap: widget.shrinkWrap,
         scrollDirection: widget.scrollDirection,
@@ -165,7 +169,7 @@ class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
       listWidget = ListView.builder(
         controller: _scrollController,
         padding: widget.padding,
-        physics: widget.physics ?? const AlwaysScrollableScrollPhysics(),
+        physics: effectivePhysics,
         keyboardDismissBehavior: widget.keyboardDismissBehavior,
         shrinkWrap: widget.shrinkWrap,
         scrollDirection: widget.scrollDirection,
@@ -195,9 +199,6 @@ class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
 
   Widget _buildOptimizedItem(BuildContext context, int index) {
     final item = widget.items[index];
-
-    // Track visible items for analytics
-    _visibleIndices.add(index);
 
     // Wrap in repaint boundary for performance
     if (widget.addRepaintBoundaries) {

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:dio/dio.dart';
 import 'background_streaming_handler.dart';
 import 'connectivity_service.dart';
 import '../utils/debug_logger.dart';
@@ -31,6 +30,7 @@ class PersistentStreamingService with WidgetsBindingObserver {
 
   // Connectivity monitoring
   StreamSubscription<bool>? _connectivitySubscription;
+  ConnectivityService? _connectivityService;
   bool _hasConnectivity = true;
 
   // Recovery state
@@ -42,7 +42,6 @@ class PersistentStreamingService with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _backgroundHandler = BackgroundStreamingHandler.instance;
     _setupBackgroundHandlerCallbacks();
-    _setupConnectivityMonitoring();
     _startHeartbeat();
   }
 
@@ -68,31 +67,31 @@ class PersistentStreamingService with WidgetsBindingObserver {
     };
   }
 
-  void _setupConnectivityMonitoring() {
-    // Create a connectivity service instance - this would normally be injected
-    // For now, create a temporary instance just for monitoring
-    final connectivityService = ConnectivityService(Dio());
+  void attachConnectivityService(ConnectivityService service) {
+    if (identical(_connectivityService, service)) {
+      return;
+    }
 
-    _connectivitySubscription = connectivityService.isConnected.listen((
-      connected,
-    ) {
-      final wasConnected = _hasConnectivity;
-      _hasConnectivity = connected;
+    _connectivitySubscription?.cancel();
+    _connectivityService = service;
+    _connectivitySubscription = service.isConnected.listen(_handleConnectivityChange);
+  }
 
-      if (!wasConnected && connected) {
-        // Connectivity restored - try to recover streams
-        DebugLogger.stream(
-          'PersistentStreaming: Connectivity restored, recovering streams',
-        );
-        _recoverActiveStreams();
-      } else if (wasConnected && !connected) {
-        // Connectivity lost - mark streams as suspended
-        DebugLogger.stream(
-          'PersistentStreaming: Connectivity lost, suspending streams',
-        );
-        _suspendAllStreams();
-      }
-    });
+  void _handleConnectivityChange(bool connected) {
+    final wasConnected = _hasConnectivity;
+    _hasConnectivity = connected;
+
+    if (!wasConnected && connected) {
+      DebugLogger.stream(
+        'PersistentStreaming: Connectivity restored, recovering streams',
+      );
+      _recoverActiveStreams();
+    } else if (wasConnected && !connected) {
+      DebugLogger.stream(
+        'PersistentStreaming: Connectivity lost, suspending streams',
+      );
+      _suspendAllStreams();
+    }
   }
 
   void _startHeartbeat() {
