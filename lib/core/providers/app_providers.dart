@@ -197,10 +197,10 @@ final socketServiceProvider = Provider<SocketService?>((ref) {
   if (reviewerMode) return null;
 
   final activeServer = ref.watch(activeServerProvider);
-  final token = ref.watch(authTokenProvider3);
-  final transportMode = ref
-      .watch(appSettingsProvider)
-      .socketTransportMode; // 'auto' or 'ws'
+  final token = ref.watch(authTokenProvider3.select((t) => t));
+  final transportMode = ref.watch(
+    appSettingsProvider.select((s) => s.socketTransportMode),
+  );
 
   return activeServer.maybeWhen(
     data: (server) {
@@ -213,6 +213,10 @@ final socketServiceProvider = Provider<SocketService?>((ref) {
       // best-effort connect; errors handled internally
       // ignore unawaited_futures
       s.connect();
+      // Keep socket token up-to-date without reconstructing the service
+      ref.listen<String?>(authTokenProvider3, (prev, next) {
+        s.updateAuthToken(next);
+      });
       ref.onDispose(() {
         try {
           s.dispose();
@@ -242,12 +246,12 @@ final attachmentUploadQueueProvider = Provider<AttachmentUploadQueue?>((ref) {
 // Auth token integration with API service - using unified auth system
 final apiTokenUpdaterProvider = Provider<void>((ref) {
   // Listen to unified auth token changes and update API service
-  ref.listen(authTokenProvider3, (previous, next) {
+  ref.listen<String?>(authTokenProvider3, (previous, next) {
     final api = ref.read(apiServiceProvider);
-    if (api != null && next != null && next.isNotEmpty) {
-      api.updateAuthToken(next);
+    if (api != null) {
+      api.updateAuthToken(next ?? '');
       foundation.debugPrint(
-        'DEBUG: Updated API service with unified auth token',
+        'DEBUG: Applied auth token to API (len=${next?.length ?? 0})',
       );
     }
   });

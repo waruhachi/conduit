@@ -396,7 +396,8 @@ class AuthStateManager extends Notifier<AuthState> {
 
         state = state.copyWith(
           status: AuthStatus.error,
-          error: 'Saved server configuration is no longer available. Please reconnect.',
+          error:
+              'Saved server configuration is no longer available. Please reconnect.',
           isLoading: false,
         );
         return false;

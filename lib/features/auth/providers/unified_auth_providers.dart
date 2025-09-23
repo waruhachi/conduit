@@ -10,8 +10,7 @@ class AuthActions {
   final Ref _ref;
   AuthActions(this._ref);
 
-  AuthStateManager get _auth =>
-      _ref.read(authStateManagerProvider.notifier);
+  AuthStateManager get _auth => _ref.read(authStateManagerProvider.notifier);
 
   Future<bool> login(
     String username,
@@ -19,21 +18,25 @@ class AuthActions {
     bool rememberCredentials = false,
   }) {
     // Defer mutation to a microtask to avoid provider-build side-effects
-    return Future(() => _auth.login(
-          username,
-          password,
-          rememberCredentials: rememberCredentials,
-        ));
+    return Future(
+      () => _auth.login(
+        username,
+        password,
+        rememberCredentials: rememberCredentials,
+      ),
+    );
   }
 
   Future<bool> loginWithApiKey(
     String apiKey, {
     bool rememberCredentials = false,
   }) {
-    return Future(() => _auth.loginWithApiKey(
-          apiKey,
-          rememberCredentials: rememberCredentials,
-        ));
+    return Future(
+      () => _auth.loginWithApiKey(
+        apiKey,
+        rememberCredentials: rememberCredentials,
+      ),
+    );
   }
 
   Future<bool> silentLogin() {

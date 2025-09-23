@@ -12,6 +12,9 @@ class ConnectivityService {
   final _connectivityController =
       StreamController<ConnectivityStatus>.broadcast();
   ConnectivityStatus _lastStatus = ConnectivityStatus.checking;
+  int _recentFailures = 0;
+  Duration _interval = const Duration(seconds: 10);
+  int _lastLatencyMs = -1;
 
   ConnectivityService(this._dio) {
     _startConnectivityMonitoring();
@@ -20,6 +23,7 @@ class ConnectivityService {
   Stream<ConnectivityStatus> get connectivityStream =>
       _connectivityController.stream;
   ConnectivityStatus get currentStatus => _lastStatus;
+  int get lastLatencyMs => _lastLatencyMs;
 
   /// Stream that emits true when connected, false when offline
   Stream<bool> get isConnected =>
@@ -30,12 +34,12 @@ class ConnectivityService {
 
   void _startConnectivityMonitoring() {
     // Initial check after a brief delay to avoid showing offline during startup
-    Timer(const Duration(milliseconds: 1000), () {
+    Timer(const Duration(milliseconds: 800), () {
       _checkConnectivity();
     });
 
-    // Check periodically; balance responsiveness with battery/network usage
-    _connectivityTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+    // Check periodically; interval adapts to recent failures
+    _connectivityTimer = Timer.periodic(_interval, (_) {
       _checkConnectivity();
     });
   }
@@ -45,7 +49,7 @@ class ConnectivityService {
       // DNS lookup is a lightweight, permission-free reachability check
       final result = await InternetAddress.lookup(
         'google.com',
-      ).timeout(const Duration(seconds: 3));
+      ).timeout(const Duration(seconds: 2));
 
       if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
         _updateStatus(ConnectivityStatus.online);
@@ -57,20 +61,23 @@ class ConnectivityService {
 
     // As a secondary check, hit a public 204 endpoint that returns quickly
     try {
+      final start = DateTime.now();
       await _dio
           .get(
             'https://www.google.com/generate_204',
             options: Options(
               method: 'GET',
-              sendTimeout: const Duration(seconds: 3),
-              receiveTimeout: const Duration(seconds: 3),
+              sendTimeout: const Duration(seconds: 2),
+              receiveTimeout: const Duration(seconds: 2),
               followRedirects: false,
               validateStatus: (status) => status != null && status < 400,
             ),
           )
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 2));
+      _lastLatencyMs = DateTime.now().difference(start).inMilliseconds;
       _updateStatus(ConnectivityStatus.online);
     } catch (_) {
+      _lastLatencyMs = -1;
       _updateStatus(ConnectivityStatus.offline);
     }
   }
@@ -79,6 +86,28 @@ class ConnectivityService {
     if (_lastStatus != status) {
       _lastStatus = status;
       _connectivityController.add(status);
+    }
+
+    // Adapt polling interval based on recent failures to reduce battery/CPU
+    if (status == ConnectivityStatus.offline) {
+      _recentFailures = (_recentFailures + 1).clamp(0, 10);
+    } else if (status == ConnectivityStatus.online) {
+      _recentFailures = 0;
+    }
+
+    final newInterval = _recentFailures >= 3
+        ? const Duration(seconds: 20)
+        : _recentFailures == 2
+        ? const Duration(seconds: 15)
+        : const Duration(seconds: 10);
+
+    if (newInterval != _interval) {
+      _interval = newInterval;
+      _connectivityTimer?.cancel();
+      _connectivityTimer = Timer.periodic(
+        _interval,
+        (_) => _checkConnectivity(),
+      );
     }
   }
 

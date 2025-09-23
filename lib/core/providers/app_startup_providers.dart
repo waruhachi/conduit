@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/app_providers.dart';
@@ -13,6 +14,7 @@ import '../../features/onboarding/views/onboarding_sheet.dart';
 import '../../shared/theme/theme_extensions.dart';
 import '../services/connectivity_service.dart';
 import '../utils/debug_logger.dart';
+import '../models/server_config.dart';
 
 enum _ConversationWarmupStatus { idle, warming, complete }
 
@@ -56,6 +58,14 @@ void _scheduleConversationWarmup(Ref ref, {bool force = false}) {
     return;
   }
 
+  // If network latency is high, delay warmup further to reduce contention
+  final latency = ref.read(connectivityServiceProvider).lastLatencyMs;
+  final extraDelay = latency > 800
+      ? 400
+      : latency > 400
+      ? 200
+      : 0;
+
   final statusController = ref.read(_conversationWarmupStatusProvider.notifier);
   final status = ref.read(_conversationWarmupStatusProvider);
 
@@ -80,6 +90,9 @@ void _scheduleConversationWarmup(Ref ref, {bool force = false}) {
   statusController.set(_ConversationWarmupStatus.warming);
 
   Future.microtask(() async {
+    if (extraDelay > 0) {
+      await Future.delayed(Duration(milliseconds: extraDelay));
+    }
     try {
       final existing = ref.read(conversationsProvider);
       if (existing.hasValue) {
@@ -109,6 +122,7 @@ final appStartupFlowProvider = Provider<void>((ref) {
   // Ensure token integration listeners are active
   ref.watch(authApiIntegrationProvider);
   ref.watch(apiTokenUpdaterProvider);
+  ref.watch(silentLoginCoordinatorProvider);
 
   // Kick background model loading flow (non-blocking)
   ref.watch(backgroundModelLoadProvider);
@@ -129,8 +143,35 @@ final appStartupFlowProvider = Provider<void>((ref) {
   final connectivityService = ref.watch(connectivityServiceProvider);
   PersistentStreamingService().attachConnectivityService(connectivityService);
 
-  // Warm the conversations list in the background as soon as possible
-  Future.microtask(() => _scheduleConversationWarmup(ref));
+  // Warm the conversations list in the background as soon as possible,
+  // but avoid doing so on poor connectivity to reduce startup load.
+  // Apply a small randomized delay to smooth load spikes across app wakes.
+  Future.microtask(() async {
+    final online = ref.read(isOnlineProvider);
+    if (!online) return;
+    final jitter = Duration(
+      milliseconds: 50 + (DateTime.now().millisecond % 100),
+    );
+    await Future.delayed(jitter);
+    _scheduleConversationWarmup(ref);
+  });
+
+  // One-time, post-frame system UI polish: set status bar icon brightness to
+  // match theme after the first frame. Avoids flicker at startup.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    try {
+      final isDark =
+          WidgetsBinding.instance.window.platformBrightness == Brightness.dark;
+      SystemChrome.setSystemUIOverlayStyle(
+        SystemUiOverlayStyle(
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarIconBrightness: isDark
+              ? Brightness.light
+              : Brightness.dark,
+        ),
+      );
+    } catch (_) {}
+  });
 
   // Watch for auth transitions to trigger warmup and other background work
   ref.listen<AuthNavigationState>(authNavigationStateProvider, (prev, next) {
@@ -151,14 +192,23 @@ final appStartupFlowProvider = Provider<void>((ref) {
             DebugLogger.auth('StartupFlow: Applied auth token to API');
           }
 
-          // Preload default model in background (best-effort)
-          try {
-            await ref.read(defaultModelProvider.future);
-          } catch (e) {
-            DebugLogger.warning(
-              'StartupFlow: default model preload failed: $e',
-            );
-          }
+          // Preload default model in background (best-effort) with an adaptive
+          // delay based on network latency to avoid hammering poor networks.
+          final latency = ref.read(connectivityServiceProvider).lastLatencyMs;
+          final delayMs = latency < 0
+              ? 300
+              : latency > 800
+              ? 600
+              : 200 + (latency ~/ 2);
+          Future.delayed(Duration(milliseconds: delayMs), () async {
+            try {
+              await ref.read(defaultModelProvider.future);
+            } catch (e) {
+              DebugLogger.warning(
+                'StartupFlow: default model preload failed: $e',
+              );
+            }
+          });
 
           // Kick background chat warmup now that we're authenticated
           _scheduleConversationWarmup(ref, force: true);
@@ -196,6 +246,66 @@ final appStartupFlowProvider = Provider<void>((ref) {
           .set(_ConversationWarmupStatus.idle);
       Future.microtask(() => _scheduleConversationWarmup(ref, force: true));
     }
+  });
+});
+
+// Tracks whether we've already attempted a silent login for the current app session.
+final _silentLoginAttemptedProvider =
+    NotifierProvider<_SilentLoginAttemptedNotifier, bool>(
+      _SilentLoginAttemptedNotifier.new,
+    );
+
+class _SilentLoginAttemptedNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void markAttempted() => state = true;
+}
+
+/// Coordinates a one-time silent login attempt when:
+/// - There is an active server
+/// - The auth navigation state requires login
+/// - Saved credentials are present
+final silentLoginCoordinatorProvider = Provider<void>((ref) {
+  Future<void> attempt() async {
+    final attempted = ref.read(_silentLoginAttemptedProvider);
+    if (attempted) return;
+
+    final authState = ref.read(authNavigationStateProvider);
+    if (authState != AuthNavigationState.needsLogin) return;
+
+    final activeServerAsync = ref.read(activeServerProvider);
+    final hasActiveServer = activeServerAsync.maybeWhen(
+      data: (server) => server != null,
+      orElse: () => false,
+    );
+    if (!hasActiveServer) return;
+
+    // Perform the attempt in a microtask to avoid side-effects in build
+    Future.microtask(() async {
+      try {
+        final hasCreds = await ref.read(hasSavedCredentialsProvider2.future);
+        if (hasCreds) {
+          ref.read(_silentLoginAttemptedProvider.notifier).markAttempted();
+          await ref.read(authActionsProvider).silentLogin();
+        }
+      } catch (_) {
+        // Ignore silent login errors; app will proceed to manual login
+      }
+    });
+  }
+
+  void check() => attempt();
+
+  // Initial check
+  check();
+
+  // React to changes in server or auth state
+  ref.listen<AuthNavigationState>(authNavigationStateProvider, (prev, next) {
+    check();
+  });
+  ref.listen<AsyncValue<ServerConfig?>>(activeServerProvider, (prev, next) {
+    check();
   });
 });
 

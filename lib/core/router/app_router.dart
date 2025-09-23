@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -35,7 +36,16 @@ class RouterNotifier extends ChangeNotifier {
   late final List<ProviderSubscription<dynamic>> _subscriptions;
 
   void _onStateChanged(dynamic previous, dynamic next) {
-    notifyListeners();
+    // Debounce router refreshes to avoid thrashing on rapid state changes
+    _scheduleRefresh();
+  }
+
+  Timer? _refreshDebounce;
+  void _scheduleRefresh() {
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 50), () {
+      notifyListeners();
+    });
   }
 
   String? redirect(BuildContext context, GoRouterState state) {
@@ -44,11 +54,13 @@ class RouterNotifier extends ChangeNotifier {
     final activeServerAsync = ref.read(activeServerProvider);
 
     if (reviewerMode) {
+      // Stay on whatever route if already in chat; otherwise go to chat
       if (location == Routes.chat) return null;
       return Routes.chat;
     }
 
     if (activeServerAsync.isLoading) {
+      // Avoid redirect loops by keeping splash during server loading
       return location == Routes.splash ? null : Routes.splash;
     }
 
@@ -60,6 +72,7 @@ class RouterNotifier extends ChangeNotifier {
 
     final activeServer = activeServerAsync.asData?.value;
     if (activeServer == null) {
+      // Allow auth-related routes while no server configured
       if (_isAuthLocation(location)) return null;
       return Routes.serverConnection;
     }
@@ -67,12 +80,14 @@ class RouterNotifier extends ChangeNotifier {
     final authState = ref.read(authNavigationStateProvider);
     switch (authState) {
       case AuthNavigationState.loading:
+        // Keep splash while establishing session
         return location == Routes.splash ? null : Routes.splash;
       case AuthNavigationState.needsLogin:
       case AuthNavigationState.error:
         if (_isAuthLocation(location)) return null;
         return Routes.serverConnection;
       case AuthNavigationState.authenticated:
+        // Avoid unnecessary redirects if already on a non-auth route
         if (_isAuthLocation(location) || location == Routes.splash) {
           return Routes.chat;
         }
@@ -88,6 +103,7 @@ class RouterNotifier extends ChangeNotifier {
 
   @override
   void dispose() {
+    _refreshDebounce?.cancel();
     for (final sub in _subscriptions) {
       sub.close();
     }

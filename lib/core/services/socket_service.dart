@@ -4,18 +4,19 @@ import '../models/server_config.dart';
 
 class SocketService {
   final ServerConfig serverConfig;
-  final String? authToken;
   final bool websocketOnly;
   io.Socket? _socket;
+  String? _authToken;
 
   SocketService({
     required this.serverConfig,
-    required this.authToken,
+    String? authToken,
     this.websocketOnly = false,
-  });
+  }) : _authToken = authToken;
 
   String? get sessionId => _socket?.id;
   io.Socket? get socket => _socket;
+  String? get authToken => _authToken;
 
   bool get isConnected => _socket?.connected == true;
 
@@ -39,9 +40,7 @@ class SocketService {
 
     final builder = io.OptionBuilder()
         // Transport selection
-        .setTransports(
-          websocketOnly ? ['websocket'] : ['polling', 'websocket'],
-        )
+        .setTransports(websocketOnly ? ['websocket'] : ['polling', 'websocket'])
         .setRememberUpgrade(!websocketOnly)
         .setUpgrade(!websocketOnly)
         // Tune reconnect/backoff and timeouts
@@ -55,9 +54,9 @@ class SocketService {
     // Merge Authorization (if any) with user-defined custom headers for the
     // Socket.IO handshake. Avoid overriding reserved headers.
     final Map<String, String> extraHeaders = {};
-    if (authToken != null && authToken!.isNotEmpty) {
-      extraHeaders['Authorization'] = 'Bearer $authToken';
-      builder.setAuth({'token': authToken});
+    if (_authToken != null && _authToken!.isNotEmpty) {
+      extraHeaders['Authorization'] = 'Bearer $_authToken';
+      builder.setAuth({'token': _authToken});
     }
     if (serverConfig.customHeaders.isNotEmpty) {
       final reserved = {
@@ -78,7 +77,8 @@ class SocketService {
         final lower = key.toLowerCase();
         if (!reserved.contains(lower) && value.isNotEmpty) {
           // Do not overwrite Authorization we already set from authToken
-          if (lower == 'authorization' && extraHeaders.containsKey('Authorization')) {
+          if (lower == 'authorization' &&
+              extraHeaders.containsKey('Authorization')) {
             return;
           }
           extraHeaders[key] = value;
@@ -93,9 +93,9 @@ class SocketService {
 
     _socket!.on('connect', (_) {
       debugPrint('Socket connected: ${_socket!.id}');
-      if (authToken != null && authToken!.isNotEmpty) {
+      if (_authToken != null && _authToken!.isNotEmpty) {
         _socket!.emit('user-join', {
-          'auth': {'token': authToken}
+          'auth': {'token': _authToken},
         });
       }
     });
@@ -110,10 +110,10 @@ class SocketService {
 
     _socket!.on('reconnect', (attempt) {
       debugPrint('Socket reconnected after $attempt attempts');
-      if (authToken != null && authToken!.isNotEmpty) {
+      if (_authToken != null && _authToken!.isNotEmpty) {
         // Best-effort rejoin
         _socket!.emit('user-join', {
-          'auth': {'token': authToken}
+          'auth': {'token': _authToken},
         });
       }
     });
@@ -125,6 +125,21 @@ class SocketService {
     _socket!.on('disconnect', (reason) {
       debugPrint('Socket disconnected: $reason');
     });
+  }
+
+  /// Update the auth token used by the socket service.
+  /// If connected, emits a best-effort rejoin with the new token.
+  void updateAuthToken(String? token) {
+    _authToken = token;
+    if (_socket?.connected == true &&
+        _authToken != null &&
+        _authToken!.isNotEmpty) {
+      try {
+        _socket!.emit('user-join', {
+          'auth': {'token': _authToken},
+        });
+      } catch (_) {}
+    }
   }
 
   void onChatEvents(void Function(Map<String, dynamic> event) handler) {
@@ -168,6 +183,7 @@ class SocketService {
   void offEvent(String eventName) {
     _socket?.off(eventName);
   }
+
   void dispose() {
     try {
       _socket?.dispose();
@@ -177,7 +193,9 @@ class SocketService {
 
   // Best-effort: ensure there is an active connection and wait briefly.
   // Returns true if connected by the end of the timeout.
-  Future<bool> ensureConnected({Duration timeout = const Duration(seconds: 2)}) async {
+  Future<bool> ensureConnected({
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
     if (isConnected) return true;
     try {
       await connect();
