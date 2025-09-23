@@ -633,6 +633,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       ),
       physics:
           const NeverScrollableScrollPhysics(), // Prevent scrolling during load
+      // Modest cache extent to avoid offscreen overwork but keep shimmer smooth
+      cacheExtent: 300,
       itemCount: 6,
       itemBuilder: (context, index) {
         final isUser = index.isOdd;
@@ -1007,9 +1009,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         if (!mounted) return;
         final current = ref.read(inputFocusTriggerProvider);
         // Immediate focus bump
-        ref
-            .read(inputFocusTriggerProvider.notifier)
-            .set(current + 1);
+        ref.read(inputFocusTriggerProvider.notifier).set(current + 1);
         // Second bump shortly after to overcome route/IME timing
         Future.delayed(const Duration(milliseconds: 120), () {
           if (!mounted) return;
@@ -1788,6 +1788,7 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
                             : ListView.builder(
                                 controller: scrollController,
                                 padding: EdgeInsets.zero,
+                                cacheExtent: 400,
                                 itemCount: _filteredModels.length,
                                 itemBuilder: (context, index) {
                                   final model = _filteredModels[index];

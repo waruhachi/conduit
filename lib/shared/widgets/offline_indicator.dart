@@ -20,6 +20,7 @@ class OfflineIndicator extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final connectivityStatus = ref.watch(connectivityStatusProvider);
+    final wasOffline = ref.watch(_wasOfflineProvider);
 
     return Stack(
       children: [
@@ -30,12 +31,100 @@ class OfflineIndicator extends ConsumerWidget {
               if (status == ConnectivityStatus.offline) {
                 return _OfflineBanner();
               }
+              // Announce back-online briefly if we were previously offline
+              if (wasOffline) {
+                return const _BackOnlineToast();
+              }
               return const SizedBox.shrink();
             },
             loading: () => const SizedBox.shrink(),
             error: (_, _) => _OfflineBanner(),
           ),
       ],
+    );
+  }
+}
+
+// Tracks if the app was recently offline to enable a one-shot back-online toast
+final _wasOfflineProvider = NotifierProvider<_WasOfflineNotifier, bool>(
+  _WasOfflineNotifier.new,
+);
+
+class _WasOfflineNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    // Initialize based on current connectivity (assume online until proven otherwise)
+    ref.listen<AsyncValue<ConnectivityStatus>>(connectivityStatusProvider, (
+      prev,
+      next,
+    ) {
+      next.when(
+        data: (status) {
+          if (status == ConnectivityStatus.offline) {
+            state = true; // mark that we have been offline
+          } else if (status == ConnectivityStatus.online && state) {
+            // After we emit the toast once, clear flag shortly after
+            Future.microtask(() => state = false);
+          }
+        },
+        loading: () {},
+        error: (_, __) {},
+      );
+    });
+    return false;
+  }
+}
+
+class _BackOnlineToast extends StatelessWidget {
+  const _BackOnlineToast();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: kToolbarHeight + 8,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        bottom: false,
+        child: Semantics(
+          container: true,
+          liveRegion: true,
+          label: AppLocalizations.of(context)!.checkConnection,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child:
+                Container(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: Spacing.md,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Spacing.md,
+                        vertical: Spacing.xs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: context.conduitTheme.success,
+                        borderRadius: BorderRadius.circular(
+                          AppBorderRadius.round,
+                        ),
+                        boxShadow: ConduitShadows.low,
+                      ),
+                      child: Text(
+                        // Reuse existing l10n; otherwise add a dedicated "Back online" key later
+                        AppLocalizations.of(context)!.loadingContent,
+                        style: TextStyle(
+                          color: context.conduitTheme.textInverse,
+                          fontSize: AppTypography.labelLarge,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                    .animate(onPlay: (c) => c.forward())
+                    .fadeIn(duration: const Duration(milliseconds: 200))
+                    .then(delay: const Duration(milliseconds: 1200))
+                    .fadeOut(duration: const Duration(milliseconds: 250)),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -50,36 +139,41 @@ class _OfflineBanner extends StatelessWidget {
       child: SafeArea(
         bottom: false,
         child:
-            Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Spacing.md,
-                    vertical: Spacing.xs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: context.conduitTheme.warning,
-                    boxShadow: ConduitShadows.low,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Platform.isIOS
-                            ? CupertinoIcons.wifi_slash
-                            : Icons.wifi_off,
-                        color: context.conduitTheme.textInverse,
-                        size: AppTypography.headlineMedium,
-                      ),
-                      const SizedBox(width: Spacing.xs),
-                      Expanded(
-                        child: Text(
-                          AppLocalizations.of(context)!.offlineBanner,
-                          style: TextStyle(
-                            color: context.conduitTheme.textInverse,
-                            fontSize: AppTypography.labelLarge,
-                            fontWeight: FontWeight.w500,
+            Semantics(
+                  container: true,
+                  liveRegion: true,
+                  label: AppLocalizations.of(context)!.offlineBanner,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Spacing.md,
+                      vertical: Spacing.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: context.conduitTheme.warning,
+                      boxShadow: ConduitShadows.low,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Platform.isIOS
+                              ? CupertinoIcons.wifi_slash
+                              : Icons.wifi_off,
+                          color: context.conduitTheme.textInverse,
+                          size: AppTypography.headlineMedium,
+                        ),
+                        const SizedBox(width: Spacing.xs),
+                        Expanded(
+                          child: Text(
+                            AppLocalizations.of(context)!.offlineBanner,
+                            style: TextStyle(
+                              color: context.conduitTheme.textInverse,
+                              fontSize: AppTypography.labelLarge,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 )
                 .animate(onPlay: (controller) => controller.forward())

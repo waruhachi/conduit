@@ -34,8 +34,8 @@ class ConnectivityService {
       _checkConnectivity();
     });
 
-    // Check every 5 seconds
-    _connectivityTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    // Check periodically; balance responsiveness with battery/network usage
+    _connectivityTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       _checkConnectivity();
     });
   }

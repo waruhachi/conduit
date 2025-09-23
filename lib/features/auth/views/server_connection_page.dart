@@ -748,40 +748,45 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
   }
 
   Widget _buildErrorMessage(String message) {
-    return Container(
-      padding: const EdgeInsets.all(Spacing.md),
-      decoration: BoxDecoration(
-        color: context.conduitTheme.errorBackground,
-        borderRadius: BorderRadius.circular(AppBorderRadius.button),
-        border: Border.all(
-          color: context.conduitTheme.error.withValues(alpha: 0.3),
-          width: BorderWidth.standard,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Platform.isIOS
-                ? CupertinoIcons.exclamationmark_circle_fill
-                : Icons.error_outline,
-            color: context.conduitTheme.error,
-            size: IconSize.medium,
-          ),
-          const SizedBox(width: Spacing.md),
-          Expanded(
-            child: Text(
-              message,
-              style: context.conduitTheme.bodyMedium?.copyWith(
-                color: context.conduitTheme.error,
+    return Semantics(
+      liveRegion: true,
+      label: message,
+      child:
+          Container(
+            padding: const EdgeInsets.all(Spacing.md),
+            decoration: BoxDecoration(
+              color: context.conduitTheme.errorBackground,
+              borderRadius: BorderRadius.circular(AppBorderRadius.button),
+              border: Border.all(
+                color: context.conduitTheme.error.withValues(alpha: 0.3),
+                width: BorderWidth.standard,
               ),
             ),
+            child: Row(
+              children: [
+                Icon(
+                  Platform.isIOS
+                      ? CupertinoIcons.exclamationmark_circle_fill
+                      : Icons.error_outline,
+                  color: context.conduitTheme.error,
+                  size: IconSize.medium,
+                ),
+                const SizedBox(width: Spacing.md),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: context.conduitTheme.bodyMedium?.copyWith(
+                      color: context.conduitTheme.error,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ).animate().slideX(
+            begin: 0.05,
+            duration: AnimationDuration.messageSlide,
+            curve: Curves.easeOutCubic,
           ),
-        ],
-      ),
-    ).animate().slideX(
-      begin: 0.05,
-      duration: AnimationDuration.messageSlide,
-      curve: Curves.easeOutCubic,
     );
   }
 

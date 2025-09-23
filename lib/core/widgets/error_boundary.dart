@@ -106,8 +106,16 @@ class _ErrorBoundaryState extends ConsumerState<ErrorBoundary> {
       }
 
       // Default error UI
+      // Respect ambient text direction when available; fall back to LTR.
+      TextDirection direction;
+      try {
+        direction = Directionality.of(context);
+      } catch (_) {
+        direction = TextDirection.ltr;
+      }
+
       return Directionality(
-        textDirection: TextDirection.ltr,
+        textDirection: direction,
         child: Scaffold(
           backgroundColor: context.conduitTheme.surfaceBackground,
           body: SafeArea(
