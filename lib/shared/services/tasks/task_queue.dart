@@ -63,7 +63,19 @@ class TaskQueueNotifier extends Notifier<List<OutboundTask>> {
   Future<void> _save() async {
     try {
       final prefs = ref.read(sharedPreferencesProvider);
-      final raw = state.map((t) => t.toJson()).toList(growable: false);
+      final retained = [
+        for (final task in state)
+          if (task.status == TaskStatus.queued ||
+              task.status == TaskStatus.running)
+            task,
+      ];
+
+      if (retained.length != state.length) {
+        // Remove completed entries from state to keep the in-memory queue lean.
+        state = retained;
+      }
+
+      final raw = retained.map((t) => t.toJson()).toList(growable: false);
       await prefs.setString(_prefsKey, jsonEncode(raw));
     } catch (e) {
       debugPrint('DEBUG: Failed to persist task queue: $e');

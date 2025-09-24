@@ -68,7 +68,7 @@ class _WasOfflineNotifier extends Notifier<bool> {
           }
         },
         loading: () {},
-        error: (_, __) {},
+        error: (error, stackTrace) {},
       );
     });
     return false;

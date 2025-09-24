@@ -92,7 +92,7 @@ class ApiService {
     // Validation interceptor fully removed
   }
 
-  void updateAuthToken(String token) {
+  void updateAuthToken(String? token) {
     _authInterceptor.updateAuthToken(token);
   }
 
@@ -317,29 +317,15 @@ class ApiService {
       allRegularChats = regularResponse.data as List;
     }
 
-    final pinnedResponse = await _dio.get('/api/v1/chats/pinned');
-    final archivedResponse = await _dio.get('/api/v1/chats/all/archived');
-
-    debugPrint('DEBUG: Pinned response status: ${pinnedResponse.statusCode}');
-    debugPrint(
-      'DEBUG: Archived response status: ${archivedResponse.statusCode}',
+    final pinnedChatList = await _fetchChatCollection(
+      '/api/v1/chats/pinned',
+      debugLabel: 'pinned chats',
     );
-
-    if (pinnedResponse.data is! List) {
-      throw Exception(
-        'Expected array of pinned chats, got ${pinnedResponse.data.runtimeType}',
-      );
-    }
-
-    if (archivedResponse.data is! List) {
-      throw Exception(
-        'Expected array of archived chats, got ${archivedResponse.data.runtimeType}',
-      );
-    }
-
+    final archivedChatList = await _fetchChatCollection(
+      '/api/v1/chats/all/archived',
+      debugLabel: 'archived chats',
+    );
     final regularChatList = allRegularChats;
-    final pinnedChatList = pinnedResponse.data as List;
-    final archivedChatList = archivedResponse.data as List;
 
     debugPrint('DEBUG: Found ${regularChatList.length} regular chats');
     debugPrint('DEBUG: Found ${pinnedChatList.length} pinned chats');
@@ -377,6 +363,7 @@ class ApiService {
     }
 
     // Process regular conversations (excluding pinned and archived ones)
+    var loggedSampleChat = false;
     for (final chatData in regularChatList) {
       try {
         // Debug: Check if conversation has folder_id in raw data
@@ -387,8 +374,8 @@ class ApiService {
           );
         }
 
-        // Debug: Check what fields are available in the chat data
-        if (regularChatList.indexOf(chatData) == 0) {
+        if (!loggedSampleChat) {
+          loggedSampleChat = true;
           debugPrint(
             '🔍 DEBUG: Sample chat data fields: ${chatData.keys.toList()}',
           );
@@ -415,6 +402,29 @@ class ApiService {
       'DEBUG: Successfully parsed ${conversations.length} conversations (${pinnedIds.length} pinned, ${archivedIds.length} archived)',
     );
     return conversations;
+  }
+
+  Future<List<dynamic>> _fetchChatCollection(
+    String path, {
+    required String debugLabel,
+  }) async {
+    try {
+      final response = await _dio.get(path);
+      DebugLogger.log('$debugLabel response status: ${response.statusCode}');
+      if (response.data is List) {
+        return (response.data as List).cast<dynamic>();
+      }
+      DebugLogger.warning(
+        'Expected array for $debugLabel, got ${response.data.runtimeType}',
+      );
+    } on DioException catch (e) {
+      DebugLogger.warning(
+        'Skipping $debugLabel due to network error: ${e.message}',
+      );
+    } catch (e) {
+      DebugLogger.warning('Skipping $debugLabel due to error: $e');
+    }
+    return <dynamic>[];
   }
 
   // Helper method to safely parse timestamps

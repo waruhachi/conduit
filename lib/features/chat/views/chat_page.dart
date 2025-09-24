@@ -632,7 +632,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         Spacing.lg,
       ),
       physics:
-          const NeverScrollableScrollPhysics(), // Prevent scrolling during load
+          const AlwaysScrollableScrollPhysics(), // Allow pull-to-refresh while loading
       // Modest cache extent to avoid offscreen overwork but keep shimmer smooth
       cacheExtent: 300,
       itemCount: 6,
@@ -708,6 +708,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     return OptimizedList<ChatMessage>(
       key: const ValueKey('actual_messages'),
       scrollController: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
       items: messages,
       padding: const EdgeInsets.fromLTRB(
         Spacing.lg,
@@ -868,58 +869,68 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       data: (user) => user,
       orElse: () => null,
     );
-    final dynamic authUser = ref.watch(authUserProvider);
+    final authUser = ref.watch(authUserProvider);
     final user = userFromProfile ?? authUser;
     final greetingName = deriveUserDisplayName(user);
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(Spacing.lg),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Minimal, clean empty state
-            Container(
-                  width: Spacing.xxl + Spacing.xxxl,
-                  height: Spacing.xxl + Spacing.xxxl,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        context.conduitTheme.buttonPrimary,
-                        context.conduitTheme.buttonPrimary.withValues(
-                          alpha: 0.8,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(Spacing.lg),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Minimal, clean empty state
+                Container(
+                      width: Spacing.xxl + Spacing.xxxl,
+                      height: Spacing.xxl + Spacing.xxxl,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            context.conduitTheme.buttonPrimary,
+                            context.conduitTheme.buttonPrimary.withValues(
+                              alpha: 0.8,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(AppBorderRadius.round),
-                    boxShadow: ConduitShadows.glow,
-                  ),
-                  child: Icon(
-                    Platform.isIOS ? CupertinoIcons.chat_bubble_2 : Icons.chat,
-                    size: Spacing.xxxl - Spacing.xs,
-                    color: context.conduitTheme.textInverse,
-                  ),
-                )
-                .animate()
-                .scale(duration: const Duration(milliseconds: 300))
-                .then()
-                .shimmer(duration: const Duration(milliseconds: 1200)),
+                        borderRadius: BorderRadius.circular(
+                          AppBorderRadius.round,
+                        ),
+                        boxShadow: ConduitShadows.glow,
+                      ),
+                      child: Icon(
+                        Platform.isIOS
+                            ? CupertinoIcons.chat_bubble_2
+                            : Icons.chat,
+                        size: Spacing.xxxl - Spacing.xs,
+                        color: context.conduitTheme.textInverse,
+                      ),
+                    )
+                    .animate()
+                    .scale(duration: const Duration(milliseconds: 300))
+                    .then()
+                    .shimmer(duration: const Duration(milliseconds: 1200)),
 
-            const SizedBox(height: Spacing.xl),
+                const SizedBox(height: Spacing.xl),
 
-            Text(
-              l10n.onboardStartTitle(greetingName),
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: context.conduitTheme.textPrimary,
-              ),
-              textAlign: TextAlign.center,
-            ).animate().fadeIn(delay: const Duration(milliseconds: 150)),
-          ],
-        ),
-      ),
+                Text(
+                  l10n.onboardStartTitle(greetingName),
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: context.conduitTheme.textPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                ).animate().fadeIn(delay: const Duration(milliseconds: 150)),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

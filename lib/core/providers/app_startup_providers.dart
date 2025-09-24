@@ -160,8 +160,13 @@ final appStartupFlowProvider = Provider<void>((ref) {
   // match theme after the first frame. Avoids flicker at startup.
   WidgetsBinding.instance.addPostFrameCallback((_) {
     try {
-      final isDark =
-          WidgetsBinding.instance.window.platformBrightness == Brightness.dark;
+      final context = NavigationService.context;
+      final view = context != null ? View.maybeOf(context) : null;
+      final dispatcher = WidgetsBinding.instance.platformDispatcher;
+      final platformBrightness =
+          view?.platformDispatcher.platformBrightness ??
+          dispatcher.platformBrightness;
+      final isDark = platformBrightness == Brightness.dark;
       SystemChrome.setSystemUIOverlayStyle(
         SystemUiOverlayStyle(
           statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,

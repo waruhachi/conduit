@@ -51,15 +51,14 @@ class _ImprovedLoadingStateState extends State<ImprovedLoadingState>
     );
     _animationController.forward();
 
-    // Announce loading state for screen readers
-    if (widget.message != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        SemanticsService.announce(
-          'Loading: ${widget.message}',
-          TextDirection.ltr,
-        );
-      });
-    }
+    // Announce loading state for screen readers using localized messaging.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
+      final announcement = widget.message ?? l10n?.loadingContent ?? 'Loading';
+      final direction = Directionality.maybeOf(context) ?? TextDirection.ltr;
+      SemanticsService.announce(announcement, direction);
+    });
   }
 
   @override

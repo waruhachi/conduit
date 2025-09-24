@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../providers/app_providers.dart';
@@ -8,6 +7,7 @@ enum ConnectivityStatus { online, offline, checking }
 
 class ConnectivityService {
   final Dio _dio;
+  final Ref _ref;
   Timer? _connectivityTimer;
   final _connectivityController =
       StreamController<ConnectivityStatus>.broadcast();
@@ -16,7 +16,7 @@ class ConnectivityService {
   Duration _interval = const Duration(seconds: 10);
   int _lastLatencyMs = -1;
 
-  ConnectivityService(this._dio) {
+  ConnectivityService(this._dio, this._ref) {
     _startConnectivityMonitoring();
   }
 
@@ -45,41 +45,31 @@ class ConnectivityService {
   }
 
   Future<void> _checkConnectivity() async {
-    try {
-      // DNS lookup is a lightweight, permission-free reachability check
-      final result = await InternetAddress.lookup(
-        'google.com',
-      ).timeout(const Duration(seconds: 2));
-
-      if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+    final serverReachability = await _probeActiveServer();
+    if (serverReachability != null) {
+      if (serverReachability) {
         _updateStatus(ConnectivityStatus.online);
-        return;
+      } else {
+        _lastLatencyMs = -1;
+        _updateStatus(ConnectivityStatus.offline);
       }
-    } catch (_) {
-      // Swallow and continue to HTTP reachability check
+      return;
     }
 
-    // As a secondary check, hit a public 204 endpoint that returns quickly
-    try {
-      final start = DateTime.now();
-      await _dio
-          .get(
-            'https://www.google.com/generate_204',
-            options: Options(
-              method: 'GET',
-              sendTimeout: const Duration(seconds: 2),
-              receiveTimeout: const Duration(seconds: 2),
-              followRedirects: false,
-              validateStatus: (status) => status != null && status < 400,
-            ),
-          )
-          .timeout(const Duration(seconds: 2));
-      _lastLatencyMs = DateTime.now().difference(start).inMilliseconds;
-      _updateStatus(ConnectivityStatus.online);
-    } catch (_) {
-      _lastLatencyMs = -1;
-      _updateStatus(ConnectivityStatus.offline);
+    final fallbackReachability = await _probeAnyKnownServer();
+    if (fallbackReachability != null) {
+      if (fallbackReachability) {
+        _updateStatus(ConnectivityStatus.online);
+      } else {
+        _lastLatencyMs = -1;
+        _updateStatus(ConnectivityStatus.offline);
+      }
+      return;
     }
+
+    // No configured server to probe; assume usable connectivity so setup flows continue.
+    _lastLatencyMs = -1;
+    _updateStatus(ConnectivityStatus.online);
   }
 
   void _updateStatus(ConnectivityStatus status) {
@@ -120,13 +110,103 @@ class ConnectivityService {
     _connectivityTimer?.cancel();
     _connectivityController.close();
   }
+
+  Future<bool?> _probeActiveServer() async {
+    final healthUri = _resolveHealthUri();
+    if (healthUri == null) return null;
+
+    return _probeHealthEndpoint(healthUri, updateLatency: true);
+  }
+
+  Future<bool?> _probeAnyKnownServer() async {
+    try {
+      final configs = await _ref.read(serverConfigsProvider.future);
+      for (final config in configs) {
+        final uri = _buildHealthUri(config.url);
+        if (uri == null) continue;
+        final result = await _probeHealthEndpoint(uri);
+        if (result != null) {
+          return result;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<bool?> _probeHealthEndpoint(
+    Uri uri, {
+    bool updateLatency = false,
+  }) async {
+    try {
+      final start = DateTime.now();
+      final response = await _dio
+          .getUri(
+            uri,
+            options: Options(
+              method: 'GET',
+              sendTimeout: const Duration(seconds: 3),
+              receiveTimeout: const Duration(seconds: 3),
+              followRedirects: false,
+              validateStatus: (status) => status != null && status < 500,
+            ),
+          )
+          .timeout(const Duration(seconds: 4));
+
+      final isHealthy =
+          response.statusCode == 200 && _responseIndicatesHealth(response.data);
+      if (isHealthy && updateLatency) {
+        _lastLatencyMs = DateTime.now().difference(start).inMilliseconds;
+      }
+      return isHealthy;
+    } catch (_) {
+      // Treat as unreachable.
+      return false;
+    }
+  }
+
+  Uri? _resolveHealthUri() {
+    final api = _ref.read(apiServiceProvider);
+    if (api != null) {
+      return _buildHealthUri(api.baseUrl);
+    }
+
+    final activeServer = _ref.read(activeServerProvider);
+    return activeServer.maybeWhen(
+      data: (server) => server != null ? _buildHealthUri(server.url) : null,
+      orElse: () => null,
+    );
+  }
+
+  Uri? _buildHealthUri(String baseUrl) {
+    if (baseUrl.isEmpty) return null;
+
+    Uri? parsed = Uri.tryParse(baseUrl.trim());
+    if (parsed == null) return null;
+
+    if (!parsed.hasScheme) {
+      parsed =
+          Uri.tryParse('https://$baseUrl') ?? Uri.tryParse('http://$baseUrl');
+    }
+    if (parsed == null) return null;
+
+    return parsed.resolve('health');
+  }
+
+  bool _responseIndicatesHealth(dynamic data) {
+    if (data is Map) {
+      final dynamic status = data['status'];
+      if (status is bool) return status;
+      if (status is num) return status != 0;
+    }
+    return true;
+  }
 }
 
 // Providers
 final connectivityServiceProvider = Provider<ConnectivityService>((ref) {
   // Use a lightweight Dio instance only for connectivity checks
   final dio = Dio();
-  final service = ConnectivityService(dio);
+  final service = ConnectivityService(dio, ref);
   ref.onDispose(() => service.dispose());
   return service;
 });

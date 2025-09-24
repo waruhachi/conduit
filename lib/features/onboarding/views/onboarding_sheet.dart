@@ -73,7 +73,7 @@ class _OnboardingSheetState extends ConsumerState<OnboardingSheet> {
       data: (user) => user,
       orElse: () => null,
     );
-    final dynamic authUser = ref.watch(authUserProvider);
+    final authUser = ref.watch(authUserProvider);
     final user = userFromProfile ?? authUser;
     final greetingName = deriveUserDisplayName(user);
     final pages = _buildPages(l10n, greetingName);

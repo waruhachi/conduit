@@ -1218,7 +1218,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       data: (u) => u,
       orElse: () => null,
     );
-    final dynamic authUser = ref.watch(authUserProvider);
+    final authUser = ref.watch(authUserProvider);
     final user = userFromProfile ?? authUser;
     final api = ref.watch(apiServiceProvider);
 

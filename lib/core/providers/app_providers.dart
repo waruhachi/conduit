@@ -249,10 +249,9 @@ final apiTokenUpdaterProvider = Provider<void>((ref) {
   ref.listen<String?>(authTokenProvider3, (previous, next) {
     final api = ref.read(apiServiceProvider);
     if (api != null) {
-      api.updateAuthToken(next ?? '');
-      foundation.debugPrint(
-        'DEBUG: Applied auth token to API (len=${next?.length ?? 0})',
-      );
+      api.updateAuthToken(next);
+      final length = next?.length ?? 0;
+      foundation.debugPrint('DEBUG: Applied auth token to API (len=$length)');
     }
   });
 });

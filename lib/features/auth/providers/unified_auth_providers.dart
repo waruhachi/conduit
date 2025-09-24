@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/auth/auth_state_manager.dart';
+import '../../../core/models/user.dart';
 import '../../../core/providers/app_providers.dart';
 
 /// Unified auth providers using the new auth state manager
@@ -75,7 +76,7 @@ final authTokenProvider3 = Provider<String?>((ref) {
   return ref.watch(authStateManagerProvider.select((state) => state.token));
 });
 
-final currentUserProvider2 = Provider<dynamic>((ref) {
+final currentUserProvider2 = Provider<User?>((ref) {
   return ref.watch(authStateManagerProvider.select((state) => state.user));
 });
 

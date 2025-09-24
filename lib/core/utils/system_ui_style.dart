@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// Applies a single System UI overlay style after first frame to avoid flicker

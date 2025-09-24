@@ -20,7 +20,7 @@ class AuthState {
 
   final AuthStatus status;
   final String? token;
-  final dynamic user; // Replace with proper User type
+  final User? user;
   final String? error;
   final bool isLoading;
 
@@ -33,7 +33,7 @@ class AuthState {
   AuthState copyWith({
     AuthStatus? status,
     String? token,
-    dynamic user,
+    User? user,
     String? error,
     bool? isLoading,
     bool clearToken = false,
@@ -460,6 +460,7 @@ class AuthStateManager extends Notifier<AuthState> {
     // Clear token from storage
     final storage = ref.read(optimizedStorageServiceProvider);
     await storage.deleteAuthToken();
+    _updateApiServiceToken(null);
 
     // Update state
     state = state.copyWith(
@@ -497,6 +498,7 @@ class AuthStateManager extends Notifier<AuthState> {
       // Clear all local auth data
       final storage = ref.read(optimizedStorageServiceProvider);
       await storage.clearAuthData();
+      _updateApiServiceToken(null);
 
       // Update state
       state = state.copyWith(
@@ -518,6 +520,7 @@ class AuthStateManager extends Notifier<AuthState> {
         clearUser: true,
         error: 'Logout error: $e',
       );
+      _updateApiServiceToken(null);
     }
   }
 
@@ -528,8 +531,11 @@ class AuthStateManager extends Notifier<AuthState> {
       if (state.token != null) {
         final jwtUserInfo = TokenValidator.extractUserInfo(state.token!);
         if (jwtUserInfo != null) {
-          DebugLogger.auth('Extracted user info from JWT token');
-          state = state.copyWith(user: jwtUserInfo);
+          final userFromJwt = _userFromJwtClaims(jwtUserInfo);
+          if (userFromJwt != null) {
+            DebugLogger.auth('Extracted user info from JWT token');
+            state = state.copyWith(user: userFromJwt);
+          }
 
           // Still try to load from server in background for complete data
           Future.microtask(() => _loadServerUserData());
@@ -569,7 +575,7 @@ class AuthStateManager extends Notifier<AuthState> {
   }
 
   /// Update API service with current token
-  void _updateApiServiceToken(String token) {
+  void _updateApiServiceToken(String? token) {
     final api = ref.read(apiServiceProvider);
     api?.updateAuthToken(token);
   }
@@ -689,6 +695,46 @@ class AuthStateManager extends Notifier<AuthState> {
       'storageCache': 'Managed by OptimizedStorageService',
     };
   }
+
+  User? _userFromJwtClaims(Map<String, dynamic> claims) {
+    final id =
+        (claims['sub'] ?? claims['username'] ?? claims['email'])
+            ?.toString()
+            .trim() ??
+        '';
+    final username =
+        (claims['username'] ?? claims['name'])?.toString().trim() ?? '';
+    final emailValue = claims['email'];
+    final email = emailValue == null ? '' : emailValue.toString().trim();
+
+    if (id.isEmpty && username.isEmpty && email.isEmpty) {
+      return null;
+    }
+
+    String resolvedRole = 'user';
+    final roles = claims['roles'];
+    if (roles is List && roles.isNotEmpty) {
+      resolvedRole = roles.first.toString();
+    } else if (roles is String && roles.isNotEmpty) {
+      resolvedRole = roles;
+    }
+
+    return User(
+      id: id.isNotEmpty
+          ? id
+          : (username.isNotEmpty ? username : email.ifEmptyReturn('user')),
+      username: username.ifEmptyReturn(
+        email.ifEmptyReturn(id.ifEmptyReturn('user')),
+      ),
+      email: email,
+      role: resolvedRole,
+      isActive: true,
+    );
+  }
+}
+
+extension _StringFallbackExtension on String {
+  String ifEmptyReturn(String fallback) => isEmpty ? fallback : this;
 }
 
 /// Provider for the unified auth state manager
@@ -707,7 +753,7 @@ final authTokenProvider2 = Provider<String?>((ref) {
   return ref.watch(authStateManagerProvider.select((state) => state.token));
 });
 
-final authUserProvider = Provider<dynamic>((ref) {
+final authUserProvider = Provider<User?>((ref) {
   return ref.watch(authStateManagerProvider.select((state) => state.user));
 });
 
