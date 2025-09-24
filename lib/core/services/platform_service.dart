@@ -336,10 +336,12 @@ class PlatformService {
       // on Android 15+. Only control icon brightness; colors come from theme + EdgeToEdge.
       SystemChrome.setSystemUIOverlayStyle(
         SystemUiOverlayStyle(
-          statusBarIconBrightness:
-              isDarkContent ? Brightness.dark : Brightness.light,
-          systemNavigationBarIconBrightness:
-              isDarkContent ? Brightness.dark : Brightness.light,
+          statusBarIconBrightness: isDarkContent
+              ? Brightness.dark
+              : Brightness.light,
+          systemNavigationBarIconBrightness: isDarkContent
+              ? Brightness.dark
+              : Brightness.light,
           // Do NOT set status/navigation bar colors on Android.
         ),
       );

@@ -229,7 +229,7 @@ class BrandService {
     return AppBar(
       title: Text(
         title,
-        style: context != null 
+        style: context != null
             ? context.conduitTheme.headingSmall?.copyWith(
                 color: context.conduitTheme.textPrimary,
                 fontWeight: FontWeight.w600,

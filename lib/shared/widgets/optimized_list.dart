@@ -130,7 +130,9 @@ class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
       return widget.emptyWidget ??
           ImprovedEmptyState(
             title: AppLocalizations.of(context)!.noItems,
-            subtitle: widget.emptyMessage ?? AppLocalizations.of(context)!.noItemsToDisplay,
+            subtitle:
+                widget.emptyMessage ??
+                AppLocalizations.of(context)!.noItemsToDisplay,
             icon: Icons.inbox_outlined,
           );
     }
@@ -138,7 +140,8 @@ class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
     // Build the list
     Widget listWidget;
 
-    final ScrollPhysics effectivePhysics = widget.physics ??
+    final ScrollPhysics effectivePhysics =
+        widget.physics ??
         (widget.onRefresh != null
             ? const AlwaysScrollableScrollPhysics()
             : const ClampingScrollPhysics());
@@ -276,14 +279,16 @@ class OptimizedSliverList<T> extends ConsumerWidget {
       return SliverToBoxAdapter(
         child:
             emptyWidget ??
-            Builder(builder: (context) {
-              final l10n = AppLocalizations.of(context)!;
-              return ImprovedEmptyState(
-                title: l10n.noItems,
-                subtitle: emptyMessage ?? l10n.noItemsToDisplay,
-                icon: Icons.inbox_outlined,
-              );
-            }),
+            Builder(
+              builder: (context) {
+                final l10n = AppLocalizations.of(context)!;
+                return ImprovedEmptyState(
+                  title: l10n.noItems,
+                  subtitle: emptyMessage ?? l10n.noItemsToDisplay,
+                  icon: Icons.inbox_outlined,
+                );
+              },
+            ),
       );
     }
 

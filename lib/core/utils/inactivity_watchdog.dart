@@ -10,8 +10,8 @@ class InactivityWatchdog {
     required Duration window,
     required this.onTimeout,
     Duration? absoluteCap,
-  })  : _window = window,
-        _absoluteCap = absoluteCap;
+  }) : _window = window,
+       _absoluteCap = absoluteCap;
 
   final void Function() onTimeout;
 
@@ -80,4 +80,3 @@ class InactivityWatchdog {
     } catch (_) {}
   }
 }
-

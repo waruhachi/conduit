@@ -43,12 +43,12 @@ class InputValidationService {
 
     try {
       final uri = Uri.parse(urlToValidate);
-      
+
       // Validate scheme
       if (!uri.hasScheme || (uri.scheme != 'http' && uri.scheme != 'https')) {
         return 'Use http:// or https:// only';
       }
-      
+
       // Validate host
       if (!uri.hasAuthority || uri.host.isEmpty) {
         return 'Please enter a server address (e.g., 192.168.1.10:3000)';
@@ -65,7 +65,6 @@ class InputValidationService {
       if (_isIPAddress(uri.host) && !_isValidIPAddress(uri.host)) {
         return 'Invalid IP address format (use 192.168.1.10)';
       }
-
     } catch (e) {
       return 'Invalid server address format';
     }
@@ -82,7 +81,7 @@ class InputValidationService {
   static bool _isValidIPAddress(String ip) {
     final parts = ip.split('.');
     if (parts.length != 4) return false;
-    
+
     for (final part in parts) {
       final num = int.tryParse(part);
       if (num == null || num < 0 || num > 255) return false;

@@ -22,17 +22,23 @@ sealed class Folder with _$Folder {
     // Extract conversation IDs from items.chats if available
     final items = json['items'] as Map<String, dynamic>?;
     final chats = items?['chats'] as List?;
-    
+
     // Handle both string IDs and conversation objects
-    final conversationIds = chats?.map((chat) {
-      if (chat is String) {
-        return chat;
-      } else if (chat is Map<String, dynamic>) {
-        return chat['id'] as String? ?? '';
-      }
-      return '';
-    }).where((id) => id.isNotEmpty).toList().cast<String>() ?? <String>[];
-    
+    final conversationIds =
+        chats
+            ?.map((chat) {
+              if (chat is String) {
+                return chat;
+              } else if (chat is Map<String, dynamic>) {
+                return chat['id'] as String? ?? '';
+              }
+              return '';
+            })
+            .where((id) => id.isNotEmpty)
+            .toList()
+            .cast<String>() ??
+        <String>[];
+
     // Handle Unix timestamp conversion
     DateTime? parseTimestamp(dynamic timestamp) {
       if (timestamp == null) return null;
@@ -44,7 +50,7 @@ sealed class Folder with _$Folder {
       }
       return null;
     }
-    
+
     // Create the modified JSON with proper field mapping
     return Folder(
       id: json['id'] as String,

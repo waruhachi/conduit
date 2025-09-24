@@ -751,10 +751,6 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
       fontFamily: AppTypography.monospaceFontFamily,
     ),
   );
-
-
-
-
 }
 
 /// Extension method to easily access Conduit theme from BuildContext

@@ -101,7 +101,8 @@ class ConduitButton extends ConsumerWidget {
           ),
           child: isLoading
               ? Semantics(
-                  label: AppLocalizations.of(context)?.loadingContent ?? 'Loading',
+                  label:
+                      AppLocalizations.of(context)?.loadingContent ?? 'Loading',
                   excludeSemantics: true,
                   child: SizedBox(
                     width: IconSize.small,
@@ -206,7 +207,10 @@ class ConduitInput extends StatelessWidget {
           SizedBox(height: Spacing.sm),
         ],
         Semantics(
-          label: semanticLabel ?? label ?? (AppLocalizations.of(context)?.inputField ?? 'Input field'),
+          label:
+              semanticLabel ??
+              label ??
+              (AppLocalizations.of(context)?.inputField ?? 'Input field'),
           textField: true,
           child: TextField(
             controller: controller,
@@ -784,7 +788,10 @@ class AccessibleFormField extends StatelessWidget {
           SizedBox(height: isCompact ? Spacing.xs : Spacing.sm),
         ],
         Semantics(
-          label: semanticLabel ?? label ?? (AppLocalizations.of(context)?.inputField ?? 'Input field'),
+          label:
+              semanticLabel ??
+              label ??
+              (AppLocalizations.of(context)?.inputField ?? 'Input field'),
           textField: true,
           child: TextFormField(
             controller: controller,

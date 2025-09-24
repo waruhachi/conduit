@@ -65,4 +65,3 @@ class _PressableScaleState extends State<PressableScale>
     );
   }
 }
-

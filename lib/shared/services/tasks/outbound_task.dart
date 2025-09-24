@@ -3,13 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'outbound_task.freezed.dart';
 part 'outbound_task.g.dart';
 
-enum TaskStatus {
-  queued,
-  running,
-  succeeded,
-  failed,
-  cancelled,
-}
+enum TaskStatus { queued, running, succeeded, failed, cancelled }
 
 @freezed
 abstract class OutboundTask with _$OutboundTask {
@@ -74,7 +68,6 @@ abstract class OutboundTask with _$OutboundTask {
     String? error,
   }) = GenerateImageTask;
 
-
   const factory OutboundTask.generateTitle({
     required String id,
     required String conversationId,
@@ -106,16 +99,16 @@ abstract class OutboundTask with _$OutboundTask {
 
   // Provide a unified nullable conversationId across variants
   String? get maybeConversationId => map(
-        sendTextMessage: (t) => t.conversationId,
-        uploadMedia: (t) => t.conversationId,
-        executeToolCall: (t) => t.conversationId,
-        generateImage: (t) => t.conversationId,
-        generateTitle: (t) => t.conversationId,
-        imageToDataUrl: (t) => t.conversationId,
-      );
+    sendTextMessage: (t) => t.conversationId,
+    uploadMedia: (t) => t.conversationId,
+    executeToolCall: (t) => t.conversationId,
+    generateImage: (t) => t.conversationId,
+    generateTitle: (t) => t.conversationId,
+    imageToDataUrl: (t) => t.conversationId,
+  );
 
   String get threadKey =>
       (maybeConversationId == null || maybeConversationId!.isEmpty)
-          ? 'new'
-          : maybeConversationId!;
+      ? 'new'
+      : maybeConversationId!;
 }

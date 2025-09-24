@@ -22,8 +22,9 @@ class MiddleEllipsisText extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final TextStyle effectiveStyle =
-            DefaultTextStyle.of(context).style.merge(style);
+        final TextStyle effectiveStyle = DefaultTextStyle.of(
+          context,
+        ).style.merge(style);
         final TextDirection direction = Directionality.of(context);
         final double maxWidth = constraints.maxWidth;
 
@@ -74,8 +75,10 @@ class MiddleEllipsisText extends StatelessWidget {
               ? ''
               : text.substring(text.length - rightCount);
 
-          final trialSpan =
-              TextSpan(text: '$start$ellipsis$end', style: effectiveStyle);
+          final trialSpan = TextSpan(
+            text: '$start$ellipsis$end',
+            style: effectiveStyle,
+          );
           final trialPainter = TextPainter(
             text: trialSpan,
             textDirection: direction,
@@ -116,4 +119,3 @@ class MiddleEllipsisText extends StatelessWidget {
     );
   }
 }
-

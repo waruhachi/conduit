@@ -9,15 +9,18 @@ class SheetHandle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Container(
-        margin: margin ?? const EdgeInsets.only(top: Spacing.sm, bottom: Spacing.md),
+        margin:
+            margin ??
+            const EdgeInsets.only(top: Spacing.sm, bottom: Spacing.md),
         width: 40,
         height: 4,
         decoration: BoxDecoration(
-          color: context.conduitTheme.textPrimary.withValues(alpha: Alpha.medium),
+          color: context.conduitTheme.textPrimary.withValues(
+            alpha: Alpha.medium,
+          ),
           borderRadius: BorderRadius.circular(AppBorderRadius.xs),
         ),
       ),
     );
   }
 }
-

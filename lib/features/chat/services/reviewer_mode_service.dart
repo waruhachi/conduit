@@ -44,35 +44,36 @@ class ReviewerModeService {
     bool isVoiceInput = false,
   }) {
     final lowerMessage = userMessage.toLowerCase();
-    
+
     // Determine response category
     String category = 'general';
-    
-    if (lowerMessage.contains('hello') || 
-        lowerMessage.contains('hi') || 
+
+    if (lowerMessage.contains('hello') ||
+        lowerMessage.contains('hi') ||
         lowerMessage.contains('hey') ||
         lowerMessage.contains('greet')) {
       category = 'greeting';
-    } else if (lowerMessage.contains('code') || 
-               lowerMessage.contains('program') || 
-               lowerMessage.contains('function') ||
-               lowerMessage.contains('debug')) {
+    } else if (lowerMessage.contains('code') ||
+        lowerMessage.contains('program') ||
+        lowerMessage.contains('function') ||
+        lowerMessage.contains('debug')) {
       category = 'code';
-    } else if (lowerMessage.contains('feature') || 
-               lowerMessage.contains('capability') || 
-               lowerMessage.contains('what can') ||
-               lowerMessage.contains('help')) {
+    } else if (lowerMessage.contains('feature') ||
+        lowerMessage.contains('capability') ||
+        lowerMessage.contains('what can') ||
+        lowerMessage.contains('help')) {
       category = 'features';
     } else if (filename != null) {
       category = 'attachments';
     } else if (isVoiceInput) {
       category = 'voice';
     }
-    
+
     // Get responses for category
-    final responses = _cannedResponses[category] ?? _cannedResponses['general']!;
+    final responses =
+        _cannedResponses[category] ?? _cannedResponses['general']!;
     final response = responses[_random.nextInt(responses.length)];
-    
+
     // Replace placeholders
     return response
         .replaceAll('{query}', userMessage)

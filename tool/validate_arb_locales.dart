@@ -56,12 +56,16 @@ Future<void> main(List<String> args) async {
       if (trPh == null) {
         // If string exists but no meta placeholders, warn only.
         if (keys.contains(k) && basePh.isNotEmpty) {
-          warnings.add('[${f.path}] Key "$k" missing @meta placeholders; base has ${basePh.toList()..sort()}');
+          warnings.add(
+            '[${f.path}] Key "$k" missing @meta placeholders; base has ${basePh.toList()..sort()}',
+          );
         }
         continue;
       }
       if (basePh.length != trPh.length || !basePh.containsAll(trPh)) {
-        warnings.add('[${f.path}] Placeholder mismatch for "$k": expected ${basePh.toList()..sort()}, got ${trPh.toList()..sort()}');
+        warnings.add(
+          '[${f.path}] Placeholder mismatch for "$k": expected ${basePh.toList()..sort()}, got ${trPh.toList()..sort()}',
+        );
       }
     }
   }
@@ -96,9 +100,7 @@ Map<String, dynamic> _readJson(File f) {
 }
 
 Set<String> _nonMetaKeys(Map<String, dynamic> m) {
-  return m.keys
-      .where((k) => !k.startsWith('@') && k != '@@locale')
-      .toSet();
+  return m.keys.where((k) => !k.startsWith('@') && k != '@@locale').toSet();
 }
 
 Map<String, Set<String>> _placeholdersMap(Map<String, dynamic> m) {

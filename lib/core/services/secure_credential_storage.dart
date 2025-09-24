@@ -9,10 +9,12 @@ class SecureCredentialStorage {
   late final FlutterSecureStorage _secureStorage;
 
   SecureCredentialStorage({FlutterSecureStorage? instance}) {
-    _secureStorage = instance ?? FlutterSecureStorage(
-      aOptions: _getAndroidOptions(),
-      iOptions: _getIOSOptions(),
-    );
+    _secureStorage =
+        instance ??
+        FlutterSecureStorage(
+          aOptions: _getAndroidOptions(),
+          iOptions: _getIOSOptions(),
+        );
   }
 
   static const String _credentialsKey = 'user_credentials_v2';

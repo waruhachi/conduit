@@ -348,8 +348,13 @@ class LoadingStateWrapper<T> extends StatelessWidget {
     return asyncValue.when(
       data: builder,
       loading: () => showLoadingOverlay
-          ? ConduitLoading.overlay(message: AppLocalizations.of(context)!.loadingContent)
-          : loadingWidget ?? ConduitLoading.primary(message: AppLocalizations.of(context)!.loadingContent),
+          ? ConduitLoading.overlay(
+              message: AppLocalizations.of(context)!.loadingContent,
+            )
+          : loadingWidget ??
+                ConduitLoading.primary(
+                  message: AppLocalizations.of(context)!.loadingContent,
+                ),
       error: (error, stackTrace) {
         if (errorBuilder != null) {
           return errorBuilder!(error, stackTrace);

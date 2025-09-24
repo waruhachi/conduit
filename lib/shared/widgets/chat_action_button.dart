@@ -31,7 +31,8 @@ class _ChatActionButtonState extends ConsumerState<ChatActionButton> {
   Widget build(BuildContext context) {
     final theme = context.conduitTheme;
     final hapticEnabled = ref.read(hapticEnabledProvider);
-    final radius = widget.borderRadius ?? BorderRadius.circular(AppBorderRadius.lg);
+    final radius =
+        widget.borderRadius ?? BorderRadius.circular(AppBorderRadius.lg);
     final overlay = theme.buttonPrimary.withValues(alpha: 0.08);
 
     return Tooltip(
@@ -100,4 +101,3 @@ class _ChatActionButtonState extends ConsumerState<ChatActionButton> {
     );
   }
 }
-

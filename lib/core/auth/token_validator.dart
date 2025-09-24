@@ -15,7 +15,9 @@ class TokenValidator {
       }
 
       // Check if it's an API key format (starts with sk- or similar)
-      if (token.startsWith('sk-') || token.startsWith('api-') || token.startsWith('key-')) {
+      if (token.startsWith('sk-') ||
+          token.startsWith('api-') ||
+          token.startsWith('key-')) {
         // API key format - validate differently
         if (token.length < 20) {
           return TokenValidationResult.invalid('API key too short');

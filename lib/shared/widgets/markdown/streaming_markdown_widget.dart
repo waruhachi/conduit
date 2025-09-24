@@ -20,7 +20,8 @@ class StreamingMarkdownWidget extends StatefulWidget {
   });
 
   @override
-  State<StreamingMarkdownWidget> createState() => _StreamingMarkdownWidgetState();
+  State<StreamingMarkdownWidget> createState() =>
+      _StreamingMarkdownWidgetState();
 }
 
 class _StreamingMarkdownWidgetState extends State<StreamingMarkdownWidget> {
@@ -59,38 +60,38 @@ class _StreamingMarkdownWidgetState extends State<StreamingMarkdownWidget> {
     if (fenceCount % 2 != 0) {
       content += '\n```';
     }
-    
+
     // Fix incomplete bold/italic markers
     final boldCount = RegExp(r'\*\*').allMatches(content).length;
     if (boldCount % 2 != 0) {
       content += '**';
     }
-    
+
     final italicCount = RegExp(r'(?<!\*)\*(?!\*)').allMatches(content).length;
     if (italicCount % 2 != 0) {
       content += '*';
     }
-    
+
     // Fix incomplete link brackets
     final openBrackets = '['.allMatches(content).length;
     final closeBrackets = ']'.allMatches(content).length;
     if (openBrackets > closeBrackets) {
       content += ']' * (openBrackets - closeBrackets);
     }
-    
+
     final openParens = '('.allMatches(content).length;
     final closeParens = ')'.allMatches(content).length;
     if (openParens > closeParens) {
       content += ')' * (openParens - closeParens);
     }
-    
+
     return content;
   }
 
   @override
   void didUpdateWidget(StreamingMarkdownWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // Handle stream changes
     if (widget.contentStream != oldWidget.contentStream) {
       _streamSubscription?.cancel();
@@ -98,7 +99,7 @@ class _StreamingMarkdownWidgetState extends State<StreamingMarkdownWidget> {
         _streamSubscription = widget.contentStream!.listen(_handleChunk);
       }
     }
-    
+
     // Handle static content changes
     if (widget.staticContent != oldWidget.staticContent) {
       setState(() {
@@ -182,9 +183,7 @@ class MarkdownWithLoading extends StatelessWidget {
     if (isLoading && (content == null || content!.isEmpty)) {
       return Container(
         padding: padding ?? const EdgeInsets.all(16),
-        child: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        child: const Center(child: CircularProgressIndicator()),
       );
     }
 

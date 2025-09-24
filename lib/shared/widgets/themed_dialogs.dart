@@ -145,8 +145,10 @@ class ThemedDialogs {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                    borderSide:
-                        BorderSide(color: theme.buttonPrimary, width: 1),
+                    borderSide: BorderSide(
+                      color: theme.buttonPrimary,
+                      width: 1,
+                    ),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: Spacing.md,
@@ -155,8 +157,8 @@ class ThemedDialogs {
                 ),
                 onSubmitted: (v) {
                   final trimmed = v.trim();
-                  final unchanged = (initialValue != null &&
-                      trimmed == initialValue.trim());
+                  final unchanged =
+                      (initialValue != null && trimmed == initialValue.trim());
                   if (trimmed.isEmpty || unchanged) return;
                   Navigator.of(ctx).pop(trimmed);
                 },

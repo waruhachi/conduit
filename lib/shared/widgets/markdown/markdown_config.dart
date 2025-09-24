@@ -155,7 +155,11 @@ class ConduitMarkdownConfig {
     );
   }
 
-  static Widget _buildBase64Image(String dataUrl, BuildContext context, ConduitThemeExtension theme) {
+  static Widget _buildBase64Image(
+    String dataUrl,
+    BuildContext context,
+    ConduitThemeExtension theme,
+  ) {
     try {
       // Extract base64 part from data URL
       final commaIndex = dataUrl.indexOf(',');

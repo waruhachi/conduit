@@ -42,7 +42,9 @@ Future<void> main() async {
   }
 
   if (missingMeta.isEmpty && missingDescription.isEmpty) {
-    stdout.writeln('ARB descriptions check passed: all keys have @meta.description.');
+    stdout.writeln(
+      'ARB descriptions check passed: all keys have @meta.description.',
+    );
     return;
   }
 
@@ -53,11 +55,12 @@ Future<void> main() async {
     }
   }
   if (missingDescription.isNotEmpty) {
-    stderr.writeln('Missing description in @meta for keys (${missingDescription.length}):');
+    stderr.writeln(
+      'Missing description in @meta for keys (${missingDescription.length}):',
+    );
     for (final k in missingDescription) {
       stderr.writeln(' - $k');
     }
   }
   exit(1);
 }
-
