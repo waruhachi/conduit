@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:flutter/material.dart' hide debugPrint;
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -13,11 +13,6 @@ import 'package:conduit/l10n/app_localizations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../auth/providers/unified_auth_providers.dart';
 import '../../../core/utils/debug_logger.dart';
-
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'chat/image-attachment');
-}
 
 // Simple global cache to prevent reloading
 final _globalImageCache = <String, String>{};
@@ -696,7 +691,10 @@ class FullScreenImageViewer extends ConsumerWidget {
       await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
     } catch (e) {
       // Swallowing UI feedback per requirements; keep a log for debugging
-      debugPrint('Failed to share image: $e');
+      DebugLogger.log(
+        'Failed to share image: $e',
+        scope: 'chat/image-attachment',
+      );
     }
   }
 }

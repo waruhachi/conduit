@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart' hide debugPrint;
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 // import 'package:http_parser/http_parser.dart';
 // Removed legacy websocket/socket.io imports
@@ -17,15 +17,15 @@ import '../error/api_error_interceptor.dart';
 import 'persistent_streaming_service.dart';
 import '../utils/debug_logger.dart';
 
-const bool _enableLegacyApiLogs = false;
+const bool _traceApiLogs = false;
 const bool _traceConversationParsing = false;
 const bool _traceFullChatParsing = false;
 
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (!_enableLegacyApiLogs || message == null) {
+void _traceApi(String message) {
+  if (!_traceApiLogs) {
     return;
   }
-  DebugLogger.fromLegacy(message, scope: 'api/legacy');
+  DebugLogger.log(message, scope: 'api/trace');
 }
 
 class ApiService {
@@ -309,15 +309,15 @@ class ApiService {
 
         // Safety break to avoid infinite loops (adjust as needed)
         if (currentPage > 100) {
-          debugPrint(
+          _traceApi(
             'WARNING: Reached maximum page limit (100), stopping pagination',
           );
           break;
         }
       }
 
-      debugPrint(
-        'DEBUG: Fetched total of ${allRegularChats.length} conversations across $currentPage pages',
+      _traceApi(
+        'Fetched total of ${allRegularChats.length} conversations across $currentPage pages',
       );
     } else {
       // Original single page fetch
@@ -1257,8 +1257,8 @@ class ApiService {
     String? model,
     String? systemPrompt,
   }) async {
-    debugPrint('DEBUG: Creating new conversation on OpenWebUI server');
-    debugPrint('DEBUG: Title: $title, Messages: ${messages.length}');
+    _traceApi('Creating new conversation on OpenWebUI server');
+    _traceApi('Title: $title, Messages: ${messages.length}');
 
     // Build messages with parent-child relationships
     final Map<String, dynamic> messagesMap = {};
@@ -1320,8 +1320,8 @@ class ApiService {
       'folder_id': null,
     };
 
-    debugPrint('DEBUG: Sending chat data with proper parent-child structure');
-    debugPrint('DEBUG: Request data: $chatData');
+    _traceApi('Sending chat data with proper parent-child structure');
+    _traceApi('Request data: $chatData');
 
     final response = await _dio.post('/api/v1/chats/new', data: chatData);
 
@@ -1345,8 +1345,8 @@ class ApiService {
     String? model,
     String? systemPrompt,
   }) async {
-    debugPrint(
-      'DEBUG: Syncing conversation $conversationId with ${messages.length} messages',
+    _traceApi(
+      'Syncing conversation $conversationId with ${messages.length} messages',
     );
 
     // Build messages map and array in OpenWebUI format
@@ -1425,7 +1425,7 @@ class ApiService {
       },
     };
 
-    debugPrint('DEBUG: Syncing chat with OpenWebUI format data using POST');
+    _traceApi('Syncing chat with OpenWebUI format data using POST');
 
     // OpenWebUI uses POST not PUT for updating chats
     await _dio.post('/api/v1/chats/$conversationId', data: chatData);
@@ -1452,21 +1452,19 @@ class ApiService {
 
   // Pin/Unpin conversation
   Future<void> pinConversation(String id, bool pinned) async {
-    debugPrint('DEBUG: ${pinned ? 'Pinning' : 'Unpinning'} conversation: $id');
+    _traceApi('${pinned ? 'Pinning' : 'Unpinning'} conversation: $id');
     await _dio.post('/api/v1/chats/$id/pin', data: {'pinned': pinned});
   }
 
   // Archive/Unarchive conversation
   Future<void> archiveConversation(String id, bool archived) async {
-    debugPrint(
-      'DEBUG: ${archived ? 'Archiving' : 'Unarchiving'} conversation: $id',
-    );
+    _traceApi('${archived ? 'Archiving' : 'Unarchiving'} conversation: $id');
     await _dio.post('/api/v1/chats/$id/archive', data: {'archived': archived});
   }
 
   // Share conversation
   Future<String?> shareConversation(String id) async {
-    debugPrint('DEBUG: Sharing conversation: $id');
+    _traceApi('Sharing conversation: $id');
     final response = await _dio.post('/api/v1/chats/$id/share');
     final data = response.data as Map<String, dynamic>;
     return data['share_id'] as String?;
@@ -1474,27 +1472,27 @@ class ApiService {
 
   // Clone conversation
   Future<Conversation> cloneConversation(String id) async {
-    debugPrint('DEBUG: Cloning conversation: $id');
+    _traceApi('Cloning conversation: $id');
     final response = await _dio.post('/api/v1/chats/$id/clone');
     return _parseFullOpenWebUIChat(response.data as Map<String, dynamic>);
   }
 
   // User Settings
   Future<Map<String, dynamic>> getUserSettings() async {
-    debugPrint('DEBUG: Fetching user settings');
+    _traceApi('Fetching user settings');
     final response = await _dio.get('/api/v1/users/user/settings');
     return response.data as Map<String, dynamic>;
   }
 
   Future<void> updateUserSettings(Map<String, dynamic> settings) async {
-    debugPrint('DEBUG: Updating user settings');
+    _traceApi('Updating user settings');
     // Align with web client update route
     await _dio.post('/api/v1/users/user/settings/update', data: settings);
   }
 
   // Suggestions
   Future<List<String>> getSuggestions() async {
-    debugPrint('DEBUG: Fetching conversation suggestions');
+    _traceApi('Fetching conversation suggestions');
     final response = await _dio.get('/api/v1/configs/suggestions');
     final data = response.data;
     if (data is List) {
@@ -1505,7 +1503,7 @@ class ApiService {
 
   // Tools - Check available tools on server
   Future<List<Map<String, dynamic>>> getAvailableTools() async {
-    debugPrint('DEBUG: Fetching available tools');
+    _traceApi('Fetching available tools');
     try {
       final response = await _dio.get('/api/v1/tools/');
       final data = response.data;
@@ -1513,7 +1511,7 @@ class ApiService {
         return data.cast<Map<String, dynamic>>();
       }
     } catch (e) {
-      debugPrint('DEBUG: Error fetching tools: $e');
+      _traceApi('Error fetching tools: $e');
     }
     return [];
   }
@@ -1531,7 +1529,7 @@ class ApiService {
 
       final data = response.data;
       if (data is List) {
-        debugPrint('DEBUG: Found ${data.length} folders');
+        _traceApi('Found ${data.length} folders');
         return data.cast<Map<String, dynamic>>();
       } else {
         DebugLogger.warning(
@@ -1551,7 +1549,7 @@ class ApiService {
     required String name,
     String? parentId,
   }) async {
-    debugPrint('DEBUG: Creating folder: $name');
+    _traceApi('Creating folder: $name');
     final response = await _dio.post(
       '/api/v1/folders/',
       data: {'name': name, if (parentId != null) 'parent_id': parentId},
@@ -1560,7 +1558,7 @@ class ApiService {
   }
 
   Future<void> updateFolder(String id, {String? name, String? parentId}) async {
-    debugPrint('DEBUG: Updating folder: $id');
+    _traceApi('Updating folder: $id');
     // OpenWebUI folder update endpoints:
     // - POST /api/v1/folders/{id}/update          -> rename (FolderForm)
     // - POST /api/v1/folders/{id}/update/parent   -> move parent (FolderParentIdForm)
@@ -1577,7 +1575,7 @@ class ApiService {
   }
 
   Future<void> deleteFolder(String id) async {
-    debugPrint('DEBUG: Deleting folder: $id');
+    _traceApi('Deleting folder: $id');
     await _dio.delete('/api/v1/folders/$id');
   }
 
@@ -1585,9 +1583,7 @@ class ApiService {
     String conversationId,
     String? folderId,
   ) async {
-    debugPrint(
-      'DEBUG: Moving conversation $conversationId to folder $folderId',
-    );
+    _traceApi('Moving conversation $conversationId to folder $folderId');
     await _dio.post(
       '/api/v1/chats/$conversationId/folder',
       data: {'folder_id': folderId},
@@ -1595,7 +1591,7 @@ class ApiService {
   }
 
   Future<List<Conversation>> getConversationsInFolder(String folderId) async {
-    debugPrint('DEBUG: Fetching conversations in folder: $folderId');
+    _traceApi('Fetching conversations in folder: $folderId');
     final response = await _dio.get('/api/v1/chats/folder/$folderId');
     final data = response.data;
     if (data is List) {
@@ -1606,7 +1602,7 @@ class ApiService {
 
   // Tags
   Future<List<String>> getConversationTags(String conversationId) async {
-    debugPrint('DEBUG: Fetching tags for conversation: $conversationId');
+    _traceApi('Fetching tags for conversation: $conversationId');
     final response = await _dio.get('/api/v1/chats/$conversationId/tags');
     final data = response.data;
     if (data is List) {
@@ -1616,7 +1612,7 @@ class ApiService {
   }
 
   Future<void> addTagToConversation(String conversationId, String tag) async {
-    debugPrint('DEBUG: Adding tag "$tag" to conversation: $conversationId');
+    _traceApi('Adding tag "$tag" to conversation: $conversationId');
     await _dio.post('/api/v1/chats/$conversationId/tags', data: {'tag': tag});
   }
 
@@ -1624,12 +1620,12 @@ class ApiService {
     String conversationId,
     String tag,
   ) async {
-    debugPrint('DEBUG: Removing tag "$tag" from conversation: $conversationId');
+    _traceApi('Removing tag "$tag" from conversation: $conversationId');
     await _dio.delete('/api/v1/chats/$conversationId/tags/$tag');
   }
 
   Future<List<String>> getAllTags() async {
-    debugPrint('DEBUG: Fetching all available tags');
+    _traceApi('Fetching all available tags');
     final response = await _dio.get('/api/v1/chats/tags');
     final data = response.data;
     if (data is List) {
@@ -1639,7 +1635,7 @@ class ApiService {
   }
 
   Future<List<Conversation>> getConversationsByTag(String tag) async {
-    debugPrint('DEBUG: Fetching conversations with tag: $tag');
+    _traceApi('Fetching conversations with tag: $tag');
     final response = await _dio.get('/api/v1/chats/tags/$tag');
     final data = response.data;
     if (data is List) {
@@ -1650,7 +1646,7 @@ class ApiService {
 
   // Files
   Future<String> getFileContent(String fileId) async {
-    debugPrint('DEBUG: Fetching file content: $fileId');
+    _traceApi('Fetching file content: $fileId');
     // The Open-WebUI endpoint returns the raw file bytes with appropriate
     // Content-Type headers, not JSON. We must read bytes and base64-encode
     // them for consistent handling across platforms/widgets.
@@ -1683,13 +1679,13 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> getFileInfo(String fileId) async {
-    debugPrint('DEBUG: Fetching file info: $fileId');
+    _traceApi('Fetching file info: $fileId');
     final response = await _dio.get('/api/v1/files/$fileId');
     return response.data as Map<String, dynamic>;
   }
 
   Future<List<Map<String, dynamic>>> getUserFiles() async {
-    debugPrint('DEBUG: Fetching user files');
+    _traceApi('Fetching user files');
     final response = await _dio.get('/api/v1/files/');
     final data = response.data;
     if (data is List) {
@@ -1705,7 +1701,7 @@ class ApiService {
     int? limit,
     int? offset,
   }) async {
-    debugPrint('DEBUG: Searching files with query: $query');
+    _traceApi('Searching files with query: $query');
     final queryParams = <String, dynamic>{};
     if (query != null) queryParams['q'] = query;
     if (contentType != null) queryParams['content_type'] = contentType;
@@ -1724,7 +1720,7 @@ class ApiService {
   }
 
   Future<List<Map<String, dynamic>>> getAllFiles() async {
-    debugPrint('DEBUG: Fetching all files (admin)');
+    _traceApi('Fetching all files (admin)');
     final response = await _dio.get('/api/v1/files/all');
     final data = response.data;
     if (data is List) {
@@ -1738,7 +1734,7 @@ class ApiService {
     String fileName, {
     Function(int sent, int total)? onProgress,
   }) async {
-    debugPrint('DEBUG: Uploading file with progress: $fileName');
+    _traceApi('Uploading file with progress: $fileName');
 
     final formData = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath, filename: fileName),
@@ -1757,7 +1753,7 @@ class ApiService {
     String fileId,
     String content,
   ) async {
-    debugPrint('DEBUG: Updating file content: $fileId');
+    _traceApi('Updating file content: $fileId');
     final response = await _dio.post(
       '/api/v1/files/$fileId/data/content/update',
       data: {'content': content},
@@ -1766,13 +1762,13 @@ class ApiService {
   }
 
   Future<String> getFileHtmlContent(String fileId) async {
-    debugPrint('DEBUG: Fetching file HTML content: $fileId');
+    _traceApi('Fetching file HTML content: $fileId');
     final response = await _dio.get('/api/v1/files/$fileId/content/html');
     return response.data as String;
   }
 
   Future<void> deleteFile(String fileId) async {
-    debugPrint('DEBUG: Deleting file: $fileId');
+    _traceApi('Deleting file: $fileId');
     await _dio.delete('/api/v1/files/$fileId');
   }
 
@@ -1781,7 +1777,7 @@ class ApiService {
     String? filename,
     Map<String, dynamic>? metadata,
   }) async {
-    debugPrint('DEBUG: Updating file metadata: $fileId');
+    _traceApi('Updating file metadata: $fileId');
     final response = await _dio.put(
       '/api/v1/files/$fileId/metadata',
       data: {
@@ -1797,7 +1793,7 @@ class ApiService {
     String? operation,
     Map<String, dynamic>? options,
   }) async {
-    debugPrint('DEBUG: Processing files batch: ${fileIds.length} files');
+    _traceApi('Processing files batch: ${fileIds.length} files');
     final response = await _dio.post(
       '/api/v1/retrieval/process/files/batch',
       data: {
@@ -1814,7 +1810,7 @@ class ApiService {
   }
 
   Future<List<Map<String, dynamic>>> getFilesByType(String contentType) async {
-    debugPrint('DEBUG: Fetching files by type: $contentType');
+    _traceApi('Fetching files by type: $contentType');
     final response = await _dio.get(
       '/api/v1/files/',
       queryParameters: {'content_type': contentType},
@@ -1827,14 +1823,14 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> getFileStats() async {
-    debugPrint('DEBUG: Fetching file statistics');
+    _traceApi('Fetching file statistics');
     final response = await _dio.get('/api/v1/files/stats');
     return response.data as Map<String, dynamic>;
   }
 
   // Knowledge Base
   Future<List<Map<String, dynamic>>> getKnowledgeBases() async {
-    debugPrint('DEBUG: Fetching knowledge bases');
+    _traceApi('Fetching knowledge bases');
     final response = await _dio.get('/api/v1/knowledge/');
     final data = response.data;
     if (data is List) {
@@ -1847,7 +1843,7 @@ class ApiService {
     required String name,
     String? description,
   }) async {
-    debugPrint('DEBUG: Creating knowledge base: $name');
+    _traceApi('Creating knowledge base: $name');
     final response = await _dio.post(
       '/api/v1/knowledge/',
       data: {'name': name, if (description != null) 'description': description},
@@ -1860,7 +1856,7 @@ class ApiService {
     String? name,
     String? description,
   }) async {
-    debugPrint('DEBUG: Updating knowledge base: $id');
+    _traceApi('Updating knowledge base: $id');
     await _dio.put(
       '/api/v1/knowledge/$id',
       data: {
@@ -1871,14 +1867,14 @@ class ApiService {
   }
 
   Future<void> deleteKnowledgeBase(String id) async {
-    debugPrint('DEBUG: Deleting knowledge base: $id');
+    _traceApi('Deleting knowledge base: $id');
     await _dio.delete('/api/v1/knowledge/$id');
   }
 
   Future<List<Map<String, dynamic>>> getKnowledgeBaseItems(
     String knowledgeBaseId,
   ) async {
-    debugPrint('DEBUG: Fetching knowledge base items: $knowledgeBaseId');
+    _traceApi('Fetching knowledge base items: $knowledgeBaseId');
     final response = await _dio.get('/api/v1/knowledge/$knowledgeBaseId/items');
     final data = response.data;
     if (data is List) {
@@ -1893,7 +1889,7 @@ class ApiService {
     String? title,
     Map<String, dynamic>? metadata,
   }) async {
-    debugPrint('DEBUG: Adding item to knowledge base: $knowledgeBaseId');
+    _traceApi('Adding item to knowledge base: $knowledgeBaseId');
     final response = await _dio.post(
       '/api/v1/knowledge/$knowledgeBaseId/items',
       data: {
@@ -1909,7 +1905,7 @@ class ApiService {
     String knowledgeBaseId,
     String query,
   ) async {
-    debugPrint('DEBUG: Searching knowledge base: $knowledgeBaseId for: $query');
+    _traceApi('Searching knowledge base: $knowledgeBaseId for: $query');
     final response = await _dio.post(
       '/api/v1/knowledge/$knowledgeBaseId/search',
       data: {'query': query},
@@ -1923,7 +1919,7 @@ class ApiService {
 
   // Web Search
   Future<Map<String, dynamic>> performWebSearch(List<String> queries) async {
-    debugPrint('DEBUG: Performing web search for queries: $queries');
+    _traceApi('Performing web search for queries: $queries');
     try {
       final response = await _dio.post(
         '/api/v1/retrieval/process/web/search',
@@ -1944,10 +1940,10 @@ class ApiService {
 
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      debugPrint('DEBUG: Web search API error: $e');
+      _traceApi('Web search API error: $e');
       if (e is DioException) {
         DebugLogger.error('error-response', scope: 'api/web-search', error: e);
-        debugPrint('DEBUG: Web search error status: ${e.response?.statusCode}');
+        _traceApi('Web search error status: ${e.response?.statusCode}');
       }
       rethrow;
     }
@@ -1967,7 +1963,7 @@ class ApiService {
         return modelData;
       }
     } catch (e) {
-      debugPrint('DEBUG: Failed to get model details for $modelId: $e');
+      _traceApi('Failed to get model details for $modelId: $e');
     }
     return null;
   }
@@ -1981,9 +1977,7 @@ class ApiService {
     Map<String, dynamic>? modelItem,
     String? sessionId,
   }) async {
-    debugPrint(
-      'DEBUG: Sending chat completed notification (optional endpoint)',
-    );
+    _traceApi('Sending chat completed notification (optional endpoint)');
 
     // This endpoint appears to be optional or deprecated in newer OpenWebUI versions
     // The main chat synchronization happens through /api/v1/chats/{id} updates
@@ -2031,11 +2025,11 @@ class ApiService {
           receiveTimeout: const Duration(seconds: 4),
         ),
       );
-      debugPrint('DEBUG: Chat completed response: ${response.statusCode}');
+      _traceApi('Chat completed response: ${response.statusCode}');
     } catch (e) {
       // This is a non-critical endpoint - main sync happens via /api/v1/chats/{id}
-      debugPrint(
-        'DEBUG: Chat completed endpoint not available or failed (non-critical): $e',
+      _traceApi(
+        'Chat completed endpoint not available or failed (non-critical): $e',
       );
     }
   }
@@ -2045,9 +2039,7 @@ class ApiService {
     String collectionName,
     String query,
   ) async {
-    debugPrint(
-      'DEBUG: Querying collection: $collectionName with query: $query',
-    );
+    _traceApi('Querying collection: $collectionName with query: $query');
     try {
       final response = await _dio.post(
         '/api/v1/retrieval/query/collection',
@@ -2058,12 +2050,8 @@ class ApiService {
         },
       );
 
-      debugPrint(
-        'DEBUG: Collection query response status: ${response.statusCode}',
-      );
-      debugPrint(
-        'DEBUG: Collection query response type: ${response.data.runtimeType}',
-      );
+      _traceApi('Collection query response status: ${response.statusCode}');
+      _traceApi('Collection query response type: ${response.data.runtimeType}');
       DebugLogger.log(
         'query-ok',
         scope: 'api/collection',
@@ -2086,14 +2074,10 @@ class ApiService {
 
       return [];
     } catch (e) {
-      debugPrint('DEBUG: Collection query API error: $e');
+      _traceApi('Collection query API error: $e');
       if (e is DioException) {
-        debugPrint(
-          'DEBUG: Collection query error response: ${e.response?.data}',
-        );
-        debugPrint(
-          'DEBUG: Collection query error status: ${e.response?.statusCode}',
-        );
+        _traceApi('Collection query error response: ${e.response?.data}');
+        _traceApi('Collection query error status: ${e.response?.statusCode}');
       }
       rethrow;
     }
@@ -2101,25 +2085,19 @@ class ApiService {
 
   // Get retrieval configuration to check web search settings
   Future<Map<String, dynamic>> getRetrievalConfig() async {
-    debugPrint('DEBUG: Getting retrieval configuration');
+    _traceApi('Getting retrieval configuration');
     try {
       final response = await _dio.get('/api/v1/retrieval/config');
 
-      debugPrint(
-        'DEBUG: Retrieval config response status: ${response.statusCode}',
-      );
+      _traceApi('Retrieval config response status: ${response.statusCode}');
       DebugLogger.log('config-ok', scope: 'api/retrieval');
 
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      debugPrint('DEBUG: Retrieval config API error: $e');
+      _traceApi('Retrieval config API error: $e');
       if (e is DioException) {
-        debugPrint(
-          'DEBUG: Retrieval config error response: ${e.response?.data}',
-        );
-        debugPrint(
-          'DEBUG: Retrieval config error status: ${e.response?.statusCode}',
-        );
+        _traceApi('Retrieval config error response: ${e.response?.data}');
+        _traceApi('Retrieval config error status: ${e.response?.statusCode}');
       }
       rethrow;
     }
@@ -2127,7 +2105,7 @@ class ApiService {
 
   // Audio
   Future<List<String>> getAvailableVoices() async {
-    debugPrint('DEBUG: Fetching available voices');
+    _traceApi('Fetching available voices');
     final response = await _dio.get('/api/v1/audio/voices');
     final data = response.data;
     if (data is List) {
@@ -2141,7 +2119,7 @@ class ApiService {
     String? voice,
   }) async {
     final textPreview = text.length > 50 ? text.substring(0, 50) : text;
-    debugPrint('DEBUG: Generating speech for text: $textPreview...');
+    _traceApi('Generating speech for text: $textPreview...');
     final response = await _dio.post(
       '/api/v1/audio/speech',
       data: {'text': text, if (voice != null) 'voice': voice},
@@ -2158,7 +2136,7 @@ class ApiService {
 
   // Image Generation
   Future<List<Map<String, dynamic>>> getImageModels() async {
-    debugPrint('DEBUG: Fetching image generation models');
+    _traceApi('Fetching image generation models');
     final response = await _dio.get('/api/v1/images/models');
     final data = response.data;
     if (data is List) {
@@ -2176,7 +2154,7 @@ class ApiService {
     double? guidance,
   }) async {
     final promptPreview = prompt.length > 50 ? prompt.substring(0, 50) : prompt;
-    debugPrint('DEBUG: Generating image with prompt: $promptPreview...');
+    _traceApi('Generating image with prompt: $promptPreview...');
     try {
       final response = await _dio.post(
         '/api/v1/images/generations',
@@ -2191,7 +2169,7 @@ class ApiService {
       );
       return response.data;
     } on DioException catch (e) {
-      debugPrint('DEBUG: images/generations failed: ${e.response?.statusCode}');
+      _traceApi('images/generations failed: ${e.response?.statusCode}');
       DebugLogger.error(
         'images-generate-failed',
         scope: 'api/images',
@@ -2205,7 +2183,7 @@ class ApiService {
 
   // Prompts
   Future<List<Map<String, dynamic>>> getPrompts() async {
-    debugPrint('DEBUG: Fetching prompts');
+    _traceApi('Fetching prompts');
     final response = await _dio.get('/api/v1/prompts/');
     final data = response.data;
     if (data is List) {
@@ -2216,17 +2194,15 @@ class ApiService {
 
   // Permissions & Features
   Future<Map<String, dynamic>> getUserPermissions() async {
-    debugPrint('DEBUG: Fetching user permissions');
+    _traceApi('Fetching user permissions');
     try {
       final response = await _dio.get('/api/v1/users/permissions');
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      debugPrint('DEBUG: Error fetching user permissions: $e');
+      _traceApi('Error fetching user permissions: $e');
       if (e is DioException) {
-        debugPrint('DEBUG: Permissions error response: ${e.response?.data}');
-        debugPrint(
-          'DEBUG: Permissions error status: ${e.response?.statusCode}',
-        );
+        _traceApi('Permissions error response: ${e.response?.data}');
+        _traceApi('Permissions error status: ${e.response?.statusCode}');
       }
       rethrow;
     }
@@ -2238,7 +2214,7 @@ class ApiService {
     String? description,
     List<String>? tags,
   }) async {
-    debugPrint('DEBUG: Creating prompt: $title');
+    _traceApi('Creating prompt: $title');
     final response = await _dio.post(
       '/api/v1/prompts/',
       data: {
@@ -2258,7 +2234,7 @@ class ApiService {
     String? description,
     List<String>? tags,
   }) async {
-    debugPrint('DEBUG: Updating prompt: $id');
+    _traceApi('Updating prompt: $id');
     await _dio.put(
       '/api/v1/prompts/$id',
       data: {
@@ -2271,13 +2247,13 @@ class ApiService {
   }
 
   Future<void> deletePrompt(String id) async {
-    debugPrint('DEBUG: Deleting prompt: $id');
+    _traceApi('Deleting prompt: $id');
     await _dio.delete('/api/v1/prompts/$id');
   }
 
   // Tools & Functions
   Future<List<Map<String, dynamic>>> getTools() async {
-    debugPrint('DEBUG: Fetching tools');
+    _traceApi('Fetching tools');
     final response = await _dio.get('/api/v1/tools/');
     final data = response.data;
     if (data is List) {
@@ -2287,7 +2263,7 @@ class ApiService {
   }
 
   Future<List<Map<String, dynamic>>> getFunctions() async {
-    debugPrint('DEBUG: Fetching functions');
+    _traceApi('Fetching functions');
     final response = await _dio.get('/api/v1/functions/');
     final data = response.data;
     if (data is List) {
@@ -2300,7 +2276,7 @@ class ApiService {
     required String name,
     required Map<String, dynamic> spec,
   }) async {
-    debugPrint('DEBUG: Creating tool: $name');
+    _traceApi('Creating tool: $name');
     final response = await _dio.post(
       '/api/v1/tools/',
       data: {'name': name, 'spec': spec},
@@ -2313,7 +2289,7 @@ class ApiService {
     required String code,
     String? description,
   }) async {
-    debugPrint('DEBUG: Creating function: $name');
+    _traceApi('Creating function: $name');
     final response = await _dio.post(
       '/api/v1/functions/',
       data: {
@@ -2327,7 +2303,7 @@ class ApiService {
 
   // Enhanced Tools Management Operations
   Future<Map<String, dynamic>> getTool(String toolId) async {
-    debugPrint('DEBUG: Fetching tool details: $toolId');
+    _traceApi('Fetching tool details: $toolId');
     final response = await _dio.get('/api/v1/tools/id/$toolId');
     return response.data as Map<String, dynamic>;
   }
@@ -2338,7 +2314,7 @@ class ApiService {
     Map<String, dynamic>? spec,
     String? description,
   }) async {
-    debugPrint('DEBUG: Updating tool: $toolId');
+    _traceApi('Updating tool: $toolId');
     final response = await _dio.post(
       '/api/v1/tools/id/$toolId/update',
       data: {
@@ -2351,12 +2327,12 @@ class ApiService {
   }
 
   Future<void> deleteTool(String toolId) async {
-    debugPrint('DEBUG: Deleting tool: $toolId');
+    _traceApi('Deleting tool: $toolId');
     await _dio.delete('/api/v1/tools/id/$toolId/delete');
   }
 
   Future<Map<String, dynamic>> getToolValves(String toolId) async {
-    debugPrint('DEBUG: Fetching tool valves: $toolId');
+    _traceApi('Fetching tool valves: $toolId');
     final response = await _dio.get('/api/v1/tools/id/$toolId/valves');
     return response.data as Map<String, dynamic>;
   }
@@ -2365,7 +2341,7 @@ class ApiService {
     String toolId,
     Map<String, dynamic> valves,
   ) async {
-    debugPrint('DEBUG: Updating tool valves: $toolId');
+    _traceApi('Updating tool valves: $toolId');
     final response = await _dio.post(
       '/api/v1/tools/id/$toolId/valves/update',
       data: valves,
@@ -2374,7 +2350,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> getUserToolValves(String toolId) async {
-    debugPrint('DEBUG: Fetching user tool valves: $toolId');
+    _traceApi('Fetching user tool valves: $toolId');
     final response = await _dio.get('/api/v1/tools/id/$toolId/valves/user');
     return response.data as Map<String, dynamic>;
   }
@@ -2383,7 +2359,7 @@ class ApiService {
     String toolId,
     Map<String, dynamic> valves,
   ) async {
-    debugPrint('DEBUG: Updating user tool valves: $toolId');
+    _traceApi('Updating user tool valves: $toolId');
     final response = await _dio.post(
       '/api/v1/tools/id/$toolId/valves/user/update',
       data: valves,
@@ -2392,7 +2368,7 @@ class ApiService {
   }
 
   Future<List<Map<String, dynamic>>> exportTools() async {
-    debugPrint('DEBUG: Exporting tools configuration');
+    _traceApi('Exporting tools configuration');
     final response = await _dio.get('/api/v1/tools/export');
     final data = response.data;
     if (data is List) {
@@ -2402,7 +2378,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> loadToolFromUrl(String url) async {
-    debugPrint('DEBUG: Loading tool from URL: $url');
+    _traceApi('Loading tool from URL: $url');
     final response = await _dio.post(
       '/api/v1/tools/load/url',
       data: {'url': url},
@@ -2412,7 +2388,7 @@ class ApiService {
 
   // Enhanced Functions Management Operations
   Future<Map<String, dynamic>> getFunction(String functionId) async {
-    debugPrint('DEBUG: Fetching function details: $functionId');
+    _traceApi('Fetching function details: $functionId');
     final response = await _dio.get('/api/v1/functions/id/$functionId');
     return response.data as Map<String, dynamic>;
   }
@@ -2423,7 +2399,7 @@ class ApiService {
     String? code,
     String? description,
   }) async {
-    debugPrint('DEBUG: Updating function: $functionId');
+    _traceApi('Updating function: $functionId');
     final response = await _dio.post(
       '/api/v1/functions/id/$functionId/update',
       data: {
@@ -2436,18 +2412,18 @@ class ApiService {
   }
 
   Future<void> deleteFunction(String functionId) async {
-    debugPrint('DEBUG: Deleting function: $functionId');
+    _traceApi('Deleting function: $functionId');
     await _dio.delete('/api/v1/functions/id/$functionId/delete');
   }
 
   Future<Map<String, dynamic>> toggleFunction(String functionId) async {
-    debugPrint('DEBUG: Toggling function: $functionId');
+    _traceApi('Toggling function: $functionId');
     final response = await _dio.post('/api/v1/functions/id/$functionId/toggle');
     return response.data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> toggleGlobalFunction(String functionId) async {
-    debugPrint('DEBUG: Toggling global function: $functionId');
+    _traceApi('Toggling global function: $functionId');
     final response = await _dio.post(
       '/api/v1/functions/id/$functionId/toggle/global',
     );
@@ -2455,7 +2431,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> getFunctionValves(String functionId) async {
-    debugPrint('DEBUG: Fetching function valves: $functionId');
+    _traceApi('Fetching function valves: $functionId');
     final response = await _dio.get('/api/v1/functions/id/$functionId/valves');
     return response.data as Map<String, dynamic>;
   }
@@ -2464,7 +2440,7 @@ class ApiService {
     String functionId,
     Map<String, dynamic> valves,
   ) async {
-    debugPrint('DEBUG: Updating function valves: $functionId');
+    _traceApi('Updating function valves: $functionId');
     final response = await _dio.post(
       '/api/v1/functions/id/$functionId/valves/update',
       data: valves,
@@ -2473,7 +2449,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> getUserFunctionValves(String functionId) async {
-    debugPrint('DEBUG: Fetching user function valves: $functionId');
+    _traceApi('Fetching user function valves: $functionId');
     final response = await _dio.get(
       '/api/v1/functions/id/$functionId/valves/user',
     );
@@ -2484,7 +2460,7 @@ class ApiService {
     String functionId,
     Map<String, dynamic> valves,
   ) async {
-    debugPrint('DEBUG: Updating user function valves: $functionId');
+    _traceApi('Updating user function valves: $functionId');
     final response = await _dio.post(
       '/api/v1/functions/id/$functionId/valves/user/update',
       data: valves,
@@ -2493,13 +2469,13 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> syncFunctions() async {
-    debugPrint('DEBUG: Syncing functions');
+    _traceApi('Syncing functions');
     final response = await _dio.post('/api/v1/functions/sync');
     return response.data as Map<String, dynamic>;
   }
 
   Future<List<Map<String, dynamic>>> exportFunctions() async {
-    debugPrint('DEBUG: Exporting functions configuration');
+    _traceApi('Exporting functions configuration');
     final response = await _dio.get('/api/v1/functions/export');
     final data = response.data;
     if (data is List) {
@@ -2510,7 +2486,7 @@ class ApiService {
 
   // Memory & Notes
   Future<List<Map<String, dynamic>>> getMemories() async {
-    debugPrint('DEBUG: Fetching memories');
+    _traceApi('Fetching memories');
     final response = await _dio.get('/api/v1/memories/');
     final data = response.data;
     if (data is List) {
@@ -2523,7 +2499,7 @@ class ApiService {
     required String content,
     String? title,
   }) async {
-    debugPrint('DEBUG: Creating memory');
+    _traceApi('Creating memory');
     final response = await _dio.post(
       '/api/v1/memories/',
       data: {'content': content, if (title != null) 'title': title},
@@ -2532,7 +2508,7 @@ class ApiService {
   }
 
   Future<List<Map<String, dynamic>>> getNotes() async {
-    debugPrint('DEBUG: Fetching notes');
+    _traceApi('Fetching notes');
     final response = await _dio.get('/api/v1/notes/');
     final data = response.data;
     if (data is List) {
@@ -2546,7 +2522,7 @@ class ApiService {
     required String content,
     List<String>? tags,
   }) async {
-    debugPrint('DEBUG: Creating note: $title');
+    _traceApi('Creating note: $title');
     final response = await _dio.post(
       '/api/v1/notes/',
       data: {
@@ -2564,7 +2540,7 @@ class ApiService {
     String? content,
     List<String>? tags,
   }) async {
-    debugPrint('DEBUG: Updating note: $id');
+    _traceApi('Updating note: $id');
     await _dio.put(
       '/api/v1/notes/$id',
       data: {
@@ -2576,13 +2552,13 @@ class ApiService {
   }
 
   Future<void> deleteNote(String id) async {
-    debugPrint('DEBUG: Deleting note: $id');
+    _traceApi('Deleting note: $id');
     await _dio.delete('/api/v1/notes/$id');
   }
 
   // Team Collaboration
   Future<List<Map<String, dynamic>>> getChannels() async {
-    debugPrint('DEBUG: Fetching channels');
+    _traceApi('Fetching channels');
     final response = await _dio.get('/api/v1/channels/');
     final data = response.data;
     if (data is List) {
@@ -2596,7 +2572,7 @@ class ApiService {
     String? description,
     bool isPrivate = false,
   }) async {
-    debugPrint('DEBUG: Creating channel: $name');
+    _traceApi('Creating channel: $name');
     final response = await _dio.post(
       '/api/v1/channels/',
       data: {
@@ -2609,17 +2585,17 @@ class ApiService {
   }
 
   Future<void> joinChannel(String channelId) async {
-    debugPrint('DEBUG: Joining channel: $channelId');
+    _traceApi('Joining channel: $channelId');
     await _dio.post('/api/v1/channels/$channelId/join');
   }
 
   Future<void> leaveChannel(String channelId) async {
-    debugPrint('DEBUG: Leaving channel: $channelId');
+    _traceApi('Leaving channel: $channelId');
     await _dio.post('/api/v1/channels/$channelId/leave');
   }
 
   Future<List<Map<String, dynamic>>> getChannelMembers(String channelId) async {
-    debugPrint('DEBUG: Fetching channel members: $channelId');
+    _traceApi('Fetching channel members: $channelId');
     final response = await _dio.get('/api/v1/channels/$channelId/members');
     final data = response.data;
     if (data is List) {
@@ -2629,7 +2605,7 @@ class ApiService {
   }
 
   Future<List<Conversation>> getChannelConversations(String channelId) async {
-    debugPrint('DEBUG: Fetching channel conversations: $channelId');
+    _traceApi('Fetching channel conversations: $channelId');
     final response = await _dio.get('/api/v1/channels/$channelId/chats');
     final data = response.data;
     if (data is List) {
@@ -2640,7 +2616,7 @@ class ApiService {
 
   // Enhanced Channel Management Operations
   Future<Map<String, dynamic>> getChannel(String channelId) async {
-    debugPrint('DEBUG: Fetching channel details: $channelId');
+    _traceApi('Fetching channel details: $channelId');
     final response = await _dio.get('/api/v1/channels/$channelId');
     return response.data as Map<String, dynamic>;
   }
@@ -2651,7 +2627,7 @@ class ApiService {
     String? description,
     bool? isPrivate,
   }) async {
-    debugPrint('DEBUG: Updating channel: $channelId');
+    _traceApi('Updating channel: $channelId');
     final response = await _dio.post(
       '/api/v1/channels/$channelId/update',
       data: {
@@ -2664,7 +2640,7 @@ class ApiService {
   }
 
   Future<void> deleteChannel(String channelId) async {
-    debugPrint('DEBUG: Deleting channel: $channelId');
+    _traceApi('Deleting channel: $channelId');
     await _dio.delete('/api/v1/channels/$channelId/delete');
   }
 
@@ -2675,7 +2651,7 @@ class ApiService {
     DateTime? before,
     DateTime? after,
   }) async {
-    debugPrint('DEBUG: Fetching channel messages: $channelId');
+    _traceApi('Fetching channel messages: $channelId');
     final queryParams = <String, dynamic>{};
     if (limit != null) queryParams['limit'] = limit;
     if (offset != null) queryParams['offset'] = offset;
@@ -2699,7 +2675,7 @@ class ApiService {
     String? messageType,
     Map<String, dynamic>? metadata,
   }) async {
-    debugPrint('DEBUG: Posting message to channel: $channelId');
+    _traceApi('Posting message to channel: $channelId');
     final response = await _dio.post(
       '/api/v1/channels/$channelId/messages/post',
       data: {
@@ -2717,7 +2693,7 @@ class ApiService {
     String? content,
     Map<String, dynamic>? metadata,
   }) async {
-    debugPrint('DEBUG: Updating channel message: $channelId/$messageId');
+    _traceApi('Updating channel message: $channelId/$messageId');
     final response = await _dio.post(
       '/api/v1/channels/$channelId/messages/$messageId/update',
       data: {
@@ -2729,7 +2705,7 @@ class ApiService {
   }
 
   Future<void> deleteChannelMessage(String channelId, String messageId) async {
-    debugPrint('DEBUG: Deleting channel message: $channelId/$messageId');
+    _traceApi('Deleting channel message: $channelId/$messageId');
     await _dio.delete('/api/v1/channels/$channelId/messages/$messageId');
   }
 
@@ -2738,7 +2714,7 @@ class ApiService {
     String messageId,
     String emoji,
   ) async {
-    debugPrint('DEBUG: Adding reaction to message: $channelId/$messageId');
+    _traceApi('Adding reaction to message: $channelId/$messageId');
     final response = await _dio.post(
       '/api/v1/channels/$channelId/messages/$messageId/reactions',
       data: {'emoji': emoji},
@@ -2751,7 +2727,7 @@ class ApiService {
     String messageId,
     String emoji,
   ) async {
-    debugPrint('DEBUG: Removing reaction from message: $channelId/$messageId');
+    _traceApi('Removing reaction from message: $channelId/$messageId');
     await _dio.delete(
       '/api/v1/channels/$channelId/messages/$messageId/reactions/$emoji',
     );
@@ -2761,7 +2737,7 @@ class ApiService {
     String channelId,
     String messageId,
   ) async {
-    debugPrint('DEBUG: Fetching message reactions: $channelId/$messageId');
+    _traceApi('Fetching message reactions: $channelId/$messageId');
     final response = await _dio.get(
       '/api/v1/channels/$channelId/messages/$messageId/reactions',
     );
@@ -2776,7 +2752,7 @@ class ApiService {
     String channelId,
     String messageId,
   ) async {
-    debugPrint('DEBUG: Fetching message thread: $channelId/$messageId');
+    _traceApi('Fetching message thread: $channelId/$messageId');
     final response = await _dio.get(
       '/api/v1/channels/$channelId/messages/$messageId/thread',
     );
@@ -2793,7 +2769,7 @@ class ApiService {
     required String content,
     Map<String, dynamic>? metadata,
   }) async {
-    debugPrint('DEBUG: Replying to message: $channelId/$messageId');
+    _traceApi('Replying to message: $channelId/$messageId');
     final response = await _dio.post(
       '/api/v1/channels/$channelId/messages/$messageId/reply',
       data: {'content': content, if (metadata != null) 'metadata': metadata},
@@ -2802,7 +2778,7 @@ class ApiService {
   }
 
   Future<void> markChannelRead(String channelId, {String? messageId}) async {
-    debugPrint('DEBUG: Marking channel as read: $channelId');
+    _traceApi('Marking channel as read: $channelId');
     await _dio.post(
       '/api/v1/channels/$channelId/read',
       data: {if (messageId != null) 'last_read_message_id': messageId},
@@ -2810,7 +2786,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> getChannelUnreadCount(String channelId) async {
-    debugPrint('DEBUG: Fetching unread count for channel: $channelId');
+    _traceApi('Fetching unread count for channel: $channelId');
     final response = await _dio.get('/api/v1/channels/$channelId/unread');
     return response.data as Map<String, dynamic>;
   }
@@ -2910,12 +2886,12 @@ class ApiService {
     // Add feature flags if enabled
     if (enableWebSearch) {
       data['web_search'] = true;
-      debugPrint('DEBUG: Web search enabled in SSE request');
+      _traceApi('Web search enabled in SSE request');
     }
     if (enableImageGeneration) {
       // Mirror web_search behavior for image generation
       data['image_generation'] = true;
-      debugPrint('DEBUG: Image generation enabled in SSE request');
+      _traceApi('Image generation enabled in SSE request');
     }
 
     if (enableWebSearch || enableImageGeneration) {
@@ -2933,7 +2909,7 @@ class ApiService {
     // Add tool_ids if provided (Open-WebUI expects tool_ids as array of strings)
     if (toolIds != null && toolIds.isNotEmpty) {
       data['tool_ids'] = toolIds;
-      debugPrint('DEBUG: Including tool_ids in SSE request: $toolIds');
+      _traceApi('Including tool_ids in SSE request: $toolIds');
 
       // Hint server to use native function calling when tools are selected
       // This enables provider-native tool execution paths and consistent UI events
@@ -2942,7 +2918,7 @@ class ApiService {
             (data['params'] as Map<String, dynamic>?) ?? <String, dynamic>{};
         params['function_calling'] = 'native';
         data['params'] = params;
-        debugPrint('DEBUG: Set params.function_calling = native');
+        _traceApi('Set params.function_calling = native');
       } catch (_) {
         // Non-fatal; continue without forcing native mode
       }
@@ -2951,39 +2927,31 @@ class ApiService {
     // Include tool_servers if provided (for native function calling with OpenAPI servers)
     if (toolServers != null && toolServers.isNotEmpty) {
       data['tool_servers'] = toolServers;
-      debugPrint(
-        'DEBUG: Including tool_servers in request (${toolServers.length})',
-      );
+      _traceApi('Including tool_servers in request (${toolServers.length})');
     }
 
     // Include non-image files at the top level as expected by Open WebUI
     if (allFiles.isNotEmpty) {
       data['files'] = allFiles;
-      debugPrint(
-        'DEBUG: Including non-image files in request: ${allFiles.length}',
-      );
+      _traceApi('Including non-image files in request: ${allFiles.length}');
     }
 
     // Don't add session_id or id - they break SSE streaming!
     // The server falls back to task-based async when these are present
 
-    debugPrint('DEBUG: Starting SSE streaming request');
-    debugPrint('DEBUG: Model: $model');
-    debugPrint('DEBUG: Message count: ${processedMessages.length}');
+    _traceApi('Starting SSE streaming request');
+    _traceApi('Model: $model');
+    _traceApi('Message count: ${processedMessages.length}');
 
     // Debug the data being sent
-    debugPrint('DEBUG: SSE request data keys (pre-bg): ${data.keys.toList()}');
-    debugPrint(
-      'DEBUG: Has background_tasks (pre-bg): ${data.containsKey('background_tasks')}',
+    _traceApi('SSE request data keys (pre-bg): ${data.keys.toList()}');
+    _traceApi(
+      'Has background_tasks (pre-bg): ${data.containsKey('background_tasks')}',
     );
-    debugPrint(
-      'DEBUG: Has session_id (pre-bg): ${data.containsKey('session_id')}',
-    );
-    debugPrint(
-      'DEBUG: background_tasks value (pre-bg): ${data['background_tasks']}',
-    );
-    debugPrint('DEBUG: session_id value (pre-bg): ${data['session_id']}');
-    debugPrint('DEBUG: id value (pre-bg): ${data['id']}');
+    _traceApi('Has session_id (pre-bg): ${data.containsKey('session_id')}');
+    _traceApi('background_tasks value (pre-bg): ${data['background_tasks']}');
+    _traceApi('session_id value (pre-bg): ${data['session_id']}');
+    _traceApi('id value (pre-bg): ${data['id']}');
 
     // Decide whether to use background task flow.
     // Use background task mode when tools, web_search, image_generation are enabled,
@@ -3010,18 +2978,18 @@ class ApiService {
       }
 
       // Extra diagnostics to confirm dynamic-channel payload
-      debugPrint('DEBUG: Background flow payload keys: ${data.keys.toList()}');
-      debugPrint('DEBUG: Using session_id: $sessionId');
-      debugPrint('DEBUG: Using message id: $messageId');
-      debugPrint(
-        'DEBUG: Has tool_ids: ${data.containsKey('tool_ids')} -> ${data['tool_ids']}',
+      _traceApi('Background flow payload keys: ${data.keys.toList()}');
+      _traceApi('Using session_id: $sessionId');
+      _traceApi('Using message id: $messageId');
+      _traceApi(
+        'Has tool_ids: ${data.containsKey('tool_ids')} -> ${data['tool_ids']}',
       );
-      debugPrint(
-        'DEBUG: Has background_tasks: ${data.containsKey('background_tasks')}',
+      _traceApi(
+        'Has background_tasks: ${data.containsKey('background_tasks')}',
       );
 
-      debugPrint('DEBUG: Initiating background tools flow (task-based)');
-      debugPrint('DEBUG: Posting to /api/chat/completions (no SSE)');
+      _traceApi('Initiating background tools flow (task-based)');
+      _traceApi('Posting to /api/chat/completions (no SSE)');
 
       // Fire in background; poll chat for updates and stream deltas to UI
       () async {
@@ -3031,7 +2999,7 @@ class ApiService {
           final taskId = (respData is Map)
               ? (respData['task_id']?.toString())
               : null;
-          debugPrint('DEBUG: Background task created: $taskId');
+          _traceApi('Background task created: $taskId');
 
           // If no session/socket provided, fall back to polling for updates.
           if (sessionIdOverride == null || sessionIdOverride.isEmpty) {
@@ -3047,7 +3015,7 @@ class ApiService {
             }
           }
         } catch (e) {
-          debugPrint('DEBUG: Background tools flow failed: $e');
+          _traceApi('Background tools flow failed: $e');
           if (!streamController.isClosed) streamController.close();
         }
       }();
@@ -3154,7 +3122,7 @@ class ApiService {
             cancelOnError: true,
           );
         } catch (e) {
-          debugPrint('DEBUG: SSE streaming failed: $e');
+          _traceApi('SSE streaming failed: $e');
           if (!streamController.isClosed) streamController.close();
         }
       }();
@@ -3468,7 +3436,7 @@ class ApiService {
 
   // File upload for RAG
   Future<String> uploadFile(String filePath, String fileName) async {
-    debugPrint('DEBUG: Starting file upload: $fileName from $filePath');
+    _traceApi('Starting file upload: $fileName from $filePath');
 
     try {
       // Check if file exists
@@ -3481,7 +3449,7 @@ class ApiService {
         'file': await MultipartFile.fromFile(filePath, filename: fileName),
       });
 
-      debugPrint('DEBUG: Uploading to /api/v1/files/');
+      _traceApi('Uploading to /api/v1/files/');
       final response = await _dio.post('/api/v1/files/', data: formData);
 
       DebugLogger.log(
@@ -3493,7 +3461,7 @@ class ApiService {
 
       if (response.data is Map && response.data['id'] != null) {
         final fileId = response.data['id'] as String;
-        debugPrint('DEBUG: File uploaded successfully with ID: $fileId');
+        _traceApi('File uploaded successfully with ID: $fileId');
         return fileId;
       } else {
         throw Exception('Invalid response format: missing file ID');
@@ -3516,9 +3484,9 @@ class ApiService {
 
   // Debug method to test API endpoints
   Future<void> debugApiEndpoints() async {
-    debugPrint('=== DEBUG API ENDPOINTS ===');
-    debugPrint('Server URL: ${serverConfig.url}');
-    debugPrint('Auth token present: ${authToken != null}');
+    _traceApi('=== DEBUG API ENDPOINTS ===');
+    _traceApi('Server URL: ${serverConfig.url}');
+    _traceApi('Auth token present: ${authToken != null}');
 
     // Test different possible endpoints
     final endpoints = [
@@ -3530,9 +3498,9 @@ class ApiService {
 
     for (final endpoint in endpoints) {
       try {
-        debugPrint('Testing endpoint: $endpoint');
+        _traceApi('Testing endpoint: $endpoint');
         final response = await _dio.get(endpoint);
-        debugPrint('✅ $endpoint - Status: ${response.statusCode}');
+        _traceApi('✅ $endpoint - Status: ${response.statusCode}');
         DebugLogger.log(
           'response-type',
           scope: 'api/diagnostics',
@@ -3563,33 +3531,33 @@ class ApiService {
           data: {'endpoint': endpoint, 'preview': response.data.toString()},
         );
       } catch (e) {
-        debugPrint('❌ $endpoint - Error: $e');
+        _traceApi('❌ $endpoint - Error: $e');
       }
-      debugPrint('---');
+      _traceApi('---');
     }
-    debugPrint('=== END DEBUG ===');
+    _traceApi('=== END DEBUG ===');
   }
 
   // Check if server has API documentation
   Future<void> checkApiDocumentation() async {
-    debugPrint('=== CHECKING API DOCUMENTATION ===');
+    _traceApi('=== CHECKING API DOCUMENTATION ===');
     final docEndpoints = ['/docs', '/api/docs', '/swagger', '/api/swagger'];
 
     for (final endpoint in docEndpoints) {
       try {
         final response = await _dio.get(endpoint);
         if (response.statusCode == 200) {
-          debugPrint('✅ API docs available at: ${serverConfig.url}$endpoint');
+          _traceApi('✅ API docs available at: ${serverConfig.url}$endpoint');
           if (response.data is String &&
               response.data.toString().contains('swagger')) {
-            debugPrint('   This appears to be Swagger documentation');
+            _traceApi('   This appears to be Swagger documentation');
           }
         }
       } catch (e) {
-        debugPrint('❌ No docs at $endpoint');
+        _traceApi('❌ No docs at $endpoint');
       }
     }
-    debugPrint('=== END API DOCS CHECK ===');
+    _traceApi('=== END API DOCS CHECK ===');
   }
 
   // dispose() removed – no legacy websocket resources to clean up
@@ -3604,7 +3572,7 @@ class ApiService {
     String? folderId,
     bool overwriteExisting = false,
   }) async {
-    debugPrint('DEBUG: Importing ${chatsData.length} chats');
+    _traceApi('Importing ${chatsData.length} chats');
     final response = await _dio.post(
       '/api/v1/chats/import',
       data: {
@@ -3627,8 +3595,8 @@ class ApiService {
     bool includeMessages = true,
     String? format,
   }) async {
-    debugPrint(
-      'DEBUG: Exporting chats${chatIds != null ? ' (${chatIds.length} chats)' : ''}',
+    _traceApi(
+      'Exporting chats${chatIds != null ? ' (${chatIds.length} chats)' : ''}',
     );
     final queryParams = <String, dynamic>{};
     if (chatIds != null) queryParams['chat_ids'] = chatIds.join(',');
@@ -3652,7 +3620,7 @@ class ApiService {
     List<String>? excludeIds,
     String? beforeDate,
   }) async {
-    debugPrint('DEBUG: Archiving all chats in bulk');
+    _traceApi('Archiving all chats in bulk');
     final response = await _dio.post(
       '/api/v1/chats/archive/all',
       data: {
@@ -3669,7 +3637,7 @@ class ApiService {
     String? beforeDate,
     bool archived = false,
   }) async {
-    debugPrint('DEBUG: Deleting all chats in bulk (archived: $archived)');
+    _traceApi('Deleting all chats in bulk (archived: $archived)');
     final response = await _dio.post(
       '/api/v1/chats/delete/all',
       data: {
@@ -3683,7 +3651,7 @@ class ApiService {
 
   /// Get pinned chats
   Future<List<Conversation>> getPinnedChats() async {
-    debugPrint('DEBUG: Fetching pinned chats');
+    _traceApi('Fetching pinned chats');
     final response = await _dio.get('/api/v1/chats/pinned');
     final data = response.data;
     if (data is List) {
@@ -3694,7 +3662,7 @@ class ApiService {
 
   /// Get archived chats
   Future<List<Conversation>> getArchivedChats({int? limit, int? offset}) async {
-    debugPrint('DEBUG: Fetching archived chats');
+    _traceApi('Fetching archived chats');
     final queryParams = <String, dynamic>{};
     if (limit != null) queryParams['limit'] = limit;
     if (offset != null) queryParams['offset'] = offset;
@@ -3726,7 +3694,7 @@ class ApiService {
     String? sortBy,
     String? sortOrder,
   }) async {
-    debugPrint('DEBUG: Searching chats with query: $query');
+    _traceApi('Searching chats with query: $query');
     final queryParams = <String, dynamic>{};
     // OpenAPI expects 'text' for this endpoint; keep extras if server tolerates them
     if (query != null) queryParams['text'] = query;
@@ -3784,7 +3752,7 @@ class ApiService {
     int? limit,
     int? offset,
   }) async {
-    debugPrint('DEBUG: Searching messages with query: $query');
+    _traceApi('Searching messages with query: $query');
 
     // Build query parameters; include both 'text' and 'query' for compatibility
     final qp = <String, dynamic>{
@@ -3812,8 +3780,8 @@ class ApiService {
 
       // If not supported, quietly return empty results
       if (response.statusCode == 404 || response.statusCode == 405) {
-        debugPrint(
-          'DEBUG: messages search endpoint not supported (status: ${response.statusCode})',
+        _traceApi(
+          'messages search endpoint not supported (status: ${response.statusCode})',
         );
         return [];
       }
@@ -3831,7 +3799,7 @@ class ApiService {
       return [];
     } on DioException catch (e) {
       // On any transport or other error, degrade gracefully without surfacing
-      debugPrint('DEBUG: messages search request failed gracefully: ${e.type}');
+      _traceApi('messages search request failed gracefully: ${e.type}');
       return [];
     }
   }
@@ -3842,7 +3810,7 @@ class ApiService {
     DateTime? fromDate,
     DateTime? toDate,
   }) async {
-    debugPrint('DEBUG: Fetching chat statistics');
+    _traceApi('Fetching chat statistics');
     final queryParams = <String, dynamic>{};
     if (userId != null) queryParams['user_id'] = userId;
     if (fromDate != null) queryParams['from_date'] = fromDate.toIso8601String();
@@ -3857,7 +3825,7 @@ class ApiService {
 
   /// Duplicate/copy a chat
   Future<Conversation> duplicateChat(String chatId, {String? title}) async {
-    debugPrint('DEBUG: Duplicating chat: $chatId');
+    _traceApi('Duplicating chat: $chatId');
     final response = await _dio.post(
       '/api/v1/chats/$chatId/duplicate',
       data: {if (title != null) 'title': title},
@@ -3867,7 +3835,7 @@ class ApiService {
 
   /// Get recent chats with activity
   Future<List<Conversation>> getRecentChats({int limit = 10, int? days}) async {
-    debugPrint('DEBUG: Fetching recent chats (limit: $limit)');
+    _traceApi('Fetching recent chats (limit: $limit)');
     final queryParams = <String, dynamic>{'limit': limit};
     if (days != null) queryParams['days'] = days;
 
@@ -3894,7 +3862,7 @@ class ApiService {
     String? sortBy,
     String? sortOrder,
   }) async {
-    debugPrint('DEBUG: Fetching chat history with filters');
+    _traceApi('Fetching chat history with filters');
     final queryParams = <String, dynamic>{};
     if (limit != null) queryParams['limit'] = limit;
     if (offset != null) queryParams['offset'] = offset;
@@ -3920,8 +3888,8 @@ class ApiService {
     operation, // 'archive', 'delete', 'pin', 'unpin', 'move_to_folder'
     Map<String, dynamic>? params,
   }) async {
-    debugPrint(
-      'DEBUG: Performing batch operation "$operation" on ${chatIds.length} chats',
+    _traceApi(
+      'Performing batch operation "$operation" on ${chatIds.length} chats',
     );
     final response = await _dio.post(
       '/api/v1/chats/batch',
@@ -3939,7 +3907,7 @@ class ApiService {
     String? context,
     int limit = 5,
   }) async {
-    debugPrint('DEBUG: Fetching chat suggestions');
+    _traceApi('Fetching chat suggestions');
     final queryParams = <String, dynamic>{'limit': limit};
     if (context != null) queryParams['context'] = context;
 
@@ -3959,7 +3927,7 @@ class ApiService {
     String? category,
     String? tag,
   }) async {
-    debugPrint('DEBUG: Fetching chat templates');
+    _traceApi('Fetching chat templates');
     final queryParams = <String, dynamic>{};
     if (category != null) queryParams['category'] = category;
     if (tag != null) queryParams['tag'] = tag;
@@ -3981,7 +3949,7 @@ class ApiService {
     Map<String, dynamic>? variables,
     String? title,
   }) async {
-    debugPrint('DEBUG: Creating chat from template: $templateId');
+    _traceApi('Creating chat from template: $templateId');
     final response = await _dio.post(
       '/api/v1/chats/templates/$templateId/create',
       data: {

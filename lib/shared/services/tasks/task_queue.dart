@@ -9,11 +9,6 @@ import 'outbound_task.dart';
 import 'task_worker.dart';
 import '../../../core/utils/debug_logger.dart';
 
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'tasks/queue');
-}
-
 final taskQueueProvider =
     NotifierProvider<TaskQueueNotifier, List<OutboundTask>>(
       TaskQueueNotifier.new,
@@ -61,7 +56,7 @@ class TaskQueueNotifier extends Notifier<List<OutboundTask>> {
       // Kick processing after load
       _process();
     } catch (e) {
-      debugPrint('DEBUG: Failed to load task queue: $e');
+      DebugLogger.log('Failed to load task queue: $e', scope: 'tasks/queue');
     }
   }
 
@@ -83,7 +78,7 @@ class TaskQueueNotifier extends Notifier<List<OutboundTask>> {
       final raw = retained.map((t) => t.toJson()).toList(growable: false);
       await prefs.setString(_prefsKey, jsonEncode(raw));
     } catch (e) {
-      debugPrint('DEBUG: Failed to persist task queue: $e');
+      DebugLogger.log('Failed to persist task queue: $e', scope: 'tasks/queue');
     }
   }
 
@@ -262,7 +257,10 @@ class TaskQueueNotifier extends Notifier<List<OutboundTask>> {
             t,
       ];
     } catch (e, st) {
-      debugPrint('Task failed (${task.runtimeType}): $e\n$st');
+      DebugLogger.log(
+        'Task failed (${task.runtimeType}): $e\n$st',
+        scope: 'tasks/queue',
+      );
       state = [
         for (final t in state)
           if (t.id == task.id)

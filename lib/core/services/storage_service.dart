@@ -6,11 +6,6 @@ import '../models/conversation.dart';
 import 'secure_credential_storage.dart';
 import '../utils/debug_logger.dart';
 
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'storage');
-}
-
 class StorageService {
   final FlutterSecureStorage _secureStorage;
   final SharedPreferences _prefs;
@@ -42,7 +37,10 @@ class StorageService {
     try {
       await _secureCredentialStorage.saveAuthToken(token);
     } catch (e) {
-      debugPrint('Warning: Enhanced secure storage failed, using fallback: $e');
+      DebugLogger.log(
+        'Enhanced secure storage failed, using fallback: $e',
+        scope: 'storage',
+      );
       await _secureStorage.write(key: _authTokenKey, value: token);
     }
   }
@@ -53,7 +51,10 @@ class StorageService {
       final token = await _secureCredentialStorage.getAuthToken();
       if (token != null) return token;
     } catch (e) {
-      debugPrint('Warning: Enhanced secure storage failed, using fallback: $e');
+      DebugLogger.log(
+        'Enhanced secure storage failed, using fallback: $e',
+        scope: 'storage',
+      );
     }
 
     // Fallback to legacy storage
@@ -65,7 +66,10 @@ class StorageService {
     try {
       await _secureCredentialStorage.deleteAuthToken();
     } catch (e) {
-      debugPrint('Warning: Failed to delete from enhanced storage: $e');
+      DebugLogger.log(
+        'Failed to delete from enhanced storage: $e',
+        scope: 'storage',
+      );
     }
 
     await _secureStorage.delete(key: _authTokenKey);
@@ -83,8 +87,9 @@ class StorageService {
       final isSecureAvailable = await _secureCredentialStorage
           .isSecureStorageAvailable();
       if (!isSecureAvailable) {
-        debugPrint(
-          'DEBUG: Enhanced secure storage not available, using legacy storage',
+        DebugLogger.log(
+          'Enhanced secure storage not available, using legacy storage',
+          scope: 'storage',
         );
         throw Exception('Enhanced secure storage not available');
       }
@@ -94,9 +99,15 @@ class StorageService {
         username: username,
         password: password,
       );
-      debugPrint('DEBUG: Credentials saved using enhanced secure storage');
+      DebugLogger.log(
+        'Credentials saved using enhanced secure storage',
+        scope: 'storage',
+      );
     } catch (e) {
-      debugPrint('Warning: Enhanced secure storage failed, using fallback: $e');
+      DebugLogger.log(
+        'Enhanced secure storage failed, using fallback: $e',
+        scope: 'storage',
+      );
 
       // Fallback to legacy storage
       try {
@@ -120,10 +131,14 @@ class StorageService {
           );
         }
 
-        debugPrint('DEBUG: Credentials saved using fallback storage');
+        DebugLogger.log(
+          'Credentials saved using fallback storage',
+          scope: 'storage',
+        );
       } catch (fallbackError) {
-        debugPrint(
-          'ERROR: Both enhanced and fallback credential storage failed: $fallbackError',
+        DebugLogger.log(
+          'Both enhanced and fallback credential storage failed: $fallbackError',
+          scope: 'storage',
         );
         rethrow;
       }
@@ -138,7 +153,10 @@ class StorageService {
         return credentials;
       }
     } catch (e) {
-      debugPrint('Warning: Enhanced secure storage failed, using fallback: $e');
+      DebugLogger.log(
+        'Enhanced secure storage failed, using fallback: $e',
+        scope: 'storage',
+      );
     }
 
     // Fallback to legacy storage and migrate if found
@@ -153,7 +171,7 @@ class StorageService {
       if (!decoded.containsKey('serverId') ||
           !decoded.containsKey('username') ||
           !decoded.containsKey('password')) {
-        debugPrint('Warning: Invalid saved credentials format');
+        DebugLogger.log('Invalid saved credentials format', scope: 'storage');
         await deleteSavedCredentials();
         return null;
       }
@@ -170,16 +188,17 @@ class StorageService {
         await _secureCredentialStorage.migrateFromOldStorage(legacyCredentials);
         // If migration successful, clean up legacy storage
         await _secureStorage.delete(key: _credentialsKey);
-        debugPrint(
-          'DEBUG: Successfully migrated credentials to enhanced storage',
+        DebugLogger.log(
+          'Successfully migrated credentials to enhanced storage',
+          scope: 'storage',
         );
       } catch (e) {
-        debugPrint('Warning: Failed to migrate credentials: $e');
+        DebugLogger.log('Failed to migrate credentials: $e', scope: 'storage');
       }
 
       return legacyCredentials;
     } catch (e) {
-      debugPrint('Error loading saved credentials: $e');
+      DebugLogger.log('Error loading saved credentials: $e', scope: 'storage');
       return null;
     }
   }
@@ -189,7 +208,10 @@ class StorageService {
     try {
       await _secureCredentialStorage.deleteSavedCredentials();
     } catch (e) {
-      debugPrint('Warning: Failed to delete from enhanced storage: $e');
+      DebugLogger.log(
+        'Failed to delete from enhanced storage: $e',
+        scope: 'storage',
+      );
     }
 
     await _secureStorage.delete(key: _credentialsKey);
@@ -218,7 +240,10 @@ class StorageService {
 
       final decoded = jsonDecode(jsonString);
       if (decoded is! List) {
-        debugPrint('Warning: Server configs data is not a list, resetting');
+        DebugLogger.log(
+          'Server configs data is not a list, resetting',
+          scope: 'storage',
+        );
         return [];
       }
 
@@ -232,20 +257,24 @@ class StorageService {
                 item.containsKey('url')) {
               configs.add(ServerConfig.fromJson(item));
             } else {
-              debugPrint(
-                'Warning: Skipping invalid server config: missing required fields',
+              DebugLogger.log(
+                'Skipping invalid server config: missing required fields',
+                scope: 'storage',
               );
             }
           }
         } catch (e) {
-          debugPrint('Warning: Failed to parse server config: $e');
+          DebugLogger.log(
+            'Failed to parse server config: $e',
+            scope: 'storage',
+          );
           // Continue with other configs
         }
       }
 
       return configs;
     } catch (e) {
-      debugPrint('Error loading server configs: $e');
+      DebugLogger.log('Error loading server configs: $e', scope: 'storage');
       return [];
     }
   }
@@ -279,8 +308,9 @@ class StorageService {
     try {
       final decoded = jsonDecode(jsonString);
       if (decoded is! List) {
-        debugPrint(
-          'Warning: Local conversations data is not a list, resetting',
+        DebugLogger.log(
+          'Local conversations data is not a list, resetting',
+          scope: 'storage',
         );
         return [];
       }
@@ -296,20 +326,24 @@ class StorageService {
                 item.containsKey('updatedAt')) {
               conversations.add(Conversation.fromJson(item));
             } else {
-              debugPrint(
-                'Warning: Skipping invalid conversation: missing required fields',
+              DebugLogger.log(
+                'Skipping invalid conversation: missing required fields',
+                scope: 'storage',
               );
             }
           }
         } catch (e) {
-          debugPrint('Warning: Failed to parse conversation: $e');
+          DebugLogger.log('Failed to parse conversation: $e', scope: 'storage');
           // Continue with other conversations
         }
       }
 
       return conversations;
     } catch (e) {
-      debugPrint('Error parsing local conversations: $e');
+      DebugLogger.log(
+        'Error parsing local conversations: $e',
+        scope: 'storage',
+      );
       return [];
     }
   }
@@ -319,7 +353,7 @@ class StorageService {
       final json = conversations.map((c) => c.toJson()).toList();
       await _prefs.setString(_localConversationsKey, jsonEncode(json));
     } catch (e) {
-      debugPrint('Error saving local conversations: $e');
+      DebugLogger.log('Error saving local conversations: $e', scope: 'storage');
     }
   }
 
@@ -350,21 +384,21 @@ class StorageService {
     try {
       await _secureCredentialStorage.clearAll();
     } catch (e) {
-      debugPrint('Warning: Failed to clear enhanced storage: $e');
+      DebugLogger.log('Failed to clear enhanced storage: $e', scope: 'storage');
     }
 
     // Clear legacy storage
     await _secureStorage.deleteAll();
     await _prefs.clear();
 
-    debugPrint('DEBUG: All storage cleared');
+    DebugLogger.log('All storage cleared', scope: 'storage');
   }
 
   // Clear only auth-related data (keeping server configs and other settings)
   Future<void> clearAuthData() async {
     await deleteAuthToken();
     await deleteSavedCredentials();
-    debugPrint('DEBUG: Auth data cleared');
+    DebugLogger.log('Auth data cleared', scope: 'storage');
   }
 
   /// Check if enhanced secure storage is available
@@ -372,7 +406,10 @@ class StorageService {
     try {
       return await _secureCredentialStorage.isSecureStorageAvailable();
     } catch (e) {
-      debugPrint('Warning: Failed to check enhanced storage availability: $e');
+      DebugLogger.log(
+        'Failed to check enhanced storage availability: $e',
+        scope: 'storage',
+      );
       return false;
     }
   }

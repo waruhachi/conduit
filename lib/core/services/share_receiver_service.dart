@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' hide debugPrint;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_handler/share_handler.dart' as sh;
 
@@ -85,7 +85,10 @@ final shareReceiverInitializerProvider = Provider<void>((ref) {
         maybeProcessPending();
       }
     } catch (e) {
-      debugPrint('ShareReceiver: failed to get initial shared media: $e');
+      DebugLogger.log(
+        'ShareReceiver: failed to get initial shared media: $e',
+        scope: 'share',
+      );
     }
   });
 
@@ -98,7 +101,10 @@ final shareReceiverInitializerProvider = Provider<void>((ref) {
         maybeProcessPending();
       }
     } catch (e) {
-      debugPrint('ShareReceiver: failed to parse shared media: $e');
+      DebugLogger.log(
+        'ShareReceiver: failed to parse shared media: $e',
+        scope: 'share',
+      );
     }
   });
 
@@ -197,11 +203,9 @@ Future<void> _processPayload(Ref ref, SharedPayload payload) async {
     // Do NOT create a server chat here. The chat is created on first send
     // (with server syncing + title generation) in chat_providers.dart.
   } catch (e) {
-    debugPrint('ShareReceiver: failed to process payload: $e');
+    DebugLogger.log(
+      'ShareReceiver: failed to process payload: $e',
+      scope: 'share',
+    );
   }
-}
-
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'share');
 }

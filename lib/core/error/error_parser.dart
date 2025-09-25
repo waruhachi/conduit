@@ -1,11 +1,6 @@
 import 'api_error.dart';
 import '../utils/debug_logger.dart';
 
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'api/error-parser');
-}
-
 /// Comprehensive error response parser
 /// Handles various API error response formats and extracts structured information
 class ErrorParser {
@@ -29,7 +24,10 @@ class ErrorParser {
         );
       }
     } catch (e) {
-      debugPrint('ErrorParser: Error parsing response: $e');
+      DebugLogger.log(
+        'ErrorParser: Error parsing response: $e',
+        scope: 'api/error-parser',
+      );
       return ParsedErrorResponse(
         message: 'Failed to parse error response',
         metadata: {

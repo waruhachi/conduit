@@ -1,13 +1,8 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' hide debugPrint;
+import 'package:flutter/foundation.dart';
 import 'api_error.dart';
 import 'error_parser.dart';
 import '../utils/debug_logger.dart';
-
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'api/error-handler');
-}
 
 /// Comprehensive API error handler with structured error parsing
 /// Handles all types of API errors and converts them to standardized format
@@ -39,7 +34,10 @@ class ApiErrorHandler {
       }
     } catch (e) {
       // Fallback error if transformation itself fails
-      debugPrint('ApiErrorHandler: Error transforming exception: $e');
+      DebugLogger.log(
+        'ApiErrorHandler: Error transforming exception: $e',
+        scope: 'api/error-handler',
+      );
       return ApiError.unknown(
         message: 'A system error occurred',
         originalError: error,
@@ -318,21 +316,33 @@ class ApiErrorHandler {
     String httpMethod,
   ) {
     if (kDebugMode) {
-      debugPrint('🔴 API Error Details:');
-      debugPrint('  Method: ${httpMethod.toUpperCase()}');
-      debugPrint('  Endpoint: $requestPath');
-      debugPrint('  Type: ${dioError.type}');
-      debugPrint('  Status: ${dioError.response?.statusCode}');
+      DebugLogger.log('🔴 API Error Details:', scope: 'api/error-handler');
+      DebugLogger.log(
+        '  Method: ${httpMethod.toUpperCase()}',
+        scope: 'api/error-handler',
+      );
+      DebugLogger.log('  Endpoint: $requestPath', scope: 'api/error-handler');
+      DebugLogger.log('  Type: ${dioError.type}', scope: 'api/error-handler');
+      DebugLogger.log(
+        '  Status: ${dioError.response?.statusCode}',
+        scope: 'api/error-handler',
+      );
 
       if (dioError.response?.data != null) {
         DebugLogger.error('Response data available (truncated for security)');
       }
 
       if (dioError.requestOptions.data != null) {
-        debugPrint('  Request Data: ${dioError.requestOptions.data}');
+        DebugLogger.log(
+          '  Request Data: ${dioError.requestOptions.data}',
+          scope: 'api/error-handler',
+        );
       }
 
-      debugPrint('  Error: ${dioError.message}');
+      DebugLogger.log(
+        '  Error: ${dioError.message}',
+        scope: 'api/error-handler',
+      );
     }
 
     // In production, you would send this to your error tracking service

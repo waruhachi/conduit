@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' hide debugPrint;
+import 'package:flutter/material.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import '../../../core/widgets/error_boundary.dart';
 import '../../../shared/widgets/optimized_list.dart';
@@ -47,11 +47,6 @@ import '../../../shared/widgets/model_avatar.dart';
 // Removed unused PlatformUtils import
 import '../../../core/services/platform_service.dart' as ps;
 import 'package:flutter/gestures.dart' show DragStartBehavior;
-
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'chat/page');
-}
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({super.key});
@@ -251,7 +246,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
         if (!mounted) return;
         ref.read(activeConversationProvider.notifier).set(welcomeConv);
-        debugPrint('Auto-loaded demo conversation');
+        DebugLogger.log('Auto-loaded demo conversation', scope: 'chat/page');
         return;
       }
 
@@ -266,7 +261,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       break;
     }
 
-    debugPrint('Failed to auto-load demo conversation');
+    DebugLogger.log(
+      'Failed to auto-load demo conversation',
+      scope: 'chat/page',
+    );
   }
 
   @override
@@ -439,18 +437,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               );
         } catch (e) {
           if (!mounted) return;
-          debugPrint('Enqueue upload failed: $e');
+          DebugLogger.log('Enqueue upload failed: $e', scope: 'chat/page');
         }
       }
     } catch (e) {
       if (!mounted) return;
-      debugPrint('File selection failed: $e');
+      DebugLogger.log('File selection failed: $e', scope: 'chat/page');
     }
   }
 
   void _handleImageAttachment({bool fromCamera = false}) async {
-    debugPrint(
-      'DEBUG: Starting image attachment process - fromCamera: $fromCamera',
+    DebugLogger.log(
+      'Starting image attachment process - fromCamera: $fromCamera',
+      scope: 'chat/page',
     );
 
     // Check if selected model supports vision
@@ -462,23 +461,26 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     final fileService = ref.read(fileAttachmentServiceProvider);
     if (fileService == null) {
-      debugPrint('DEBUG: File service is null - cannot proceed');
+      DebugLogger.log(
+        'File service is null - cannot proceed',
+        scope: 'chat/page',
+      );
       return;
     }
 
     try {
-      debugPrint('DEBUG: Picking image...');
+      DebugLogger.log('Picking image...', scope: 'chat/page');
       final image = fromCamera
           ? await fileService.takePhoto()
           : await fileService.pickImage();
       if (image == null) {
-        debugPrint('DEBUG: No image selected');
+        DebugLogger.log('No image selected', scope: 'chat/page');
         return;
       }
 
-      debugPrint('DEBUG: Image selected: ${image.path}');
+      DebugLogger.log('Image selected: ${image.path}', scope: 'chat/page');
       final imageSize = await image.length();
-      debugPrint('DEBUG: Image size: $imageSize bytes');
+      DebugLogger.log('Image size: $imageSize bytes', scope: 'chat/page');
 
       // Validate file size (default 20MB limit like OpenWebUI)
       if (!validateFileSize(imageSize, 20)) {
@@ -495,10 +497,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
       // Add image to the attachment list
       ref.read(attachedFilesProvider.notifier).addFiles([image]);
-      debugPrint('DEBUG: Image added to attachment list');
+      DebugLogger.log('Image added to attachment list', scope: 'chat/page');
 
       // Enqueue upload via task queue for unified retry/progress
-      debugPrint('DEBUG: Enqueueing image upload...');
+      DebugLogger.log('Enqueueing image upload...', scope: 'chat/page');
       final activeConv = ref.read(activeConversationProvider);
       try {
         await ref
@@ -510,10 +512,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               fileSize: imageSize,
             );
       } catch (e) {
-        debugPrint('DEBUG: Enqueue image upload failed: $e');
+        DebugLogger.log('Enqueue image upload failed: $e', scope: 'chat/page');
       }
     } catch (e) {
-      debugPrint('DEBUG: Image attachment error: $e');
+      DebugLogger.log('Image attachment error: $e', scope: 'chat/page');
       if (!mounted) return;
     }
   }
@@ -886,7 +888,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         userMessage.attachmentIds,
       );
     } catch (e) {
-      debugPrint('Regenerate failed: $e');
+      DebugLogger.log('Regenerate failed: $e', scope: 'chat/page');
     }
   }
 
@@ -1389,8 +1391,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                   .read(activeConversationProvider.notifier)
                                   .set(full);
                             } catch (e) {
-                              debugPrint(
-                                'DEBUG: Failed to refresh conversation: $e',
+                              DebugLogger.log(
+                                'Failed to refresh conversation: $e',
+                                scope: 'chat/page',
                               );
                             }
                           }
@@ -2101,7 +2104,7 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
           });
         },
         onDone: () {
-          debugPrint('DEBUG: VoiceInputSheet stream done');
+          DebugLogger.log('VoiceInputSheet stream done', scope: 'chat/page');
           setState(() {
             _isListening = false;
           });
@@ -2112,7 +2115,10 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
           }
         },
         onError: (error) {
-          debugPrint('DEBUG: VoiceInputSheet stream error: $error');
+          DebugLogger.log(
+            'VoiceInputSheet stream error: $error',
+            scope: 'chat/page',
+          );
           setState(() {
             _isListening = false;
           });

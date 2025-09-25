@@ -2,11 +2,6 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import '../utils/debug_logger.dart';
 
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'auth/token-validator');
-}
-
 /// JWT token validation utilities
 class TokenValidator {
   static const Duration _validationTimeout = Duration(seconds: 5);
@@ -68,8 +63,10 @@ class TokenValidator {
         );
       } catch (e) {
         // If we can't decode JWT, treat as opaque token
-        debugPrint(
-          'DEBUG: Could not decode JWT payload, treating as opaque token: $e',
+        DebugLogger.warning(
+          'jwt-decode-failed',
+          scope: 'auth/token-validator',
+          data: {'error': e.toString()},
         );
         return TokenValidationResult.valid('Opaque token format valid');
       }
@@ -153,7 +150,11 @@ class TokenValidator {
         'iat': payload['iat'], // Issued at
       };
     } catch (e) {
-      debugPrint('DEBUG: Could not extract user info from token: $e');
+      DebugLogger.warning(
+        'token-user-info-failed',
+        scope: 'auth/token-validator',
+        data: {'error': e.toString()},
+      );
       return null;
     }
   }

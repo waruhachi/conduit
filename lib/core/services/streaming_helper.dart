@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart' hide debugPrint;
+import 'package:flutter/material.dart';
 
 import '../../core/models/chat_message.dart';
 import '../../core/services/persistent_streaming_service.dart';
@@ -13,11 +13,6 @@ import 'navigation_service.dart';
 import '../../shared/widgets/themed_dialogs.dart';
 import '../../shared/theme/theme_extensions.dart';
 import '../utils/debug_logger.dart';
-
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'streaming/helper');
-}
 
 // Keep local verbosity toggle for socket logs
 const bool kSocketVerboseLogging = false;
@@ -83,7 +78,10 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
     ),
     controller: persistentController,
     recoveryCallback: () async {
-      debugPrint('DEBUG: Attempting to recover interrupted stream');
+      DebugLogger.log(
+        'Attempting to recover interrupted stream',
+        scope: 'streaming/helper',
+      );
     },
     metadata: {
       'conversationId': activeConversationId,

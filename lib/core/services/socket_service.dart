@@ -2,11 +2,6 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../models/server_config.dart';
 import '../utils/debug_logger.dart';
 
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'socket');
-}
-
 class SocketService {
   final ServerConfig serverConfig;
   final bool websocketOnly;
@@ -97,7 +92,7 @@ class SocketService {
     _socket = io.io(base, builder.build());
 
     _socket!.on('connect', (_) {
-      debugPrint('Socket connected: ${_socket!.id}');
+      DebugLogger.log('Socket connected: ${_socket!.id}', scope: 'socket');
       if (_authToken != null && _authToken!.isNotEmpty) {
         _socket!.emit('user-join', {
           'auth': {'token': _authToken},
@@ -106,15 +101,18 @@ class SocketService {
     });
 
     _socket!.on('connect_error', (err) {
-      debugPrint('Socket connect_error: $err');
+      DebugLogger.log('Socket connect_error: $err', scope: 'socket');
     });
 
     _socket!.on('reconnect_attempt', (attempt) {
-      debugPrint('Socket reconnect_attempt: $attempt');
+      DebugLogger.log('Socket reconnect_attempt: $attempt', scope: 'socket');
     });
 
     _socket!.on('reconnect', (attempt) {
-      debugPrint('Socket reconnected after $attempt attempts');
+      DebugLogger.log(
+        'Socket reconnected after $attempt attempts',
+        scope: 'socket',
+      );
       if (_authToken != null && _authToken!.isNotEmpty) {
         // Best-effort rejoin
         _socket!.emit('user-join', {
@@ -124,11 +122,11 @@ class SocketService {
     });
 
     _socket!.on('reconnect_failed', (_) {
-      debugPrint('Socket reconnect_failed');
+      DebugLogger.log('Socket reconnect_failed', scope: 'socket');
     });
 
     _socket!.on('disconnect', (reason) {
-      debugPrint('Socket disconnected: $reason');
+      DebugLogger.log('Socket disconnected: $reason', scope: 'socket');
     });
   }
 

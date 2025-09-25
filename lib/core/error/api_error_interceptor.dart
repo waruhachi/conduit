@@ -1,13 +1,8 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' hide debugPrint;
+import 'package:flutter/foundation.dart';
 import 'api_error_handler.dart';
 import 'api_error.dart';
 import '../utils/debug_logger.dart';
-
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'api/error-interceptor');
-}
 
 /// Dio interceptor for automatic error handling and transformation
 /// Converts all HTTP errors into standardized ApiError format
@@ -51,7 +46,11 @@ class ApiErrorInterceptor extends Interceptor {
       }
     } catch (e) {
       // Fallback if error transformation fails
-      debugPrint('ApiErrorInterceptor: Failed to transform error: $e');
+      DebugLogger.error(
+        'transform-failed',
+        scope: 'api/error-interceptor',
+        error: e,
+      );
       handler.next(err);
     }
   }
@@ -71,7 +70,16 @@ class ApiErrorInterceptor extends Interceptor {
         );
 
         if (logErrors) {
-          debugPrint('🟡 API Error in successful response: $apiError');
+          DebugLogger.warning(
+            'successful-response-error',
+            scope: 'api/error-interceptor',
+            data: {
+              'endpoint': apiError.endpoint,
+              'method': apiError.method,
+              'status': apiError.statusCode,
+              'message': apiError.message,
+            },
+          );
         }
 
         // Store the error for later handling
@@ -122,74 +130,59 @@ class ApiErrorInterceptor extends Interceptor {
   void _logApiError(ApiError apiError, DioException originalError) {
     if (!kDebugMode) return;
 
-    final typeIcon = _getErrorTypeIcon(apiError.type);
-    debugPrint('$typeIcon API Error [${apiError.type.name.toUpperCase()}]');
-    debugPrint('  Method: ${apiError.method?.toUpperCase() ?? 'UNKNOWN'}');
-    debugPrint('  Endpoint: ${apiError.endpoint ?? 'unknown'}');
-    debugPrint('  Status: ${apiError.statusCode ?? 'N/A'}');
-    debugPrint('  Message: ${apiError.message}');
+    final payload = <String, Object?>{
+      'type': apiError.type.name,
+      'endpoint': apiError.endpoint,
+      'method': apiError.method,
+      'status': apiError.statusCode,
+      'message': apiError.message,
+      if (apiError.technical != null) 'technical': apiError.technical,
+      if (apiError.retryAfter != null)
+        'retryAfterSeconds': apiError.retryAfter!.inSeconds,
+      'originalType': originalError.type.name,
+    };
 
     if (apiError.hasFieldErrors) {
-      debugPrint('  Field Errors:');
-      for (final entry in apiError.fieldErrors.entries) {
-        final field = entry.key;
-        final errors = entry.value;
-        debugPrint('    $field: ${errors.join(', ')}');
-      }
+      payload['fieldErrors'] = {
+        for (final entry in apiError.fieldErrors.entries)
+          entry.key: entry.value,
+      };
     }
 
-    if (apiError.technical != null) {
-      debugPrint('  Technical: ${apiError.technical}');
-    }
-
-    if (apiError.retryAfter != null) {
-      debugPrint('  Retry After: ${apiError.retryAfter!.inSeconds}s');
-    }
-
-    // Log original error type for debugging
-    debugPrint('  Original Type: ${originalError.type}');
-
-    // Log request details if available
     final requestData = originalError.requestOptions.data;
     if (requestData != null && requestData.toString().length < 500) {
-      debugPrint('  Request: $requestData');
+      payload['request'] = requestData;
     }
 
-    // Log response data if available and not too large
     final responseData = originalError.response?.data;
     if (responseData != null && responseData.toString().length < 1000) {
-      DebugLogger.error('Response data available (truncated for security)');
+      payload['response'] = responseData;
     }
-  }
 
-  /// Get emoji icon for error type
-  String _getErrorTypeIcon(ApiErrorType type) {
-    switch (type) {
-      case ApiErrorType.network:
-        return '🌐';
-      case ApiErrorType.timeout:
-        return '⏱️';
-      case ApiErrorType.authentication:
-        return '🔐';
-      case ApiErrorType.authorization:
-        return '🚫';
-      case ApiErrorType.validation:
-        return '✏️';
-      case ApiErrorType.badRequest:
-        return '❌';
-      case ApiErrorType.notFound:
-        return '🔍';
-      case ApiErrorType.server:
-        return '🔥';
-      case ApiErrorType.rateLimit:
-        return '🐌';
-      case ApiErrorType.cancelled:
-        return '🛑';
-      case ApiErrorType.security:
-        return '🔒';
-      case ApiErrorType.unknown:
-        return '❓';
+    final headers = originalError.requestOptions.headers;
+    if (headers.isNotEmpty) {
+      payload['requestHeaders'] = {
+        for (final entry in headers.entries) entry.key: entry.value.toString(),
+      };
     }
+
+    final responseHeaders = originalError.response?.headers;
+    if (responseHeaders != null && responseHeaders.map.isNotEmpty) {
+      payload['responseHeaders'] = responseHeaders.map;
+    }
+
+    final requestDuration =
+        originalError.response?.requestOptions.extra['requestDuration'];
+    if (requestDuration is Duration) {
+      payload['requestDurationMs'] = requestDuration.inMilliseconds;
+    }
+
+    DebugLogger.error(
+      'api-error',
+      scope: 'api/error-interceptor',
+      data: payload,
+      error: apiError,
+    );
   }
 
   /// Extract ApiError from DioException if available

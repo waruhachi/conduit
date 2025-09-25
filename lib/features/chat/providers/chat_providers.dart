@@ -16,11 +16,6 @@ import '../../tools/providers/tools_providers.dart';
 import 'dart:async';
 import '../../../core/utils/debug_logger.dart';
 
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'chat/providers');
-}
-
 const bool kSocketVerboseLogging = false;
 
 // Chat messages for current conversation
@@ -105,7 +100,10 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
         previous,
         next,
       ) {
-        debugPrint('Conversation changed: ${previous?.id} -> ${next?.id}');
+        DebugLogger.log(
+          'Conversation changed: ${previous?.id} -> ${next?.id}',
+          scope: 'chat/providers',
+        );
 
         // Only react when the conversation actually changes
         if (previous?.id == next?.id) {
@@ -1886,7 +1884,10 @@ Please try sending the message again, or try without attachments.''',
       );
       ref.read(chatMessagesProvider.notifier).addMessage(errorMessage);
     } else if (e.toString().contains('404')) {
-      debugPrint('DEBUG: Model or endpoint not found (404)');
+      DebugLogger.log(
+        'Model or endpoint not found (404)',
+        scope: 'chat/providers',
+      );
       final errorMessage = ChatMessage(
         id: const Uuid().v4(),
         role: 'assistant',
@@ -2005,7 +2006,10 @@ Future<void> pinConversation(
           .set(activeConversation!.copyWith(pinned: pinned));
     }
   } catch (e) {
-    debugPrint('Error ${pinned ? 'pinning' : 'unpinning'} conversation: $e');
+    DebugLogger.log(
+      'Error ${pinned ? 'pinning' : 'unpinning'} conversation: $e',
+      scope: 'chat/providers',
+    );
     rethrow;
   }
 }
@@ -2033,8 +2037,9 @@ Future<void> archiveConversation(
     // Refresh conversations list to reflect the change
     ref.invalidate(conversationsProvider);
   } catch (e) {
-    debugPrint(
+    DebugLogger.log(
       'Error ${archived ? 'archiving' : 'unarchiving'} conversation: $e',
+      scope: 'chat/providers',
     );
 
     // If server operation failed and we archived locally, restore the conversation
@@ -2060,7 +2065,7 @@ Future<String?> shareConversation(WidgetRef ref, String conversationId) async {
 
     return shareId;
   } catch (e) {
-    debugPrint('Error sharing conversation: $e');
+    DebugLogger.log('Error sharing conversation: $e', scope: 'chat/providers');
     rethrow;
   }
 }
@@ -2081,7 +2086,7 @@ Future<void> cloneConversation(WidgetRef ref, String conversationId) async {
     // Refresh conversations list to show the new conversation
     ref.invalidate(conversationsProvider);
   } catch (e) {
-    debugPrint('Error cloning conversation: $e');
+    DebugLogger.log('Error cloning conversation: $e', scope: 'chat/providers');
     rethrow;
   }
 }

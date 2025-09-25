@@ -5,11 +5,6 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/debug_logger.dart';
 
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'attachments/queue');
-}
-
 /// Status of a queued attachment upload
 enum QueuedAttachmentStatus { pending, uploading, completed, failed, cancelled }
 
@@ -144,8 +139,9 @@ class AttachmentUploadQueue {
     _prefs ??= await SharedPreferences.getInstance();
     await _load();
     _startPeriodicProcessing();
-    debugPrint(
-      'DEBUG: AttachmentUploadQueue initialized with ${_queue.length} items',
+    DebugLogger.log(
+      'AttachmentUploadQueue initialized with ${_queue.length} items',
+      scope: 'attachments/queue',
     );
   }
 
@@ -223,8 +219,9 @@ class AttachmentUploadQueue {
 
       await _save();
       _notify();
-      debugPrint(
-        'DEBUG: Attachment ${item.id} uploaded successfully (fileId=$fileId)',
+      DebugLogger.log(
+        'Attachment ${item.id} uploaded successfully (fileId=$fileId)',
+        scope: 'attachments/queue',
       );
     } catch (e) {
       final retries = item.retryCount + 1;
@@ -239,8 +236,9 @@ class AttachmentUploadQueue {
         );
         await _save();
         _notify();
-        debugPrint(
+        DebugLogger.log(
           'WARNING: Attachment ${item.id} failed after $_maxRetries attempts',
+          scope: 'attachments/queue',
         );
         return;
       }
@@ -257,8 +255,9 @@ class AttachmentUploadQueue {
       );
       await _save();
       _notify();
-      debugPrint(
-        'DEBUG: Scheduled retry for attachment ${item.id} in ${delay.inSeconds}s',
+      DebugLogger.log(
+        'Scheduled retry for attachment ${item.id} in ${delay.inSeconds}s',
+        scope: 'attachments/queue',
       );
     }
   }

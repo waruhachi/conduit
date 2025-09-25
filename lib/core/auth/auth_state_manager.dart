@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' hide debugPrint;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Types are used through app_providers.dart
 import '../providers/app_providers.dart';
@@ -6,11 +6,6 @@ import '../models/user.dart';
 import 'token_validator.dart';
 import 'auth_cache_manager.dart';
 import '../utils/debug_logger.dart';
-
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'auth/state');
-}
 
 /// Comprehensive auth state representation
 @immutable
@@ -153,7 +148,7 @@ class AuthStateManager extends Notifier<AuthState> {
         );
       }
     } catch (e) {
-      debugPrint('ERROR: Auth initialization failed: $e');
+      DebugLogger.error('auth-init-failed', scope: 'auth/state', error: e);
       state = state.copyWith(
         status: AuthStatus.error,
         error: 'Failed to initialize auth: $e',
@@ -244,7 +239,7 @@ class AuthStateManager extends Notifier<AuthState> {
         throw Exception('Invalid API key or insufficient permissions');
       }
     } catch (e) {
-      debugPrint('ERROR: API key login failed: $e');
+      DebugLogger.error('api-key-login-failed', scope: 'auth/state', error: e);
       state = state.copyWith(
         status: AuthStatus.error,
         error: e.toString(),
@@ -325,7 +320,7 @@ class AuthStateManager extends Notifier<AuthState> {
       DebugLogger.auth('Login successful');
       return true;
     } catch (e) {
-      debugPrint('ERROR: Login failed: $e');
+      DebugLogger.error('login-failed', scope: 'auth/state', error: e);
       state = state.copyWith(
         status: AuthStatus.error,
         error: e.toString(),
@@ -433,7 +428,7 @@ class AuthStateManager extends Notifier<AuthState> {
         return await login(username, password, rememberCredentials: false);
       }
     } catch (e) {
-      debugPrint('ERROR: Silent login failed: $e');
+      DebugLogger.error('silent-login-failed', scope: 'auth/state', error: e);
 
       // Clear invalid credentials on auth errors
       if (e.toString().contains('401') ||
@@ -496,7 +491,11 @@ class AuthStateManager extends Notifier<AuthState> {
         try {
           await api.logout();
         } catch (e) {
-          debugPrint('Warning: Server logout failed: $e');
+          DebugLogger.warning(
+            'server-logout-failed',
+            scope: 'auth/state',
+            data: {'error': e.toString()},
+          );
         }
       }
 
@@ -516,7 +515,7 @@ class AuthStateManager extends Notifier<AuthState> {
 
       DebugLogger.auth('Logout complete');
     } catch (e) {
-      debugPrint('ERROR: Logout failed: $e');
+      DebugLogger.error('logout-failed', scope: 'auth/state', error: e);
       // Even if logout fails, clear local state
       state = state.copyWith(
         status: AuthStatus.unauthenticated,
@@ -551,7 +550,11 @@ class AuthStateManager extends Notifier<AuthState> {
       // Fall back to server data loading
       await _loadServerUserData();
     } catch (e) {
-      debugPrint('Warning: Failed to load user data: $e');
+      DebugLogger.warning(
+        'user-data-load-failed',
+        scope: 'auth/state',
+        data: {'error': e.toString()},
+      );
       // Don't update state on user data load failure
     }
   }
@@ -563,9 +566,7 @@ class AuthStateManager extends Notifier<AuthState> {
       if (api != null && state.isAuthenticated) {
         // Check if we already have user data from token validation
         if (state.user != null) {
-          debugPrint(
-            'DEBUG: User data already available from token validation',
-          );
+          DebugLogger.auth('user-data-present-from-token', scope: 'auth/state');
           return;
         }
 
@@ -574,7 +575,11 @@ class AuthStateManager extends Notifier<AuthState> {
         DebugLogger.auth('Loaded complete user data from server');
       }
     } catch (e) {
-      debugPrint('Warning: Failed to load server user data: $e');
+      DebugLogger.warning(
+        'server-user-data-load-failed',
+        scope: 'auth/state',
+        data: {'error': e.toString()},
+      );
       // Don't update state on server data load failure - keep JWT data if available
     }
   }
@@ -605,21 +610,25 @@ class AuthStateManager extends Notifier<AuthState> {
     // Fast format validation first
     final formatResult = TokenValidator.validateTokenFormat(token);
     if (!formatResult.isValid) {
-      debugPrint('DEBUG: Token format invalid: ${formatResult.message}');
+      DebugLogger.warning(
+        'token-format-invalid',
+        scope: 'auth/state',
+        data: {'message': formatResult.message},
+      );
       TokenValidationCache.cacheResult(token, formatResult);
       return false;
     }
 
     // If format is valid but token is expiring soon, try server validation
     if (formatResult.isExpiringSoon) {
-      debugPrint('DEBUG: Token expiring soon, validating with server');
+      DebugLogger.auth('token-expiring-soon', scope: 'auth/state');
     }
 
     // Server validation (async with timeout)
     try {
       final api = ref.read(apiServiceProvider);
       if (api == null) {
-        debugPrint('DEBUG: No API service available for token validation');
+        DebugLogger.warning('token-validation-no-api', scope: 'auth/state');
         return formatResult.isValid; // Fall back to format validation
       }
 
@@ -650,7 +659,11 @@ class AuthStateManager extends Notifier<AuthState> {
       );
       return serverResult.isValid;
     } catch (e) {
-      debugPrint('DEBUG: Token server validation failed: $e');
+      DebugLogger.warning(
+        'token-validation-failed',
+        scope: 'auth/state',
+        data: {'error': e.toString()},
+      );
       // On network error, fall back to format validation if it was valid
       return formatResult.isValid;
     }

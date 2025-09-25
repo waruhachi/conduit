@@ -6,11 +6,6 @@ import '../models/server_config.dart';
 import '../models/conversation.dart';
 import '../utils/debug_logger.dart';
 
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'storage/optimized');
-}
-
 /// Optimized storage service with single secure storage implementation
 /// Eliminates dual storage overhead and improves performance
 class OptimizedStorageService {
@@ -46,9 +41,15 @@ class OptimizedStorageService {
       await _secureCredentialStorage.saveAuthToken(token);
       _cache[_authTokenKey] = token;
       _cacheTimestamps[_authTokenKey] = DateTime.now();
-      debugPrint('DEBUG: Auth token saved and cached');
+      DebugLogger.log(
+        'Auth token saved and cached',
+        scope: 'storage/optimized',
+      );
     } catch (e) {
-      debugPrint('ERROR: Failed to save auth token: $e');
+      DebugLogger.log(
+        'Failed to save auth token: $e',
+        scope: 'storage/optimized',
+      );
       rethrow;
     }
   }
@@ -58,7 +59,7 @@ class OptimizedStorageService {
     if (_isCacheValid(_authTokenKey)) {
       final cachedToken = _cache[_authTokenKey] as String?;
       if (cachedToken != null) {
-        debugPrint('DEBUG: Using cached auth token');
+        DebugLogger.log('Using cached auth token', scope: 'storage/optimized');
         return cachedToken;
       }
     }
@@ -71,7 +72,10 @@ class OptimizedStorageService {
       }
       return token;
     } catch (e) {
-      debugPrint('ERROR: Failed to retrieve auth token: $e');
+      DebugLogger.log(
+        'Failed to retrieve auth token: $e',
+        scope: 'storage/optimized',
+      );
       return null;
     }
   }
@@ -81,9 +85,15 @@ class OptimizedStorageService {
       await _secureCredentialStorage.deleteAuthToken();
       _cache.remove(_authTokenKey);
       _cacheTimestamps.remove(_authTokenKey);
-      debugPrint('DEBUG: Auth token deleted and cache cleared');
+      DebugLogger.log(
+        'Auth token deleted and cache cleared',
+        scope: 'storage/optimized',
+      );
     } catch (e) {
-      debugPrint('ERROR: Failed to delete auth token: $e');
+      DebugLogger.log(
+        'Failed to delete auth token: $e',
+        scope: 'storage/optimized',
+      );
     }
   }
 
@@ -104,9 +114,15 @@ class OptimizedStorageService {
       _cache['has_credentials'] = true;
       _cacheTimestamps['has_credentials'] = DateTime.now();
 
-      debugPrint('DEBUG: Credentials saved via optimized storage');
+      DebugLogger.log(
+        'Credentials saved via optimized storage',
+        scope: 'storage/optimized',
+      );
     } catch (e) {
-      debugPrint('ERROR: Failed to save credentials: $e');
+      DebugLogger.log(
+        'Failed to save credentials: $e',
+        scope: 'storage/optimized',
+      );
       rethrow;
     }
   }
@@ -122,7 +138,10 @@ class OptimizedStorageService {
 
       return credentials;
     } catch (e) {
-      debugPrint('ERROR: Failed to retrieve credentials: $e');
+      DebugLogger.log(
+        'Failed to retrieve credentials: $e',
+        scope: 'storage/optimized',
+      );
       return null;
     }
   }
@@ -132,9 +151,15 @@ class OptimizedStorageService {
       await _secureCredentialStorage.deleteSavedCredentials();
       _cache.remove('has_credentials');
       _cacheTimestamps.remove('has_credentials');
-      debugPrint('DEBUG: Credentials deleted via optimized storage');
+      DebugLogger.log(
+        'Credentials deleted via optimized storage',
+        scope: 'storage/optimized',
+      );
     } catch (e) {
-      debugPrint('ERROR: Failed to delete credentials: $e');
+      DebugLogger.log(
+        'Failed to delete credentials: $e',
+        scope: 'storage/optimized',
+      );
     }
   }
 
@@ -167,9 +192,15 @@ class OptimizedStorageService {
       _cache['server_config_count'] = configs.length;
       _cacheTimestamps['server_config_count'] = DateTime.now();
 
-      debugPrint('DEBUG: Server configs saved (${configs.length} configs)');
+      DebugLogger.log(
+        'Server configs saved (${configs.length} configs)',
+        scope: 'storage/optimized',
+      );
     } catch (e) {
-      debugPrint('ERROR: Failed to save server configs: $e');
+      DebugLogger.log(
+        'Failed to save server configs: $e',
+        scope: 'storage/optimized',
+      );
       rethrow;
     }
   }
@@ -194,7 +225,10 @@ class OptimizedStorageService {
 
       return configs;
     } catch (e) {
-      debugPrint('ERROR: Failed to retrieve server configs: $e');
+      DebugLogger.log(
+        'Failed to retrieve server configs: $e',
+        scope: 'storage/optimized',
+      );
       return [];
     }
   }
@@ -275,7 +309,10 @@ class OptimizedStorageService {
       final decoded = jsonDecode(jsonString) as List<dynamic>;
       return decoded.map((item) => Conversation.fromJson(item)).toList();
     } catch (e) {
-      debugPrint('ERROR: Failed to retrieve local conversations: $e');
+      DebugLogger.log(
+        'Failed to retrieve local conversations: $e',
+        scope: 'storage/optimized',
+      );
       return [];
     }
   }
@@ -298,11 +335,15 @@ class OptimizedStorageService {
       final jsonString = jsonEncode(lightweightConversations);
       await _prefs.setString(_localConversationsKey, jsonString);
 
-      debugPrint(
-        'DEBUG: Saved ${conversations.length} local conversations (lightweight)',
+      DebugLogger.log(
+        'Saved ${conversations.length} local conversations (lightweight)',
+        scope: 'storage/optimized',
       );
     } catch (e) {
-      debugPrint('ERROR: Failed to save local conversations: $e');
+      DebugLogger.log(
+        'Failed to save local conversations: $e',
+        scope: 'storage/optimized',
+      );
     }
   }
 
@@ -331,9 +372,15 @@ class OptimizedStorageService {
             key.contains('server'),
       );
 
-      debugPrint('DEBUG: Auth data cleared in batch operation');
+      DebugLogger.log(
+        'Auth data cleared in batch operation',
+        scope: 'storage/optimized',
+      );
     } catch (e) {
-      debugPrint('ERROR: Failed to clear auth data: $e');
+      DebugLogger.log(
+        'Failed to clear auth data: $e',
+        scope: 'storage/optimized',
+      );
     }
   }
 
@@ -344,9 +391,12 @@ class OptimizedStorageService {
       _cache.clear();
       _cacheTimestamps.clear();
 
-      debugPrint('DEBUG: All storage cleared');
+      DebugLogger.log('All storage cleared', scope: 'storage/optimized');
     } catch (e) {
-      debugPrint('ERROR: Failed to clear all storage: $e');
+      DebugLogger.log(
+        'Failed to clear all storage: $e',
+        scope: 'storage/optimized',
+      );
     }
   }
 
@@ -366,21 +416,30 @@ class OptimizedStorageService {
   void clearCache() {
     _cache.clear();
     _cacheTimestamps.clear();
-    debugPrint('DEBUG: Storage cache cleared');
+    DebugLogger.log('Storage cache cleared', scope: 'storage/optimized');
   }
 
   /// Migration from old storage service (one-time operation)
   Future<void> migrateFromLegacyStorage() async {
     try {
-      debugPrint('DEBUG: Starting migration from legacy storage');
+      DebugLogger.log(
+        'Starting migration from legacy storage',
+        scope: 'storage/optimized',
+      );
 
       // This would be called once during app upgrade
       // Implementation would depend on the specific migration needs
       // For now, the SecureCredentialStorage already handles legacy migration
 
-      debugPrint('DEBUG: Legacy storage migration completed');
+      DebugLogger.log(
+        'Legacy storage migration completed',
+        scope: 'storage/optimized',
+      );
     } catch (e) {
-      debugPrint('ERROR: Legacy storage migration failed: $e');
+      DebugLogger.log(
+        'Legacy storage migration failed: $e',
+        scope: 'storage/optimized',
+      );
     }
   }
 

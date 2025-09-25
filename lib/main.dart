@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'package:flutter/material.dart' hide debugPrint;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/widgets/error_boundary.dart';
@@ -22,11 +22,6 @@ import 'core/providers/app_startup_providers.dart';
 
 developer.TimelineTask? _startupTimeline;
 
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'app/main');
-}
-
 void main() {
   runZonedGuarded(
     () async {
@@ -41,7 +36,7 @@ void main() {
         );
         final stack = details.stack;
         if (stack != null) {
-          debugPrint(stack.toString());
+          debugPrintStack(stackTrace: stack);
         }
       };
       WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
@@ -51,7 +46,7 @@ void main() {
           error: error,
           stackTrace: stack,
         );
-        debugPrint(stack.toString());
+        debugPrintStack(stackTrace: stack);
         return true;
       };
 
@@ -108,7 +103,7 @@ void main() {
         error: error,
         stackTrace: stack,
       );
-      debugPrint(stack.toString());
+      debugPrintStack(stackTrace: stack);
     },
   );
 }

@@ -1,6 +1,5 @@
-import 'package:flutter/material.dart' hide debugPrint;
+import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:convert';
@@ -21,11 +20,6 @@ import '../../../shared/widgets/model_avatar.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import '../providers/chat_providers.dart' show sendMessage;
 import '../../../core/utils/debug_logger.dart';
-
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'chat/assistant');
-}
 
 class AssistantMessageWidget extends ConsumerStatefulWidget {
   final dynamic message;
@@ -76,7 +70,10 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     try {
       await sendMessage(ref, trimmed, null);
     } catch (err, stack) {
-      debugPrint('Failed to send follow-up: $err');
+      DebugLogger.log(
+        'Failed to send follow-up: $err',
+        scope: 'chat/assistant',
+      );
       debugPrintStack(stackTrace: stack);
     }
   }
@@ -660,15 +657,6 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                       const SizedBox(height: Spacing.md),
                       CitationListView(sources: widget.message.sources),
                     ],
-
-                    if (hasFollowUps) ...[
-                      const SizedBox(height: Spacing.md),
-                      FollowUpSuggestionBar(
-                        suggestions: widget.message.followUps,
-                        onSelected: _handleFollowUpTap,
-                        isBusy: widget.isStreaming,
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -677,6 +665,14 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
               if (!widget.isStreaming) ...[
                 const SizedBox(height: Spacing.sm),
                 _buildActionButtons(),
+                if (hasFollowUps) ...[
+                  const SizedBox(height: Spacing.md),
+                  FollowUpSuggestionBar(
+                    suggestions: widget.message.followUps,
+                    onSelected: _handleFollowUpTap,
+                    isBusy: widget.isStreaming,
+                  ),
+                ],
               ],
             ],
           ),
@@ -1283,6 +1279,124 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   }
 }
 
+class _AssistantResponseSection extends StatelessWidget {
+  const _AssistantResponseSection({
+    required this.title,
+    required this.child,
+    this.icon,
+  });
+
+  final String title;
+  final Widget child;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.conduitTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 16, color: theme.buttonPrimary),
+              const SizedBox(width: Spacing.xs),
+            ],
+            Text(
+              title,
+              style: TextStyle(
+                color: theme.textSecondary,
+                fontSize: AppTypography.bodySmall,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.15,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: Spacing.xs),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(Spacing.sm),
+          decoration: BoxDecoration(
+            color: theme.cardBackground,
+            borderRadius: BorderRadius.circular(AppBorderRadius.card),
+            border: Border.all(
+              color: theme.cardBorder.withValues(alpha: 0.6),
+              width: BorderWidth.thin,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.shadow.withValues(alpha: 0.05),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      ],
+    );
+  }
+}
+
+class _AssistantSuggestionChip extends StatelessWidget {
+  const _AssistantSuggestionChip({
+    required this.label,
+    this.icon,
+    this.onPressed,
+    this.enabled = true,
+  });
+
+  final String label;
+  final IconData? icon;
+  final VoidCallback? onPressed;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.conduitTheme;
+    final effectiveOnPressed = enabled ? onPressed : null;
+    final iconColor = enabled
+        ? theme.textSecondary
+        : theme.textSecondary.withValues(alpha: 0.5);
+
+    final background = theme.cardBackground.withValues(
+      alpha: enabled ? 0.95 : 0.85,
+    );
+    final borderColor = theme.cardBorder.withValues(
+      alpha: enabled ? 0.6 : 0.35,
+    );
+
+    return RawChip(
+      avatar: icon != null ? Icon(icon, size: 16, color: iconColor) : null,
+      label: Text(
+        label,
+        style: TextStyle(
+          color: enabled ? theme.textPrimary : theme.textSecondary,
+          fontSize: AppTypography.labelMedium,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.2,
+        ),
+      ),
+      onPressed: effectiveOnPressed,
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.sm,
+        vertical: Spacing.xxs,
+      ),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      backgroundColor: background,
+      disabledColor: background,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppBorderRadius.pill),
+        side: BorderSide(color: borderColor, width: BorderWidth.thin),
+      ),
+    );
+  }
+}
+
 class StatusHistoryTimeline extends StatelessWidget {
   const StatusHistoryTimeline({super.key, required this.updates});
 
@@ -1290,39 +1404,24 @@ class StatusHistoryTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.conduitTheme;
     if (updates.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(Spacing.sm),
-      decoration: BoxDecoration(
-        color: theme.surfaceContainer.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.6),
-          width: BorderWidth.thin,
-        ),
-      ),
+    return _AssistantResponseSection(
+      title: 'Status updates',
+      icon: Icons.sync_alt,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Status updates',
-            style: TextStyle(
-              color: theme.textPrimary,
-              fontWeight: FontWeight.w600,
-              fontSize: AppTypography.bodyLarge,
+          const SizedBox(height: Spacing.xs),
+          for (var index = 0; index < updates.length; index++)
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: index == updates.length - 1 ? 0 : Spacing.xs,
+              ),
+              child: _StatusHistoryEntry(update: updates[index]),
             ),
-          ),
-          const SizedBox(height: Spacing.sm),
-          ...List.generate(updates.length, (index) {
-            final update = updates[index];
-            final isLast = index == updates.length - 1;
-            return _StatusHistoryEntry(update: update, isLast: isLast);
-          }),
         ],
       ),
     );
@@ -1330,10 +1429,9 @@ class StatusHistoryTimeline extends StatelessWidget {
 }
 
 class _StatusHistoryEntry extends StatelessWidget {
-  const _StatusHistoryEntry({required this.update, required this.isLast});
+  const _StatusHistoryEntry({required this.update});
 
   final ChatStatusUpdate update;
-  final bool isLast;
 
   Color _indicatorColor(ConduitThemeExtension theme) {
     if (update.done == false) {
@@ -1372,142 +1470,159 @@ class _StatusHistoryEntry extends StatelessWidget {
       }
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: Spacing.sm),
-      child: Row(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.sm,
+        vertical: Spacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: theme.cardBackground.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        border: Border.all(
+          color: theme.cardBorder.withValues(alpha: 0.5),
+          width: BorderWidth.thin,
+        ),
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(_indicatorIcon(), size: 18, color: indicatorColor),
-              if (!isLast)
-                Container(
-                  margin: const EdgeInsets.only(top: Spacing.xxs),
-                  width: 2,
-                  height: 32,
-                  color: theme.dividerColor.withValues(alpha: 0.5),
+              Icon(_indicatorIcon(), size: 16, color: indicatorColor),
+              const SizedBox(width: Spacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: AppTypography.bodySmall,
+                        color: theme.textSecondary,
+                        fontWeight: update.done == true
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                      ),
+                    ),
+                    if (update.count != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: Spacing.xxs),
+                        child: Text(
+                          update.count == 1
+                              ? 'Retrieved 1 source'
+                              : 'Retrieved ${update.count} sources',
+                          style: TextStyle(
+                            color: theme.textSecondary,
+                            fontSize: AppTypography.labelSmall,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    if (timestamp != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: Spacing.xxs),
+                        child: Text(
+                          _formatTimestamp(timestamp),
+                          style: TextStyle(
+                            color: theme.textSecondary.withValues(alpha: 0.8),
+                            fontSize: AppTypography.labelSmall,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
+              ),
             ],
           ),
-          const SizedBox(width: Spacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: AppTypography.bodyMedium,
-                    color: theme.textPrimary,
-                    fontWeight: update.done == true
-                        ? FontWeight.w600
-                        : FontWeight.w500,
-                  ),
-                ),
-                if (update.count != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: Spacing.xxs),
-                    child: Text(
-                      update.count == 1
-                          ? 'Retrieved 1 source'
-                          : 'Retrieved ${update.count} sources',
-                      style: TextStyle(
-                        color: theme.textSecondary,
-                        fontSize: AppTypography.labelSmall,
-                      ),
-                    ),
-                  ),
-                if (timestamp != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: Spacing.xxs),
-                    child: Text(
-                      _formatTimestamp(timestamp),
-                      style: TextStyle(
-                        color: theme.textSecondary,
-                        fontSize: AppTypography.labelSmall,
-                      ),
-                    ),
-                  ),
-                if (queries.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: Spacing.xxs),
-                    child: Wrap(
-                      spacing: Spacing.xs,
-                      runSpacing: Spacing.xs,
-                      children: queries.map((query) {
-                        return ActionChip(
-                          label: Text(query),
-                          avatar: const Icon(Icons.search, size: 16),
-                          onPressed: () {
-                            _launchUri(
-                              'https://www.google.com/search?q=${Uri.encodeComponent(query)}',
-                            );
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                if (update.urls.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: Spacing.xxs),
-                    child: Wrap(
-                      spacing: Spacing.xs,
-                      runSpacing: Spacing.xs,
-                      children: update.urls.map((url) {
-                        return OutlinedButton.icon(
-                          onPressed: () => _launchUri(url),
-                          icon: const Icon(Icons.open_in_new, size: 16),
-                          label: Text(
-                            Uri.tryParse(url)?.host ?? 'Link',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                if (update.items.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: Spacing.xxs),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: update.items.map((item) {
-                        final title = item.title?.isNotEmpty == true
-                            ? item.title!
-                            : item.link ?? 'Result';
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: Spacing.xxs),
-                          child: InkWell(
-                            onTap: item.link != null
-                                ? () => _launchUri(item.link!)
-                                : null,
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(Icons.link, size: 16),
-                                const SizedBox(width: Spacing.xxs),
-                                Expanded(
-                                  child: Text(
-                                    title,
-                                    style: TextStyle(
-                                      color: item.link != null
-                                          ? theme.buttonPrimary
-                                          : theme.textSecondary,
-                                      decoration: item.link != null
-                                          ? TextDecoration.underline
-                                          : TextDecoration.none,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-              ],
+          if (queries.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: Spacing.sm),
+              child: Wrap(
+                spacing: Spacing.xs,
+                runSpacing: Spacing.xs,
+                children: queries.map((query) {
+                  return _AssistantSuggestionChip(
+                    label: query,
+                    icon: Icons.search,
+                    onPressed: () {
+                      _launchUri(
+                        'https://www.google.com/search?q=${Uri.encodeComponent(query)}',
+                      );
+                    },
+                  );
+                }).toList(),
+              ),
             ),
-          ),
+          if (update.urls.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: Spacing.sm),
+              child: Wrap(
+                spacing: Spacing.xs,
+                runSpacing: Spacing.xs,
+                children: update.urls.map((url) {
+                  final host = Uri.tryParse(url)?.host ?? 'Link';
+                  return _AssistantSuggestionChip(
+                    label: host,
+                    icon: Icons.open_in_new,
+                    onPressed: () => _launchUri(url),
+                  );
+                }).toList(),
+              ),
+            ),
+          if (update.items.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: Spacing.sm),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: update.items.map((item) {
+                  final title = item.title?.isNotEmpty == true
+                      ? item.title!
+                      : item.link ?? 'Result';
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: Spacing.xs),
+                    child: InkWell(
+                      onTap: item.link != null
+                          ? () => _launchUri(item.link!)
+                          : null,
+                      borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: Spacing.xxs,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.link,
+                              size: 16,
+                              color: theme.textSecondary,
+                            ),
+                            const SizedBox(width: Spacing.xs),
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: TextStyle(
+                                  color: item.link != null
+                                      ? theme.buttonPrimary
+                                      : theme.textSecondary,
+                                  decoration: item.link != null
+                                      ? TextDecoration.underline
+                                      : TextDecoration.none,
+                                  fontSize: AppTypography.bodySmall,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
         ],
       ),
     );
@@ -1772,7 +1887,7 @@ class CitationListView extends StatelessWidget {
   }
 }
 
-class FollowUpSuggestionBar extends StatefulWidget {
+class FollowUpSuggestionBar extends StatelessWidget {
   const FollowUpSuggestionBar({
     super.key,
     required this.suggestions,
@@ -1785,148 +1900,36 @@ class FollowUpSuggestionBar extends StatefulWidget {
   final bool isBusy;
 
   @override
-  State<FollowUpSuggestionBar> createState() => _FollowUpSuggestionBarState();
-}
-
-class _FollowUpSuggestionBarState extends State<FollowUpSuggestionBar>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 520),
-    );
-    if (widget.suggestions.isNotEmpty) {
-      _controller.forward();
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant FollowUpSuggestionBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!listEquals(oldWidget.suggestions, widget.suggestions)) {
-      if (widget.suggestions.isEmpty) {
-        _controller.reset();
-      } else {
-        _controller.forward(from: 0);
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final theme = context.conduitTheme;
-    if (widget.suggestions.isEmpty) {
+    final trimmedSuggestions = suggestions
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList(growable: false);
+
+    if (trimmedSuggestions.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final Animation<double> headerAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0, 0.35, curve: Curves.easeOutCubic),
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AnimatedBuilder(
-          animation: headerAnimation,
-          builder: (context, child) {
-            return Opacity(
-              opacity: headerAnimation.value,
-              child: Transform.translate(
-                offset: Offset(0, (1 - headerAnimation.value) * 10),
-                child: child,
-              ),
-            );
-          },
-          child: Text(
-            'Try next',
-            style: TextStyle(
-              color: theme.textPrimary,
-              fontWeight: FontWeight.w600,
-              fontSize: AppTypography.bodyLarge,
-            ),
+    return _AssistantResponseSection(
+      title: 'Suggested next steps',
+      icon: Icons.auto_awesome,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: Spacing.xs),
+          Wrap(
+            spacing: Spacing.xs,
+            runSpacing: Spacing.xs,
+            children: [
+              for (final suggestion in trimmedSuggestions)
+                _AssistantSuggestionChip(
+                  label: suggestion,
+                  onPressed: isBusy ? null : () => onSelected(suggestion),
+                  enabled: !isBusy,
+                ),
+            ],
           ),
-        ),
-        const SizedBox(height: Spacing.xs),
-        Wrap(
-          spacing: Spacing.xs,
-          runSpacing: Spacing.xs,
-          children: [
-            for (var i = 0; i < widget.suggestions.length; i++)
-              _AnimatedSuggestionChip(
-                controller: _controller,
-                index: i,
-                total: widget.suggestions.length,
-                isBusy: widget.isBusy,
-                suggestion: widget.suggestions[i],
-                onSelected: widget.onSelected,
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _AnimatedSuggestionChip extends StatelessWidget {
-  const _AnimatedSuggestionChip({
-    required this.controller,
-    required this.index,
-    required this.total,
-    required this.isBusy,
-    required this.suggestion,
-    required this.onSelected,
-  });
-
-  final AnimationController controller;
-  final int index;
-  final int total;
-  final bool isBusy;
-  final String suggestion;
-  final ValueChanged<String> onSelected;
-
-  Interval _intervalForIndex() {
-    if (total <= 1) {
-      return const Interval(0.0, 0.8, curve: Curves.easeOutCubic);
-    }
-    final double step = 0.6 / total;
-    final double start = (index * step).clamp(0.0, 0.8);
-    final double end = (start + 0.4).clamp(0.2, 1.0);
-    return Interval(start, end, curve: Curves.easeOutCubic);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final animation = CurvedAnimation(
-      parent: controller,
-      curve: _intervalForIndex(),
-    );
-
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        final double t = animation.value;
-        return Opacity(
-          opacity: t,
-          child: Transform.translate(
-            offset: Offset(0, (1 - t) * 12),
-            child: Transform.scale(scale: 0.95 + (t * 0.05), child: child),
-          ),
-        );
-      },
-      child: FilledButton.tonal(
-        onPressed: isBusy ? null : () => onSelected(suggestion),
-        child: Text(suggestion),
+        ],
       ),
     );
   }
@@ -1937,6 +1940,6 @@ Future<void> _launchUri(String url) async {
   try {
     await launchUrlString(url, mode: LaunchMode.externalApplication);
   } catch (err) {
-    debugPrint('Unable to open url $url: $err');
+    DebugLogger.log('Unable to open url $url: $err', scope: 'chat/assistant');
   }
 }

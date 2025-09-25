@@ -1,14 +1,9 @@
-import 'package:flutter/foundation.dart' hide debugPrint;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import '../../shared/theme/theme_extensions.dart';
 import 'navigation_service.dart';
 import '../utils/debug_logger.dart';
-
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'errors/user-friendly');
-}
 
 /// User-friendly error messages and recovery actions
 class UserFriendlyErrorHandler {
@@ -347,9 +342,12 @@ class UserFriendlyErrorHandler {
   /// Log technical error details for debugging
   void _logError(dynamic error) {
     if (kDebugMode) {
-      debugPrint('ERROR: $error');
+      DebugLogger.log('$error', scope: 'errors/user-friendly');
       if (error is Error) {
-        debugPrint('STACK TRACE: ${error.stackTrace}');
+        DebugLogger.log(
+          'STACK TRACE: ${error.stackTrace}',
+          scope: 'errors/user-friendly',
+        );
       }
     }
 

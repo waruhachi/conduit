@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' hide debugPrint;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'api_error.dart';
 import 'api_error_handler.dart';
@@ -8,11 +8,6 @@ import '../../shared/theme/app_theme.dart';
 import '../../shared/theme/theme_extensions.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import '../utils/debug_logger.dart';
-
-void debugPrint(String? message, {int? wrapWidth}) {
-  if (message == null) return;
-  DebugLogger.fromLegacy(message, scope: 'api/error-service');
-}
 
 /// Enhanced error service with comprehensive error handling capabilities
 /// Provides unified error management across the application
@@ -306,16 +301,31 @@ class EnhancedErrorService {
   }) {
     if (kDebugMode) {
       final timestamp = DateTime.now().toIso8601String();
-      debugPrint('🔴 ERROR [$timestamp] ${context ?? 'Unknown Context'}');
-      debugPrint('  Message: ${getUserMessage(error)}');
-      debugPrint('  Technical: ${getTechnicalDetails(error)}');
+      DebugLogger.log(
+        '🔴 ERROR [$timestamp] ${context ?? 'Unknown Context'}',
+        scope: 'api/error-service',
+      );
+      DebugLogger.log(
+        '  Message: ${getUserMessage(error)}',
+        scope: 'api/error-service',
+      );
+      DebugLogger.log(
+        '  Technical: ${getTechnicalDetails(error)}',
+        scope: 'api/error-service',
+      );
 
       if (additionalData != null && additionalData.isNotEmpty) {
-        debugPrint('  Additional Data: $additionalData');
+        DebugLogger.log(
+          '  Additional Data: $additionalData',
+          scope: 'api/error-service',
+        );
       }
 
       if (stackTrace != null) {
-        debugPrint('  Stack Trace: $stackTrace');
+        DebugLogger.log(
+          '  Stack Trace: $stackTrace',
+          scope: 'api/error-service',
+        );
       }
     }
 
