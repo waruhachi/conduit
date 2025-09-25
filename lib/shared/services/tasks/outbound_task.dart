@@ -68,18 +68,6 @@ abstract class OutboundTask with _$OutboundTask {
     String? error,
   }) = GenerateImageTask;
 
-  const factory OutboundTask.generateTitle({
-    required String id,
-    required String conversationId,
-    @Default(TaskStatus.queued) TaskStatus status,
-    @Default(0) int attempt,
-    String? idempotencyKey,
-    DateTime? enqueuedAt,
-    DateTime? startedAt,
-    DateTime? completedAt,
-    String? error,
-  }) = GenerateTitleTask;
-
   const factory OutboundTask.imageToDataUrl({
     required String id,
     String? conversationId,
@@ -103,7 +91,6 @@ abstract class OutboundTask with _$OutboundTask {
     uploadMedia: (t) => t.conversationId,
     executeToolCall: (t) => t.conversationId,
     generateImage: (t) => t.conversationId,
-    generateTitle: (t) => t.conversationId,
     imageToDataUrl: (t) => t.conversationId,
   );
 

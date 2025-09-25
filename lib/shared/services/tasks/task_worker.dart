@@ -21,8 +21,6 @@ class TaskWorker {
       executeToolCall: _performExecuteToolCall,
       generateImage: _performGenerateImage,
       imageToDataUrl: _performImageToDataUrl,
-      // saveConversation removed — we no longer push chat state to server
-      generateTitle: _performGenerateTitle,
     );
   }
 
@@ -337,43 +335,5 @@ class TaskWorker {
         return;
       },
     );
-  }
-
-  // _performSaveConversation removed
-
-  Future<void> _performGenerateTitle(GenerateTitleTask task) async {
-    final api = _ref.read(apiServiceProvider);
-    final activeConv = _ref.read(activeConversationProvider);
-    final selectedModel = _ref.read(selectedModelProvider);
-    if (api == null || selectedModel == null) return;
-    try {
-      final messages = _ref.read(chat.chatMessagesProvider);
-      final formatted = <Map<String, dynamic>>[];
-      for (final msg in messages) {
-        formatted.add({
-          'id': msg.id,
-          'role': msg.role,
-          'content': msg.content,
-          'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
-        });
-      }
-      final title = await api.generateTitle(
-        conversationId: task.conversationId,
-        messages: formatted,
-        model: selectedModel.id,
-      );
-      if (title != null && title.isNotEmpty && title != 'New Chat') {
-        if (activeConv != null && activeConv.id == task.conversationId) {
-          final updated = activeConv.copyWith(
-            title: title.length > 100 ? '${title.substring(0, 100)}...' : title,
-            updatedAt: DateTime.now(),
-          );
-          _ref.read(activeConversationProvider.notifier).set(updated);
-          // Do not push full messages to server; skip remote update.
-          // Optionally refresh list to reflect server-side title when it’s generated there.
-          _ref.invalidate(conversationsProvider);
-        }
-      }
-    } catch (_) {}
   }
 }

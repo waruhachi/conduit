@@ -1463,34 +1463,6 @@ Future<void> _sendMessageInternal(
 
   // We'll add the assistant message placeholder after we get the message ID from the API (or immediately in reviewer mode)
 
-  // Immediately trigger title generation after user message is sent (first turn only)
-  try {
-    final currentConversation = ref.read(activeConversationProvider);
-    if (currentConversation != null &&
-        currentConversation.title == 'New Chat') {
-      final currentMessages = ref.read(chatMessagesProvider);
-      if (currentMessages.length == 1 && currentMessages.first.role == 'user') {
-        final List<Map<String, dynamic>> formatted = [
-          {
-            'id': currentMessages.first.id,
-            'role': currentMessages.first.role,
-            'content': currentMessages.first.content,
-            'timestamp':
-                currentMessages.first.timestamp.millisecondsSinceEpoch ~/ 1000,
-          },
-        ];
-        _triggerTitleGeneration(
-          ref,
-          currentConversation.id,
-          formatted,
-          selectedModel.id,
-        );
-      }
-    }
-  } catch (e) {
-    // Silent fail for early title generation
-  }
-
   // Reviewer mode: simulate a response locally and return
   if (reviewerMode) {
     // Add assistant message placeholder
@@ -1933,71 +1905,6 @@ Please try sending the message again, or try without attachments.''',
       );
       ref.read(chatMessagesProvider.notifier).addMessage(errorMessage);
     }
-  }
-}
-
-// Trigger title generation using the dedicated endpoint
-Future<void> _triggerTitleGeneration(
-  dynamic ref,
-  String conversationId,
-  List<Map<String, dynamic>> messages,
-  String model,
-) async {
-  // Enqueue background title generation task
-  try {
-    await ref
-        .read(taskQueueProvider.notifier)
-        .enqueueGenerateTitle(conversationId: conversationId);
-  } catch (_) {
-    // Best effort background check remains
-    _checkForTitleInBackground(ref, conversationId);
-  }
-}
-
-// Background function to check for title updates without blocking UI
-Future<void> _checkForTitleInBackground(
-  dynamic ref,
-  String conversationId,
-) async {
-  try {
-    final api = ref.read(apiServiceProvider);
-    if (api == null) return;
-
-    // Wait a bit before first check to give server time to generate
-    await Future.delayed(const Duration(seconds: 3));
-
-    // Try a few times with increasing delays
-    for (int i = 0; i < 3; i++) {
-      try {
-        final updatedConv = await api.getConversation(conversationId);
-
-        if (updatedConv.title != 'New Chat' && updatedConv.title.isNotEmpty) {
-          // Update the active conversation with the new title
-          final activeConversation = ref.read(activeConversationProvider);
-          if (activeConversation?.id == conversationId) {
-            final updated = activeConversation!.copyWith(
-              title: updatedConv.title,
-              updatedAt: DateTime.now(),
-            );
-            ref.read(activeConversationProvider.notifier).set(updated);
-
-            // Refresh the conversations list
-            ref.invalidate(conversationsProvider);
-          }
-
-          return; // Title found, stop checking
-        }
-
-        // Wait before next check (3s, 5s, 7s)
-        if (i < 2) {
-          await Future.delayed(Duration(seconds: 2 + (i * 2)));
-        }
-      } catch (e) {
-        break; // Stop on error
-      }
-    }
-  } catch (e) {
-    // Handle background title check errors silently
   }
 }
 

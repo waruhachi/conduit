@@ -219,6 +219,57 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
     } catch (_) {}
   }
 
+  bool refreshingSnapshot = false;
+  Future<void> refreshConversationSnapshot() async {
+    if (refreshingSnapshot) return;
+    final chatId = activeConversationId;
+    if (chatId == null || chatId.isEmpty) {
+      return;
+    }
+    if (api == null) return;
+
+    refreshingSnapshot = true;
+    try {
+      final conversation = await api.getConversation(chatId);
+
+      if (conversation.title.isNotEmpty && conversation.title != 'New Chat') {
+        onChatTitleUpdated?.call(conversation.title);
+      }
+
+      if (conversation.messages.isEmpty) {
+        return;
+      }
+
+      ChatMessage? foundAssistant;
+      for (final message in conversation.messages.reversed) {
+        if (message.role == 'assistant') {
+          foundAssistant = message;
+          break;
+        }
+      }
+
+      final assistant = foundAssistant;
+      if (assistant == null) {
+        return;
+      }
+
+      setFollowUps(assistant.id, assistant.followUps);
+      updateMessageById(assistant.id, (current) {
+        return current.copyWith(
+          followUps: List<String>.from(assistant.followUps),
+          statusHistory: assistant.statusHistory,
+          sources: assistant.sources,
+          metadata: {...?current.metadata, ...?assistant.metadata},
+          usage: assistant.usage,
+        );
+      });
+    } catch (_) {
+      // Best-effort refresh; ignore failures.
+    } finally {
+      refreshingSnapshot = false;
+    }
+  }
+
   void channelLineHandlerFactory(String channel) {
     void handler(dynamic line) {
       try {
@@ -445,6 +496,8 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
                 sessionId: sessionId,
               );
             } catch (_) {}
+
+            Future.microtask(refreshConversationSnapshot);
 
             final msgs = getMessages();
             if (msgs.isNotEmpty && msgs.last.role == 'assistant') {
@@ -897,6 +950,7 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
       // If SSE-driven (no dynamic channel/background flow), finish now
       if (!usingDynamicChannel && !isBackgroundFlow) {
         finishStreaming();
+        Future.microtask(refreshConversationSnapshot);
       }
       socketWatchdog?.stop();
     },
@@ -906,6 +960,7 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
       } catch (_) {}
       suppressSocketContent = false;
       finishStreaming();
+      Future.microtask(refreshConversationSnapshot);
       socketWatchdog?.stop();
     },
   );

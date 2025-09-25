@@ -301,23 +301,6 @@ class TaskQueueNotifier extends Notifier<List<OutboundTask>> {
 
   // Removed: enqueueSaveConversation — mobile app no longer persists chats to server.
 
-  Future<String> enqueueGenerateTitle({
-    required String conversationId,
-    String? idempotencyKey,
-  }) async {
-    final id = _uuid.v4();
-    final task = OutboundTask.generateTitle(
-      id: id,
-      conversationId: conversationId,
-      idempotencyKey: idempotencyKey,
-      enqueuedAt: DateTime.now(),
-    );
-    state = [...state, task];
-    await _save();
-    _process();
-    return id;
-  }
-
   Future<String> enqueueImageToDataUrl({
     required String? conversationId,
     required String filePath,
