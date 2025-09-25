@@ -435,9 +435,6 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
           }
           if (payload['done'] == true) {
             try {
-              socketService?.offChatEvents();
-            } catch (_) {}
-            try {
               // ignore: unawaited_futures
               api?.sendChatCompleted(
                 chatId: activeConversationId ?? '',
@@ -894,13 +891,7 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
       // Unregister from persistent service
       persistentService.unregisterStream(streamId);
 
-      // Stop socket events now that streaming finished only for SSE-driven streams
-      if (socketService != null && suppressSocketContent == true) {
-        try {
-          socketService.offChatEvents();
-        } catch (_) {}
-      }
-      // Allow socket content again for future sessions
+      // Allow socket-delivered follow-ups/title updates after SSE completes
       suppressSocketContent = false;
 
       // If SSE-driven (no dynamic channel/background flow), finish now
@@ -913,12 +904,8 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
       try {
         persistentService.unregisterStream(streamId);
       } catch (_) {}
+      suppressSocketContent = false;
       finishStreaming();
-      if (socketService != null && suppressSocketContent == true) {
-        try {
-          socketService.offChatEvents();
-        } catch (_) {}
-      }
       socketWatchdog?.stop();
     },
   );
