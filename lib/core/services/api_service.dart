@@ -838,6 +838,29 @@ class ApiService {
       files = allFiles.isNotEmpty ? allFiles : null;
     }
 
+    final dynamic statusRaw =
+        historyMsg != null && historyMsg.containsKey('statusHistory')
+        ? historyMsg['statusHistory']
+        : msgData['statusHistory'];
+    final statusHistory = _parseStatusHistoryField(statusRaw);
+
+    final dynamic followUpsRaw =
+        historyMsg != null && historyMsg.containsKey('followUps')
+        ? historyMsg['followUps']
+        : msgData['followUps'] ?? msgData['follow_ups'];
+    final followUps = _parseFollowUpsField(followUpsRaw);
+
+    final dynamic codeExecRaw = historyMsg != null
+        ? (historyMsg['code_executions'] ?? historyMsg['codeExecutions'])
+        : (msgData['code_executions'] ?? msgData['codeExecutions']);
+    final codeExecutions = _parseCodeExecutionsField(codeExecRaw);
+
+    final dynamic sourcesRaw =
+        historyMsg != null && historyMsg.containsKey('sources')
+        ? historyMsg['sources']
+        : msgData['sources'];
+    final sources = _parseSourcesField(sourcesRaw);
+
     return ChatMessage(
       id: msgData['id']?.toString() ?? uuid.v4(),
       role: role,
@@ -846,6 +869,10 @@ class ApiService {
       model: msgData['model'] as String?,
       attachmentIds: attachmentIds,
       files: files,
+      statusHistory: statusHistory,
+      followUps: followUps,
+      codeExecutions: codeExecutions,
+      sources: sources,
     );
   }
 
@@ -1027,6 +1054,62 @@ class ApiService {
       }
     }
     return buf.toString().trim();
+  }
+
+  List<ChatStatusUpdate> _parseStatusHistoryField(dynamic raw) {
+    if (raw is List) {
+      return raw
+          .whereType<Map>()
+          .map(
+            (entry) => ChatStatusUpdate.fromJson(
+              entry.map((key, value) => MapEntry(key.toString(), value)),
+            ),
+          )
+          .toList(growable: false);
+    }
+    return const <ChatStatusUpdate>[];
+  }
+
+  List<String> _parseFollowUpsField(dynamic raw) {
+    if (raw is List) {
+      return raw
+          .whereType<dynamic>()
+          .map((value) => value?.toString().trim() ?? '')
+          .where((value) => value.isNotEmpty)
+          .toList(growable: false);
+    }
+    if (raw is String && raw.trim().isNotEmpty) {
+      return [raw.trim()];
+    }
+    return const <String>[];
+  }
+
+  List<ChatCodeExecution> _parseCodeExecutionsField(dynamic raw) {
+    if (raw is List) {
+      return raw
+          .whereType<Map>()
+          .map(
+            (entry) => ChatCodeExecution.fromJson(
+              entry.map((key, value) => MapEntry(key.toString(), value)),
+            ),
+          )
+          .toList(growable: false);
+    }
+    return const <ChatCodeExecution>[];
+  }
+
+  List<ChatSourceReference> _parseSourcesField(dynamic raw) {
+    if (raw is List) {
+      return raw
+          .whereType<Map>()
+          .map(
+            (entry) => ChatSourceReference.fromJson(
+              entry.map((key, value) => MapEntry(key.toString(), value)),
+            ),
+          )
+          .toList(growable: false);
+    }
+    return const <ChatSourceReference>[];
   }
 
   // Create new conversation using OpenWebUI API

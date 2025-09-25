@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import '../../core/models/chat_message.dart';
 import '../../core/services/persistent_streaming_service.dart';
@@ -9,6 +9,9 @@ import '../../core/services/socket_service.dart';
 import '../../core/utils/inactivity_watchdog.dart';
 import '../../core/utils/stream_chunker.dart';
 import '../../core/utils/tool_calls_parser.dart';
+import 'navigation_service.dart';
+import '../../shared/widgets/themed_dialogs.dart';
+import '../../shared/theme/theme_extensions.dart';
 
 // Keep local verbosity toggle for socket logs
 const bool kSocketVerboseLogging = false;
@@ -36,6 +39,20 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
   required void Function(String) replaceLastMessageContent,
   required void Function(ChatMessage Function(ChatMessage))
   updateLastMessageWith,
+  required void Function(String messageId, ChatStatusUpdate update)
+  appendStatusUpdate,
+  required void Function(String messageId, List<String> followUps) setFollowUps,
+  required void Function(String messageId, ChatCodeExecution execution)
+  upsertCodeExecution,
+  required void Function(String messageId, ChatSourceReference reference)
+  appendSourceReference,
+  required void Function(
+    String messageId,
+    ChatMessage Function(ChatMessage current),
+  )
+  updateMessageById,
+  void Function(String newTitle)? onChatTitleUpdated,
+  void Function()? onChatTagsUpdated,
   required void Function() finishStreaming,
   required List<ChatMessage> Function() getMessages,
 }) {
@@ -330,12 +347,16 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
     });
   }
 
-  void chatHandler(Map<String, dynamic> ev) {
+  void chatHandler(
+    Map<String, dynamic> ev,
+    void Function(dynamic response)? ack,
+  ) {
     try {
       final data = ev['data'];
       if (data == null) return;
       final type = data['type'];
       final payload = data['data'];
+      final messageId = ev['message_id']?.toString();
       socketWatchdog?.ping();
 
       if (type == 'chat:completion' && payload != null) {
@@ -504,6 +525,121 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
             socketWatchdog?.stop();
           }
         }
+      } else if (type == 'status' && payload != null) {
+        final statusMap = _asStringMap(payload);
+        final targetId = _resolveTargetMessageId(messageId, getMessages);
+        if (statusMap != null && targetId != null) {
+          try {
+            final statusUpdate = ChatStatusUpdate.fromJson(statusMap);
+            appendStatusUpdate(targetId, statusUpdate);
+            updateMessageById(targetId, (current) {
+              final metadata = {
+                ...?current.metadata,
+                'status': statusUpdate.toJson(),
+              };
+              return current.copyWith(metadata: metadata);
+            });
+          } catch (_) {}
+        }
+      } else if (type == 'chat:tasks:cancel') {
+        final targetId = _resolveTargetMessageId(messageId, getMessages);
+        if (targetId != null) {
+          updateMessageById(targetId, (current) {
+            final metadata = {...?current.metadata, 'tasksCancelled': true};
+            return current.copyWith(metadata: metadata, isStreaming: false);
+          });
+        }
+        finishStreaming();
+      } else if (type == 'chat:message:follow_ups' && payload != null) {
+        final followMap = _asStringMap(payload);
+        if (followMap != null) {
+          final followUpsRaw =
+              followMap['follow_ups'] ?? followMap['followUps'];
+          final suggestions = _parseFollowUpsField(followUpsRaw);
+          final targetId = _resolveTargetMessageId(messageId, getMessages);
+          if (targetId != null) {
+            setFollowUps(targetId, suggestions);
+            updateMessageById(targetId, (current) {
+              final metadata = {...?current.metadata, 'followUps': suggestions};
+              return current.copyWith(metadata: metadata);
+            });
+          }
+        }
+      } else if (type == 'chat:title' && payload != null) {
+        final title = payload.toString();
+        if (title.isNotEmpty) {
+          onChatTitleUpdated?.call(title);
+        }
+      } else if (type == 'chat:tags') {
+        onChatTagsUpdated?.call();
+      } else if ((type == 'source' || type == 'citation') && payload != null) {
+        final map = _asStringMap(payload);
+        if (map != null) {
+          if (map['type']?.toString() == 'code_execution') {
+            try {
+              final exec = ChatCodeExecution.fromJson(map);
+              final targetId = _resolveTargetMessageId(messageId, getMessages);
+              if (targetId != null) {
+                upsertCodeExecution(targetId, exec);
+              }
+            } catch (_) {}
+          } else {
+            try {
+              final source = ChatSourceReference.fromJson(map);
+              final targetId = _resolveTargetMessageId(messageId, getMessages);
+              if (targetId != null) {
+                appendSourceReference(targetId, source);
+              }
+            } catch (_) {}
+          }
+        }
+      } else if (type == 'notification' && payload != null) {
+        final map = _asStringMap(payload);
+        if (map != null) {
+          final notifType = map['type']?.toString() ?? 'info';
+          final content = map['content']?.toString() ?? '';
+          _showSocketNotification(notifType, content);
+        }
+      } else if (type == 'confirmation' && payload != null) {
+        if (ack != null) {
+          final map = _asStringMap(payload);
+          if (map != null) {
+            () async {
+              final confirmed = await _showConfirmationDialog(map);
+              try {
+                ack(confirmed);
+              } catch (_) {}
+            }();
+          } else {
+            ack(false);
+          }
+        }
+      } else if (type == 'execute' && payload != null) {
+        if (ack != null) {
+          final map = _asStringMap(payload);
+          final description = map?['description']?.toString();
+          final errorMsg = description?.isNotEmpty == true
+              ? description!
+              : 'Client-side execute events are not supported.';
+          try {
+            ack({'error': errorMsg});
+          } catch (_) {}
+          _showSocketNotification('warning', errorMsg);
+        }
+      } else if (type == 'input' && payload != null) {
+        if (ack != null) {
+          final map = _asStringMap(payload);
+          if (map != null) {
+            () async {
+              final response = await _showInputDialog(map);
+              try {
+                ack(response);
+              } catch (_) {}
+            }();
+          } else {
+            ack(null);
+          }
+        }
       } else if (type == 'chat:message:error' && payload != null) {
         // Server reports an error for the current assistant message
         try {
@@ -641,11 +777,19 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
           }
         } catch (_) {}
       } else if (type == 'event:status' && payload != null) {
-        final status = payload['status']?.toString() ?? '';
+        final map = _asStringMap(payload);
+        final status = map?['status']?.toString() ?? '';
         if (status.isNotEmpty) {
           updateLastMessageWith(
             (m) => m.copyWith(metadata: {...?m.metadata, 'status': status}),
           );
+        }
+        final targetId = _resolveTargetMessageId(messageId, getMessages);
+        if (map != null && targetId != null) {
+          try {
+            final statusUpdate = ChatStatusUpdate.fromJson(map);
+            appendStatusUpdate(targetId, statusUpdate);
+          } catch (_) {}
         }
       } else if (type == 'event:tool' && payload != null) {
         // Accept files from both 'result' and 'files'
@@ -672,7 +816,10 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
     } catch (_) {}
   }
 
-  void channelEventsHandler(Map<String, dynamic> ev) {
+  void channelEventsHandler(
+    Map<String, dynamic> ev,
+    void Function(dynamic response)? ack,
+  ) {
     try {
       final data = ev['data'];
       if (data == null) return;
@@ -850,4 +997,174 @@ List<Map<String, dynamic>> _extractFilesFromResult(dynamic resp) {
     results.add({'type': 'image', 'url': 'data:image/png;base64,$singleB64'});
   }
   return results;
+}
+
+Map<String, dynamic>? _asStringMap(dynamic value) {
+  if (value is Map<String, dynamic>) {
+    return value;
+  }
+  if (value is Map) {
+    return value.map((key, val) => MapEntry(key.toString(), val));
+  }
+  return null;
+}
+
+String? _resolveTargetMessageId(
+  String? messageId,
+  List<ChatMessage> Function() getMessages,
+) {
+  if (messageId != null && messageId.isNotEmpty) {
+    return messageId;
+  }
+  final messages = getMessages();
+  if (messages.isEmpty) {
+    return null;
+  }
+  return messages.last.id;
+}
+
+List<String> _parseFollowUpsField(dynamic raw) {
+  if (raw is List) {
+    return raw
+        .whereType<dynamic>()
+        .map((value) => value?.toString().trim() ?? '')
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+  }
+  if (raw is String && raw.trim().isNotEmpty) {
+    return [raw.trim()];
+  }
+  return const <String>[];
+}
+
+void _showSocketNotification(String type, String content) {
+  if (content.isEmpty) return;
+  final ctx = NavigationService.context;
+  if (ctx == null) return;
+  final theme = Theme.of(ctx);
+  Color background;
+  Color foreground;
+  switch (type) {
+    case 'success':
+      background = theme.colorScheme.primary;
+      foreground = theme.colorScheme.onPrimary;
+      break;
+    case 'error':
+      background = theme.colorScheme.error;
+      foreground = theme.colorScheme.onError;
+      break;
+    case 'warning':
+    case 'warn':
+      background = theme.colorScheme.tertiary;
+      foreground = theme.colorScheme.onTertiary;
+      break;
+    default:
+      background = theme.colorScheme.secondary;
+      foreground = theme.colorScheme.onSecondary;
+  }
+
+  final snackBar = SnackBar(
+    content: Text(content, style: TextStyle(color: foreground)),
+    backgroundColor: background,
+    behavior: SnackBarBehavior.floating,
+    duration: const Duration(seconds: 4),
+  );
+
+  ScaffoldMessenger.of(ctx)
+    ..removeCurrentSnackBar()
+    ..showSnackBar(snackBar);
+}
+
+Future<bool> _showConfirmationDialog(Map<String, dynamic> data) async {
+  final ctx = NavigationService.context;
+  if (ctx == null) return false;
+  final title = data['title']?.toString() ?? 'Confirm';
+  final message = data['message']?.toString() ?? '';
+  final confirmText = data['confirm_text']?.toString() ?? 'Confirm';
+  final cancelText = data['cancel_text']?.toString() ?? 'Cancel';
+
+  return ThemedDialogs.confirm(
+    ctx,
+    title: title,
+    message: message,
+    confirmText: confirmText,
+    cancelText: cancelText,
+    barrierDismissible: false,
+  );
+}
+
+Future<String?> _showInputDialog(Map<String, dynamic> data) async {
+  final ctx = NavigationService.context;
+  if (ctx == null) return null;
+  final title = data['title']?.toString() ?? 'Input Required';
+  final message = data['message']?.toString() ?? '';
+  final placeholder = data['placeholder']?.toString() ?? '';
+  final initialValue = data['value']?.toString() ?? '';
+  final controller = TextEditingController(text: initialValue);
+
+  final result = await showDialog<String>(
+    context: ctx,
+    barrierDismissible: false,
+    builder: (dialogCtx) {
+      return ThemedDialogs.buildBase(
+        context: dialogCtx,
+        title: title,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (message.isNotEmpty) ...[
+              Text(
+                message,
+                style: TextStyle(color: dialogCtx.conduitTheme.textSecondary),
+              ),
+              const SizedBox(height: Spacing.md),
+            ],
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: placeholder.isNotEmpty
+                    ? placeholder
+                    : 'Enter a value',
+              ),
+              onSubmitted: (value) {
+                Navigator.of(
+                  dialogCtx,
+                ).pop(value.trim().isEmpty ? null : value.trim());
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(null),
+            child: Text(
+              data['cancel_text']?.toString() ?? 'Cancel',
+              style: TextStyle(color: dialogCtx.conduitTheme.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              final trimmed = controller.text.trim();
+              if (trimmed.isEmpty) {
+                Navigator.of(dialogCtx).pop(null);
+              } else {
+                Navigator.of(dialogCtx).pop(trimmed);
+              }
+            },
+            child: Text(
+              data['confirm_text']?.toString() ?? 'Submit',
+              style: TextStyle(color: dialogCtx.conduitTheme.buttonPrimary),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  controller.dispose();
+  if (result == null) return null;
+  final trimmed = result.trim();
+  return trimmed.isEmpty ? null : trimmed;
 }

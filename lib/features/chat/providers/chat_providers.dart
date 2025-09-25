@@ -422,6 +422,67 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
     }
   }
 
+  void updateMessageById(
+    String messageId,
+    ChatMessage Function(ChatMessage current) updater,
+  ) {
+    final index = state.indexWhere((m) => m.id == messageId);
+    if (index == -1) return;
+    final original = state[index];
+    final updated = updater(original);
+    if (identical(updated, original)) {
+      return;
+    }
+    final next = [...state];
+    next[index] = updated;
+    state = next;
+  }
+
+  void appendStatusUpdate(String messageId, ChatStatusUpdate update) {
+    updateMessageById(messageId, (current) {
+      final history = [...current.statusHistory, update];
+      return current.copyWith(statusHistory: history);
+    });
+  }
+
+  void setFollowUps(String messageId, List<String> followUps) {
+    updateMessageById(messageId, (current) {
+      return current.copyWith(followUps: List<String>.from(followUps));
+    });
+  }
+
+  void upsertCodeExecution(String messageId, ChatCodeExecution execution) {
+    updateMessageById(messageId, (current) {
+      final existing = current.codeExecutions;
+      final idx = existing.indexWhere((e) => e.id == execution.id);
+      if (idx == -1) {
+        return current.copyWith(codeExecutions: [...existing, execution]);
+      }
+      final next = [...existing];
+      next[idx] = execution;
+      return current.copyWith(codeExecutions: next);
+    });
+  }
+
+  void appendSourceReference(String messageId, ChatSourceReference reference) {
+    updateMessageById(messageId, (current) {
+      final existing = current.sources;
+      final alreadyPresent = existing.any((source) {
+        if (reference.id != null && reference.id!.isNotEmpty) {
+          return source.id == reference.id;
+        }
+        if (reference.url != null && reference.url!.isNotEmpty) {
+          return source.url == reference.url;
+        }
+        return false;
+      });
+      if (alreadyPresent) {
+        return current;
+      }
+      return current.copyWith(sources: [...existing, reference]);
+    });
+  }
+
   void appendToLastMessage(String content) {
     if (state.isEmpty) {
       return;
@@ -1214,6 +1275,43 @@ Future<void> regenerateMessage(
       updateLastMessageWith: (updater) => ref
           .read(chatMessagesProvider.notifier)
           .updateLastMessageWithFunction(updater),
+      appendStatusUpdate: (messageId, update) => ref
+          .read(chatMessagesProvider.notifier)
+          .appendStatusUpdate(messageId, update),
+      setFollowUps: (messageId, followUps) => ref
+          .read(chatMessagesProvider.notifier)
+          .setFollowUps(messageId, followUps),
+      upsertCodeExecution: (messageId, execution) => ref
+          .read(chatMessagesProvider.notifier)
+          .upsertCodeExecution(messageId, execution),
+      appendSourceReference: (messageId, reference) => ref
+          .read(chatMessagesProvider.notifier)
+          .appendSourceReference(messageId, reference),
+      updateMessageById: (messageId, updater) => ref
+          .read(chatMessagesProvider.notifier)
+          .updateMessageById(messageId, updater),
+      onChatTitleUpdated: (newTitle) {
+        final active = ref.read(activeConversationProvider);
+        if (active != null) {
+          ref
+              .read(activeConversationProvider.notifier)
+              .set(active.copyWith(title: newTitle));
+        }
+        ref.invalidate(conversationsProvider);
+      },
+      onChatTagsUpdated: () {
+        ref.invalidate(conversationsProvider);
+        final active = ref.read(activeConversationProvider);
+        final api = ref.read(apiServiceProvider);
+        if (active != null && api != null) {
+          Future.microtask(() async {
+            try {
+              final refreshed = await api.getConversation(active.id);
+              ref.read(activeConversationProvider.notifier).set(refreshed);
+            } catch (_) {}
+          });
+        }
+      },
       finishStreaming: () =>
           ref.read(chatMessagesProvider.notifier).finishStreaming(),
       getMessages: () => ref.read(chatMessagesProvider),
@@ -1731,6 +1829,43 @@ Future<void> _sendMessageInternal(
       updateLastMessageWith: (updater) => ref
           .read(chatMessagesProvider.notifier)
           .updateLastMessageWithFunction(updater),
+      appendStatusUpdate: (messageId, update) => ref
+          .read(chatMessagesProvider.notifier)
+          .appendStatusUpdate(messageId, update),
+      setFollowUps: (messageId, followUps) => ref
+          .read(chatMessagesProvider.notifier)
+          .setFollowUps(messageId, followUps),
+      upsertCodeExecution: (messageId, execution) => ref
+          .read(chatMessagesProvider.notifier)
+          .upsertCodeExecution(messageId, execution),
+      appendSourceReference: (messageId, reference) => ref
+          .read(chatMessagesProvider.notifier)
+          .appendSourceReference(messageId, reference),
+      updateMessageById: (messageId, updater) => ref
+          .read(chatMessagesProvider.notifier)
+          .updateMessageById(messageId, updater),
+      onChatTitleUpdated: (newTitle) {
+        final active = ref.read(activeConversationProvider);
+        if (active != null) {
+          ref
+              .read(activeConversationProvider.notifier)
+              .set(active.copyWith(title: newTitle));
+        }
+        ref.invalidate(conversationsProvider);
+      },
+      onChatTagsUpdated: () {
+        ref.invalidate(conversationsProvider);
+        final active = ref.read(activeConversationProvider);
+        final api = ref.read(apiServiceProvider);
+        if (active != null && api != null) {
+          Future.microtask(() async {
+            try {
+              final refreshed = await api.getConversation(active.id);
+              ref.read(activeConversationProvider.notifier).set(refreshed);
+            } catch (_) {}
+          });
+        }
+      },
       finishStreaming: () =>
           ref.read(chatMessagesProvider.notifier).finishStreaming(),
       getMessages: () => ref.read(chatMessagesProvider),

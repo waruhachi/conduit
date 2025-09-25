@@ -10,12 +10,15 @@ import '../../../shared/widgets/markdown/streaming_markdown_widget.dart';
 import '../../../core/utils/reasoning_parser.dart';
 import '../../../core/utils/message_segments.dart';
 import '../../../core/utils/tool_calls_parser.dart';
+import '../../../core/models/chat_message.dart';
 import '../providers/text_to_speech_provider.dart';
 import 'enhanced_image_attachment.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import 'enhanced_attachment.dart';
 import 'package:conduit/shared/widgets/chat_action_button.dart';
 import '../../../shared/widgets/model_avatar.dart';
+import 'package:url_launcher/url_launcher_string.dart';
+import '../providers/chat_providers.dart' show sendMessage;
 
 class AssistantMessageWidget extends ConsumerStatefulWidget {
   final dynamic message;
@@ -57,6 +60,19 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   Timer? _typingGateTimer;
   String _ttsPlainText = '';
   // press state handled by shared ChatActionButton
+
+  Future<void> _handleFollowUpTap(String suggestion) async {
+    final trimmed = suggestion.trim();
+    if (trimmed.isEmpty || widget.isStreaming) {
+      return;
+    }
+    try {
+      await sendMessage(ref, trimmed, null);
+    } catch (err, stack) {
+      debugPrint('Failed to send follow-up: $err');
+      debugPrintStack(stackTrace: stack);
+    }
+  }
 
   @override
   void initState() {
@@ -540,6 +556,15 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   }
 
   Widget _buildDocumentationMessage() {
+    final visibleStatusHistory = widget.message.statusHistory
+        .where((status) => status.hidden != true)
+        .toList(growable: false);
+    final hasStatusTimeline = visibleStatusHistory.isNotEmpty;
+    final hasCodeExecutions = widget.message.codeExecutions.isNotEmpty;
+    final hasFollowUps =
+        widget.message.followUps.isNotEmpty && !widget.isStreaming;
+    final hasSources = widget.message.sources.isNotEmpty;
+
     return Container(
           width: double.infinity,
           margin: const EdgeInsets.only(
@@ -569,6 +594,11 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                     ] else if (widget.message.attachmentIds != null &&
                         widget.message.attachmentIds!.isNotEmpty) ...[
                       _buildAttachmentItems(),
+                      const SizedBox(height: Spacing.md),
+                    ],
+
+                    if (hasStatusTimeline) ...[
+                      StatusHistoryTimeline(updates: visibleStatusHistory),
                       const SizedBox(height: Spacing.md),
                     ],
 
@@ -611,6 +641,27 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                               child: _buildSegmentedContent(),
                             ),
                     ),
+
+                    if (hasCodeExecutions) ...[
+                      const SizedBox(height: Spacing.md),
+                      CodeExecutionListView(
+                        executions: widget.message.codeExecutions,
+                      ),
+                    ],
+
+                    if (hasSources) ...[
+                      const SizedBox(height: Spacing.md),
+                      CitationListView(sources: widget.message.sources),
+                    ],
+
+                    if (hasFollowUps) ...[
+                      const SizedBox(height: Spacing.md),
+                      FollowUpSuggestionBar(
+                        suggestions: widget.message.followUps,
+                        onSelected: _handleFollowUpTap,
+                        isBusy: widget.isStreaming,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1222,5 +1273,549 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
         ),
       ),
     );
+  }
+}
+
+class StatusHistoryTimeline extends StatelessWidget {
+  const StatusHistoryTimeline({super.key, required this.updates});
+
+  final List<ChatStatusUpdate> updates;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.conduitTheme;
+    if (updates.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(Spacing.sm),
+      decoration: BoxDecoration(
+        color: theme.surfaceContainer.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        border: Border.all(
+          color: theme.dividerColor.withValues(alpha: 0.6),
+          width: BorderWidth.thin,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Status updates',
+            style: TextStyle(
+              color: theme.textPrimary,
+              fontWeight: FontWeight.w600,
+              fontSize: AppTypography.bodyLarge,
+            ),
+          ),
+          const SizedBox(height: Spacing.sm),
+          ...List.generate(updates.length, (index) {
+            final update = updates[index];
+            final isLast = index == updates.length - 1;
+            return _StatusHistoryEntry(update: update, isLast: isLast);
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusHistoryEntry extends StatelessWidget {
+  const _StatusHistoryEntry({required this.update, required this.isLast});
+
+  final ChatStatusUpdate update;
+  final bool isLast;
+
+  Color _indicatorColor(ConduitThemeExtension theme) {
+    if (update.done == false) {
+      return theme.buttonPrimary;
+    }
+    if (update.done == true) {
+      return theme.success;
+    }
+    return theme.textSecondary;
+  }
+
+  IconData _indicatorIcon() {
+    if (update.done == false) {
+      return Icons.timelapse;
+    }
+    if (update.done == true) {
+      return Icons.check_circle;
+    }
+    return Icons.radio_button_unchecked;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.conduitTheme;
+    final indicatorColor = _indicatorColor(theme);
+    final description = update.description?.trim().isNotEmpty == true
+        ? update.description!.trim()
+        : (update.action?.isNotEmpty == true
+              ? update.action!.replaceAll('_', ' ')
+              : 'Processing');
+    final timestamp = update.occurredAt;
+    final queries = [...update.queries];
+    if (update.query != null && update.query!.trim().isNotEmpty) {
+      if (!queries.contains(update.query)) {
+        queries.add(update.query!.trim());
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              Icon(_indicatorIcon(), size: 18, color: indicatorColor),
+              if (!isLast)
+                Container(
+                  margin: const EdgeInsets.only(top: Spacing.xxs),
+                  width: 2,
+                  height: 32,
+                  color: theme.dividerColor.withValues(alpha: 0.5),
+                ),
+            ],
+          ),
+          const SizedBox(width: Spacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: AppTypography.bodyMedium,
+                    color: theme.textPrimary,
+                    fontWeight: update.done == true
+                        ? FontWeight.w600
+                        : FontWeight.w500,
+                  ),
+                ),
+                if (update.count != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Spacing.xxs),
+                    child: Text(
+                      update.count == 1
+                          ? 'Retrieved 1 source'
+                          : 'Retrieved ${update.count} sources',
+                      style: TextStyle(
+                        color: theme.textSecondary,
+                        fontSize: AppTypography.labelSmall,
+                      ),
+                    ),
+                  ),
+                if (timestamp != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Spacing.xxs),
+                    child: Text(
+                      _formatTimestamp(timestamp),
+                      style: TextStyle(
+                        color: theme.textSecondary,
+                        fontSize: AppTypography.labelSmall,
+                      ),
+                    ),
+                  ),
+                if (queries.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Spacing.xxs),
+                    child: Wrap(
+                      spacing: Spacing.xs,
+                      runSpacing: Spacing.xs,
+                      children: queries.map((query) {
+                        return ActionChip(
+                          label: Text(query),
+                          avatar: const Icon(Icons.search, size: 16),
+                          onPressed: () {
+                            _launchUri(
+                              'https://www.google.com/search?q=${Uri.encodeComponent(query)}',
+                            );
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                if (update.urls.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Spacing.xxs),
+                    child: Wrap(
+                      spacing: Spacing.xs,
+                      runSpacing: Spacing.xs,
+                      children: update.urls.map((url) {
+                        return OutlinedButton.icon(
+                          onPressed: () => _launchUri(url),
+                          icon: const Icon(Icons.open_in_new, size: 16),
+                          label: Text(
+                            Uri.tryParse(url)?.host ?? 'Link',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                if (update.items.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Spacing.xxs),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: update.items.map((item) {
+                        final title = item.title?.isNotEmpty == true
+                            ? item.title!
+                            : item.link ?? 'Result';
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: Spacing.xxs),
+                          child: InkWell(
+                            onTap: item.link != null
+                                ? () => _launchUri(item.link!)
+                                : null,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.link, size: 16),
+                                const SizedBox(width: Spacing.xxs),
+                                Expanded(
+                                  child: Text(
+                                    title,
+                                    style: TextStyle(
+                                      color: item.link != null
+                                          ? theme.buttonPrimary
+                                          : theme.textSecondary,
+                                      decoration: item.link != null
+                                          ? TextDecoration.underline
+                                          : TextDecoration.none,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimestamp(DateTime timestamp) {
+    final local = timestamp.toLocal();
+    final now = DateTime.now();
+    final difference = now.difference(local);
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    }
+    if (difference.inHours < 1) {
+      final minutes = difference.inMinutes;
+      return minutes == 1 ? '1 minute ago' : '$minutes minutes ago';
+    }
+    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class CodeExecutionListView extends StatelessWidget {
+  const CodeExecutionListView({super.key, required this.executions});
+
+  final List<ChatCodeExecution> executions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.conduitTheme;
+    if (executions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Code executions',
+          style: TextStyle(
+            color: theme.textPrimary,
+            fontWeight: FontWeight.w600,
+            fontSize: AppTypography.bodyLarge,
+          ),
+        ),
+        const SizedBox(height: Spacing.xs),
+        Wrap(
+          spacing: Spacing.xs,
+          runSpacing: Spacing.xs,
+          children: executions.map((execution) {
+            final hasError = execution.result?.error != null;
+            final hasOutput = execution.result?.output != null;
+            IconData icon;
+            Color iconColor;
+            if (hasError) {
+              icon = Icons.error_outline;
+              iconColor = theme.error;
+            } else if (hasOutput) {
+              icon = Icons.check_circle_outline;
+              iconColor = theme.success;
+            } else {
+              icon = Icons.sync;
+              iconColor = theme.textSecondary;
+            }
+            final label = execution.name?.isNotEmpty == true
+                ? execution.name!
+                : 'Execution';
+            return ActionChip(
+              avatar: Icon(icon, size: 16, color: iconColor),
+              label: Text(label),
+              onPressed: () => _showCodeExecutionDetails(context, execution),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showCodeExecutionDetails(
+    BuildContext context,
+    ChatCodeExecution execution,
+  ) async {
+    final theme = context.conduitTheme;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.surfaceBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppBorderRadius.dialog),
+        ),
+      ),
+      builder: (ctx) {
+        final result = execution.result;
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (_, controller) {
+            return Padding(
+              padding: const EdgeInsets.all(Spacing.lg),
+              child: ListView(
+                controller: controller,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          execution.name ?? 'Code execution',
+                          style: TextStyle(
+                            fontSize: AppTypography.bodyLarge,
+                            fontWeight: FontWeight.w600,
+                            color: theme.textPrimary,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: Spacing.sm),
+                  if (execution.language != null)
+                    Text(
+                      'Language: ${execution.language}',
+                      style: TextStyle(color: theme.textSecondary),
+                    ),
+                  const SizedBox(height: Spacing.sm),
+                  if (execution.code != null && execution.code!.isNotEmpty) ...[
+                    Text(
+                      'Code',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: theme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    Container(
+                      padding: const EdgeInsets.all(Spacing.sm),
+                      decoration: BoxDecoration(
+                        color: theme.surfaceContainer,
+                        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                      ),
+                      child: SelectableText(
+                        execution.code!,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: Spacing.md),
+                  ],
+                  if (result?.error != null) ...[
+                    Text(
+                      'Error',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: theme.error,
+                      ),
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    SelectableText(result!.error!),
+                    const SizedBox(height: Spacing.md),
+                  ],
+                  if (result?.output != null) ...[
+                    Text(
+                      'Output',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: theme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    SelectableText(result!.output!),
+                    const SizedBox(height: Spacing.md),
+                  ],
+                  if (result?.files.isNotEmpty == true) ...[
+                    Text(
+                      'Files',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: theme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    ...result!.files.map((file) {
+                      final name = file.name ?? file.url ?? 'Download';
+                      return ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.insert_drive_file_outlined),
+                        title: Text(name),
+                        onTap: file.url != null
+                            ? () => _launchUri(file.url!)
+                            : null,
+                        trailing: file.url != null
+                            ? const Icon(Icons.open_in_new)
+                            : null,
+                      );
+                    }),
+                  ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class CitationListView extends StatelessWidget {
+  const CitationListView({super.key, required this.sources});
+
+  final List<ChatSourceReference> sources;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.conduitTheme;
+    if (sources.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          sources.length == 1 ? 'Source' : 'Sources',
+          style: TextStyle(
+            color: theme.textPrimary,
+            fontWeight: FontWeight.w600,
+            fontSize: AppTypography.bodyLarge,
+          ),
+        ),
+        const SizedBox(height: Spacing.xs),
+        ...sources.map((source) {
+          final title = source.title?.isNotEmpty == true
+              ? source.title!
+              : source.url ?? 'Citation';
+          final subtitle = source.snippet?.isNotEmpty == true
+              ? source.snippet!
+              : source.url;
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: Spacing.xs),
+            color: theme.surfaceContainer,
+            child: ListTile(
+              onTap: source.url != null ? () => _launchUri(source.url!) : null,
+              title: Text(title, style: TextStyle(color: theme.textPrimary)),
+              subtitle: subtitle != null
+                  ? Text(subtitle, style: TextStyle(color: theme.textSecondary))
+                  : null,
+              trailing: source.url != null
+                  ? const Icon(Icons.open_in_new, size: 18)
+                  : null,
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class FollowUpSuggestionBar extends StatelessWidget {
+  const FollowUpSuggestionBar({
+    super.key,
+    required this.suggestions,
+    required this.onSelected,
+    required this.isBusy,
+  });
+
+  final List<String> suggestions;
+  final ValueChanged<String> onSelected;
+  final bool isBusy;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.conduitTheme;
+    if (suggestions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Try next',
+          style: TextStyle(
+            color: theme.textPrimary,
+            fontWeight: FontWeight.w600,
+            fontSize: AppTypography.bodyLarge,
+          ),
+        ),
+        const SizedBox(height: Spacing.xs),
+        Wrap(
+          spacing: Spacing.xs,
+          runSpacing: Spacing.xs,
+          children: suggestions.map((suggestion) {
+            return FilledButton.tonal(
+              onPressed: isBusy ? null : () => onSelected(suggestion),
+              child: Text(suggestion),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+Future<void> _launchUri(String url) async {
+  if (url.isEmpty) return;
+  try {
+    await launchUrlString(url, mode: LaunchMode.externalApplication);
+  } catch (err) {
+    debugPrint('Unable to open url $url: $err');
   }
 }

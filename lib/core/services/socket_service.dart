@@ -142,27 +142,67 @@ class SocketService {
     }
   }
 
-  void onChatEvents(void Function(Map<String, dynamic> event) handler) {
-    _socket?.on('chat-events', (data) {
+  void onChatEvents(
+    void Function(
+      Map<String, dynamic> event,
+      void Function(dynamic response)? ack,
+    )
+    handler,
+  ) {
+    _socket?.on('chat-events', (dynamic data, [dynamic ack]) {
       try {
+        Map<String, dynamic>? map;
         if (data is Map<String, dynamic>) {
-          handler(data);
+          map = data;
         } else if (data is Map) {
-          handler(Map<String, dynamic>.from(data));
+          map = Map<String, dynamic>.from(data);
         }
+        if (map == null) return;
+        final ackFn = ack is Function
+            ? (dynamic payload) {
+                if (payload is List) {
+                  Function.apply(ack, payload);
+                } else if (payload == null) {
+                  Function.apply(ack, const []);
+                } else {
+                  Function.apply(ack, [payload]);
+                }
+              }
+            : null;
+        handler(map, ackFn);
       } catch (_) {}
     });
   }
 
   // Subscribe to general channel events (server-broadcasted channel updates)
-  void onChannelEvents(void Function(Map<String, dynamic> event) handler) {
-    _socket?.on('channel-events', (data) {
+  void onChannelEvents(
+    void Function(
+      Map<String, dynamic> event,
+      void Function(dynamic response)? ack,
+    )
+    handler,
+  ) {
+    _socket?.on('channel-events', (dynamic data, [dynamic ack]) {
       try {
+        Map<String, dynamic>? map;
         if (data is Map<String, dynamic>) {
-          handler(data);
+          map = data;
         } else if (data is Map) {
-          handler(Map<String, dynamic>.from(data));
+          map = Map<String, dynamic>.from(data);
         }
+        if (map == null) return;
+        final ackFn = ack is Function
+            ? (dynamic payload) {
+                if (payload is List) {
+                  Function.apply(ack, payload);
+                } else if (payload == null) {
+                  Function.apply(ack, const []);
+                } else {
+                  Function.apply(ack, [payload]);
+                }
+              }
+            : null;
+        handler(map, ackFn);
       } catch (_) {}
     });
   }
