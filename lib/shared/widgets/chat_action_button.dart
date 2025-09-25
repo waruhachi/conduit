@@ -31,8 +31,7 @@ class _ChatActionButtonState extends ConsumerState<ChatActionButton> {
   Widget build(BuildContext context) {
     final theme = context.conduitTheme;
     final hapticEnabled = ref.read(hapticEnabledProvider);
-    final radius =
-        widget.borderRadius ?? BorderRadius.circular(AppBorderRadius.lg);
+    final radius = BorderRadius.circular(AppBorderRadius.circular);
     final overlay = theme.buttonPrimary.withValues(alpha: 0.08);
 
     return Tooltip(
@@ -42,7 +41,7 @@ class _ChatActionButtonState extends ConsumerState<ChatActionButton> {
         button: true,
         label: widget.label,
         child: AnimatedScale(
-          scale: _pressed ? 0.98 : 1.0,
+          scale: _pressed ? 0.95 : 1.0,
           duration: const Duration(milliseconds: 120),
           curve: Curves.easeOutCubic,
           child: Material(
@@ -62,6 +61,8 @@ class _ChatActionButtonState extends ConsumerState<ChatActionButton> {
                       widget.onTap!();
                     },
               child: Ink(
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                   color: theme.textPrimary.withValues(alpha: 0.04),
                   borderRadius: radius,
@@ -70,28 +71,10 @@ class _ChatActionButtonState extends ConsumerState<ChatActionButton> {
                     width: BorderWidth.regular,
                   ),
                 ),
-                child: Padding(
-                  padding: widget.padding,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        widget.icon,
-                        size: IconSize.sm,
-                        color: theme.textPrimary.withValues(alpha: 0.8),
-                      ),
-                      const SizedBox(width: Spacing.xs),
-                      Text(
-                        widget.label,
-                        style: TextStyle(
-                          fontSize: AppTypography.labelMedium,
-                          color: theme.textPrimary.withValues(alpha: 0.8),
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ],
-                  ),
+                child: Icon(
+                  widget.icon,
+                  size: IconSize.sm,
+                  color: theme.textPrimary.withValues(alpha: 0.8),
                 ),
               ),
             ),

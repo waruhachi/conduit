@@ -603,7 +603,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
 
                     if (hasStatusTimeline) ...[
                       StatusHistoryTimeline(updates: visibleStatusHistory),
-                      const SizedBox(height: Spacing.md),
+                      const SizedBox(height: Spacing.xs),
                     ],
 
                     // Tool calls are rendered inline via segmented content
@@ -1279,151 +1279,100 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   }
 }
 
-class _AssistantResponseSection extends StatelessWidget {
-  const _AssistantResponseSection({
-    required this.title,
-    required this.child,
-    this.icon,
-  });
-
-  final String title;
-  final Widget child;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.conduitTheme;
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 16, color: theme.buttonPrimary),
-              const SizedBox(width: Spacing.xs),
-            ],
-            Text(
-              title,
-              style: TextStyle(
-                color: theme.textSecondary,
-                fontSize: AppTypography.bodySmall,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.15,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: Spacing.xs),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(Spacing.sm),
-          decoration: BoxDecoration(
-            color: theme.cardBackground,
-            borderRadius: BorderRadius.circular(AppBorderRadius.card),
-            border: Border.all(
-              color: theme.cardBorder.withValues(alpha: 0.6),
-              width: BorderWidth.thin,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: colorScheme.shadow.withValues(alpha: 0.05),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: child,
-        ),
-      ],
-    );
-  }
-}
-
-class _AssistantSuggestionChip extends StatelessWidget {
-  const _AssistantSuggestionChip({
-    required this.label,
-    this.icon,
-    this.onPressed,
-    this.enabled = true,
-  });
-
-  final String label;
-  final IconData? icon;
-  final VoidCallback? onPressed;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.conduitTheme;
-    final effectiveOnPressed = enabled ? onPressed : null;
-    final iconColor = enabled
-        ? theme.textSecondary
-        : theme.textSecondary.withValues(alpha: 0.5);
-
-    final background = theme.cardBackground.withValues(
-      alpha: enabled ? 0.95 : 0.85,
-    );
-    final borderColor = theme.cardBorder.withValues(
-      alpha: enabled ? 0.6 : 0.35,
-    );
-
-    return RawChip(
-      avatar: icon != null ? Icon(icon, size: 16, color: iconColor) : null,
-      label: Text(
-        label,
-        style: TextStyle(
-          color: enabled ? theme.textPrimary : theme.textSecondary,
-          fontSize: AppTypography.labelMedium,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 0.2,
-        ),
-      ),
-      onPressed: effectiveOnPressed,
-      padding: const EdgeInsets.symmetric(
-        horizontal: Spacing.sm,
-        vertical: Spacing.xxs,
-      ),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
-      backgroundColor: background,
-      disabledColor: background,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppBorderRadius.pill),
-        side: BorderSide(color: borderColor, width: BorderWidth.thin),
-      ),
-    );
-  }
-}
-
-class StatusHistoryTimeline extends StatelessWidget {
+class StatusHistoryTimeline extends StatefulWidget {
   const StatusHistoryTimeline({super.key, required this.updates});
 
   final List<ChatStatusUpdate> updates;
 
   @override
+  State<StatusHistoryTimeline> createState() => _StatusHistoryTimelineState();
+}
+
+class _StatusHistoryTimelineState extends State<StatusHistoryTimeline> {
+  bool _isExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    if (updates.isEmpty) {
+    if (widget.updates.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    return _AssistantResponseSection(
-      title: 'Status updates',
-      icon: Icons.sync_alt,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: Spacing.xs),
-          for (var index = 0; index < updates.length; index++)
-            Padding(
-              padding: EdgeInsets.only(
-                bottom: index == updates.length - 1 ? 0 : Spacing.xs,
+    final theme = context.conduitTheme;
+    final hasMultipleUpdates = widget.updates.length > 1;
+    final finalUpdate = widget.updates.last;
+    final previousUpdates = widget.updates.sublist(
+      0,
+      widget.updates.length - 1,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Animated container for previous updates
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: previousUpdates.isNotEmpty
+              ? Column(
+                  children: [
+                    ...previousUpdates.map(
+                      (update) => Padding(
+                        padding: const EdgeInsets.only(bottom: Spacing.xs),
+                        child: _StatusHistoryEntry(update: update),
+                      ),
+                    ),
+                  ],
+                )
+              : const SizedBox.shrink(),
+          crossFadeState: _isExpanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 200),
+        ),
+
+        // Always show the final update
+        _StatusHistoryEntry(update: finalUpdate),
+
+        // Show expand/collapse button if there are multiple updates
+        if (hasMultipleUpdates)
+          Padding(
+            padding: const EdgeInsets.only(top: Spacing.xxs),
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _isExpanded = !_isExpanded;
+                });
+              },
+              borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.xxs,
+                  vertical: 2,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _isExpanded ? Icons.expand_less : Icons.expand_more,
+                      size: 12,
+                      color: theme.textSecondary.withValues(alpha: 0.6),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _isExpanded
+                          ? 'Show less'
+                          : 'Show ${previousUpdates.length} earlier step${previousUpdates.length == 1 ? '' : 's'}',
+                      style: TextStyle(
+                        fontSize: AppTypography.labelSmall,
+                        color: theme.textSecondary.withValues(alpha: 0.6),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: _StatusHistoryEntry(update: updates[index]),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }
@@ -1440,17 +1389,11 @@ class _StatusHistoryEntry extends StatelessWidget {
     if (update.done == true) {
       return theme.success;
     }
-    return theme.textSecondary;
+    return theme.textSecondary.withValues(alpha: 0.6);
   }
 
   IconData _indicatorIcon() {
-    if (update.done == false) {
-      return Icons.timelapse;
-    }
-    if (update.done == true) {
-      return Icons.check_circle;
-    }
-    return Icons.radio_button_unchecked;
+    return Icons.circle;
   }
 
   @override
@@ -1470,28 +1413,19 @@ class _StatusHistoryEntry extends StatelessWidget {
       }
     }
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: Spacing.sm,
-        vertical: Spacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: theme.cardBackground.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        border: Border.all(
-          color: theme.cardBorder.withValues(alpha: 0.5),
-          width: BorderWidth.thin,
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Spacing.xxs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(_indicatorIcon(), size: 16, color: indicatorColor),
-              const SizedBox(width: Spacing.sm),
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                child: Icon(_indicatorIcon(), size: 12, color: indicatorColor),
+              ),
+              const SizedBox(width: Spacing.xs),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1501,130 +1435,136 @@ class _StatusHistoryEntry extends StatelessWidget {
                       style: TextStyle(
                         fontSize: AppTypography.bodySmall,
                         color: theme.textSecondary,
-                        fontWeight: update.done == true
-                            ? FontWeight.w600
-                            : FontWeight.w500,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
                       ),
                     ),
                     if (update.count != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: Spacing.xxs),
-                        child: Text(
-                          update.count == 1
-                              ? 'Retrieved 1 source'
-                              : 'Retrieved ${update.count} sources',
-                          style: TextStyle(
-                            color: theme.textSecondary,
-                            fontSize: AppTypography.labelSmall,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    if (timestamp != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: Spacing.xxs),
-                        child: Text(
-                          _formatTimestamp(timestamp),
-                          style: TextStyle(
-                            color: theme.textSecondary.withValues(alpha: 0.8),
-                            fontSize: AppTypography.labelSmall,
-                          ),
+                      Text(
+                        update.count == 1
+                            ? '• Retrieved 1 source'
+                            : '• Retrieved ${update.count} sources',
+                        style: TextStyle(
+                          color: theme.textSecondary.withValues(alpha: 0.8),
+                          fontSize: AppTypography.labelSmall,
                         ),
                       ),
                   ],
                 ),
               ),
+              if (timestamp != null)
+                Text(
+                  _formatTimestamp(timestamp),
+                  style: TextStyle(
+                    color: theme.textSecondary.withValues(alpha: 0.6),
+                    fontSize: AppTypography.labelSmall,
+                  ),
+                ),
             ],
           ),
-          if (queries.isNotEmpty)
+          if (queries.isNotEmpty ||
+              update.urls.isNotEmpty ||
+              update.items.isNotEmpty) ...[
+            const SizedBox(height: Spacing.xs),
             Padding(
-              padding: const EdgeInsets.only(top: Spacing.sm),
-              child: Wrap(
-                spacing: Spacing.xs,
-                runSpacing: Spacing.xs,
-                children: queries.map((query) {
-                  return _AssistantSuggestionChip(
-                    label: query,
-                    icon: Icons.search,
-                    onPressed: () {
-                      _launchUri(
-                        'https://www.google.com/search?q=${Uri.encodeComponent(query)}',
-                      );
-                    },
-                  );
-                }).toList(),
-              ),
-            ),
-          if (update.urls.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: Spacing.sm),
-              child: Wrap(
-                spacing: Spacing.xs,
-                runSpacing: Spacing.xs,
-                children: update.urls.map((url) {
-                  final host = Uri.tryParse(url)?.host ?? 'Link';
-                  return _AssistantSuggestionChip(
-                    label: host,
-                    icon: Icons.open_in_new,
-                    onPressed: () => _launchUri(url),
-                  );
-                }).toList(),
-              ),
-            ),
-          if (update.items.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: Spacing.sm),
+              padding: const EdgeInsets.only(left: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: update.items.map((item) {
-                  final title = item.title?.isNotEmpty == true
-                      ? item.title!
-                      : item.link ?? 'Result';
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: Spacing.xs),
-                    child: InkWell(
-                      onTap: item.link != null
-                          ? () => _launchUri(item.link!)
-                          : null,
-                      borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: Spacing.xxs,
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              Icons.link,
-                              size: 16,
-                              color: theme.textSecondary,
-                            ),
-                            const SizedBox(width: Spacing.xs),
-                            Expanded(
-                              child: Text(
-                                title,
-                                style: TextStyle(
-                                  color: item.link != null
-                                      ? theme.buttonPrimary
-                                      : theme.textSecondary,
-                                  decoration: item.link != null
-                                      ? TextDecoration.underline
-                                      : TextDecoration.none,
-                                  fontSize: AppTypography.bodySmall,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                children: [
+                  if (queries.isNotEmpty)
+                    _buildMinimalLinks(
+                      context,
+                      queries
+                          .map(
+                            (query) => _MinimalLinkData(
+                              label: query,
+                              icon: Icons.search,
+                              onTap: () => _launchUri(
+                                'https://www.google.com/search?q=${Uri.encodeComponent(query)}',
                               ),
                             ),
-                          ],
-                        ),
-                      ),
+                          )
+                          .toList(),
                     ),
-                  );
-                }).toList(),
+                  if (update.urls.isNotEmpty)
+                    _buildMinimalLinks(
+                      context,
+                      update.urls.map((url) {
+                        final host = Uri.tryParse(url)?.host ?? 'Link';
+                        return _MinimalLinkData(
+                          label: host,
+                          icon: Icons.open_in_new,
+                          onTap: () => _launchUri(url),
+                        );
+                      }).toList(),
+                    ),
+                  if (update.items.isNotEmpty)
+                    _buildMinimalLinks(
+                      context,
+                      update.items.map((item) {
+                        final title = item.title?.isNotEmpty == true
+                            ? item.title!
+                            : item.link ?? 'Result';
+                        return _MinimalLinkData(
+                          label: title,
+                          icon: Icons.link,
+                          onTap: item.link != null
+                              ? () => _launchUri(item.link!)
+                              : null,
+                        );
+                      }).toList(),
+                    ),
+                ],
               ),
             ),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildMinimalLinks(
+    BuildContext context,
+    List<_MinimalLinkData> links,
+  ) {
+    final theme = context.conduitTheme;
+    return Wrap(
+      spacing: Spacing.sm,
+      runSpacing: Spacing.xxs,
+      children: links.map((link) {
+        return InkWell(
+          onTap: link.onTap,
+          borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.xxs,
+              vertical: 2,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(link.icon, size: 10, color: theme.buttonPrimary),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    link.label,
+                    style: TextStyle(
+                      color: theme.buttonPrimary,
+                      fontSize: AppTypography.labelSmall,
+                      fontWeight: FontWeight.w500,
+                      decoration: TextDecoration.underline,
+                      decorationColor: theme.buttonPrimary.withValues(
+                        alpha: 0.6,
+                      ),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -1641,6 +1581,14 @@ class _StatusHistoryEntry extends StatelessWidget {
     }
     return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
   }
+}
+
+class _MinimalLinkData {
+  const _MinimalLinkData({required this.label, required this.icon, this.onTap});
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
 }
 
 class CodeExecutionListView extends StatelessWidget {
@@ -1901,6 +1849,7 @@ class FollowUpSuggestionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.conduitTheme;
     final trimmedSuggestions = suggestions
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
@@ -1910,26 +1859,108 @@ class FollowUpSuggestionBar extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return _AssistantResponseSection(
-      title: 'Suggested next steps',
-      icon: Icons.auto_awesome,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: Spacing.xs),
-          Wrap(
-            spacing: Spacing.xs,
-            runSpacing: Spacing.xs,
-            children: [
-              for (final suggestion in trimmedSuggestions)
-                _AssistantSuggestionChip(
-                  label: suggestion,
-                  onPressed: isBusy ? null : () => onSelected(suggestion),
-                  enabled: !isBusy,
-                ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Subtle header
+        Row(
+          children: [
+            Icon(
+              Icons.lightbulb_outline,
+              size: 14,
+              color: theme.textSecondary.withValues(alpha: 0.8),
+            ),
+            const SizedBox(width: Spacing.xxs),
+            Text(
+              'Continue with',
+              style: TextStyle(
+                fontSize: AppTypography.labelSmall,
+                color: theme.textSecondary.withValues(alpha: 0.8),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: Spacing.xs),
+        Wrap(
+          spacing: Spacing.sm,
+          runSpacing: Spacing.xs,
+          children: [
+            for (final suggestion in trimmedSuggestions)
+              _MinimalFollowUpButton(
+                label: suggestion,
+                onPressed: isBusy ? null : () => onSelected(suggestion),
+                enabled: !isBusy,
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _MinimalFollowUpButton extends StatelessWidget {
+  const _MinimalFollowUpButton({
+    required this.label,
+    this.onPressed,
+    this.enabled = true,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.conduitTheme;
+
+    return InkWell(
+      onTap: enabled ? onPressed : null,
+      borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.sm,
+          vertical: Spacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: enabled
+              ? theme.surfaceContainer.withValues(alpha: 0.3)
+              : theme.surfaceContainer.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+          border: Border.all(
+            color: enabled
+                ? theme.buttonPrimary.withValues(alpha: 0.2)
+                : theme.dividerColor.withValues(alpha: 0.3),
+            width: 1,
           ),
-        ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.arrow_forward,
+              size: 12,
+              color: enabled
+                  ? theme.buttonPrimary.withValues(alpha: 0.8)
+                  : theme.textSecondary.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: Spacing.xxs),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: enabled
+                      ? theme.buttonPrimary
+                      : theme.textSecondary.withValues(alpha: 0.5),
+                  fontSize: AppTypography.bodySmall,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
