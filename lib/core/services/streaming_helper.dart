@@ -17,17 +17,28 @@ import '../utils/debug_logger.dart';
 // Keep local verbosity toggle for socket logs
 const bool kSocketVerboseLogging = false;
 
+class ActiveSocketStream {
+  ActiveSocketStream({
+    required this.streamSubscription,
+    required this.socketSubscriptions,
+    required this.disposeWatchdog,
+  });
+
+  final StreamSubscription<String> streamSubscription;
+  final List<SocketEventSubscription> socketSubscriptions;
+  final VoidCallback disposeWatchdog;
+}
+
 /// Unified streaming helper for chat send/regenerate flows.
 ///
 /// This attaches chunked SSE streaming handlers, optional WebSocket event handlers,
 /// and manages background search/image-gen UI updates. It operates via callbacks to
 /// avoid tight coupling with provider files for easier reuse and testing.
-StreamSubscription<String> attachUnifiedChunkedStreaming({
+ActiveSocketStream attachUnifiedChunkedStreaming({
   required Stream<String> stream,
   required bool webSearchEnabled,
   required bool isBackgroundFlow,
   required bool suppressSocketContentInitially,
-  required bool usingDynamicChannelInitially,
   required String assistantMessageId,
   required String modelId,
   required Map<String, dynamic> modelItem,
@@ -91,13 +102,16 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
   );
 
   InactivityWatchdog? socketWatchdog;
+  final socketSubscriptions = <SocketEventSubscription>[];
   if (socketService != null) {
     socketWatchdog = InactivityWatchdog(
       window: const Duration(minutes: 5),
       onTimeout: () {
         try {
-          socketService.offChatEvents();
-          socketService.offChannelEvents();
+          for (final sub in socketSubscriptions) {
+            sub.dispose();
+          }
+          socketSubscriptions.clear();
         } catch (_) {}
         try {
           final msgs = getMessages();
@@ -107,13 +121,26 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
             finishStreaming();
           }
         } catch (_) {}
+        socketWatchdog?.stop();
       },
     )..start();
   }
 
+  void disposeSocketSubscriptions() {
+    if (socketSubscriptions.isEmpty) {
+      return;
+    }
+    for (final sub in socketSubscriptions) {
+      try {
+        sub.dispose();
+      } catch (_) {}
+    }
+    socketSubscriptions.clear();
+    socketWatchdog?.stop();
+  }
+
   bool isSearching = false;
   bool suppressSocketContent = suppressSocketContentInitially;
-  bool usingDynamicChannel = usingDynamicChannelInitially;
 
   void updateImagesFromCurrentContent() {
     try {
@@ -414,6 +441,13 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
       final messageId = ev['message_id']?.toString();
       socketWatchdog?.ping();
 
+      if (kSocketVerboseLogging && payload is Map) {
+        DebugLogger.log(
+          'socket delta type=$type suppress=$suppressSocketContent session=$sessionId message=$messageId keys=${payload.keys.toList()}',
+          scope: 'socket/chat',
+        );
+      }
+
       if (type == 'chat:completion' && payload != null) {
         if (payload is Map<String, dynamic>) {
           if (payload.containsKey('tool_calls')) {
@@ -486,6 +520,13 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
                   updateImagesFromCurrentContent();
                 }
               }
+            }
+          }
+          if (!suppressSocketContent && payload.containsKey('content')) {
+            final raw = payload['content']?.toString() ?? '';
+            if (raw.isNotEmpty) {
+              replaceLastMessageContent(raw);
+              updateImagesFromCurrentContent();
             }
           }
           if (payload['done'] == true) {
@@ -603,6 +644,7 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
             return current.copyWith(metadata: metadata, isStreaming: false);
           });
         }
+        disposeSocketSubscriptions();
         finishStreaming();
       } else if (type == 'chat:message:follow_ups' && payload != null) {
         final followMap = _asStringMap(payload);
@@ -890,23 +932,21 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
   }
 
   if (socketService != null) {
-    socketService.onChatEvents(chatHandler);
-    socketService.onChannelEvents(channelEventsHandler);
-    Future.delayed(const Duration(seconds: 90), () {
-      try {
-        socketService.offChatEvents();
-        socketService.offChannelEvents();
-      } catch (_) {}
-      try {
-        final msgs = getMessages();
-        if (msgs.isNotEmpty &&
-            msgs.last.role == 'assistant' &&
-            msgs.last.isStreaming) {
-          finishStreaming();
-        }
-      } catch (_) {}
-      socketWatchdog?.stop();
-    });
+    final chatSub = socketService.addChatEventHandler(
+      conversationId: activeConversationId,
+      sessionId: sessionId,
+      requireFocus: false,
+      handler: chatHandler,
+    );
+    socketSubscriptions.add(chatSub);
+
+    final channelSub = socketService.addChannelEventHandler(
+      conversationId: activeConversationId,
+      sessionId: sessionId,
+      requireFocus: false,
+      handler: channelEventsHandler,
+    );
+    socketSubscriptions.add(channelSub);
   }
 
   final subscription = persistentController.stream.listen(
@@ -951,25 +991,29 @@ StreamSubscription<String> attachUnifiedChunkedStreaming({
       // Allow socket-delivered follow-ups/title updates after SSE completes
       suppressSocketContent = false;
 
-      // If SSE-driven (no dynamic channel/background flow), finish now
-      if (!usingDynamicChannel && !isBackgroundFlow) {
+      // If SSE-driven (no dynamic channel/background flow), clean up sockets
+      if (!isBackgroundFlow) {
         finishStreaming();
         Future.microtask(refreshConversationSnapshot);
       }
-      socketWatchdog?.stop();
     },
     onError: (error) async {
       try {
         persistentService.unregisterStream(streamId);
       } catch (_) {}
       suppressSocketContent = false;
+      disposeSocketSubscriptions();
       finishStreaming();
       Future.microtask(refreshConversationSnapshot);
       socketWatchdog?.stop();
     },
   );
 
-  return subscription;
+  return ActiveSocketStream(
+    streamSubscription: subscription,
+    socketSubscriptions: socketSubscriptions,
+    disposeWatchdog: () => socketWatchdog?.stop(),
+  );
 }
 
 List<Map<String, dynamic>> _extractFilesFromResult(dynamic resp) {

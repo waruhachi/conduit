@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:yaml/yaml.dart' as yaml;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/utils/tool_calls_parser.dart';
 import '../../../core/services/streaming_helper.dart';
+import '../../../core/services/socket_service.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/models/conversation.dart';
 import '../../../core/providers/app_providers.dart';
@@ -87,6 +89,8 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   StreamSubscription? _messageStream;
   ProviderSubscription? _conversationListener;
   final List<StreamSubscription> _subscriptions = [];
+  final List<SocketEventSubscription> _socketSubscriptions = [];
+  VoidCallback? _socketTeardown;
   // Activity-based watchdog to prevent stuck typing indicator
   InactivityWatchdog? _typingWatchdog;
 
@@ -163,6 +167,7 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
         _subscriptions.clear();
 
         _cancelMessageStream();
+        cancelSocketSubscriptions();
         _cancelTypingGuard();
 
         _conversationListener?.close();
@@ -181,6 +186,7 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   void _cancelMessageStream() {
     _messageStream?.cancel();
     _messageStream = null;
+    cancelSocketSubscriptions();
   }
 
   void _cancelTypingGuard() {
@@ -362,6 +368,31 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
 
     // Add to tracked subscriptions for comprehensive cleanup
     _addSubscription(stream);
+  }
+
+  void setSocketSubscriptions(
+    List<SocketEventSubscription> subscriptions, {
+    VoidCallback? onDispose,
+  }) {
+    cancelSocketSubscriptions();
+    _socketSubscriptions.addAll(subscriptions);
+    _socketTeardown = onDispose;
+  }
+
+  void cancelSocketSubscriptions() {
+    if (_socketSubscriptions.isEmpty) {
+      _socketTeardown?.call();
+      _socketTeardown = null;
+      return;
+    }
+    for (final sub in _socketSubscriptions) {
+      try {
+        sub.dispose();
+      } catch (_) {}
+    }
+    _socketSubscriptions.clear();
+    _socketTeardown?.call();
+    _socketTeardown = null;
   }
 
   void addMessage(ChatMessage message) {
@@ -1230,6 +1261,7 @@ Future<void> regenerateMessage(
       enableImageGeneration: imageGenerationEnabled,
       modelItem: modelItem,
       sessionIdOverride: passSocketSession ? socketSessionId : null,
+      socketSessionId: socketSessionId,
       toolServers: toolServers,
       backgroundTasks: bgTasks,
       responseMessageId: assistantMessageId,
@@ -1237,6 +1269,8 @@ Future<void> regenerateMessage(
 
     final stream = response.stream;
     final sessionId = response.sessionId;
+    final effectiveSessionId =
+        response.socketSessionId ?? socketSessionId ?? sessionId;
 
     // New unified streaming path via helper; bypass old inline socket block
     final bool isBackgroundFlow =
@@ -1258,16 +1292,15 @@ Future<void> regenerateMessage(
       });
     } catch (_) {}
 
-    final sendStreamSub = attachUnifiedChunkedStreaming(
+    final activeStream = attachUnifiedChunkedStreaming(
       stream: stream,
       webSearchEnabled: webSearchEnabled,
       isBackgroundFlow: isBackgroundFlow,
       suppressSocketContentInitially: !isBackgroundFlow,
-      usingDynamicChannelInitially: false,
       assistantMessageId: assistantMessageId,
       modelId: selectedModel.id,
       modelItem: modelItem,
-      sessionId: sessionId,
+      sessionId: effectiveSessionId,
       activeConversationId: activeConversation.id,
       api: api,
       socketService: socketService,
@@ -1319,7 +1352,12 @@ Future<void> regenerateMessage(
           ref.read(chatMessagesProvider.notifier).finishStreaming(),
       getMessages: () => ref.read(chatMessagesProvider),
     );
-    ref.read(chatMessagesProvider.notifier).setMessageStream(sendStreamSub);
+    ref.read(chatMessagesProvider.notifier)
+      ..setMessageStream(activeStream.streamSubscription)
+      ..setSocketSubscriptions(
+        activeStream.socketSubscriptions,
+        onDispose: activeStream.disposeWatchdog,
+      );
     return;
   } catch (e) {
     rethrow;
@@ -1756,6 +1794,7 @@ Future<void> _sendMessageInternal(
       // Bind to Socket session whenever available so the server can push
       // streaming updates to this client (improves first-turn streaming).
       sessionIdOverride: wantSessionBinding ? socketSessionId : null,
+      socketSessionId: socketSessionId,
       toolServers: toolServers,
       backgroundTasks: bgTasks,
       responseMessageId: assistantMessageId,
@@ -1763,6 +1802,8 @@ Future<void> _sendMessageInternal(
 
     final stream = response.stream;
     final sessionId = response.sessionId;
+    final effectiveSessionId =
+        response.socketSessionId ?? socketSessionId ?? sessionId;
 
     // Use unified streaming helper for SSE/WebSocket handling
     final bool isBackgroundFlow =
@@ -1784,16 +1825,15 @@ Future<void> _sendMessageInternal(
       });
     } catch (_) {}
 
-    final sendStreamSub = attachUnifiedChunkedStreaming(
+    final activeStream = attachUnifiedChunkedStreaming(
       stream: stream,
       webSearchEnabled: webSearchEnabled,
       isBackgroundFlow: isBackgroundFlow,
       suppressSocketContentInitially: !isBackgroundFlow,
-      usingDynamicChannelInitially: false,
       assistantMessageId: assistantMessageId,
       modelId: selectedModel.id,
       modelItem: modelItem,
-      sessionId: sessionId,
+      sessionId: effectiveSessionId,
       activeConversationId: activeConversation?.id,
       api: api,
       socketService: socketService,
@@ -1846,7 +1886,12 @@ Future<void> _sendMessageInternal(
       getMessages: () => ref.read(chatMessagesProvider),
     );
 
-    ref.read(chatMessagesProvider.notifier).setMessageStream(sendStreamSub);
+    ref.read(chatMessagesProvider.notifier)
+      ..setMessageStream(activeStream.streamSubscription)
+      ..setSocketSubscriptions(
+        activeStream.socketSubscriptions,
+        onDispose: activeStream.disposeWatchdog,
+      );
     return;
   } catch (e) {
     // Handle error - remove the assistant message placeholder
@@ -2159,13 +2204,6 @@ final stopGenerationProvider = Provider<void Function()>((ref) {
         // Cancel the network stream (SSE) if active
         final api = ref.read(apiServiceProvider);
         api?.cancelStreamingMessage(lastId);
-
-        // Stop any active socket listeners for chat/channel events
-        try {
-          final socketService = ref.read(socketServiceProvider);
-          socketService?.offChatEvents();
-          socketService?.offChannelEvents();
-        } catch (_) {}
 
         // Cancel local stream subscription to stop propagating further chunks
         ref.read(chatMessagesProvider.notifier).cancelActiveMessageStream();

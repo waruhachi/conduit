@@ -2798,7 +2798,13 @@ class ApiService {
 
   // Send message with SSE streaming
   // Returns a record with (stream, messageId, sessionId)
-  ({Stream<String> stream, String messageId, String sessionId}) sendMessage({
+  ({
+    Stream<String> stream,
+    String messageId,
+    String sessionId,
+    String? socketSessionId,
+  })
+  sendMessage({
     required List<Map<String, dynamic>> messages,
     required String model,
     String? conversationId,
@@ -2807,6 +2813,7 @@ class ApiService {
     bool enableImageGeneration = false,
     Map<String, dynamic>? modelItem,
     String? sessionIdOverride,
+    String? socketSessionId,
     List<Map<String, dynamic>>? toolServers,
     Map<String, dynamic>? backgroundTasks,
     String? responseMessageId,
@@ -2903,6 +2910,16 @@ class ApiService {
         'memory': false,
       };
     }
+
+    if (backgroundTasks != null && backgroundTasks.isNotEmpty) {
+      data['background_tasks'] = backgroundTasks;
+    }
+
+    if (socketSessionId != null && socketSessionId.isNotEmpty) {
+      data['session_id'] = socketSessionId;
+    }
+
+    data['id'] = messageId;
 
     // No default reasoning parameters included; providers handle thinking UIs natively.
 
@@ -3132,6 +3149,7 @@ class ApiService {
       stream: streamController.stream,
       messageId: messageId,
       sessionId: sessionId,
+      socketSessionId: socketSessionId,
     );
   }
 
