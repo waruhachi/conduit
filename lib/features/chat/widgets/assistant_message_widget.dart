@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:convert';
@@ -1765,7 +1766,7 @@ class CitationListView extends StatelessWidget {
   }
 }
 
-class FollowUpSuggestionBar extends StatelessWidget {
+class FollowUpSuggestionBar extends StatefulWidget {
   const FollowUpSuggestionBar({
     super.key,
     required this.suggestions,
@@ -1778,35 +1779,149 @@ class FollowUpSuggestionBar extends StatelessWidget {
   final bool isBusy;
 
   @override
+  State<FollowUpSuggestionBar> createState() => _FollowUpSuggestionBarState();
+}
+
+class _FollowUpSuggestionBarState extends State<FollowUpSuggestionBar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    );
+    if (widget.suggestions.isNotEmpty) {
+      _controller.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant FollowUpSuggestionBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(oldWidget.suggestions, widget.suggestions)) {
+      if (widget.suggestions.isEmpty) {
+        _controller.reset();
+      } else {
+        _controller.forward(from: 0);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = context.conduitTheme;
-    if (suggestions.isEmpty) {
+    if (widget.suggestions.isEmpty) {
       return const SizedBox.shrink();
     }
+
+    final Animation<double> headerAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0, 0.35, curve: Curves.easeOutCubic),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Try next',
-          style: TextStyle(
-            color: theme.textPrimary,
-            fontWeight: FontWeight.w600,
-            fontSize: AppTypography.bodyLarge,
+        AnimatedBuilder(
+          animation: headerAnimation,
+          builder: (context, child) {
+            return Opacity(
+              opacity: headerAnimation.value,
+              child: Transform.translate(
+                offset: Offset(0, (1 - headerAnimation.value) * 10),
+                child: child,
+              ),
+            );
+          },
+          child: Text(
+            'Try next',
+            style: TextStyle(
+              color: theme.textPrimary,
+              fontWeight: FontWeight.w600,
+              fontSize: AppTypography.bodyLarge,
+            ),
           ),
         ),
         const SizedBox(height: Spacing.xs),
         Wrap(
           spacing: Spacing.xs,
           runSpacing: Spacing.xs,
-          children: suggestions.map((suggestion) {
-            return FilledButton.tonal(
-              onPressed: isBusy ? null : () => onSelected(suggestion),
-              child: Text(suggestion),
-            );
-          }).toList(),
+          children: [
+            for (var i = 0; i < widget.suggestions.length; i++)
+              _AnimatedSuggestionChip(
+                controller: _controller,
+                index: i,
+                total: widget.suggestions.length,
+                isBusy: widget.isBusy,
+                suggestion: widget.suggestions[i],
+                onSelected: widget.onSelected,
+              ),
+          ],
         ),
       ],
+    );
+  }
+}
+
+class _AnimatedSuggestionChip extends StatelessWidget {
+  const _AnimatedSuggestionChip({
+    required this.controller,
+    required this.index,
+    required this.total,
+    required this.isBusy,
+    required this.suggestion,
+    required this.onSelected,
+  });
+
+  final AnimationController controller;
+  final int index;
+  final int total;
+  final bool isBusy;
+  final String suggestion;
+  final ValueChanged<String> onSelected;
+
+  Interval _intervalForIndex() {
+    if (total <= 1) {
+      return const Interval(0.0, 0.8, curve: Curves.easeOutCubic);
+    }
+    final double step = 0.6 / total;
+    final double start = (index * step).clamp(0.0, 0.8);
+    final double end = (start + 0.4).clamp(0.2, 1.0);
+    return Interval(start, end, curve: Curves.easeOutCubic);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final animation = CurvedAnimation(
+      parent: controller,
+      curve: _intervalForIndex(),
+    );
+
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        final double t = animation.value;
+        return Opacity(
+          opacity: t,
+          child: Transform.translate(
+            offset: Offset(0, (1 - t) * 12),
+            child: Transform.scale(scale: 0.95 + (t * 0.05), child: child),
+          ),
+        );
+      },
+      child: FilledButton.tonal(
+        onPressed: isBusy ? null : () => onSelected(suggestion),
+        child: Text(suggestion),
+      ),
     );
   }
 }

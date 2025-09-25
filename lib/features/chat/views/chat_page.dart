@@ -19,6 +19,7 @@ import '../../../core/utils/model_icon_utils.dart';
 import '../widgets/modern_chat_input.dart';
 import '../widgets/user_message_bubble.dart';
 import '../widgets/assistant_message_widget.dart' as assistant;
+import '../widgets/streaming_title_text.dart';
 import '../widgets/file_attachment_widget.dart';
 // import '../widgets/voice_input_sheet.dart'; // deprecated: replaced by inline voice input
 import '../services/voice_input_service.dart';
@@ -1163,11 +1164,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                           switchOutCurve: Curves.easeInCubic,
                           child: displayConversationTitle != null
                               ? Column(
-                                  key: const ValueKey<bool>(true),
+                                  key: ValueKey<String>(
+                                    displayConversationTitle,
+                                  ),
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    MiddleEllipsisText(
-                                      displayConversationTitle,
+                                    StreamingTitleText(
+                                      title: displayConversationTitle,
                                       style: AppTypography.headlineSmallStyle
                                           .copyWith(
                                             color: context
@@ -1177,14 +1180,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                             fontSize: 18,
                                             height: 1.3,
                                           ),
-                                      textAlign: TextAlign.center,
-                                      semanticsLabel: displayConversationTitle,
+                                      cursorColor: context
+                                          .conduitTheme
+                                          .textPrimary
+                                          .withValues(alpha: 0.8),
                                     ),
                                     const SizedBox(height: Spacing.xs),
                                   ],
                                 )
                               : const SizedBox.shrink(
-                                  key: ValueKey<bool>(false),
+                                  key: ValueKey<String>('empty-title'),
                                 ),
                         ),
                         Transform.translate(
