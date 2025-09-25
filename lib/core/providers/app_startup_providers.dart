@@ -210,7 +210,9 @@ final appStartupFlowProvider = Provider<void>((ref) {
               await ref.read(defaultModelProvider.future);
             } catch (e) {
               DebugLogger.warning(
-                'StartupFlow: default model preload failed: $e',
+                'model-preload-failed',
+                scope: 'startup',
+                data: {'error': e},
               );
             }
           });
@@ -221,7 +223,7 @@ final appStartupFlowProvider = Provider<void>((ref) {
           // Show onboarding once when user reaches chat and hasn't seen it yet
           await _maybeShowOnboarding(ref);
         } catch (e) {
-          DebugLogger.error('StartupFlow error', e);
+          DebugLogger.error('startup-flow-failed', scope: 'startup', error: e);
         }
       });
     } else {

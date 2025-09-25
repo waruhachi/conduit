@@ -42,7 +42,9 @@ class BackgroundStreamingHandler {
           final String reason = args['reason'] as String;
 
           DebugLogger.stream(
-            'Background: Streams suspending - $streamIds (reason: $reason)',
+            'suspending',
+            scope: 'background',
+            data: {'count': streamIds.length, 'reason': reason},
           );
           onStreamsSuspending?.call(streamIds);
 
@@ -51,7 +53,7 @@ class BackgroundStreamingHandler {
           break;
 
         case 'backgroundTaskExpiring':
-          DebugLogger.stream('Background: Background task expiring');
+          DebugLogger.stream('task-expiring', scope: 'background');
           onBackgroundTaskExpiring?.call();
           break;
       }
@@ -70,10 +72,17 @@ class BackgroundStreamingHandler {
       });
 
       DebugLogger.stream(
-        'Background: Started background execution for ${streamIds.length} streams',
+        'start',
+        scope: 'background',
+        data: {'count': streamIds.length},
       );
     } catch (e) {
-      DebugLogger.error('Background: Failed to start background execution', e);
+      DebugLogger.error(
+        'start-failed',
+        scope: 'background',
+        error: e,
+        data: {'count': streamIds.length},
+      );
     }
   }
 
@@ -90,10 +99,17 @@ class BackgroundStreamingHandler {
       });
 
       DebugLogger.stream(
-        'Background: Stopped background execution for ${streamIds.length} streams',
+        'stop',
+        scope: 'background',
+        data: {'count': streamIds.length},
       );
     } catch (e) {
-      DebugLogger.error('Background: Failed to stop background execution', e);
+      DebugLogger.error(
+        'stop-failed',
+        scope: 'background',
+        error: e,
+        data: {'count': streamIds.length},
+      );
     }
   }
 
@@ -156,7 +172,7 @@ class BackgroundStreamingHandler {
     try {
       await _channel.invokeMethod('keepAlive');
     } catch (e) {
-      DebugLogger.error('Background: Failed to keep alive', e);
+      DebugLogger.error('keepalive-failed', scope: 'background', error: e);
     }
   }
 
@@ -181,11 +197,13 @@ class BackgroundStreamingHandler {
       }
 
       DebugLogger.stream(
-        'Background: Recovered ${recovered.length} stream states',
+        'recovered',
+        scope: 'background',
+        data: {'count': recovered.length},
       );
       return recovered;
     } catch (e) {
-      DebugLogger.error('Background: Failed to recover stream states', e);
+      DebugLogger.error('recover-failed', scope: 'background', error: e);
       return [];
     }
   }
@@ -207,7 +225,12 @@ class BackgroundStreamingHandler {
         'reason': reason,
       });
     } catch (e) {
-      DebugLogger.error('Background: Failed to save stream states', e);
+      DebugLogger.error(
+        'save-states-failed',
+        scope: 'background',
+        error: e,
+        data: {'count': streamIds.length, 'reason': reason},
+      );
     }
   }
 
@@ -290,7 +313,7 @@ class StreamState {
         ),
       );
     } catch (e) {
-      DebugLogger.error('Failed to parse StreamState from map', e);
+      DebugLogger.error('parse-failed', scope: 'background', error: e);
       return null;
     }
   }

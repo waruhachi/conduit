@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide debugPrint;
 import 'package:conduit/l10n/app_localizations.dart';
 import '../../../core/widgets/error_boundary.dart';
 import '../../../shared/widgets/optimized_list.dart';
@@ -47,6 +47,11 @@ import '../../../shared/widgets/model_avatar.dart';
 // Removed unused PlatformUtils import
 import '../../../core/services/platform_service.dart' as ps;
 import 'package:flutter/gestures.dart' show DragStartBehavior;
+
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (message == null) return;
+  DebugLogger.fromLegacy(message, scope: 'chat/page');
+}
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({super.key});
@@ -105,11 +110,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     // Check if a model is already selected
     final selectedModel = ref.read(selectedModelProvider);
     if (selectedModel != null) {
-      DebugLogger.log('Model already selected: ${selectedModel.name}');
+      DebugLogger.log(
+        'selected',
+        scope: 'chat/model',
+        data: {'name': selectedModel.name},
+      );
       return;
     }
 
-    DebugLogger.log('No model selected, attempting auto-selection');
+    DebugLogger.log('auto-select-start', scope: 'chat/model');
 
     try {
       // First ensure models are loaded
@@ -119,14 +128,18 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       if (modelsAsync.hasValue) {
         models = modelsAsync.value!;
       } else {
-        DebugLogger.log('Models not loaded yet, fetching...');
+        DebugLogger.log('models-fetch', scope: 'chat/model');
         models = await ref.read(modelsProvider.future);
       }
 
-      DebugLogger.log('Found ${models.length} models available');
+      DebugLogger.log(
+        'models-count',
+        scope: 'chat/model',
+        data: {'count': models.length},
+      );
 
       if (models.isEmpty) {
-        DebugLogger.log('No models available for selection');
+        DebugLogger.warning('models-empty', scope: 'chat/model');
         return;
       }
 
@@ -134,18 +147,24 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       try {
         final Model? model = await ref.read(defaultModelProvider.future);
         if (model != null) {
-          DebugLogger.log('Model auto-selected via provider: ${model.name}');
+          DebugLogger.log(
+            'auto-select',
+            scope: 'chat/model',
+            data: {'name': model.name},
+          );
         }
       } catch (e) {
-        DebugLogger.log(
-          'Default provider failed, selecting first model directly',
-        );
+        DebugLogger.warning('provider-fallback', scope: 'chat/model');
         // Fallback: select the first available model
         ref.read(selectedModelProvider.notifier).set(models.first);
-        DebugLogger.log('Fallback model selected: ${models.first.name}');
+        DebugLogger.log(
+          'fallback',
+          scope: 'chat/model',
+          data: {'name': models.first.name},
+        );
       }
     } catch (e) {
-      DebugLogger.error('Failed to auto-select model', e);
+      DebugLogger.error('auto-select-failed', scope: 'chat/model', error: e);
     }
   }
 
@@ -154,20 +173,28 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       // Check if onboarding has been seen
       final storage = ref.read(optimizedStorageServiceProvider);
       final seen = await storage.getOnboardingSeen();
-      DebugLogger.log('Chat page - Onboarding seen status: $seen');
+      DebugLogger.log(
+        'onboarding-status',
+        scope: 'chat/onboarding',
+        data: {'seen': seen},
+      );
 
       if (!seen && mounted) {
         // Small delay to ensure navigation has settled
         await Future.delayed(const Duration(milliseconds: 500));
         if (!mounted) return;
 
-        DebugLogger.log('Showing onboarding from chat page');
+        DebugLogger.log('onboarding-show', scope: 'chat/onboarding');
         _showOnboarding();
         await storage.setOnboardingSeen(true);
-        DebugLogger.log('Onboarding marked as seen');
+        DebugLogger.log('onboarding-marked', scope: 'chat/onboarding');
       }
     } catch (e) {
-      DebugLogger.error('Error checking onboarding status', e);
+      DebugLogger.error(
+        'onboarding-status-failed',
+        scope: 'chat/onboarding',
+        error: e,
+      );
     }
   }
 
@@ -199,7 +226,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final activeConversation = ref.read(activeConversationProvider);
     if (activeConversation != null) {
       DebugLogger.log(
-        'Conversation already active: ${activeConversation.title}',
+        'active',
+        scope: 'chat/demo',
+        data: {'title': activeConversation.title},
       );
       return;
     }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -180,9 +179,7 @@ final apiServiceProvider = Provider<ApiService?>((ref) {
       // Keep legacy callback for backward compatibility during transition
       apiService.onAuthTokenInvalid = () {
         // This will be removed once migration is complete
-        foundation.debugPrint(
-          'DEBUG: Legacy auth invalidation callback triggered',
-        );
+        DebugLogger.auth('legacy-token-callback', scope: 'auth/api');
       };
 
       return apiService;
@@ -251,7 +248,11 @@ final apiTokenUpdaterProvider = Provider<void>((ref) {
     if (api != null) {
       api.updateAuthToken(next);
       final length = next?.length ?? 0;
-      foundation.debugPrint('DEBUG: Applied auth token to API (len=$length)');
+      DebugLogger.auth(
+        'token-updated',
+        scope: 'auth/api',
+        data: {'length': length},
+      );
     }
   });
 });
@@ -304,19 +305,21 @@ final modelsProvider = FutureProvider<List<Model>>((ref) async {
   if (api == null) return [];
 
   try {
-    DebugLogger.log('Fetching models from server');
+    DebugLogger.log('fetch-start', scope: 'models');
     final models = await api.getModels();
-    DebugLogger.log('Successfully fetched ${models.length} models');
+    DebugLogger.log(
+      'fetch-ok',
+      scope: 'models',
+      data: {'count': models.length},
+    );
     return models;
   } catch (e) {
-    foundation.debugPrint('ERROR: Failed to fetch models: $e');
+    DebugLogger.error('fetch-failed', scope: 'models', error: e);
 
     // If models endpoint returns 403, this should now clear auth token
     // and redirect user to login since it's marked as a core endpoint
     if (e.toString().contains('403')) {
-      DebugLogger.warning(
-        'Models endpoint returned 403 - authentication may be invalid',
-      );
+      DebugLogger.warning('endpoint-403', scope: 'models');
     }
 
     return [];
@@ -396,13 +399,17 @@ final defaultModelAutoSelectionProvider = Provider<void>((ref) {
 
         if (selected != null) {
           ref.read(selectedModelProvider.notifier).set(selected);
-          foundation.debugPrint(
-            'DEBUG: Auto-applied default model (by ID): ${selected.name}',
+          DebugLogger.log(
+            'auto-apply',
+            scope: 'models/default',
+            data: {'name': selected.name},
           );
         }
       } catch (e) {
-        foundation.debugPrint(
-          'DEBUG: defaultModel auto-selection listener failed: $e',
+        DebugLogger.error(
+          'auto-select-failed',
+          scope: 'models/default',
+          error: e,
         );
       }
     });
@@ -428,7 +435,9 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
   final lastFetch = ref.read(_conversationsCacheTimestamp);
   if (lastFetch != null && DateTime.now().difference(lastFetch).inSeconds < 5) {
     DebugLogger.log(
-      'Using cached conversations (fetched ${DateTime.now().difference(lastFetch).inSeconds}s ago)',
+      'cache-hit',
+      scope: 'conversations',
+      data: {'ageSecs': DateTime.now().difference(lastFetch).inSeconds},
     );
     // Note: Can't read our own provider here, would cause a cycle
     // The caching is handled by Riverpod's built-in mechanism
@@ -458,23 +467,27 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
   }
   final api = ref.watch(apiServiceProvider);
   if (api == null) {
-    DebugLogger.log('No API service available');
+    DebugLogger.warning('api-missing', scope: 'conversations');
     return [];
   }
 
   try {
-    DebugLogger.log('Fetching conversations from OpenWebUI API...');
+    DebugLogger.log('fetch-start', scope: 'conversations');
     final conversations = await api
         .getConversations(); // Fetch all conversations
     DebugLogger.log(
-      'Successfully fetched ${conversations.length} conversations',
+      'fetch-ok',
+      scope: 'conversations',
+      data: {'count': conversations.length},
     );
 
     // Also fetch folder information and update conversations with folder IDs
     try {
       final foldersData = await api.getFolders();
       DebugLogger.log(
-        'Fetched ${foldersData.length} folders for conversation mapping',
+        'folders-fetched',
+        scope: 'conversations',
+        data: {'count': foldersData.length},
       );
 
       // Parse folder data into Folder objects
@@ -485,13 +498,21 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
       // Create a map of conversation ID to folder ID
       final conversationToFolder = <String, String>{};
       for (final folder in folders) {
-        foundation.debugPrint(
-          'DEBUG: Folder "${folder.name}" (${folder.id}) has ${folder.conversationIds.length} conversations',
+        DebugLogger.log(
+          'folder',
+          scope: 'conversations/map',
+          data: {
+            'id': folder.id,
+            'name': folder.name,
+            'count': folder.conversationIds.length,
+          },
         );
         for (final conversationId in folder.conversationIds) {
           conversationToFolder[conversationId] = folder.id;
-          foundation.debugPrint(
-            'DEBUG: Mapping conversation $conversationId to folder ${folder.id}',
+          DebugLogger.log(
+            'map',
+            scope: 'conversations/map',
+            data: {'conversationId': conversationId, 'folderId': folder.id},
           );
         }
       }
@@ -509,11 +530,14 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
           conversationMap[conversation.id] = conversation.copyWith(
             folderId: folderIdToUse,
           );
-          final idPreview = conversation.id.length > 8
-              ? conversation.id.substring(0, 8)
-              : conversation.id;
-          foundation.debugPrint(
-            'DEBUG: Updated conversation $idPreview with folderId: $folderIdToUse (explicit: ${explicitFolderId != null})',
+          DebugLogger.log(
+            'update-folder',
+            scope: 'conversations/map',
+            data: {
+              'conversationId': conversation.id,
+              'folderId': folderIdToUse,
+              'explicit': explicitFolderId != null,
+            },
           );
         } else {
           conversationMap[conversation.id] = conversation;
@@ -529,17 +553,16 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
           .where((id) => !existingIds.contains(id))
           .toList();
       if (missingInBase.isNotEmpty) {
-        foundation.debugPrint(
-          'DEBUG: ${missingInBase.length} conversations referenced by folders are missing from base list',
-        );
-        final preview = missingInBase.take(10).toList();
-        foundation.debugPrint(
-          'DEBUG: Missing IDs sample: $preview${missingInBase.length > 10 ? ' ...' : ''}',
+        DebugLogger.warning(
+          'missing-in-base',
+          scope: 'conversations/map',
+          data: {
+            'count': missingInBase.length,
+            'preview': missingInBase.take(5).toList(),
+          },
         );
       } else {
-        foundation.debugPrint(
-          'DEBUG: All folder-referenced conversations are present in base list',
-        );
+        DebugLogger.log('folders-synced', scope: 'conversations/map');
       }
 
       // Attempt to fetch missing conversations per-folder to construct accurate entries
@@ -558,8 +581,11 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
             folderConvs = await apiSvc.getConversationsInFolder(folder.id);
           }
         } catch (e) {
-          foundation.debugPrint(
-            'DEBUG: getConversationsInFolder failed for ${folder.id}: $e',
+          DebugLogger.error(
+            'folder-fetch-failed',
+            scope: 'conversations/map',
+            error: e,
+            data: {'folderId': folder.id},
           );
         }
 
@@ -575,11 +601,10 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
             // Use map to prevent duplicates - this will overwrite if ID already exists
             conversationMap[toAdd.id] = toAdd;
             existingIds.add(toAdd.id);
-            final idPreview = toAdd.id.length > 8
-                ? toAdd.id.substring(0, 8)
-                : toAdd.id;
-            foundation.debugPrint(
-              'DEBUG: Added missing conversation from folder fetch: $idPreview -> folder ${folder.id}',
+            DebugLogger.log(
+              'add-missing',
+              scope: 'conversations/map',
+              data: {'conversationId': toAdd.id, 'folderId': folder.id},
             );
           } else {
             // Create a minimal placeholder if not returned by folder API
@@ -594,11 +619,10 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
             // Use map to prevent duplicates
             conversationMap[convId] = placeholder;
             existingIds.add(convId);
-            final idPreview = convId.length > 8
-                ? convId.substring(0, 8)
-                : convId;
-            foundation.debugPrint(
-              'DEBUG: Added placeholder conversation for missing ID: $idPreview -> folder ${folder.id}',
+            DebugLogger.log(
+              'add-placeholder',
+              scope: 'conversations/map',
+              data: {'conversationId': convId, 'folderId': folder.id},
             );
           }
         }
@@ -609,8 +633,10 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
 
       // Sort conversations by updatedAt in descending order (most recent first)
       sortedConversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      foundation.debugPrint(
-        'DEBUG: Sorted conversations by updatedAt (most recent first)',
+      DebugLogger.log(
+        'sort',
+        scope: 'conversations',
+        data: {'source': 'folder-sync'},
       );
 
       // Update cache timestamp
@@ -618,11 +644,17 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
 
       return sortedConversations;
     } catch (e) {
-      foundation.debugPrint('DEBUG: Failed to fetch folder information: $e');
+      DebugLogger.error(
+        'folders-fetch-failed',
+        scope: 'conversations',
+        error: e,
+      );
       // Sort conversations even when folder fetch fails
       conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      foundation.debugPrint(
-        'DEBUG: Sorted conversations by updatedAt (fallback case)',
+      DebugLogger.log(
+        'sort',
+        scope: 'conversations',
+        data: {'source': 'fallback'},
       );
 
       // Update cache timestamp
@@ -631,15 +663,17 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
       return conversations; // Return original conversations if folder fetch fails
     }
   } catch (e, stackTrace) {
-    foundation.debugPrint('DEBUG: Error fetching conversations: $e');
-    foundation.debugPrint('DEBUG: Stack trace: $stackTrace');
+    DebugLogger.error(
+      'fetch-failed',
+      scope: 'conversations',
+      error: e,
+      stackTrace: stackTrace,
+    );
 
     // If conversations endpoint returns 403, this should now clear auth token
     // and redirect user to login since it's marked as a core endpoint
     if (e.toString().contains('403')) {
-      foundation.debugPrint(
-        'DEBUG: Conversations endpoint returned 403 - authentication may be invalid',
-      );
+      DebugLogger.warning('endpoint-403', scope: 'conversations');
     }
 
     // Return empty list instead of re-throwing to allow app to continue functioning
@@ -671,10 +705,16 @@ final loadConversationProvider = FutureProvider.family<Conversation, String>((
     throw Exception('No API service available');
   }
 
-  foundation.debugPrint('DEBUG: Loading full conversation: $conversationId');
+  DebugLogger.log(
+    'load-start',
+    scope: 'conversation',
+    data: {'id': conversationId},
+  );
   final fullConversation = await api.getConversation(conversationId);
-  foundation.debugPrint(
-    'DEBUG: Loaded conversation with ${fullConversation.messages.length} messages',
+  DebugLogger.log(
+    'load-ok',
+    scope: 'conversation',
+    data: {'messages': fullConversation.messages.length},
   );
 
   return fullConversation;
@@ -692,8 +732,10 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
     final isManualSelection = ref.read(isManualModelSelectionProvider);
 
     if (currentSelected != null && isManualSelection) {
-      foundation.debugPrint(
-        'DEBUG: Manual model selected in reviewer mode: ${currentSelected.name}',
+      DebugLogger.log(
+        'manual',
+        scope: 'models/default',
+        data: {'name': currentSelected.name},
       );
       return currentSelected;
     }
@@ -704,8 +746,10 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
       final defaultModel = models.first;
       if (!ref.read(isManualModelSelectionProvider)) {
         ref.read(selectedModelProvider.notifier).set(defaultModel);
-        foundation.debugPrint(
-          'DEBUG: Auto-selected demo model: ${defaultModel.name}',
+        DebugLogger.log(
+          'auto-select',
+          scope: 'models/default',
+          data: {'name': defaultModel.name},
         );
       }
       return defaultModel;
@@ -751,8 +795,10 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
             resolved ??= models.isNotEmpty ? models.first : null;
             if (resolved != null && !ref.read(isManualModelSelectionProvider)) {
               ref.read(selectedModelProvider.notifier).set(resolved);
-              foundation.debugPrint(
-                'DEBUG: Reconciled default model to ${resolved.name}',
+              DebugLogger.log(
+                'reconcile',
+                scope: 'models/default',
+                data: {'name': resolved.name, 'source': 'stored'},
               );
             }
           } catch (_) {}
@@ -789,8 +835,10 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
             resolved ??= models.isNotEmpty ? models.first : null;
             if (resolved != null && !ref.read(isManualModelSelectionProvider)) {
               ref.read(selectedModelProvider.notifier).set(resolved);
-              foundation.debugPrint(
-                'DEBUG: Reconciled server default to ${resolved.name}',
+              DebugLogger.log(
+                'reconcile',
+                scope: 'models/default',
+                data: {'name': resolved.name, 'source': 'server'},
               );
             }
           } catch (_) {}
@@ -802,19 +850,21 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
     // 3) Fallback: fetch models and pick first available
     final models = await ref.read(modelsProvider.future);
     if (models.isEmpty) {
-      foundation.debugPrint('DEBUG: No models available');
+      DebugLogger.warning('no-models', scope: 'models/default');
       return null;
     }
     final selectedModel = models.first;
     if (!ref.read(isManualModelSelectionProvider)) {
       ref.read(selectedModelProvider.notifier).set(selectedModel);
-      foundation.debugPrint(
-        'DEBUG: Set default model (fallback): ${selectedModel.name}',
+      DebugLogger.log(
+        'fallback',
+        scope: 'models/default',
+        data: {'name': selectedModel.name},
       );
     }
     return selectedModel;
   } catch (e) {
-    foundation.debugPrint('DEBUG: Error setting default model: $e');
+    DebugLogger.error('set-default-failed', scope: 'models/default', error: e);
     return null;
   }
 });
@@ -830,15 +880,15 @@ final backgroundModelLoadProvider = Provider<void>((ref) {
     // Wait a bit to ensure auth is complete
     await Future.delayed(const Duration(milliseconds: 200));
 
-    foundation.debugPrint('DEBUG: Starting background model loading');
+    DebugLogger.log('bg-start', scope: 'models/background');
 
     // Load default model in background
     try {
       await ref.read(defaultModelProvider.future);
-      foundation.debugPrint('DEBUG: Background model loading completed');
+      DebugLogger.log('bg-complete', scope: 'models/background');
     } catch (e) {
       // Ignore errors in background loading
-      foundation.debugPrint('DEBUG: Background model loading failed: $e');
+      DebugLogger.error('bg-failed', scope: 'models/background', error: e);
     }
   });
 
@@ -872,11 +922,16 @@ final serverSearchProvider = FutureProvider.family<List<Conversation>, String>((
   if (api == null) return [];
 
   try {
-    foundation.debugPrint('DEBUG: Performing server-side search for: "$query"');
+    final trimmedQuery = query.trim();
+    DebugLogger.log(
+      'server-search',
+      scope: 'search',
+      data: {'length': trimmedQuery.length},
+    );
 
     // Use the new server-side search API
     final chatHits = await api.searchChats(
-      query: query.trim(),
+      query: trimmedQuery,
       archived: false, // Only search non-archived conversations
       limit: 50,
       sortBy: 'updated_at',
@@ -888,7 +943,7 @@ final serverSearchProvider = FutureProvider.family<List<Conversation>, String>((
     // Perform message-level search and merge chat hits
     try {
       final messageHits = await api.searchMessages(
-        query: query.trim(),
+        query: trimmedQuery,
         limit: 100,
       );
 
@@ -914,8 +969,10 @@ final serverSearchProvider = FutureProvider.family<List<Conversation>, String>((
       const maxFetch = 50;
       final fetchList = idsToFetch.take(maxFetch).toList();
       if (fetchList.isNotEmpty) {
-        foundation.debugPrint(
-          'DEBUG: Fetching ${fetchList.length} conversations from message hits',
+        DebugLogger.log(
+          'fetch-from-messages',
+          scope: 'search',
+          data: {'count': fetchList.length},
         );
         final fetched = await Future.wait(
           fetchList.map((id) async {
@@ -939,18 +996,21 @@ final serverSearchProvider = FutureProvider.family<List<Conversation>, String>((
         conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       }
     } catch (e) {
-      foundation.debugPrint('DEBUG: Message-level search failed: $e');
+      DebugLogger.error('message-search-failed', scope: 'search', error: e);
     }
 
-    foundation.debugPrint(
-      'DEBUG: Server search returned ${conversations.length} results',
+    DebugLogger.log(
+      'server-results',
+      scope: 'search',
+      data: {'count': conversations.length},
     );
     return conversations;
   } catch (e) {
-    foundation.debugPrint('DEBUG: Server search failed, fallback to local: $e');
+    DebugLogger.error('server-search-failed', scope: 'search', error: e);
 
     // Fallback to local search if server search fails
     final allConversations = await ref.read(conversationsProvider.future);
+    DebugLogger.log('fallback-local', scope: 'search');
     return allConversations.where((conv) {
       return !conv.archived &&
           (conv.title.toLowerCase().contains(query.toLowerCase()) ||
@@ -1098,7 +1158,7 @@ final userSettingsProvider = FutureProvider<UserSettings>((ref) async {
     final settingsData = await api.getUserSettings();
     return UserSettings.fromJson(settingsData);
   } catch (e) {
-    foundation.debugPrint('DEBUG: Error fetching user settings: $e');
+    DebugLogger.error('user-settings-failed', scope: 'settings', error: e);
     // Return default settings on error
     return const UserSettings();
   }
@@ -1114,7 +1174,7 @@ final conversationSuggestionsProvider = FutureProvider<List<String>>((
   try {
     return await api.getSuggestions();
   } catch (e) {
-    foundation.debugPrint('DEBUG: Error fetching suggestions: $e');
+    DebugLogger.error('suggestions-failed', scope: 'suggestions', error: e);
     return [];
   }
 });
@@ -1129,7 +1189,7 @@ final userPermissionsProvider = FutureProvider<Map<String, dynamic>>((
   try {
     return await api.getUserPermissions();
   } catch (e) {
-    foundation.debugPrint('DEBUG: Error fetching user permissions: $e');
+    DebugLogger.error('permissions-failed', scope: 'permissions', error: e);
     return {};
   }
 });
@@ -1170,21 +1230,23 @@ final webSearchAvailableProvider = Provider<bool>((ref) {
 final foldersProvider = FutureProvider<List<Folder>>((ref) async {
   final api = ref.watch(apiServiceProvider);
   if (api == null) {
-    foundation.debugPrint('DEBUG: No API service available for folders');
+    DebugLogger.warning('api-missing', scope: 'folders');
     return [];
   }
 
   try {
-    foundation.debugPrint('DEBUG: Fetching folders from API...');
     final foldersData = await api.getFolders();
-    foundation.debugPrint('DEBUG: Raw folders data received successfully');
     final folders = foldersData
         .map((folderData) => Folder.fromJson(folderData))
         .toList();
-    foundation.debugPrint('DEBUG: Parsed ${folders.length} folders');
+    DebugLogger.log(
+      'fetch-ok',
+      scope: 'folders',
+      data: {'count': folders.length},
+    );
     return folders;
   } catch (e) {
-    foundation.debugPrint('DEBUG: Error fetching folders: $e');
+    DebugLogger.error('fetch-failed', scope: 'folders', error: e);
     return [];
   }
 });
@@ -1198,7 +1260,7 @@ final userFilesProvider = FutureProvider<List<FileInfo>>((ref) async {
     final filesData = await api.getUserFiles();
     return filesData.map((fileData) => FileInfo.fromJson(fileData)).toList();
   } catch (e) {
-    foundation.debugPrint('DEBUG: Error fetching files: $e');
+    DebugLogger.error('files-failed', scope: 'files', error: e);
     return [];
   }
 });
@@ -1214,7 +1276,12 @@ final fileContentProvider = FutureProvider.family<String, String>((
   try {
     return await api.getFileContent(fileId);
   } catch (e) {
-    foundation.debugPrint('DEBUG: Error fetching file content: $e');
+    DebugLogger.error(
+      'file-content-failed',
+      scope: 'files',
+      error: e,
+      data: {'fileId': fileId},
+    );
     throw Exception('Failed to load file content: $e');
   }
 });
@@ -1228,7 +1295,7 @@ final knowledgeBasesProvider = FutureProvider<List<KnowledgeBase>>((ref) async {
     final kbData = await api.getKnowledgeBases();
     return kbData.map((data) => KnowledgeBase.fromJson(data)).toList();
   } catch (e) {
-    foundation.debugPrint('DEBUG: Error fetching knowledge bases: $e');
+    DebugLogger.error('knowledge-bases-failed', scope: 'knowledge', error: e);
     return [];
   }
 });
@@ -1244,7 +1311,11 @@ final knowledgeBaseItemsProvider =
             .map((data) => KnowledgeBaseItem.fromJson(data))
             .toList();
       } catch (e) {
-        foundation.debugPrint('DEBUG: Error fetching knowledge base items: $e');
+        DebugLogger.error(
+          'knowledge-items-failed',
+          scope: 'knowledge',
+          error: e,
+        );
         return [];
       }
     });
@@ -1257,7 +1328,7 @@ final availableVoicesProvider = FutureProvider<List<String>>((ref) async {
   try {
     return await api.getAvailableVoices();
   } catch (e) {
-    foundation.debugPrint('DEBUG: Error fetching voices: $e');
+    DebugLogger.error('voices-failed', scope: 'voices', error: e);
     return [];
   }
 });
@@ -1272,7 +1343,7 @@ final imageModelsProvider = FutureProvider<List<Map<String, dynamic>>>((
   try {
     return await api.getImageModels();
   } catch (e) {
-    foundation.debugPrint('DEBUG: Error fetching image models: $e');
+    DebugLogger.error('image-models-failed', scope: 'image-models', error: e);
     return [];
   }
 });

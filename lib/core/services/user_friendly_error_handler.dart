@@ -1,8 +1,14 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide debugPrint;
 import 'package:flutter/material.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import '../../shared/theme/theme_extensions.dart';
 import 'navigation_service.dart';
+import '../utils/debug_logger.dart';
+
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (message == null) return;
+  DebugLogger.fromLegacy(message, scope: 'errors/user-friendly');
+}
 
 /// User-friendly error messages and recovery actions
 class UserFriendlyErrorHandler {

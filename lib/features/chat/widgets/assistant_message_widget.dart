@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide debugPrint;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +20,12 @@ import 'package:conduit/shared/widgets/chat_action_button.dart';
 import '../../../shared/widgets/model_avatar.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import '../providers/chat_providers.dart' show sendMessage;
+import '../../../core/utils/debug_logger.dart';
+
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (message == null) return;
+  DebugLogger.fromLegacy(message, scope: 'chat/assistant');
+}
 
 class AssistantMessageWidget extends ConsumerStatefulWidget {
   final dynamic message;

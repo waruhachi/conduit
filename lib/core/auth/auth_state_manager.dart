@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Types are used through app_providers.dart
 import '../providers/app_providers.dart';
@@ -6,6 +6,11 @@ import '../models/user.dart';
 import 'token_validator.dart';
 import 'auth_cache_manager.dart';
 import '../utils/debug_logger.dart';
+
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (message == null) return;
+  DebugLogger.fromLegacy(message, scope: 'auth/state');
+}
 
 /// Comprehensive auth state representation
 @immutable

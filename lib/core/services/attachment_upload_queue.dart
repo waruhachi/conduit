@@ -2,8 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/debug_logger.dart';
+
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (message == null) return;
+  DebugLogger.fromLegacy(message, scope: 'attachments/queue');
+}
 
 /// Status of a queued attachment upload
 enum QueuedAttachmentStatus { pending, uploading, completed, failed, cancelled }

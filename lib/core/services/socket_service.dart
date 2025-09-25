@@ -1,6 +1,11 @@
 import 'package:socket_io_client/socket_io_client.dart' as io;
-import 'package:flutter/foundation.dart';
 import '../models/server_config.dart';
+import '../utils/debug_logger.dart';
+
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (message == null) return;
+  DebugLogger.fromLegacy(message, scope: 'socket');
+}
 
 class SocketService {
   final ServerConfig serverConfig;

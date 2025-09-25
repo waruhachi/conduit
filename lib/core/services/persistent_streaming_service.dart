@@ -312,8 +312,10 @@ class PersistentStreamingService with WidgetsBindingObserver {
       _retryAttempts.remove(streamId);
     } catch (e) {
       DebugLogger.error(
-        'PersistentStreaming: Failed to recover stream $streamId',
-        e,
+        'recover-failed',
+        scope: 'streaming/persistent',
+        error: e,
+        data: {'streamId': streamId},
       );
 
       // Schedule next retry if under limit
@@ -405,11 +407,12 @@ class PersistentStreamingService with WidgetsBindingObserver {
   void _enableWakeLock() async {
     try {
       await WakelockPlus.enable();
-      DebugLogger.stream('PersistentStreamingService: Wake lock enabled');
+      DebugLogger.stream('wake-lock-enabled', scope: 'streaming/persistent');
     } catch (e) {
       DebugLogger.error(
-        'PersistentStreamingService: Failed to enable wake lock',
-        e,
+        'wake-lock-enable-failed',
+        scope: 'streaming/persistent',
+        error: e,
       );
     }
   }
@@ -417,11 +420,12 @@ class PersistentStreamingService with WidgetsBindingObserver {
   void _disableWakeLock() async {
     try {
       await WakelockPlus.disable();
-      DebugLogger.stream('PersistentStreamingService: Wake lock disabled');
+      DebugLogger.stream('wake-lock-disabled', scope: 'streaming/persistent');
     } catch (e) {
       DebugLogger.error(
-        'PersistentStreamingService: Failed to disable wake lock',
-        e,
+        'wake-lock-disable-failed',
+        scope: 'streaming/persistent',
+        error: e,
       );
     }
   }

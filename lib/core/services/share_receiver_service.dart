@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_handler/share_handler.dart' as sh;
 
@@ -12,6 +12,7 @@ import '../../core/providers/app_providers.dart';
 import '../../shared/services/tasks/task_queue.dart';
 import 'package:path/path.dart' as path;
 import 'navigation_service.dart';
+import '../utils/debug_logger.dart';
 // Server chat creation/title generation occur on first send via chat providers
 
 /// Lightweight payload for a share event
@@ -198,4 +199,9 @@ Future<void> _processPayload(Ref ref, SharedPayload payload) async {
   } catch (e) {
     debugPrint('ShareReceiver: failed to process payload: $e');
   }
+}
+
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (message == null) return;
+  DebugLogger.fromLegacy(message, scope: 'share');
 }

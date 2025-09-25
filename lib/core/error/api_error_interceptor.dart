@@ -1,8 +1,13 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide debugPrint;
 import 'api_error_handler.dart';
 import 'api_error.dart';
 import '../utils/debug_logger.dart';
+
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (message == null) return;
+  DebugLogger.fromLegacy(message, scope: 'api/error-interceptor');
+}
 
 /// Dio interceptor for automatic error handling and transformation
 /// Converts all HTTP errors into standardized ApiError format

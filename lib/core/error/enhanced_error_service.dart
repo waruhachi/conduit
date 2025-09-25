@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide debugPrint;
 import 'package:flutter/material.dart';
 import 'api_error.dart';
 import 'api_error_handler.dart';
@@ -7,6 +7,12 @@ import 'api_error_interceptor.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/theme/theme_extensions.dart';
 import 'package:conduit/l10n/app_localizations.dart';
+import '../utils/debug_logger.dart';
+
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (message == null) return;
+  DebugLogger.fromLegacy(message, scope: 'api/error-service');
+}
 
 /// Enhanced error service with comprehensive error handling capabilities
 /// Provides unified error management across the application

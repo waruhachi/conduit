@@ -1,8 +1,13 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide debugPrint;
 import 'api_error.dart';
 import 'error_parser.dart';
 import '../utils/debug_logger.dart';
+
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (message == null) return;
+  DebugLogger.fromLegacy(message, scope: 'api/error-handler');
+}
 
 /// Comprehensive API error handler with structured error parsing
 /// Handles all types of API errors and converts them to standardized format

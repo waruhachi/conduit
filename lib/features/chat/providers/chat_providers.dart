@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:yaml/yaml.dart' as yaml;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/utils/tool_calls_parser.dart';
@@ -15,6 +14,12 @@ import '../services/reviewer_mode_service.dart';
 import '../../../shared/services/tasks/task_queue.dart';
 import '../../tools/providers/tools_providers.dart';
 import 'dart:async';
+import '../../../core/utils/debug_logger.dart';
+
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (message == null) return;
+  DebugLogger.fromLegacy(message, scope: 'chat/providers');
+}
 
 const bool kSocketVerboseLogging = false;
 

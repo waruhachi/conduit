@@ -2,13 +2,13 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import '../../../core/services/api_service.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/utils/debug_logger.dart';
 
 class FileAttachmentService {
   final ApiService _apiService;
@@ -139,7 +139,11 @@ class FileAttachmentService {
       final compressedBase64 = base64Encode(compressedBytes);
       return 'data:image/png;base64,$compressedBase64';
     } catch (e) {
-      foundation.debugPrint('DEBUG: Image compression failed: $e');
+      DebugLogger.error(
+        'compress-failed',
+        scope: 'attachments/image',
+        error: e,
+      );
       return imageDataUrl; // Return original if compression fails
     }
   }
@@ -152,8 +156,10 @@ class FileAttachmentService {
     int? maxHeight,
   }) async {
     try {
-      foundation.debugPrint(
-        'DEBUG: Converting image to data URL: ${imageFile.path}',
+      DebugLogger.log(
+        'convert-start',
+        scope: 'attachments/image',
+        data: {'path': imageFile.path},
       );
 
       // Read the file as bytes
@@ -180,25 +186,33 @@ class FileAttachmentService {
         dataUrl = await compressImage(dataUrl, maxWidth, maxHeight);
       }
 
-      foundation.debugPrint(
-        'DEBUG: Image converted to data URL with MIME type: $mimeType',
+      DebugLogger.log(
+        'convert-done',
+        scope: 'attachments/image',
+        data: {'mime': mimeType},
       );
       return dataUrl;
     } catch (e) {
-      foundation.debugPrint('DEBUG: Failed to convert image to data URL: $e');
+      DebugLogger.error('convert-failed', scope: 'attachments/image', error: e);
       return null;
     }
   }
 
   // Upload file with progress tracking
   Stream<FileUploadState> uploadFile(File file) async* {
-    foundation.debugPrint('DEBUG: Starting file upload for: ${file.path}');
+    DebugLogger.log(
+      'upload-start',
+      scope: 'attachments/file',
+      data: {'path': file.path},
+    );
     try {
       final fileName = path.basename(file.path);
       final fileSize = await file.length();
 
-      foundation.debugPrint(
-        'DEBUG: File details - Name: $fileName, Size: $fileSize bytes',
+      DebugLogger.log(
+        'file-details',
+        scope: 'attachments/file',
+        data: {'name': fileName, 'bytes': fileSize},
       );
 
       yield FileUploadState(
@@ -220,10 +234,12 @@ class FileAttachmentService {
       ].contains(ext.substring(1));
 
       // Upload ALL files (including images) to server for consistency with web client
-      foundation.debugPrint('DEBUG: Uploading file to server...');
+      DebugLogger.log('upload-progress', scope: 'attachments/file');
       final fileId = await _apiService.uploadFile(file.path, fileName);
-      foundation.debugPrint(
-        'DEBUG: File uploaded successfully with ID: $fileId',
+      DebugLogger.log(
+        'upload-complete',
+        scope: 'attachments/file',
+        data: {'fileId': fileId},
       );
 
       yield FileUploadState(
@@ -236,7 +252,7 @@ class FileAttachmentService {
         isImage: isImage,
       );
     } catch (e) {
-      foundation.debugPrint('DEBUG: File upload failed: $e');
+      DebugLogger.error('upload-failed', scope: 'attachments/file', error: e);
       final fileName = path.basename(file.path);
       final fileSize = await file.length();
 
@@ -421,7 +437,11 @@ class MockFileAttachmentService {
 
   // Mock upload file with progress tracking
   Stream<FileUploadState> uploadFile(File file) async* {
-    foundation.debugPrint('DEBUG: Mock file upload for: ${file.path}');
+    DebugLogger.log(
+      'mock-upload',
+      scope: 'attachments/mock',
+      data: {'path': file.path},
+    );
 
     final fileName = path.basename(file.path);
     final fileSize = await file.length();
@@ -457,7 +477,7 @@ class MockFileAttachmentService {
       fileId: 'mock_file_${DateTime.now().millisecondsSinceEpoch}',
     );
 
-    foundation.debugPrint('DEBUG: Mock file upload completed');
+    DebugLogger.log('mock-complete', scope: 'attachments/mock');
   }
 
   Future<List<String>> uploadFiles(

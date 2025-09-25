@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide debugPrint;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/widgets/error_boundary.dart';
@@ -22,6 +22,11 @@ import 'core/providers/app_startup_providers.dart';
 
 developer.TimelineTask? _startupTimeline;
 
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (message == null) return;
+  DebugLogger.fromLegacy(message, scope: 'app/main');
+}
+
 void main() {
   runZonedGuarded(
     () async {
@@ -29,14 +34,23 @@ void main() {
 
       // Global error handlers
       FlutterError.onError = (FlutterErrorDetails details) {
-        DebugLogger.error('Flutter error', details.exception);
+        DebugLogger.error(
+          'flutter-error',
+          scope: 'app/framework',
+          error: details.exception,
+        );
         final stack = details.stack;
         if (stack != null) {
           debugPrint(stack.toString());
         }
       };
       WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
-        DebugLogger.error('Uncaught platform error', error);
+        DebugLogger.error(
+          'platform-error',
+          scope: 'app/platform',
+          error: error,
+          stackTrace: stack,
+        );
         debugPrint(stack.toString());
         return true;
       };
@@ -88,7 +102,12 @@ void main() {
       developer.Timeline.instantSync('runApp_called');
     },
     (error, stack) {
-      DebugLogger.error('Uncaught zone error', error);
+      DebugLogger.error(
+        'zone-error',
+        scope: 'app',
+        error: error,
+        stackTrace: stack,
+      );
       debugPrint(stack.toString());
     },
   );
@@ -118,7 +137,7 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
   }
 
   void _initializeAppState() {
-    DebugLogger.auth('Initializing unified auth system');
+    DebugLogger.auth('init', scope: 'app');
 
     ref.read(authStateManagerProvider);
     ref.read(authApiIntegrationProvider);

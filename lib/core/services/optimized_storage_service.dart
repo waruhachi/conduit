@@ -1,10 +1,15 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'secure_credential_storage.dart';
 import '../models/server_config.dart';
 import '../models/conversation.dart';
+import '../utils/debug_logger.dart';
+
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (message == null) return;
+  DebugLogger.fromLegacy(message, scope: 'storage/optimized');
+}
 
 /// Optimized storage service with single secure storage implementation
 /// Eliminates dual storage overhead and improves performance

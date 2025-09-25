@@ -1,13 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/providers/app_providers.dart';
 import 'outbound_task.dart';
 import 'task_worker.dart';
+import '../../../core/utils/debug_logger.dart';
+
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (message == null) return;
+  DebugLogger.fromLegacy(message, scope: 'tasks/queue');
+}
 
 final taskQueueProvider =
     NotifierProvider<TaskQueueNotifier, List<OutboundTask>>(

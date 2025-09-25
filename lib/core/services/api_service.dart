@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide debugPrint;
 import 'package:dio/dio.dart';
 // import 'package:http_parser/http_parser.dart';
 // Removed legacy websocket/socket.io imports
@@ -16,6 +16,17 @@ import '../error/api_error_interceptor.dart';
 // Tool-call details are parsed in the UI layer to render collapsible blocks
 import 'persistent_streaming_service.dart';
 import '../utils/debug_logger.dart';
+
+const bool _enableLegacyApiLogs = false;
+const bool _traceConversationParsing = false;
+const bool _traceFullChatParsing = false;
+
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (!_enableLegacyApiLogs || message == null) {
+    return;
+  }
+  DebugLogger.fromLegacy(message, scope: 'api/legacy');
+}
 
 class ApiService {
   final Dio _dio;
@@ -187,7 +198,7 @@ class ApiService {
   // User info
   Future<User> getCurrentUser() async {
     final response = await _dio.get('/api/v1/auths/');
-    DebugLogger.log('User info retrieved successfully');
+    DebugLogger.log('user-info', scope: 'api/user');
     return User.fromJson(response.data);
   }
 
@@ -204,11 +215,15 @@ class ApiService {
       // Response is a direct array
       models = response.data as List;
     } else {
-      DebugLogger.error('Unexpected models response format');
+      DebugLogger.error('models-format', scope: 'api/models');
       return [];
     }
 
-    DebugLogger.log('Found ${models.length} models');
+    DebugLogger.log(
+      'models-count',
+      scope: 'api/models',
+      data: {'count': models.length},
+    );
     return models.map((m) => Model.fromJson(m)).toList();
   }
 
@@ -217,12 +232,14 @@ class ApiService {
     try {
       final response = await _dio.get('/api/v1/users/user/settings');
 
-      DebugLogger.log('User settings retrieved successfully');
+      DebugLogger.log('settings-ok', scope: 'api/user-settings');
 
       final data = response.data;
       if (data is! Map<String, dynamic>) {
         DebugLogger.warning(
-          'User settings response is empty or unexpected type: ${data.runtimeType}',
+          'settings-format',
+          scope: 'api/user-settings',
+          data: {'type': data.runtimeType},
         );
         return null;
       }
@@ -235,16 +252,22 @@ class ApiService {
           // Return the first model in the user's preferred models list
           final defaultModel = models.first.toString();
           DebugLogger.log(
-            'Found default model from user settings: $defaultModel',
+            'default-model',
+            scope: 'api/user-settings',
+            data: {'id': defaultModel},
           );
           return defaultModel;
         }
       }
 
-      DebugLogger.log('No default model found in user settings');
+      DebugLogger.warning('default-model-missing', scope: 'api/user-settings');
       return null;
     } catch (e) {
-      DebugLogger.error('Error fetching default model from user settings', e);
+      DebugLogger.error(
+        'default-model-error',
+        scope: 'api/user-settings',
+        error: e,
+      );
       // Do not call admin-only configs endpoint here; let the caller
       // handle fallback (e.g., first available model from /api/models).
       return null;
@@ -327,9 +350,15 @@ class ApiService {
     );
     final regularChatList = allRegularChats;
 
-    debugPrint('DEBUG: Found ${regularChatList.length} regular chats');
-    debugPrint('DEBUG: Found ${pinnedChatList.length} pinned chats');
-    debugPrint('DEBUG: Found ${archivedChatList.length} archived chats');
+    DebugLogger.log(
+      'summary',
+      scope: 'api/conversations',
+      data: {
+        'regular': regularChatList.length,
+        'pinned': pinnedChatList.length,
+        'archived': archivedChatList.length,
+      },
+    );
 
     // Convert OpenWebUI chat format to our Conversation format
     final conversations = <Conversation>[];
@@ -345,7 +374,12 @@ class ApiService {
         conversations.add(pinnedConversation);
         pinnedIds.add(conversation.id);
       } catch (e) {
-        debugPrint('DEBUG: Error parsing pinned chat ${chatData['id']}: $e');
+        DebugLogger.error(
+          'parse-pinned-failed',
+          scope: 'api/conversations',
+          error: e,
+          data: {'conversationId': chatData['id']},
+        );
       }
     }
 
@@ -358,7 +392,12 @@ class ApiService {
         conversations.add(archivedConversation);
         archivedIds.add(conversation.id);
       } catch (e) {
-        debugPrint('DEBUG: Error parsing archived chat ${chatData['id']}: $e');
+        DebugLogger.error(
+          'parse-archived-failed',
+          scope: 'api/conversations',
+          error: e,
+          data: {'conversationId': chatData['id']},
+        );
       }
     }
 
@@ -369,21 +408,28 @@ class ApiService {
         // Debug: Check if conversation has folder_id in raw data
         if (chatData.containsKey('folder_id') &&
             chatData['folder_id'] != null) {
-          debugPrint(
-            '🔍 DEBUG: Found conversation with folder_id in raw data: ${chatData['id']} -> ${chatData['folder_id']}',
+          DebugLogger.log(
+            'folder-ref',
+            scope: 'api/conversations',
+            data: {
+              'conversationId': chatData['id'],
+              'folderId': chatData['folder_id'],
+            },
           );
         }
 
-        if (!loggedSampleChat) {
+        if (!loggedSampleChat && _traceConversationParsing) {
           loggedSampleChat = true;
-          debugPrint(
-            '🔍 DEBUG: Sample chat data fields: ${chatData.keys.toList()}',
+          DebugLogger.log(
+            'sample-keys',
+            scope: 'api/conversations',
+            data: {'keys': chatData.keys.take(6).toList()},
           );
-          final samplePreviewSource = chatData.toString();
-          final preview = samplePreviewSource.length > 200
-              ? samplePreviewSource.substring(0, 200)
-              : samplePreviewSource;
-          debugPrint('🔍 DEBUG: Sample chat data: $preview...');
+          DebugLogger.log(
+            'sample-data',
+            scope: 'api/conversations',
+            data: {'preview': chatData.toString()},
+          );
         }
 
         final conversation = _parseOpenWebUIChat(chatData);
@@ -393,13 +439,24 @@ class ApiService {
           conversations.add(conversation);
         }
       } catch (e) {
-        debugPrint('DEBUG: Error parsing chat ${chatData['id']}: $e');
+        DebugLogger.error(
+          'parse-regular-failed',
+          scope: 'api/conversations',
+          error: e,
+          data: {'conversationId': chatData['id']},
+        );
         // Continue with other chats even if one fails
       }
     }
 
-    debugPrint(
-      'DEBUG: Successfully parsed ${conversations.length} conversations (${pinnedIds.length} pinned, ${archivedIds.length} archived)',
+    DebugLogger.log(
+      'parse-complete',
+      scope: 'api/conversations',
+      data: {
+        'total': conversations.length,
+        'pinned': pinnedIds.length,
+        'archived': archivedIds.length,
+      },
     );
     return conversations;
   }
@@ -408,21 +465,30 @@ class ApiService {
     String path, {
     required String debugLabel,
   }) async {
+    final scope = 'api/collection/${debugLabel.replaceAll(' ', '-')}';
     try {
       final response = await _dio.get(path);
-      DebugLogger.log('$debugLabel response status: ${response.statusCode}');
+      DebugLogger.log(
+        'status',
+        scope: scope,
+        data: {'code': response.statusCode},
+      );
       if (response.data is List) {
         return (response.data as List).cast<dynamic>();
       }
       DebugLogger.warning(
-        'Expected array for $debugLabel, got ${response.data.runtimeType}',
+        'unexpected-type',
+        scope: scope,
+        data: {'type': response.data.runtimeType},
       );
     } on DioException catch (e) {
       DebugLogger.warning(
-        'Skipping $debugLabel due to network error: ${e.message}',
+        'network-skip',
+        scope: scope,
+        data: {'message': e.message},
       );
     } catch (e) {
-      DebugLogger.warning('Skipping $debugLabel due to error: $e');
+      DebugLogger.warning('error-skip', scope: scope, data: {'error': e});
     }
     return <dynamic>[];
   }
@@ -484,14 +550,22 @@ class ApiService {
     final folderId = chatData['folder_id'] as String?;
 
     // Debug logging for folder assignment
-    if (folderId != null) {
+    if (_traceConversationParsing && folderId != null) {
       final idPreview = id.length > 8 ? id.substring(0, 8) : id;
-      debugPrint('🔍 DEBUG: Conversation $idPreview has folderId: $folderId');
+      DebugLogger.log(
+        'folder-ref',
+        scope: 'api/conversations',
+        data: {'conversationId': idPreview, 'folderId': folderId},
+      );
     }
 
-    debugPrint(
-      'DEBUG: Parsed conversation $id: pinned=$pinned, archived=$archived',
-    );
+    if (_traceConversationParsing) {
+      DebugLogger.log(
+        'parsed',
+        scope: 'api/conversations',
+        data: {'id': id, 'pinned': pinned, 'archived': archived},
+      );
+    }
 
     String? systemPrompt;
     final chatObject = chatData['chat'] as Map<String, dynamic>?;
@@ -522,10 +596,10 @@ class ApiService {
   }
 
   Future<Conversation> getConversation(String id) async {
-    DebugLogger.log('Fetching individual chat: $id');
+    DebugLogger.log('fetch', scope: 'api/chat', data: {'id': id});
     final response = await _dio.get('/api/v1/chats/$id');
 
-    DebugLogger.log('Chat response received successfully');
+    DebugLogger.log('fetch-ok', scope: 'api/chat');
 
     // Parse OpenWebUI ChatResponse format
     final chatData = response.data as Map<String, dynamic>;
@@ -534,14 +608,24 @@ class ApiService {
 
   // Parse full OpenWebUI chat with messages
   Conversation _parseFullOpenWebUIChat(Map<String, dynamic> chatData) {
-    debugPrint('DEBUG: Parsing full OpenWebUI chat data');
-    debugPrint('DEBUG: Chat data keys: ${chatData.keys.toList()}');
+    if (_traceFullChatParsing) {
+      DebugLogger.log(
+        'parse-full',
+        scope: 'api/chat',
+        data: {'keys': chatData.keys.take(8).toList()},
+      );
+    }
 
     final id = chatData['id'] as String;
     final title = chatData['title'] as String;
 
-    debugPrint('DEBUG: Parsed chat ID: $id');
-    debugPrint('DEBUG: Parsed chat title: $title');
+    if (_traceFullChatParsing) {
+      DebugLogger.log(
+        'chat-meta',
+        scope: 'api/chat',
+        data: {'id': id, 'title': title},
+      );
+    }
 
     // Safely parse timestamps with validation
     final updatedAt = _parseTimestamp(chatData['updated_at']);
@@ -573,7 +657,13 @@ class ApiService {
       final models = chatObject['models'] as List?;
       if (models != null && models.isNotEmpty) {
         model = models.first as String;
-        debugPrint('DEBUG: Extracted model from chat.models: $model');
+        if (_traceFullChatParsing) {
+          DebugLogger.log(
+            'model',
+            scope: 'api/chat',
+            data: {'id': id, 'model': model},
+          );
+        }
       }
     }
 
@@ -591,24 +681,40 @@ class ApiService {
         final currentId = history['currentId']?.toString();
         if (currentId != null && currentId.isNotEmpty) {
           messagesList = _buildMessagesListFromHistory(history);
-          debugPrint(
-            'DEBUG: Built ${messagesList.length} messages from history chain to currentId=$currentId',
-          );
+          if (_traceFullChatParsing) {
+            DebugLogger.log(
+              'history-chain',
+              scope: 'api/chat',
+              data: {
+                'id': id,
+                'count': messagesList.length,
+                'currentId': currentId,
+              },
+            );
+          }
         }
       }
 
       // Fallback to chat.messages (list format) if history is missing or empty
       if (((messagesList?.isEmpty ?? true)) && chatObject['messages'] != null) {
         messagesList = chatObject['messages'] as List;
-        debugPrint(
-          'DEBUG: Found ${messagesList.length} messages in chat.messages (fallback)',
-        );
+        if (_traceFullChatParsing) {
+          DebugLogger.log(
+            'messages-fallback',
+            scope: 'api/chat',
+            data: {'id': id, 'count': messagesList.length},
+          );
+        }
       }
     } else if (chatData['messages'] != null) {
       messagesList = chatData['messages'] as List;
-      debugPrint(
-        'DEBUG: Found ${messagesList.length} messages in top-level messages',
-      );
+      if (_traceFullChatParsing) {
+        DebugLogger.log(
+          'messages-top-level',
+          scope: 'api/chat',
+          data: {'id': id, 'count': messagesList.length},
+        );
+      }
     }
 
     // Parse messages from list format only (avoiding duplication)
@@ -616,9 +722,18 @@ class ApiService {
       for (int idx = 0; idx < messagesList.length; idx++) {
         final msgData = messagesList[idx] as Map<String, dynamic>;
         try {
-          debugPrint(
-            'DEBUG: Parsing message: ${msgData['id']} - role: ${msgData['role']} - content length: ${msgData['content']?.toString().length ?? 0}',
-          );
+          if (_traceFullChatParsing) {
+            DebugLogger.log(
+              'message-parse',
+              scope: 'api/chat',
+              data: {
+                'chatId': id,
+                'messageId': msgData['id'],
+                'role': msgData['role'],
+                'contentLen': msgData['content']?.toString().length ?? 0,
+              },
+            );
+          }
 
           // If this assistant message includes tool_calls, merge following tool results
           final historyMsg = historyMessagesMap != null
@@ -667,9 +782,13 @@ class ApiService {
 
             // Skip the tool messages we just merged
             idx = j - 1;
-            debugPrint(
-              'DEBUG: Successfully parsed tool_call assistant turn: ${message.id}',
-            );
+            if (_traceFullChatParsing) {
+              DebugLogger.log(
+                'message-tool-call',
+                scope: 'api/chat',
+                data: {'chatId': id, 'messageId': message.id},
+              );
+            }
             continue;
           }
 
@@ -679,16 +798,35 @@ class ApiService {
             historyMsg: historyMsg,
           );
           messages.add(message);
-          debugPrint(
-            'DEBUG: Successfully parsed message: ${message.id} - ${message.role}',
-          );
+          if (_traceFullChatParsing) {
+            DebugLogger.log(
+              'message',
+              scope: 'api/chat',
+              data: {
+                'chatId': id,
+                'messageId': message.id,
+                'role': message.role,
+              },
+            );
+          }
         } catch (e) {
-          debugPrint('DEBUG: Error parsing message: $e');
+          DebugLogger.error(
+            'message-parse-failed',
+            scope: 'api/chat',
+            error: e,
+            data: {'chatId': id, 'messageId': msgData['id']},
+          );
         }
       }
     }
 
-    debugPrint('DEBUG: Total parsed messages: ${messages.length}');
+    if (_traceFullChatParsing) {
+      DebugLogger.log(
+        'message-count',
+        scope: 'api/chat',
+        data: {'chatId': id, 'count': messages.length},
+      );
+    }
 
     return Conversation(
       id: id,
@@ -1188,9 +1326,11 @@ class ApiService {
     final response = await _dio.post('/api/v1/chats/new', data: chatData);
 
     DebugLogger.log(
-      'Create conversation response status: ${response.statusCode}',
+      'create-status',
+      scope: 'api/conversation',
+      data: {'code': response.statusCode},
     );
-    DebugLogger.log('Create conversation response received successfully');
+    DebugLogger.log('create-ok', scope: 'api/conversation');
 
     // Parse the response
     final responseData = response.data as Map<String, dynamic>;
@@ -1290,7 +1430,7 @@ class ApiService {
     // OpenWebUI uses POST not PUT for updating chats
     await _dio.post('/api/v1/chats/$conversationId', data: chatData);
 
-    DebugLogger.log('Sync conversation response received successfully');
+    DebugLogger.log('sync-ok', scope: 'api/conversation');
   }
 
   Future<void> updateConversation(
@@ -1381,21 +1521,28 @@ class ApiService {
   // Folders
   Future<List<Map<String, dynamic>>> getFolders() async {
     try {
-      debugPrint('DEBUG: Fetching folders from /api/v1/folders/');
       final response = await _dio.get('/api/v1/folders/');
-      DebugLogger.log('Folders response status: ${response.statusCode}');
-      DebugLogger.log('Folders response received successfully');
+      DebugLogger.log(
+        'fetch-status',
+        scope: 'api/folders',
+        data: {'code': response.statusCode},
+      );
+      DebugLogger.log('fetch-ok', scope: 'api/folders');
 
       final data = response.data;
       if (data is List) {
         debugPrint('DEBUG: Found ${data.length} folders');
         return data.cast<Map<String, dynamic>>();
       } else {
-        DebugLogger.log('Response data is not a list: ${data.runtimeType}');
+        DebugLogger.warning(
+          'unexpected-type',
+          scope: 'api/folders',
+          data: {'type': data.runtimeType},
+        );
         return [];
       }
     } catch (e) {
-      debugPrint('DEBUG: Error in getFolders: $e');
+      DebugLogger.error('fetch-failed', scope: 'api/folders', error: e);
       rethrow;
     }
   }
@@ -1783,17 +1930,23 @@ class ApiService {
         data: {'queries': queries},
       );
 
-      DebugLogger.log('Web search response status: ${response.statusCode}');
-      DebugLogger.log('Web search response type: ${response.data.runtimeType}');
-      DebugLogger.log('Web search response received successfully');
+      DebugLogger.log(
+        'status',
+        scope: 'api/web-search',
+        data: {'code': response.statusCode},
+      );
+      DebugLogger.log(
+        'response-type',
+        scope: 'api/web-search',
+        data: {'type': response.data.runtimeType},
+      );
+      DebugLogger.log('fetch-ok', scope: 'api/web-search');
 
       return response.data as Map<String, dynamic>;
     } catch (e) {
       debugPrint('DEBUG: Web search API error: $e');
       if (e is DioException) {
-        DebugLogger.error(
-          'Web search error response available (truncated for security)',
-        );
+        DebugLogger.error('error-response', scope: 'api/web-search', error: e);
         debugPrint('DEBUG: Web search error status: ${e.response?.statusCode}');
       }
       rethrow;
@@ -1810,7 +1963,7 @@ class ApiService {
 
       if (response.statusCode == 200 && response.data != null) {
         final modelData = response.data as Map<String, dynamic>;
-        DebugLogger.log('Model details for $modelId retrieved successfully');
+        DebugLogger.log('details', scope: 'api/models', data: {'id': modelId});
         return modelData;
       }
     } catch (e) {
@@ -1911,7 +2064,11 @@ class ApiService {
       debugPrint(
         'DEBUG: Collection query response type: ${response.data.runtimeType}',
       );
-      DebugLogger.log('Collection query response received successfully');
+      DebugLogger.log(
+        'query-ok',
+        scope: 'api/collection',
+        data: {'name': collectionName},
+      );
 
       if (response.data is List) {
         return response.data as List<dynamic>;
@@ -1951,7 +2108,7 @@ class ApiService {
       debugPrint(
         'DEBUG: Retrieval config response status: ${response.statusCode}',
       );
-      DebugLogger.log('Retrieval config response received successfully');
+      DebugLogger.log('config-ok', scope: 'api/retrieval');
 
       return response.data as Map<String, dynamic>;
     } catch (e) {
@@ -2036,8 +2193,10 @@ class ApiService {
     } on DioException catch (e) {
       debugPrint('DEBUG: images/generations failed: ${e.response?.statusCode}');
       DebugLogger.error(
-        'Image generation request to /api/v1/images/generations failed',
-        e,
+        'images-generate-failed',
+        scope: 'api/images',
+        error: e,
+        data: {'status': e.response?.statusCode},
       );
       // Do not attempt singular fallback here - surface the original error
       rethrow;
@@ -3325,8 +3484,12 @@ class ApiService {
       debugPrint('DEBUG: Uploading to /api/v1/files/');
       final response = await _dio.post('/api/v1/files/', data: formData);
 
-      DebugLogger.log('Upload response status: ${response.statusCode}');
-      DebugLogger.log('Upload response received successfully');
+      DebugLogger.log(
+        'upload-status',
+        scope: 'api/files',
+        data: {'code': response.statusCode},
+      );
+      DebugLogger.log('upload-ok', scope: 'api/files');
 
       if (response.data is Map && response.data['id'] != null) {
         final fileId = response.data['id'] as String;
@@ -3336,7 +3499,7 @@ class ApiService {
         throw Exception('Invalid response format: missing file ID');
       }
     } catch (e) {
-      debugPrint('ERROR: File upload failed: $e');
+      DebugLogger.error('upload-failed', scope: 'api/files', error: e);
       rethrow;
     }
   }
@@ -3370,17 +3533,35 @@ class ApiService {
         debugPrint('Testing endpoint: $endpoint');
         final response = await _dio.get(endpoint);
         debugPrint('✅ $endpoint - Status: ${response.statusCode}');
-        DebugLogger.log('   Response type: ${response.data.runtimeType}');
+        DebugLogger.log(
+          'response-type',
+          scope: 'api/diagnostics',
+          data: {'endpoint': endpoint, 'type': response.data.runtimeType},
+        );
         if (response.data is List) {
-          DebugLogger.log('   Array length: ${(response.data as List).length}');
+          DebugLogger.log(
+            'array-length',
+            scope: 'api/diagnostics',
+            data: {
+              'endpoint': endpoint,
+              'count': (response.data as List).length,
+            },
+          );
         } else if (response.data is Map) {
-          DebugLogger.log('   Object keys: ${(response.data as Map).keys}');
+          DebugLogger.log(
+            'object-keys',
+            scope: 'api/diagnostics',
+            data: {
+              'endpoint': endpoint,
+              'keys': (response.data as Map).keys.take(5).toList(),
+            },
+          );
         }
-        final dataSampleSource = response.data.toString();
-        final dataPreview = dataSampleSource.length > 200
-            ? dataSampleSource.substring(0, 200)
-            : dataSampleSource;
-        DebugLogger.log('   Sample data: $dataPreview...');
+        DebugLogger.log(
+          'sample',
+          scope: 'api/diagnostics',
+          data: {'endpoint': endpoint, 'preview': response.data.toString()},
+        );
       } catch (e) {
         debugPrint('❌ $endpoint - Error: $e');
       }

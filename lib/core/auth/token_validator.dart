@@ -1,6 +1,11 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
+import '../utils/debug_logger.dart';
+
+void debugPrint(String? message, {int? wrapWidth}) {
+  if (message == null) return;
+  DebugLogger.fromLegacy(message, scope: 'auth/token-validator');
+}
 
 /// JWT token validation utilities
 class TokenValidator {

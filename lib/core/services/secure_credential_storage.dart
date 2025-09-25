@@ -73,9 +73,13 @@ class SecureCredentialStorage {
         );
       }
 
-      DebugLogger.storage('Credentials saved and verified securely');
+      DebugLogger.storage(
+        'save-ok',
+        scope: 'credentials',
+        data: {'version': '2.0'},
+      );
     } catch (e) {
-      DebugLogger.error('Failed to save credentials', e);
+      DebugLogger.error('save-failed', scope: 'credentials', error: e);
       rethrow;
     }
   }
@@ -92,7 +96,7 @@ class SecureCredentialStorage {
       final decoded = jsonDecode(jsonString);
 
       if (decoded is! Map<String, dynamic>) {
-        DebugLogger.warning('Invalid credentials format');
+        DebugLogger.warning('invalid-format', scope: 'credentials');
         await deleteSavedCredentials();
         return null;
       }
@@ -104,7 +108,9 @@ class SecureCredentialStorage {
 
         if (savedDeviceId != currentDeviceId) {
           DebugLogger.info(
-            'Device fingerprint changed, but allowing credential access for better UX',
+            'fingerprint-mismatch-allowed',
+            scope: 'credentials',
+            data: {'previous': savedDeviceId, 'current': currentDeviceId},
           );
           // Don't clear credentials immediately - allow the user to continue
           // They can re-login if needed, which will update the fingerprint
@@ -115,9 +121,7 @@ class SecureCredentialStorage {
       if (!decoded.containsKey('serverId') ||
           !decoded.containsKey('username') ||
           !decoded.containsKey('password')) {
-        DebugLogger.warning(
-          'Invalid saved credentials format - missing required fields',
-        );
+        DebugLogger.warning('missing-fields', scope: 'credentials');
         await deleteSavedCredentials();
         return null;
       }
@@ -133,11 +137,17 @@ class SecureCredentialStorage {
           // Warn if credentials are very old (but don't delete them)
           if (daysSinceCreated > 90) {
             DebugLogger.info(
-              'Saved credentials are $daysSinceCreated days old',
+              'credentials-old',
+              scope: 'credentials',
+              data: {'ageDays': daysSinceCreated},
             );
           }
         } catch (e) {
-          DebugLogger.warning('Could not parse savedAt timestamp: $e');
+          DebugLogger.warning(
+            'savedat-parse-failed',
+            scope: 'credentials',
+            data: {'raw': savedAt, 'error': e.toString()},
+          );
         }
       }
 
@@ -148,7 +158,7 @@ class SecureCredentialStorage {
         'savedAt': decoded['savedAt']?.toString() ?? '',
       };
     } catch (e) {
-      DebugLogger.error('Failed to retrieve credentials', e);
+      DebugLogger.error('read-failed', scope: 'credentials', error: e);
       // Don't delete credentials on retrieval errors - they might be recoverable
       return null;
     }
@@ -158,9 +168,9 @@ class SecureCredentialStorage {
   Future<void> deleteSavedCredentials() async {
     try {
       await _secureStorage.delete(key: _credentialsKey);
-      DebugLogger.storage('Credentials deleted');
+      DebugLogger.storage('delete-ok', scope: 'credentials');
     } catch (e) {
-      DebugLogger.error('Failed to delete credentials', e);
+      DebugLogger.error('delete-failed', scope: 'credentials', error: e);
     }
   }
 
@@ -170,7 +180,11 @@ class SecureCredentialStorage {
       final encryptedToken = await _encryptData(token);
       await _secureStorage.write(key: _authTokenKey, value: encryptedToken);
     } catch (e) {
-      DebugLogger.error('Failed to save auth token', e);
+      DebugLogger.error(
+        'save-token-failed',
+        scope: 'credentials/token',
+        error: e,
+      );
       rethrow;
     }
   }
@@ -183,7 +197,11 @@ class SecureCredentialStorage {
 
       return await _decryptData(encryptedToken);
     } catch (e) {
-      DebugLogger.error('Failed to retrieve auth token', e);
+      DebugLogger.error(
+        'read-token-failed',
+        scope: 'credentials/token',
+        error: e,
+      );
       return null;
     }
   }
@@ -193,7 +211,11 @@ class SecureCredentialStorage {
     try {
       await _secureStorage.delete(key: _authTokenKey);
     } catch (e) {
-      DebugLogger.error('Failed to delete auth token', e);
+      DebugLogger.error(
+        'delete-token-failed',
+        scope: 'credentials/token',
+        error: e,
+      );
     }
   }
 
@@ -206,7 +228,11 @@ class SecureCredentialStorage {
         value: encryptedConfigs,
       );
     } catch (e) {
-      DebugLogger.error('Failed to save server configs', e);
+      DebugLogger.error(
+        'save-configs-failed',
+        scope: 'credentials/server-configs',
+        error: e,
+      );
       rethrow;
     }
   }
@@ -221,7 +247,11 @@ class SecureCredentialStorage {
 
       return await _decryptData(encryptedConfigs);
     } catch (e) {
-      DebugLogger.error('Failed to retrieve server configs', e);
+      DebugLogger.error(
+        'read-configs-failed',
+        scope: 'credentials/server-configs',
+        error: e,
+      );
       return null;
     }
   }
@@ -239,7 +269,11 @@ class SecureCredentialStorage {
 
       return result == testValue;
     } catch (e) {
-      DebugLogger.warning('Secure storage not available: $e');
+      DebugLogger.warning(
+        'storage-unavailable',
+        scope: 'credentials/health',
+        data: {'error': e.toString()},
+      );
       return false;
     }
   }
@@ -248,9 +282,9 @@ class SecureCredentialStorage {
   Future<void> clearAll() async {
     try {
       await _secureStorage.deleteAll();
-      DebugLogger.storage('All secure data cleared');
+      DebugLogger.storage('clear-ok', scope: 'credentials');
     } catch (e) {
-      DebugLogger.error('Failed to clear secure data', e);
+      DebugLogger.error('clear-failed', scope: 'credentials', error: e);
     }
   }
 
@@ -261,7 +295,11 @@ class SecureCredentialStorage {
       // In a more advanced implementation, you could add an additional layer of AES encryption
       return data;
     } catch (e) {
-      DebugLogger.error('Failed to encrypt data', e);
+      DebugLogger.error(
+        'encrypt-failed',
+        scope: 'credentials/crypto',
+        error: e,
+      );
       rethrow;
     }
   }
@@ -273,7 +311,11 @@ class SecureCredentialStorage {
       // This matches the encryption method above
       return encryptedData;
     } catch (e) {
-      DebugLogger.error('Failed to decrypt data', e);
+      DebugLogger.error(
+        'decrypt-failed',
+        scope: 'credentials/crypto',
+        error: e,
+      );
       rethrow;
     }
   }
@@ -297,7 +339,11 @@ class SecureCredentialStorage {
 
       return digest.toString();
     } catch (e) {
-      DebugLogger.warning('Failed to generate device fingerprint: $e');
+      DebugLogger.warning(
+        'fingerprint-failed',
+        scope: 'credentials',
+        data: {'error': e.toString()},
+      );
       // Return a consistent fallback fingerprint
       return 'stable_fallback_device_id';
     }
@@ -315,11 +361,9 @@ class SecureCredentialStorage {
         username: oldCredentials['username'] ?? '',
         password: oldCredentials['password'] ?? '',
       );
-      DebugLogger.storage(
-        'Successfully migrated credentials to new secure format',
-      );
+      DebugLogger.storage('migrate-ok', scope: 'credentials');
     } catch (e) {
-      DebugLogger.error('Failed to migrate credentials', e);
+      DebugLogger.error('migrate-failed', scope: 'credentials', error: e);
     }
   }
 }
