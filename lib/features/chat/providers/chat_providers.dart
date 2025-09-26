@@ -1251,7 +1251,8 @@ Future<void> regenerateMessage(
         isBackgroundToolsFlowPre ||
         isBackgroundWebSearchPre ||
         imageGenerationEnabled;
-    final bool passSocketSession = wantSessionBinding && isBackgroundFlowPre;
+    final bool passSocketSession =
+        wantSessionBinding && (isBackgroundFlowPre || bgTasks.isNotEmpty);
     final response = api!.sendMessage(
       messages: conversationMessages,
       model: selectedModel.id,
@@ -1272,12 +1273,7 @@ Future<void> regenerateMessage(
     final effectiveSessionId =
         response.socketSessionId ?? socketSessionId ?? sessionId;
 
-    // New unified streaming path via helper; bypass old inline socket block
-    final bool isBackgroundFlow =
-        isBackgroundToolsFlowPre ||
-        isBackgroundWebSearchPre ||
-        imageGenerationEnabled ||
-        wantSessionBinding;
+    final bool isBackgroundFlow = response.isBackgroundFlow;
     try {
       ref.read(chatMessagesProvider.notifier).updateLastMessageWithFunction((
         m,
@@ -1782,6 +1778,13 @@ Future<void> _sendMessageInternal(
         (toolServers != null && toolServers.isNotEmpty);
     final bool isBackgroundWebSearchPre = webSearchEnabled;
 
+    final bool shouldBindSession =
+        wantSessionBinding &&
+        (isBackgroundToolsFlowPre ||
+            isBackgroundWebSearchPre ||
+            imageGenerationEnabled ||
+            bgTasks.isNotEmpty);
+
     final response = await api.sendMessage(
       messages: conversationMessages,
       model: selectedModel.id,
@@ -1793,7 +1796,7 @@ Future<void> _sendMessageInternal(
       modelItem: modelItem,
       // Bind to Socket session whenever available so the server can push
       // streaming updates to this client (improves first-turn streaming).
-      sessionIdOverride: wantSessionBinding ? socketSessionId : null,
+      sessionIdOverride: shouldBindSession ? socketSessionId : null,
       socketSessionId: socketSessionId,
       toolServers: toolServers,
       backgroundTasks: bgTasks,
@@ -1806,10 +1809,7 @@ Future<void> _sendMessageInternal(
         response.socketSessionId ?? socketSessionId ?? sessionId;
 
     // Use unified streaming helper for SSE/WebSocket handling
-    final bool isBackgroundFlow =
-        isBackgroundToolsFlowPre ||
-        isBackgroundWebSearchPre ||
-        wantSessionBinding;
+    final bool isBackgroundFlow = response.isBackgroundFlow;
 
     try {
       ref.read(chatMessagesProvider.notifier).updateLastMessageWithFunction((
