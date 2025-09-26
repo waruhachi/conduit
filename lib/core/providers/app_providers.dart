@@ -254,6 +254,32 @@ final apiTokenUpdaterProvider = Provider<void>((ref) {
         data: {'length': length},
       );
     }
+
+    // When the token transitions from empty -> present, force-refresh models
+    final hadToken = previous != null && previous.isNotEmpty;
+    final hasToken = next != null && next.isNotEmpty;
+
+    if (!hadToken && hasToken) {
+      // New valid token acquired (e.g., re-login). Invalidate caches that
+      // depend on authentication so next reads refetch from server.
+      DebugLogger.log('invalidate-on-auth', scope: 'models');
+      ref.invalidate(modelsProvider);
+      ref.invalidate(defaultModelProvider);
+      // Refresh permissions to enable gated features promptly
+      ref.invalidate(userPermissionsProvider);
+      // Kick background model load to warm caches without blocking UI
+      Future.microtask(() {
+        // Accessing the provider is enough to schedule its work
+        ref.read(backgroundModelLoadProvider);
+      });
+    }
+
+    if (hadToken && !hasToken) {
+      // Token was cleared/invalidated; clear model selection and caches
+      ref.read(selectedModelProvider.notifier).clear();
+      ref.invalidate(modelsProvider);
+      ref.invalidate(defaultModelProvider);
+    }
   });
 });
 

@@ -1291,8 +1291,6 @@ Future<void> regenerateMessage(
     final activeStream = attachUnifiedChunkedStreaming(
       stream: stream,
       webSearchEnabled: webSearchEnabled,
-      isBackgroundFlow: isBackgroundFlow,
-      suppressSocketContentInitially: !isBackgroundFlow,
       assistantMessageId: assistantMessageId,
       modelId: selectedModel.id,
       modelItem: modelItem,
@@ -1828,8 +1826,6 @@ Future<void> _sendMessageInternal(
     final activeStream = attachUnifiedChunkedStreaming(
       stream: stream,
       webSearchEnabled: webSearchEnabled,
-      isBackgroundFlow: isBackgroundFlow,
-      suppressSocketContentInitially: !isBackgroundFlow,
       assistantMessageId: assistantMessageId,
       modelId: selectedModel.id,
       modelItem: modelItem,

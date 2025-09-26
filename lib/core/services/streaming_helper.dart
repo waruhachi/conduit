@@ -31,14 +31,12 @@ class ActiveSocketStream {
 
 /// Unified streaming helper for chat send/regenerate flows.
 ///
-/// This attaches chunked SSE streaming handlers, optional WebSocket event handlers,
+/// This attaches chunked polling streams (fallback) plus WebSocket event handlers,
 /// and manages background search/image-gen UI updates. It operates via callbacks to
 /// avoid tight coupling with provider files for easier reuse and testing.
 ActiveSocketStream attachUnifiedChunkedStreaming({
   required Stream<String> stream,
   required bool webSearchEnabled,
-  required bool isBackgroundFlow,
-  required bool suppressSocketContentInitially,
   required String assistantMessageId,
   required String modelId,
   required Map<String, dynamic> modelItem,
@@ -140,7 +138,6 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
   }
 
   bool isSearching = false;
-  bool suppressSocketContent = suppressSocketContentInitially;
 
   void updateImagesFromCurrentContent() {
     try {
@@ -443,7 +440,7 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
 
       if (kSocketVerboseLogging && payload is Map) {
         DebugLogger.log(
-          'socket delta type=$type suppress=$suppressSocketContent session=$sessionId message=$messageId keys=${payload.keys.toList()}',
+          'socket delta type=$type session=$sessionId message=$messageId keys=${payload.keys.toList()}',
           scope: 'socket/chat',
         );
       }
@@ -479,7 +476,7 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
               }
             }
           }
-          if (!suppressSocketContent && payload.containsKey('choices')) {
+          if (payload.containsKey('choices')) {
             final choices = payload['choices'];
             if (choices is List && choices.isNotEmpty) {
               final choice = choices.first;
@@ -522,7 +519,7 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
               }
             }
           }
-          if (!suppressSocketContent && payload.containsKey('content')) {
+          if (payload.containsKey('content')) {
             final raw = payload['content']?.toString() ?? '';
             if (raw.isNotEmpty) {
               replaceLastMessageContent(raw);
@@ -763,22 +760,18 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
         socketWatchdog?.stop();
       } else if ((type == 'chat:message:delta' || type == 'message') &&
           payload != null) {
-        // Incremental message content over socket; respect suppression on SSE-driven flows
-        if (!suppressSocketContent) {
-          final content = payload['content']?.toString() ?? '';
-          if (content.isNotEmpty) {
-            appendToLastMessage(content);
-            updateImagesFromCurrentContent();
-          }
+        // Incremental message content over socket
+        final content = payload['content']?.toString() ?? '';
+        if (content.isNotEmpty) {
+          appendToLastMessage(content);
+          updateImagesFromCurrentContent();
         }
       } else if ((type == 'chat:message' || type == 'replace') &&
           payload != null) {
-        // Full message replacement over socket; respect suppression on SSE-driven flows
-        if (!suppressSocketContent) {
-          final content = payload['content']?.toString() ?? '';
-          if (content.isNotEmpty) {
-            replaceLastMessageContent(content);
-          }
+        // Full message replacement over socket
+        final content = payload['content']?.toString() ?? '';
+        if (content.isNotEmpty) {
+          replaceLastMessageContent(content);
         }
       } else if ((type == 'chat:message:files') && payload != null) {
         // Alias for files event used by web client
@@ -809,7 +802,6 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
       } else if (type == 'request:chat:completion' && payload != null) {
         final channel = payload['channel'];
         if (channel is String && channel.isNotEmpty) {
-          suppressSocketContent = true;
           channelLineHandlerFactory(channel);
         }
       } else if (type == 'execute:tool' && payload != null) {
@@ -902,7 +894,6 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
           }
         }
       } else if (type == 'event:message:delta' && payload != null) {
-        if (suppressSocketContent) return;
         final content = payload['content']?.toString() ?? '';
         if (content.isNotEmpty) {
           appendToLastMessage(content);
@@ -988,11 +979,8 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
       // Unregister from persistent service
       persistentService.unregisterStream(streamId);
 
-      // Allow socket-delivered follow-ups/title updates after SSE completes
-      suppressSocketContent = false;
-
-      // If SSE-driven (no dynamic channel/background flow), clean up sockets
-      if (!isBackgroundFlow) {
+      // If no socket subscriptions are active, treat this as a poll-driven flow
+      if (socketSubscriptions.isEmpty) {
         finishStreaming();
         Future.microtask(refreshConversationSnapshot);
       }
@@ -1001,7 +989,6 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
       try {
         persistentService.unregisterStream(streamId);
       } catch (_) {}
-      suppressSocketContent = false;
       disposeSocketSubscriptions();
       finishStreaming();
       Future.microtask(refreshConversationSnapshot);

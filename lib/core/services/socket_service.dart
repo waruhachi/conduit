@@ -288,6 +288,7 @@ class SocketService with WidgetsBindingObserver {
     final ackFn = _wrapAck(ack);
     final sessionId = _extractSessionId(map);
     final chatId = map['chat_id']?.toString();
+    final channelId = _extractChannelId(map);
 
     for (final registration in List<_ChatEventRegistration>.from(
       _chatEventHandlers.values,
@@ -298,6 +299,7 @@ class SocketService with WidgetsBindingObserver {
         chatId,
         sessionId,
         registration.requireFocus,
+        incomingChannelId: channelId,
       )) {
         continue;
       }
@@ -315,6 +317,7 @@ class SocketService with WidgetsBindingObserver {
     final ackFn = _wrapAck(ack);
     final sessionId = _extractSessionId(map);
     final chatId = map['chat_id']?.toString();
+    final channelId = _extractChannelId(map);
 
     for (final registration in List<_ChannelEventRegistration>.from(
       _channelEventHandlers.values,
@@ -325,6 +328,7 @@ class SocketService with WidgetsBindingObserver {
         chatId,
         sessionId,
         registration.requireFocus,
+        incomingChannelId: channelId,
       )) {
         continue;
       }
@@ -340,18 +344,21 @@ class SocketService with WidgetsBindingObserver {
     String? registeredSessionId,
     String? incomingConversationId,
     String? incomingSessionId,
-    bool requireFocus,
-  ) {
-    final matchesChat =
+    bool requireFocus, {
+    String? incomingChannelId,
+  }) {
+    final matchesConversation =
         registeredConversationId == null ||
         (incomingConversationId != null &&
-            registeredConversationId == incomingConversationId);
+            registeredConversationId == incomingConversationId) ||
+        (incomingChannelId != null &&
+            registeredConversationId == incomingChannelId);
     final matchesSession =
         registeredSessionId != null &&
         incomingSessionId != null &&
         registeredSessionId == incomingSessionId;
 
-    if (!matchesChat && !matchesSession) {
+    if (!matchesConversation && !matchesSession) {
       return false;
     }
 
@@ -414,6 +421,38 @@ class SocketService with WidgetsBindingObserver {
         }
         if (candidate == null && inner['sessionId'] != null) {
           candidate = inner['sessionId'].toString();
+        }
+      }
+    }
+
+    return candidate;
+  }
+
+  String? _extractChannelId(Map<String, dynamic> event) {
+    String? candidate;
+
+    if (event['channel_id'] != null) {
+      candidate = event['channel_id'].toString();
+    }
+    if (candidate == null && event['channelId'] != null) {
+      candidate = event['channelId'].toString();
+    }
+
+    final data = event['data'];
+    if (data is Map) {
+      if (candidate == null && data['channel_id'] != null) {
+        candidate = data['channel_id'].toString();
+      }
+      if (candidate == null && data['channelId'] != null) {
+        candidate = data['channelId'].toString();
+      }
+      final inner = data['data'];
+      if (inner is Map) {
+        if (candidate == null && inner['channel_id'] != null) {
+          candidate = inner['channel_id'].toString();
+        }
+        if (candidate == null && inner['channelId'] != null) {
+          candidate = inner['channelId'].toString();
         }
       }
     }
