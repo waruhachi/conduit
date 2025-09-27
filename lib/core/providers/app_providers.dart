@@ -757,7 +757,7 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
     return null;
   }
 
-  final api = ref.read(apiServiceProvider);
+  final api = ref.watch(apiServiceProvider);
   if (api == null) return null;
 
   try {
