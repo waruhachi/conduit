@@ -3073,8 +3073,9 @@ class ApiService {
     bool containsDone(String s) =>
         s.contains('<details type="tool_calls"') && s.contains('done="true"');
 
-    // Allow longer time for large completions (e.g., long stories)
-    while (DateTime.now().difference(started).inSeconds < 180) {
+    // Allow much longer time for large completions, matching OpenWebUI's generous timeouts
+    while (DateTime.now().difference(started).inSeconds < 600) {
+      // Increased from 180 to 600 seconds (10 minutes)
       try {
         // Small delay between polls
         await Future.delayed(const Duration(milliseconds: 900));
@@ -3236,15 +3237,22 @@ class ApiService {
           break;
         }
 
-        // If content hasn't changed for a few polls, assume completion,
-        // but do not early-exit while content is still empty.
+        // If content hasn't changed for several polls, assume completion,
+        // but be more conservative to avoid cutting off long responses.
+        // OpenWebUI relies more on explicit done signals than stability checks.
         final prev = last;
         if (content == prev && content.isNotEmpty) {
           stableCount++;
         } else if (content != prev) {
           stableCount = 0;
         }
-        if (content.isNotEmpty && stableCount >= 3) {
+        // Increased threshold from 3 to 8 polls to be more conservative
+        // This gives ~7-8 seconds of stability before assuming completion
+        if (content.isNotEmpty && stableCount >= 8) {
+          DebugLogger.log(
+            'Content stable for $stableCount polls, assuming completion',
+            scope: 'api/polling',
+          );
           break;
         }
 

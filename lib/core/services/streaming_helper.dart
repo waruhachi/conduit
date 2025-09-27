@@ -66,10 +66,11 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
   required void Function() finishStreaming,
   required List<ChatMessage> Function() getMessages,
 }) {
-  // Chunk the incoming stream for smoother UI updates
+  // Temporarily disable chunking to debug second turn issues
+  // OpenWebUI doesn't use complex chunking like this
   final chunkedStream = StreamChunker.chunkStream(
     stream,
-    enableChunking: true,
+    enableChunking: false, // Disabled for debugging
     minChunkSize: 5,
     maxChunkLength: 3,
     delayBetweenChunks: const Duration(milliseconds: 15),
@@ -102,9 +103,14 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
   InactivityWatchdog? socketWatchdog;
   final socketSubscriptions = <SocketEventSubscription>[];
   if (socketService != null) {
+    // Increase timeout to match OpenWebUI's more generous timeouts for long responses
     socketWatchdog = InactivityWatchdog(
-      window: const Duration(minutes: 5),
+      window: const Duration(minutes: 15), // Increased from 5 to 15 minutes
       onTimeout: () {
+        DebugLogger.log(
+          'Socket watchdog timeout - finishing streaming gracefully',
+          scope: 'streaming/helper',
+        );
         try {
           for (final sub in socketSubscriptions) {
             sub.dispose();
@@ -301,11 +307,24 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
   void channelLineHandlerFactory(String channel) {
     void handler(dynamic line) {
       try {
+        DebugLogger.log(
+          'Channel $channel received line: ${line.toString().length > 50 ? line.toString().substring(0, 50) + "..." : line.toString()}',
+          scope: 'streaming/helper',
+        );
         if (line is String) {
           final s = line.trim();
           socketWatchdog?.ping();
-          if (s == '[DONE]' || s == 'DONE') {
+          // Enhanced completion detection matching OpenWebUI patterns
+          if (s == '[DONE]' || s == 'DONE' || s == 'data: [DONE]') {
+            DebugLogger.log(
+              'Received completion signal: $s',
+              scope: 'streaming/helper',
+            );
             try {
+              DebugLogger.log(
+                'Unregistering channel handler for: $channel (completion)',
+                scope: 'streaming/helper',
+              );
               socketService?.offEvent(channel);
             } catch (_) {}
             try {
@@ -415,11 +434,25 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
     }
 
     try {
+      DebugLogger.log(
+        'Registering channel handler for: $channel',
+        scope: 'streaming/helper',
+      );
       socketService?.onEvent(channel, handler);
     } catch (_) {}
     socketWatchdog?.ping();
-    Future.delayed(const Duration(minutes: 3), () {
+    // Increased timeout to match our more generous streaming timeouts
+    // OpenWebUI doesn't have such aggressive channel timeouts
+    Future.delayed(const Duration(minutes: 12), () {
+      DebugLogger.log(
+        'Channel handler timeout reached for $channel',
+        scope: 'streaming/helper',
+      );
       try {
+        DebugLogger.log(
+          'Unregistering channel handler for: $channel (timeout)',
+          scope: 'streaming/helper',
+        );
         socketService?.offEvent(channel);
       } catch (_) {}
       socketWatchdog?.stop();
@@ -431,6 +464,10 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
     void Function(dynamic response)? ack,
   ) {
     try {
+      DebugLogger.log(
+        'Received chat event: ${ev.keys.join(", ")}',
+        scope: 'streaming/helper',
+      );
       final data = ev['data'];
       if (data == null) return;
       final type = data['type'];
@@ -763,15 +800,33 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
         // Incremental message content over socket
         final content = payload['content']?.toString() ?? '';
         if (content.isNotEmpty) {
+          DebugLogger.log(
+            'Appending socket content: "${content.length > 30 ? content.substring(0, 30) + "..." : content}"',
+            scope: 'streaming/helper',
+          );
           appendToLastMessage(content);
           updateImagesFromCurrentContent();
+        } else {
+          DebugLogger.log(
+            'Socket delta event with empty content',
+            scope: 'streaming/helper',
+          );
         }
       } else if ((type == 'chat:message' || type == 'replace') &&
           payload != null) {
         // Full message replacement over socket
         final content = payload['content']?.toString() ?? '';
         if (content.isNotEmpty) {
+          DebugLogger.log(
+            'Replacing socket content: "${content.length > 30 ? content.substring(0, 30) + "..." : content}"',
+            scope: 'streaming/helper',
+          );
           replaceLastMessageContent(content);
+        } else {
+          DebugLogger.log(
+            'Socket replace event with empty content',
+            scope: 'streaming/helper',
+          );
         }
       } else if ((type == 'chat:message:files') && payload != null) {
         // Alias for files event used by web client
@@ -908,6 +963,10 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
     void Function(dynamic response)? ack,
   ) {
     try {
+      DebugLogger.log(
+        'Received channel event: ${ev.keys.join(", ")}',
+        scope: 'streaming/helper',
+      );
       final data = ev['data'];
       if (data == null) return;
       final type = data['type'];
@@ -923,6 +982,10 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
   }
 
   if (socketService != null) {
+    DebugLogger.log(
+      'Creating socket subscriptions for conversationId: $activeConversationId, sessionId: $sessionId',
+      scope: 'streaming/helper',
+    );
     final chatSub = socketService.addChatEventHandler(
       conversationId: activeConversationId,
       sessionId: sessionId,
@@ -938,10 +1001,23 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
       handler: channelEventsHandler,
     );
     socketSubscriptions.add(channelSub);
+    DebugLogger.log(
+      'Created ${socketSubscriptions.length} socket subscriptions',
+      scope: 'streaming/helper',
+    );
+  } else {
+    DebugLogger.log(
+      'No socket service available - using polling only',
+      scope: 'streaming/helper',
+    );
   }
 
   final subscription = persistentController.stream.listen(
     (chunk) {
+      DebugLogger.log(
+        'Received chunk: "${chunk.length > 100 ? chunk.substring(0, 100) + "..." : chunk}"',
+        scope: 'streaming/helper',
+      );
       var effectiveChunk = chunk;
       if (webSearchEnabled && !isSearching) {
         if (chunk.contains('[SEARCHING]') ||
@@ -976,19 +1052,74 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
       }
     },
     onDone: () async {
+      DebugLogger.log('Stream completed normally', scope: 'streaming/helper');
+
       // Unregister from persistent service
       persistentService.unregisterStream(streamId);
 
-      // If no socket subscriptions are active, treat this as a poll-driven flow
+      // Only finish streaming if no socket subscriptions are active
+      // This indicates a polling-driven flow where the stream ending means completion
+      // For socket flows, completion should be handled by socket events (done: true)
+      DebugLogger.log(
+        'Stream onDone - socketSubscriptions.length: ${socketSubscriptions.length}',
+        scope: 'streaming/helper',
+      );
       if (socketSubscriptions.isEmpty) {
+        DebugLogger.log(
+          'No socket subscriptions - finishing polling-based stream',
+          scope: 'streaming/helper',
+        );
         finishStreaming();
         Future.microtask(refreshConversationSnapshot);
+      } else {
+        DebugLogger.log(
+          'Socket subscriptions active - keeping stream alive for socket events',
+          scope: 'streaming/helper',
+        );
       }
     },
     onError: (error) async {
+      DebugLogger.error(
+        'Stream error occurred',
+        scope: 'streaming/helper',
+        error: error,
+        data: {
+          'conversationId': activeConversationId,
+          'messageId': assistantMessageId,
+          'modelId': modelId,
+        },
+      );
+
       try {
         persistentService.unregisterStream(streamId);
       } catch (_) {}
+
+      // Check if this is a recoverable error (network issues, etc.)
+      final isRecoverable =
+          error is! FormatException &&
+              error.toString().contains('SocketException') ||
+          error.toString().contains('TimeoutException') ||
+          error.toString().contains('HandshakeException');
+
+      if (isRecoverable && socketService != null) {
+        DebugLogger.log(
+          'Attempting to recover from recoverable stream error',
+          scope: 'streaming/helper',
+        );
+
+        // Try to recover via socket connection if available
+        try {
+          await socketService.ensureConnected(
+            timeout: const Duration(seconds: 5),
+          );
+          // Don't finish streaming immediately - let socket recovery handle it
+          socketWatchdog?.stop();
+          return;
+        } catch (_) {
+          // Socket recovery failed, fall through to cleanup
+        }
+      }
+
       disposeSocketSubscriptions();
       finishStreaming();
       Future.microtask(refreshConversationSnapshot);
