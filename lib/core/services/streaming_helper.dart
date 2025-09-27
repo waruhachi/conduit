@@ -681,19 +681,58 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
         disposeSocketSubscriptions();
         finishStreaming();
       } else if (type == 'chat:message:follow_ups' && payload != null) {
+        DebugLogger.log(
+          'Received follow-ups event: $payload',
+          scope: 'streaming/helper',
+        );
         final followMap = _asStringMap(payload);
         if (followMap != null) {
           final followUpsRaw =
               followMap['follow_ups'] ?? followMap['followUps'];
           final suggestions = _parseFollowUpsField(followUpsRaw);
           final targetId = _resolveTargetMessageId(messageId, getMessages);
+          DebugLogger.log(
+            'Processing follow-ups: ${suggestions.length} suggestions for message $targetId',
+            scope: 'streaming/helper',
+          );
+          // Debug: show current message IDs in state
+          try {
+            final currentMessages = getMessages();
+            final messageIds = currentMessages
+                .map((m) => '${m.id} (${m.role})')
+                .join(', ');
+            DebugLogger.log(
+              'Current messages in state: $messageIds',
+              scope: 'streaming/helper',
+            );
+          } catch (e) {
+            DebugLogger.error(
+              'Error getting messages in follow-ups handler',
+              scope: 'streaming/helper',
+              error: e,
+            );
+          }
           if (targetId != null) {
+            DebugLogger.log(
+              'Follow-ups: calling setFollowUps for target $targetId',
+              scope: 'streaming/helper',
+            );
             setFollowUps(targetId, suggestions);
             updateMessageById(targetId, (current) {
               final metadata = {...?current.metadata, 'followUps': suggestions};
               return current.copyWith(metadata: metadata);
             });
+          } else {
+            DebugLogger.log(
+              'Follow-ups: targetId is null, cannot set follow-ups',
+              scope: 'streaming/helper',
+            );
           }
+        } else {
+          DebugLogger.log(
+            'Failed to parse follow-ups payload as string map',
+            scope: 'streaming/helper',
+          );
         }
       } else if (type == 'chat:title' && payload != null) {
         final title = payload.toString();
@@ -954,6 +993,12 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
           appendToLastMessage(content);
           updateImagesFromCurrentContent();
         }
+      } else {
+        // Debug unknown event types to catch missing handlers
+        DebugLogger.log(
+          'Unknown chat event type: $type (payload keys: ${payload is Map ? payload.keys.join(", ") : "not a map"})',
+          scope: 'streaming/helper',
+        );
       }
     } catch (_) {}
   }
@@ -977,6 +1022,12 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
           appendToLastMessage(content);
           updateImagesFromCurrentContent();
         }
+      } else {
+        // Debug channel events that might include follow-ups
+        DebugLogger.log(
+          'Channel event type: $type (payload keys: ${payload is Map ? payload.keys.join(", ") : "not a map"})',
+          scope: 'streaming/helper',
+        );
       }
     } catch (_) {}
   }
@@ -1121,8 +1172,18 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
       }
 
       disposeSocketSubscriptions();
+      DebugLogger.log(
+        'Finishing streaming and scheduling conversation refresh',
+        scope: 'streaming/helper',
+      );
       finishStreaming();
-      Future.microtask(refreshConversationSnapshot);
+      Future.microtask(() {
+        DebugLogger.log(
+          'Executing conversation refresh after streaming finished',
+          scope: 'streaming/helper',
+        );
+        refreshConversationSnapshot();
+      });
       socketWatchdog?.stop();
     },
   );

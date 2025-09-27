@@ -498,13 +498,31 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
     String messageId,
     ChatMessage Function(ChatMessage current) updater,
   ) {
+    DebugLogger.log(
+      'updateMessageById called for message $messageId',
+      scope: 'chat/provider',
+    );
     final index = state.indexWhere((m) => m.id == messageId);
-    if (index == -1) return;
+    if (index == -1) {
+      DebugLogger.log(
+        'updateMessageById: message $messageId not found in state (${state.length} messages)',
+        scope: 'chat/provider',
+      );
+      return;
+    }
     final original = state[index];
     final updated = updater(original);
     if (identical(updated, original)) {
+      DebugLogger.log(
+        'updateMessageById: no changes made to message $messageId',
+        scope: 'chat/provider',
+      );
       return;
     }
+    DebugLogger.log(
+      'updateMessageById: updating message $messageId at index $index',
+      scope: 'chat/provider',
+    );
     final next = [...state];
     next[index] = updated;
     state = next;
@@ -518,7 +536,15 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   }
 
   void setFollowUps(String messageId, List<String> followUps) {
+    DebugLogger.log(
+      'setFollowUps called for message $messageId with ${followUps.length} follow-ups',
+      scope: 'chat/provider',
+    );
     updateMessageById(messageId, (current) {
+      DebugLogger.log(
+        'setFollowUps: updating message with follow-ups: ${followUps.join(", ")}',
+        scope: 'chat/provider',
+      );
       return current.copyWith(followUps: List<String>.from(followUps));
     });
   }
