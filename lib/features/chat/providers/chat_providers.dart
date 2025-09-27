@@ -389,10 +389,6 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   }
 
   void setMessageStream(StreamSubscription stream) {
-    DebugLogger.log(
-      'Setting new message stream, cancelling previous',
-      scope: 'chat/provider',
-    );
     _cancelMessageStream();
     _messageStream = stream;
 
@@ -404,10 +400,6 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
     List<SocketEventSubscription> subscriptions, {
     VoidCallback? onDispose,
   }) {
-    DebugLogger.log(
-      'Setting ${subscriptions.length} socket subscriptions, cancelling previous',
-      scope: 'chat/provider',
-    );
     cancelSocketSubscriptions();
     _socketSubscriptions.addAll(subscriptions);
     _socketTeardown = onDispose;
@@ -430,10 +422,6 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   }
 
   void addMessage(ChatMessage message) {
-    DebugLogger.log(
-      'addMessage: ${message.role} message (id: ${message.id}, streaming: ${message.isStreaming})',
-      scope: 'chat/provider',
-    );
     state = [...state, message];
     if (message.role == 'assistant' && message.isStreaming) {
       _touchStreamingActivity();
@@ -498,31 +486,13 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
     String messageId,
     ChatMessage Function(ChatMessage current) updater,
   ) {
-    DebugLogger.log(
-      'updateMessageById called for message $messageId',
-      scope: 'chat/provider',
-    );
     final index = state.indexWhere((m) => m.id == messageId);
-    if (index == -1) {
-      DebugLogger.log(
-        'updateMessageById: message $messageId not found in state (${state.length} messages)',
-        scope: 'chat/provider',
-      );
-      return;
-    }
+    if (index == -1) return;
     final original = state[index];
     final updated = updater(original);
     if (identical(updated, original)) {
-      DebugLogger.log(
-        'updateMessageById: no changes made to message $messageId',
-        scope: 'chat/provider',
-      );
       return;
     }
-    DebugLogger.log(
-      'updateMessageById: updating message $messageId at index $index',
-      scope: 'chat/provider',
-    );
     final next = [...state];
     next[index] = updated;
     state = next;
@@ -536,15 +506,7 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   }
 
   void setFollowUps(String messageId, List<String> followUps) {
-    DebugLogger.log(
-      'setFollowUps called for message $messageId with ${followUps.length} follow-ups',
-      scope: 'chat/provider',
-    );
     updateMessageById(messageId, (current) {
-      DebugLogger.log(
-        'setFollowUps: updating message with follow-ups: ${followUps.join(", ")}',
-        scope: 'chat/provider',
-      );
       return current.copyWith(followUps: List<String>.from(followUps));
     });
   }
@@ -582,32 +544,15 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   }
 
   void appendToLastMessage(String content) {
-    DebugLogger.log(
-      'appendToLastMessage called with: "${content.length > 30 ? content.substring(0, 30) + "..." : content}"',
-      scope: 'chat/provider',
-    );
-
     if (state.isEmpty) {
-      DebugLogger.log(
-        'appendToLastMessage: state is empty',
-        scope: 'chat/provider',
-      );
       return;
     }
 
     final lastMessage = state.last;
     if (lastMessage.role != 'assistant') {
-      DebugLogger.log(
-        'appendToLastMessage: last message is not assistant (${lastMessage.role})',
-        scope: 'chat/provider',
-      );
       return;
     }
     if (!lastMessage.isStreaming) {
-      DebugLogger.log(
-        'appendToLastMessage: last message is not streaming',
-        scope: 'chat/provider',
-      );
       // Ignore late chunks when streaming already finished
       return;
     }
@@ -624,10 +569,6 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
     }
     final newContent = current.isEmpty ? content : current + content;
 
-    DebugLogger.log(
-      'appendToLastMessage: updating UI with new content length: ${newContent.length}',
-      scope: 'chat/provider',
-    );
     state = [
       ...state.sublist(0, state.length - 1),
       lastMessage.copyWith(content: newContent),
@@ -636,25 +577,12 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   }
 
   void replaceLastMessageContent(String content) {
-    DebugLogger.log(
-      'replaceLastMessageContent called with: "${content.length > 30 ? content.substring(0, 30) + "..." : content}"',
-      scope: 'chat/provider',
-    );
-
     if (state.isEmpty) {
-      DebugLogger.log(
-        'replaceLastMessageContent: state is empty',
-        scope: 'chat/provider',
-      );
       return;
     }
 
     final lastMessage = state.last;
     if (lastMessage.role != 'assistant') {
-      DebugLogger.log(
-        'replaceLastMessageContent: last message is not assistant (${lastMessage.role})',
-        scope: 'chat/provider',
-      );
       return;
     }
 
@@ -668,10 +596,6 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
     if (sanitized.startsWith(searchBanner)) {
       sanitized = sanitized.substring(searchBanner.length);
     }
-    DebugLogger.log(
-      'replaceLastMessageContent: updating UI with sanitized content length: ${sanitized.length}',
-      scope: 'chat/provider',
-    );
     state = [
       ...state.sublist(0, state.length - 1),
       lastMessage.copyWith(content: sanitized),
@@ -680,23 +604,10 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   }
 
   void finishStreaming() {
-    DebugLogger.log('finishStreaming called', scope: 'chat/provider');
-    if (state.isEmpty) {
-      DebugLogger.log(
-        'finishStreaming: state is empty',
-        scope: 'chat/provider',
-      );
-      return;
-    }
+    if (state.isEmpty) return;
 
     final lastMessage = state.last;
-    if (lastMessage.role != 'assistant' || !lastMessage.isStreaming) {
-      DebugLogger.log(
-        'finishStreaming: last message is not streaming assistant (role: ${lastMessage.role}, streaming: ${lastMessage.isStreaming})',
-        scope: 'chat/provider',
-      );
-      return;
-    }
+    if (lastMessage.role != 'assistant' || !lastMessage.isStreaming) return;
 
     // Also strip any leftover typing indicator before finalizing
     const ti = '[TYPING_INDICATOR]';
@@ -709,10 +620,6 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
       cleaned = cleaned.substring(searchBanner.length);
     }
 
-    DebugLogger.log(
-      'finishStreaming: setting isStreaming=false and content length: ${cleaned.length}',
-      scope: 'chat/provider',
-    );
     state = [
       ...state.sublist(0, state.length - 1),
       lastMessage.copyWith(isStreaming: false, content: cleaned),
