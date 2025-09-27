@@ -443,6 +443,16 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
       final data = ev['data'];
       if (data == null) return;
       final type = data['type'];
+
+      // Basic logging to see if chat events are being received
+      if (type != null &&
+          (type.toString().contains('follow') ||
+              type == 'chat:message:follow_ups')) {
+        DebugLogger.log(
+          'Chat event received: $type',
+          scope: 'streaming/helper',
+        );
+      }
       final payload = data['data'];
       final messageId = ev['message_id']?.toString();
       socketWatchdog?.ping();
@@ -653,19 +663,38 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
         disposeSocketSubscriptions();
         finishStreaming();
       } else if (type == 'chat:message:follow_ups' && payload != null) {
+        DebugLogger.log('Received follow-ups event', scope: 'streaming/helper');
         final followMap = _asStringMap(payload);
         if (followMap != null) {
           final followUpsRaw =
               followMap['follow_ups'] ?? followMap['followUps'];
           final suggestions = _parseFollowUpsField(followUpsRaw);
           final targetId = _resolveTargetMessageId(messageId, getMessages);
+          DebugLogger.log(
+            'Follow-ups: ${suggestions.length} suggestions for message $targetId',
+            scope: 'streaming/helper',
+          );
           if (targetId != null) {
             setFollowUps(targetId, suggestions);
             updateMessageById(targetId, (current) {
               final metadata = {...?current.metadata, 'followUps': suggestions};
               return current.copyWith(metadata: metadata);
             });
+            DebugLogger.log(
+              'Follow-ups set successfully',
+              scope: 'streaming/helper',
+            );
+          } else {
+            DebugLogger.log(
+              'Follow-ups: targetId is null',
+              scope: 'streaming/helper',
+            );
           }
+        } else {
+          DebugLogger.log(
+            'Follow-ups: failed to parse payload',
+            scope: 'streaming/helper',
+          );
         }
       } else if (type == 'chat:title' && payload != null) {
         final title = payload.toString();
@@ -908,6 +937,14 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
           appendToLastMessage(content);
           updateImagesFromCurrentContent();
         }
+      } else {
+        // Log unknown event types to catch any follow-up events we might be missing
+        if (type != null && type.toString().contains('follow')) {
+          DebugLogger.log(
+            'Unknown follow-up related event: $type',
+            scope: 'streaming/helper',
+          );
+        }
       }
     } catch (_) {}
   }
@@ -926,6 +963,14 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
         if (content.isNotEmpty) {
           appendToLastMessage(content);
           updateImagesFromCurrentContent();
+        }
+      } else {
+        // Log channel events that might include follow-ups
+        if (type != null && type.toString().contains('follow')) {
+          DebugLogger.log(
+            'Channel follow-up event: $type',
+            scope: 'streaming/helper',
+          );
         }
       }
     } catch (_) {}
