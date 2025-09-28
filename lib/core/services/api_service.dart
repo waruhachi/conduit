@@ -1205,7 +1205,24 @@ class ApiService {
               entry.forEach((key, value) {
                 statusMap[key.toString()] = value;
               });
-              return ChatStatusUpdate.fromJson(statusMap);
+              final statusUpdate = ChatStatusUpdate.fromJson(statusMap);
+
+              // Debug log to help diagnose template issues
+              if (statusUpdate.description?.contains('{{count}}') == true) {
+                DebugLogger.log(
+                  'template-placeholder-found',
+                  scope: 'api/chat',
+                  data: {
+                    'description': statusUpdate.description,
+                    'count': statusUpdate.count,
+                    'urls': statusUpdate.urls.length,
+                    'items': statusUpdate.items.length,
+                    'action': statusUpdate.action,
+                  },
+                );
+              }
+
+              return statusUpdate;
             } catch (e) {
               // Log the error and skip this entry
               DebugLogger.log(

@@ -1396,15 +1396,80 @@ class _StatusHistoryEntry extends StatelessWidget {
     return Icons.circle;
   }
 
+  String _replaceTemplatePlaceholders(String text) {
+    String result = text;
+
+    // Replace {{count}} with the actual count
+    if (result.contains('{{count}}')) {
+      int? countValue = update.count;
+
+      // If count is not available, try to derive it from other fields
+      if (countValue == null) {
+        // For web search, count usually refers to the number of URLs/sites searched
+        if (update.urls.isNotEmpty) {
+          countValue = update.urls.length;
+        } else if (update.items.isNotEmpty) {
+          countValue = update.items.length;
+        } else if (update.queries.isNotEmpty) {
+          countValue = update.queries.length;
+        }
+      }
+
+      // If we still don't have a count, try to extract it from the description itself
+      if (countValue == null && result.contains('{{count}}')) {
+        // Look for patterns like "Searched X sites" in the description or action
+        final description = update.description ?? update.action ?? '';
+        final match = RegExp(r'(\d+)\s+sites?').firstMatch(description);
+        if (match != null) {
+          countValue = int.tryParse(match.group(1) ?? '');
+        }
+      }
+
+      if (countValue != null) {
+        result = result.replaceAll('{{count}}', countValue.toString());
+      } else {
+        // As a last resort, replace with a generic message
+        result = result.replaceAll('{{count}}', 'multiple');
+      }
+    }
+
+    // Replace other common placeholders if needed
+    if (result.contains('{{urls.length}}') && update.urls.isNotEmpty) {
+      result = result.replaceAll(
+        '{{urls.length}}',
+        update.urls.length.toString(),
+      );
+    }
+
+    if (result.contains('{{queries.length}}') && update.queries.isNotEmpty) {
+      result = result.replaceAll(
+        '{{queries.length}}',
+        update.queries.length.toString(),
+      );
+    }
+
+    if (result.contains('{{items.length}}') && update.items.isNotEmpty) {
+      result = result.replaceAll(
+        '{{items.length}}',
+        update.items.length.toString(),
+      );
+    }
+
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = context.conduitTheme;
     final indicatorColor = _indicatorColor(theme);
-    final description = update.description?.trim().isNotEmpty == true
+    final rawDescription = update.description?.trim().isNotEmpty == true
         ? update.description!.trim()
         : (update.action?.isNotEmpty == true
               ? update.action!.replaceAll('_', ' ')
               : 'Processing');
+
+    // Replace template placeholders in description
+    final description = _replaceTemplatePlaceholders(rawDescription);
     final timestamp = update.occurredAt;
     final queries = [...update.queries];
     if (update.query != null && update.query!.trim().isNotEmpty) {
