@@ -431,6 +431,12 @@ class _ConversationsCacheTimestampNotifier extends Notifier<DateTime?> {
 
 // Conversation providers - Now using correct OpenWebUI API with caching
 final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
+  // Do not fetch protected data until authenticated
+  final authed = ref.read(isAuthenticatedProvider2);
+  if (!authed) {
+    DebugLogger.log('skip-unauthed', scope: 'conversations');
+    return [];
+  }
   // Check if we have a recent cache (within 5 seconds)
   final lastFetch = ref.read(_conversationsCacheTimestamp);
   if (lastFetch != null && DateTime.now().difference(lastFetch).inSeconds < 5) {
@@ -1228,6 +1234,11 @@ final webSearchAvailableProvider = Provider<bool>((ref) {
 
 // Folders provider
 final foldersProvider = FutureProvider<List<Folder>>((ref) async {
+  // Protected: require authentication
+  if (!ref.read(isAuthenticatedProvider2)) {
+    DebugLogger.log('skip-unauthed', scope: 'folders');
+    return [];
+  }
   final api = ref.watch(apiServiceProvider);
   if (api == null) {
     DebugLogger.warning('api-missing', scope: 'folders');
@@ -1253,6 +1264,11 @@ final foldersProvider = FutureProvider<List<Folder>>((ref) async {
 
 // Files provider
 final userFilesProvider = FutureProvider<List<FileInfo>>((ref) async {
+  // Protected: require authentication
+  if (!ref.read(isAuthenticatedProvider2)) {
+    DebugLogger.log('skip-unauthed', scope: 'files');
+    return [];
+  }
   final api = ref.watch(apiServiceProvider);
   if (api == null) return [];
 
@@ -1270,6 +1286,11 @@ final fileContentProvider = FutureProvider.family<String, String>((
   ref,
   fileId,
 ) async {
+  // Protected: require authentication
+  if (!ref.read(isAuthenticatedProvider2)) {
+    DebugLogger.log('skip-unauthed', scope: 'files/content');
+    throw Exception('Not authenticated');
+  }
   final api = ref.watch(apiServiceProvider);
   if (api == null) throw Exception('No API service available');
 
@@ -1288,6 +1309,11 @@ final fileContentProvider = FutureProvider.family<String, String>((
 
 // Knowledge Base providers
 final knowledgeBasesProvider = FutureProvider<List<KnowledgeBase>>((ref) async {
+  // Protected: require authentication
+  if (!ref.read(isAuthenticatedProvider2)) {
+    DebugLogger.log('skip-unauthed', scope: 'knowledge');
+    return [];
+  }
   final api = ref.watch(apiServiceProvider);
   if (api == null) return [];
 
@@ -1302,6 +1328,11 @@ final knowledgeBasesProvider = FutureProvider<List<KnowledgeBase>>((ref) async {
 
 final knowledgeBaseItemsProvider =
     FutureProvider.family<List<KnowledgeBaseItem>, String>((ref, kbId) async {
+      // Protected: require authentication
+      if (!ref.read(isAuthenticatedProvider2)) {
+        DebugLogger.log('skip-unauthed', scope: 'knowledge/items');
+        return [];
+      }
       final api = ref.watch(apiServiceProvider);
       if (api == null) return [];
 
@@ -1322,6 +1353,11 @@ final knowledgeBaseItemsProvider =
 
 // Audio providers
 final availableVoicesProvider = FutureProvider<List<String>>((ref) async {
+  // Protected: require authentication
+  if (!ref.read(isAuthenticatedProvider2)) {
+    DebugLogger.log('skip-unauthed', scope: 'voices');
+    return [];
+  }
   final api = ref.watch(apiServiceProvider);
   if (api == null) return [];
 

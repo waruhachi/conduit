@@ -33,14 +33,13 @@ class ConnectivityService {
   bool get isCurrentlyConnected => _lastStatus == ConnectivityStatus.online;
 
   void _startConnectivityMonitoring() {
-    // Initial check after a brief delay to avoid showing offline during startup
-    Timer(const Duration(milliseconds: 800), () {
-      _checkConnectivity();
-    });
-
-    // Check periodically; interval adapts to recent failures
-    _connectivityTimer = Timer.periodic(_interval, (_) {
-      _checkConnectivity();
+    // Initial check after a slightly longer delay to avoid competing with
+    // first-frame work. Start periodic checks only after the first probe.
+    Timer(const Duration(milliseconds: 1200), () async {
+      await _checkConnectivity();
+      _connectivityTimer = Timer.periodic(_interval, (_) {
+        _checkConnectivity();
+      });
     });
   }
 

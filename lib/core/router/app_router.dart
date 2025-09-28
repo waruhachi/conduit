@@ -60,7 +60,9 @@ class RouterNotifier extends ChangeNotifier {
     }
 
     if (activeServerAsync.isLoading) {
-      // Avoid redirect loops by keeping splash during server loading
+      // Avoid redirect loops: do not override explicit auth routes while loading
+      if (_isAuthLocation(location)) return null;
+      // Keep splash during server loading otherwise
       return location == Routes.splash ? null : Routes.splash;
     }
 
@@ -80,7 +82,9 @@ class RouterNotifier extends ChangeNotifier {
     final authState = ref.read(authNavigationStateProvider);
     switch (authState) {
       case AuthNavigationState.loading:
-        // Keep splash while establishing session
+        // Keep user on auth routes while loading to prevent bounce
+        if (_isAuthLocation(location)) return null;
+        // Otherwise keep splash during session establishment
         return location == Routes.splash ? null : Routes.splash;
       case AuthNavigationState.needsLogin:
       case AuthNavigationState.error:
@@ -146,10 +150,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       name: RouteNames.authentication,
       builder: (context, state) {
         final config = state.extra;
-        if (config is! ServerConfig) {
-          return const ServerConnectionPage();
-        }
-        return AuthenticationPage(serverConfig: config);
+        return AuthenticationPage(
+          serverConfig: config is ServerConfig ? config : null,
+        );
       },
     ),
     GoRoute(

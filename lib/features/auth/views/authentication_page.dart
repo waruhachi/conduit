@@ -20,9 +20,9 @@ import 'package:conduit/l10n/app_localizations.dart';
 import '../providers/unified_auth_providers.dart';
 
 class AuthenticationPage extends ConsumerStatefulWidget {
-  final ServerConfig serverConfig;
+  final ServerConfig? serverConfig;
 
-  const AuthenticationPage({super.key, required this.serverConfig});
+  const AuthenticationPage({super.key, this.serverConfig});
 
   @override
   ConsumerState<AuthenticationPage> createState() => _AuthenticationPageState();
@@ -234,6 +234,18 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
   }
 
   Widget _buildServerStatus() {
+    // Prefer route-provided config; otherwise fall back to active server
+    final activeServerAsync = ref.watch(activeServerProvider);
+    final cfg =
+        widget.serverConfig ??
+        activeServerAsync.maybeWhen(data: (s) => s, orElse: () => null);
+    final hostText = () {
+      try {
+        final url = cfg?.url;
+        if (url != null && url.isNotEmpty) return Uri.parse(url).host;
+      } catch (_) {}
+      return 'Server';
+    }();
     return ConduitCard(
       isElevated: false,
       padding: const EdgeInsets.all(Spacing.lg),
@@ -272,7 +284,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
                 ),
                 const SizedBox(height: Spacing.xs),
                 Text(
-                  Uri.parse(widget.serverConfig.url).host,
+                  hostText,
                   style: context.conduitTheme.bodySmall?.copyWith(
                     color: context.conduitTheme.textSecondary,
                     fontFamily: 'monospace',
