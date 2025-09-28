@@ -499,8 +499,26 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   }
 
   void appendStatusUpdate(String messageId, ChatStatusUpdate update) {
+    final withTimestamp = update.occurredAt == null
+        ? update.copyWith(occurredAt: DateTime.now())
+        : update;
+
     updateMessageById(messageId, (current) {
-      final history = [...current.statusHistory, update];
+      final history = [...current.statusHistory];
+      if (history.isNotEmpty) {
+        final last = history.last;
+        final sameAction =
+            last.action != null && last.action == withTimestamp.action;
+        final sameDescription =
+            (withTimestamp.description?.isNotEmpty ?? false) &&
+            withTimestamp.description == last.description;
+        if (sameAction && sameDescription) {
+          history[history.length - 1] = withTimestamp;
+          return current.copyWith(statusHistory: history);
+        }
+      }
+
+      history.add(withTimestamp);
       return current.copyWith(statusHistory: history);
     });
   }

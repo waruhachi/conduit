@@ -790,6 +790,16 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
             replaceLastMessageContent('⚠️ $content');
           }
         } catch (_) {}
+        // Drop search-only status rows so the error feels cleaner
+        updateLastMessageWith((message) {
+          final filtered = message.statusHistory
+              .where((status) => status.action != 'knowledge_search')
+              .toList(growable: false);
+          if (filtered.length == message.statusHistory.length) {
+            return message;
+          }
+          return message.copyWith(statusHistory: filtered);
+        });
         // Ensure UI exits streaming state
         finishStreaming();
         socketWatchdog?.stop();

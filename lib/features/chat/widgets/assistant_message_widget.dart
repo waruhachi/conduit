@@ -603,7 +603,12 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                     ],
 
                     if (hasStatusTimeline) ...[
-                      StatusHistoryTimeline(updates: visibleStatusHistory),
+                      StatusHistoryTimeline(
+                        updates: visibleStatusHistory,
+                        initiallyExpanded: widget.message.content
+                            .trim()
+                            .isEmpty,
+                      ),
                       const SizedBox(height: Spacing.xs),
                     ],
 
@@ -1284,380 +1289,638 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
 }
 
 class StatusHistoryTimeline extends StatefulWidget {
-  const StatusHistoryTimeline({super.key, required this.updates});
+  const StatusHistoryTimeline({
+    super.key,
+    required this.updates,
+    this.initiallyExpanded = false,
+  });
 
   final List<ChatStatusUpdate> updates;
+  final bool initiallyExpanded;
 
   @override
   State<StatusHistoryTimeline> createState() => _StatusHistoryTimelineState();
 }
 
 class _StatusHistoryTimelineState extends State<StatusHistoryTimeline> {
-  bool _isExpanded = false;
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded;
+  }
+
+  @override
+  void didUpdateWidget(covariant StatusHistoryTimeline oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initiallyExpanded != oldWidget.initiallyExpanded) {
+      _expanded = widget.initiallyExpanded;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.updates.isEmpty) {
+    final theme = context.conduitTheme;
+    final visible = widget.updates
+        .where((update) => update.hidden != true)
+        .toList();
+    if (visible.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final theme = context.conduitTheme;
-    final hasMultipleUpdates = widget.updates.length > 1;
-    final finalUpdate = widget.updates.last;
-    final previousUpdates = widget.updates.sublist(
-      0,
-      widget.updates.length - 1,
-    );
+    final previous = visible.length > 1
+        ? visible.sublist(0, visible.length - 1)
+        : const [];
+    final current = visible.last;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Animated container for previous updates
-        AnimatedCrossFade(
-          firstChild: const SizedBox.shrink(),
-          secondChild: previousUpdates.isNotEmpty
-              ? Column(
-                  children: [
-                    ...previousUpdates.map(
-                      (update) => Padding(
-                        padding: const EdgeInsets.only(bottom: Spacing.xs),
-                        child: _StatusHistoryEntry(update: update),
-                      ),
-                    ),
-                  ],
-                )
-              : const SizedBox.shrink(),
-          crossFadeState: _isExpanded
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
-          duration: const Duration(milliseconds: 200),
-        ),
-
-        // Always show the final update
-        _StatusHistoryEntry(update: finalUpdate),
-
-        // Show expand/collapse button if there are multiple updates
-        if (hasMultipleUpdates)
-          Padding(
-            padding: const EdgeInsets.only(top: Spacing.xxs),
-            child: InkWell(
-              onTap: () {
-                setState(() {
-                  _isExpanded = !_isExpanded;
-                });
-              },
-              borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: Spacing.xxs,
-                  vertical: 2,
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          child: !_expanded || previous.isEmpty
+              ? const SizedBox.shrink()
+              : Column(
+                  children: previous
+                      .map(
+                        (update) => _TimelineRow(
+                          update: update,
+                          theme: theme,
+                          showTail: true,
+                          forceDone: true,
+                        ),
+                      )
+                      .toList(growable: false),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _isExpanded ? Icons.expand_less : Icons.expand_more,
-                      size: 12,
-                      color: theme.textSecondary.withValues(alpha: 0.6),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _isExpanded
-                          ? 'Show less'
-                          : 'Show ${previousUpdates.length} earlier step${previousUpdates.length == 1 ? '' : 's'}',
-                      style: TextStyle(
-                        fontSize: AppTypography.labelSmall,
+        ),
+        _TimelineRow(
+          update: current,
+          theme: theme,
+          showTail: false,
+          forceDone: current.done == true ? true : null,
+          onTap: previous.isNotEmpty
+              ? () => setState(() => _expanded = !_expanded)
+              : null,
+          showChevron: previous.isNotEmpty,
+          expanded: _expanded,
+        ),
+      ],
+    );
+  }
+}
+
+class _TimelineRow extends StatelessWidget {
+  const _TimelineRow({
+    required this.update,
+    required this.theme,
+    required this.showTail,
+    this.forceDone,
+    this.onTap,
+    this.showChevron = false,
+    this.expanded = false,
+  });
+
+  final ChatStatusUpdate update;
+  final ConduitThemeExtension theme;
+  final bool showTail;
+  final bool? forceDone;
+  final VoidCallback? onTap;
+  final bool showChevron;
+  final bool expanded;
+
+  bool get _isPending {
+    final resolved = forceDone ?? update.done;
+    return resolved != true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final resolved = forceDone ?? update.done;
+    final dotColor = _indicatorColor(theme, resolved);
+    final content = _StatusHistoryContent(
+      update: update,
+      theme: theme,
+      isPending: _isPending,
+    );
+
+    final row = IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _TimelineIndicator(
+            color: dotColor,
+            showTail: showTail,
+            animatePulse: _isPending,
+            theme: theme,
+          ),
+          const SizedBox(width: Spacing.xs),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: content),
+                if (showChevron)
+                  Padding(
+                    padding: const EdgeInsets.only(left: Spacing.xs, top: 4),
+                    child: AnimatedRotation(
+                      turns: expanded ? 0.5 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOutCubic,
+                      child: Icon(
+                        Icons.expand_more,
+                        size: 16,
                         color: theme.textSecondary.withValues(alpha: 0.6),
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ],
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final wrapped = Padding(
+      padding: const EdgeInsets.symmetric(vertical: Spacing.xxs),
+      child: row,
+    );
+
+    if (onTap == null) {
+      return wrapped;
+    }
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+      child: wrapped,
+    );
+  }
+
+  Color _indicatorColor(ConduitThemeExtension theme, bool? done) {
+    if (done == false) {
+      return theme.iconPrimary;
+    }
+    if (done == true) {
+      return theme.success;
+    }
+    return theme.iconSecondary.withValues(alpha: 0.7);
+  }
+}
+
+class _TimelineIndicator extends StatefulWidget {
+  const _TimelineIndicator({
+    required this.color,
+    required this.showTail,
+    required this.animatePulse,
+    required this.theme,
+  });
+
+  final Color color;
+  final bool showTail;
+  final bool animatePulse;
+  final ConduitThemeExtension theme;
+
+  @override
+  State<_TimelineIndicator> createState() => _TimelineIndicatorState();
+}
+
+class _TimelineIndicatorState extends State<_TimelineIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+    if (widget.animatePulse) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _TimelineIndicator oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.animatePulse && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.animatePulse && _controller.isAnimating) {
+      _controller.stop();
+      _controller.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lineColor = widget.theme.dividerColor.withValues(alpha: 0.5);
+
+    return SizedBox(
+      width: 18,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 16,
+            width: 16,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (widget.animatePulse)
+                  FadeTransition(
+                    opacity: _controller.drive(
+                      Tween<double>(begin: 0.45, end: 0.0),
+                    ),
+                    child: ScaleTransition(
+                      scale: _controller.drive(
+                        Tween<double>(
+                          begin: 1.0,
+                          end: 2.2,
+                        ).chain(CurveTween(curve: Curves.easeOutCubic)),
+                      ),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: widget.color.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: widget.color,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const SizedBox.square(dimension: 8),
+                ),
+              ],
+            ),
+          ),
+          if (widget.showTail)
+            Expanded(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Container(
+                  margin: const EdgeInsets.only(top: Spacing.xxs),
+                  width: 1,
+                  color: lineColor,
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusHistoryContent extends StatelessWidget {
+  const _StatusHistoryContent({
+    required this.update,
+    required this.theme,
+    required this.isPending,
+  });
+
+  final ChatStatusUpdate update;
+  final ConduitThemeExtension theme;
+  final bool isPending;
+
+  @override
+  Widget build(BuildContext context) {
+    final description = _resolveStatusDescription(update);
+    final queries = _collectQueries(update);
+    final linkChips = _buildLinkChips(update);
+
+    final headlineStyle = TextStyle(
+      fontSize: AppTypography.bodySmall,
+      fontWeight: FontWeight.w600,
+      height: 1.3,
+      color: isPending ? theme.textPrimary : theme.textSecondary,
+    );
+
+    final content = <Widget>[Text(description, style: headlineStyle)];
+
+    if (update.count != null && update.action != 'sources_retrieved') {
+      content.add(
+        Text(
+          update.count == 1
+              ? 'Retrieved 1 source'
+              : 'Retrieved ${update.count} sources',
+          style: TextStyle(
+            fontSize: AppTypography.labelSmall,
+            color: theme.textSecondary.withValues(alpha: 0.75),
+          ),
+        ),
+      );
+    }
+
+    if (queries.isNotEmpty) {
+      content.add(_QueryPills(queries: queries, theme: theme));
+    }
+
+    if (linkChips.isNotEmpty) {
+      content.add(_LinkPills(items: linkChips, theme: theme));
+    }
+
+    final timestamp = update.occurredAt;
+    if (timestamp != null) {
+      content.add(
+        Text(
+          _relativeTime(timestamp),
+          style: TextStyle(
+            fontSize: AppTypography.labelSmall,
+            color: theme.textSecondary.withValues(alpha: 0.55),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < content.length; i++)
+          Padding(
+            padding: EdgeInsets.only(top: i == 0 ? 0 : Spacing.xxs),
+            child: content[i],
           ),
       ],
     );
   }
 }
 
-class _StatusHistoryEntry extends StatelessWidget {
-  const _StatusHistoryEntry({required this.update});
+class _QueryPills extends StatelessWidget {
+  const _QueryPills({required this.queries, required this.theme});
 
-  final ChatStatusUpdate update;
-
-  Color _indicatorColor(ConduitThemeExtension theme) {
-    if (update.done == false) {
-      return theme.buttonPrimary;
-    }
-    if (update.done == true) {
-      return theme.success;
-    }
-    return theme.textSecondary.withValues(alpha: 0.6);
-  }
-
-  IconData _indicatorIcon() {
-    return Icons.circle;
-  }
-
-  String _replaceTemplatePlaceholders(String text) {
-    String result = text;
-
-    // Replace {{count}} with the actual count
-    if (result.contains('{{count}}')) {
-      int? countValue = update.count;
-
-      // If count is not available, try to derive it from other fields
-      if (countValue == null) {
-        // For web search, count usually refers to the number of URLs/sites searched
-        if (update.urls.isNotEmpty) {
-          countValue = update.urls.length;
-        } else if (update.items.isNotEmpty) {
-          countValue = update.items.length;
-        } else if (update.queries.isNotEmpty) {
-          countValue = update.queries.length;
-        }
-      }
-
-      // If we still don't have a count, try to extract it from the description itself
-      if (countValue == null && result.contains('{{count}}')) {
-        // Look for patterns like "Searched X sites" in the description or action
-        final description = update.description ?? update.action ?? '';
-        final match = RegExp(r'(\d+)\s+sites?').firstMatch(description);
-        if (match != null) {
-          countValue = int.tryParse(match.group(1) ?? '');
-        }
-      }
-
-      if (countValue != null) {
-        result = result.replaceAll('{{count}}', countValue.toString());
-      } else {
-        // As a last resort, replace with a generic message
-        result = result.replaceAll('{{count}}', 'multiple');
-      }
-    }
-
-    // Replace other common placeholders if needed
-    if (result.contains('{{urls.length}}') && update.urls.isNotEmpty) {
-      result = result.replaceAll(
-        '{{urls.length}}',
-        update.urls.length.toString(),
-      );
-    }
-
-    if (result.contains('{{queries.length}}') && update.queries.isNotEmpty) {
-      result = result.replaceAll(
-        '{{queries.length}}',
-        update.queries.length.toString(),
-      );
-    }
-
-    if (result.contains('{{items.length}}') && update.items.isNotEmpty) {
-      result = result.replaceAll(
-        '{{items.length}}',
-        update.items.length.toString(),
-      );
-    }
-
-    return result;
-  }
+  final List<String> queries;
+  final ConduitThemeExtension theme;
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.conduitTheme;
-    final indicatorColor = _indicatorColor(theme);
-    final rawDescription = update.description?.trim().isNotEmpty == true
-        ? update.description!.trim()
-        : (update.action?.isNotEmpty == true
-              ? update.action!.replaceAll('_', ' ')
-              : 'Processing');
+    final iconColor = theme.iconSecondary;
+    final textStyle = TextStyle(
+      fontSize: AppTypography.labelSmall,
+      color: theme.textSecondary,
+    );
 
-    // Replace template placeholders in description
-    final description = _replaceTemplatePlaceholders(rawDescription);
-    final timestamp = update.occurredAt;
-    final queries = [...update.queries];
-    if (update.query != null && update.query!.trim().isNotEmpty) {
-      if (!queries.contains(update.query)) {
-        queries.add(update.query!.trim());
-      }
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Spacing.xxs),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 2),
-                child: Icon(_indicatorIcon(), size: 12, color: indicatorColor),
+    return Wrap(
+      spacing: Spacing.xs,
+      runSpacing: Spacing.xs,
+      children: queries
+          .map(
+            (query) => InkWell(
+              onTap: () => _launchUri(
+                'https://www.google.com/search?q=${Uri.encodeComponent(query)}',
               ),
-              const SizedBox(width: Spacing.xs),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.sm,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.surfaceContainer.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      description,
-                      style: TextStyle(
-                        fontSize: AppTypography.bodySmall,
-                        color: theme.textSecondary,
-                        fontWeight: FontWeight.w500,
-                        height: 1.3,
+                    Icon(
+                      Icons.search,
+                      size: AppTypography.labelSmall + 2,
+                      color: iconColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        query,
+                        style: textStyle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (update.count != null)
-                      Text(
-                        update.count == 1
-                            ? '• Retrieved 1 source'
-                            : '• Retrieved ${update.count} sources',
-                        style: TextStyle(
-                          color: theme.textSecondary.withValues(alpha: 0.8),
-                          fontSize: AppTypography.labelSmall,
-                        ),
-                      ),
                   ],
                 ),
               ),
-              if (timestamp != null)
-                Text(
-                  _formatTimestamp(timestamp),
-                  style: TextStyle(
-                    color: theme.textSecondary.withValues(alpha: 0.6),
-                    fontSize: AppTypography.labelSmall,
-                  ),
-                ),
-            ],
-          ),
-          if (queries.isNotEmpty ||
-              update.urls.isNotEmpty ||
-              update.items.isNotEmpty) ...[
-            const SizedBox(height: Spacing.xs),
-            Padding(
-              padding: const EdgeInsets.only(left: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (queries.isNotEmpty)
-                    _buildMinimalLinks(
-                      context,
-                      queries
-                          .map(
-                            (query) => _MinimalLinkData(
-                              label: query,
-                              icon: Icons.search,
-                              onTap: () => _launchUri(
-                                'https://www.google.com/search?q=${Uri.encodeComponent(query)}',
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  if (update.urls.isNotEmpty)
-                    _buildMinimalLinks(
-                      context,
-                      update.urls.map((url) {
-                        final host = Uri.tryParse(url)?.host ?? 'Link';
-                        return _MinimalLinkData(
-                          label: host,
-                          icon: Icons.open_in_new,
-                          onTap: () => _launchUri(url),
-                        );
-                      }).toList(),
-                    ),
-                  if (update.items.isNotEmpty)
-                    _buildMinimalLinks(
-                      context,
-                      update.items.map((item) {
-                        final title = item.title?.isNotEmpty == true
-                            ? item.title!
-                            : item.link ?? 'Result';
-                        return _MinimalLinkData(
-                          label: title,
-                          icon: Icons.link,
-                          onTap: item.link != null
-                              ? () => _launchUri(item.link!)
-                              : null,
-                        );
-                      }).toList(),
-                    ),
-                ],
-              ),
             ),
-          ],
-        ],
-      ),
+          )
+          .toList(growable: false),
     );
-  }
-
-  Widget _buildMinimalLinks(
-    BuildContext context,
-    List<_MinimalLinkData> links,
-  ) {
-    final theme = context.conduitTheme;
-    return Wrap(
-      spacing: Spacing.sm,
-      runSpacing: Spacing.xxs,
-      children: links.map((link) {
-        return InkWell(
-          onTap: link.onTap,
-          borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Spacing.xxs,
-              vertical: 2,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(link.icon, size: 10, color: theme.buttonPrimary),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    link.label,
-                    style: TextStyle(
-                      color: theme.buttonPrimary,
-                      fontSize: AppTypography.labelSmall,
-                      fontWeight: FontWeight.w500,
-                      decoration: TextDecoration.underline,
-                      decorationColor: theme.buttonPrimary.withValues(
-                        alpha: 0.6,
-                      ),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  String _formatTimestamp(DateTime timestamp) {
-    final local = timestamp.toLocal();
-    final now = DateTime.now();
-    final difference = now.difference(local);
-    if (difference.inMinutes < 1) {
-      return 'Just now';
-    }
-    if (difference.inHours < 1) {
-      final minutes = difference.inMinutes;
-      return minutes == 1 ? '1 minute ago' : '$minutes minutes ago';
-    }
-    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
   }
 }
 
-class _MinimalLinkData {
-  const _MinimalLinkData({required this.label, required this.icon, this.onTap});
+class _LinkPills extends StatelessWidget {
+  const _LinkPills({required this.items, required this.theme});
+
+  final List<_LinkChipData> items;
+  final ConduitThemeExtension theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconColor = theme.iconPrimary;
+    final textStyle = TextStyle(
+      fontSize: AppTypography.labelSmall,
+      color: theme.buttonPrimary,
+      fontWeight: FontWeight.w600,
+    );
+
+    return Wrap(
+      spacing: Spacing.xs,
+      runSpacing: Spacing.xs,
+      children: items
+          .map(
+            (item) => InkWell(
+              onTap: item.url != null ? () => _launchUri(item.url!) : null,
+              borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.sm,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.surfaceContainer.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      item.icon,
+                      size: AppTypography.labelSmall + 2,
+                      color: iconColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        item.label,
+                        style: textStyle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (item.url != null) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.open_in_new,
+                        size: 11,
+                        color: iconColor.withValues(alpha: 0.7),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+}
+
+class _LinkChipData {
+  const _LinkChipData({required this.label, required this.icon, this.url});
 
   final String label;
   final IconData icon;
-  final VoidCallback? onTap;
+  final String? url;
+}
+
+List<String> _collectQueries(ChatStatusUpdate update) {
+  final merged = <String>[];
+  for (final query in update.queries) {
+    final trimmed = query.trim();
+    if (trimmed.isNotEmpty) {
+      merged.add(trimmed);
+    }
+  }
+  final single = update.query?.trim();
+  if (single != null && single.isNotEmpty && !merged.contains(single)) {
+    merged.add(single);
+  }
+  return merged;
+}
+
+List<_LinkChipData> _buildLinkChips(ChatStatusUpdate update) {
+  final chips = <_LinkChipData>[];
+  if (update.items.isNotEmpty) {
+    for (final item in update.items) {
+      final title = item.title?.trim();
+      final label = (title != null && title.isNotEmpty)
+          ? title
+          : (item.link != null ? _extractHost(item.link!) : 'Result');
+      chips.add(
+        _LinkChipData(label: label, icon: Icons.public, url: item.link),
+      );
+    }
+  } else if (update.urls.isNotEmpty) {
+    for (final url in update.urls) {
+      chips.add(
+        _LinkChipData(label: _extractHost(url), icon: Icons.public, url: url),
+      );
+    }
+  }
+  return chips;
+}
+
+String _resolveStatusDescription(ChatStatusUpdate update) {
+  final description = update.description?.trim();
+  final action = update.action?.trim();
+
+  if (action == 'knowledge_search' && update.query?.isNotEmpty == true) {
+    return 'Searching knowledge for "${update.query}"';
+  }
+
+  if (action == 'web_search_queries_generated' ||
+      action == 'queries_generated') {
+    return 'Searching';
+  }
+
+  if (action == 'sources_retrieved') {
+    final count = update.count;
+    if (count == null) {
+      return 'Retrieved sources';
+    }
+    if (count == 0) {
+      return 'No sources found';
+    }
+    if (count == 1) {
+      return 'Retrieved 1 source';
+    }
+    return 'Retrieved $count sources';
+  }
+
+  if (description != null && description.isNotEmpty) {
+    return _replaceStatusPlaceholders(description, update);
+  }
+
+  if (action != null && action.isNotEmpty) {
+    return action.replaceAll('_', ' ');
+  }
+
+  return 'Processing';
+}
+
+String _replaceStatusPlaceholders(String template, ChatStatusUpdate update) {
+  var result = template;
+
+  if (result.contains('{{count}}')) {
+    final fallback = update.count ?? _inferCount(update);
+    result = result.replaceAll(
+      '{{count}}',
+      fallback != null ? fallback.toString() : 'multiple',
+    );
+  }
+
+  if (result.contains('{{searchQuery}}')) {
+    final query = update.query?.trim();
+    if (query != null && query.isNotEmpty) {
+      result = result.replaceAll('{{searchQuery}}', query);
+    }
+  }
+
+  return result;
+}
+
+int? _inferCount(ChatStatusUpdate update) {
+  if (update.urls.isNotEmpty) {
+    return update.urls.length;
+  }
+  if (update.items.isNotEmpty) {
+    return update.items.length;
+  }
+  if (update.queries.isNotEmpty) {
+    return update.queries.length;
+  }
+  return null;
+}
+
+String _relativeTime(DateTime timestamp) {
+  final local = timestamp.toLocal();
+  final now = DateTime.now();
+  final difference = now.difference(local);
+  if (difference.inMinutes < 1) {
+    return 'Just now';
+  }
+  if (difference.inHours < 1) {
+    final minutes = difference.inMinutes;
+    return minutes == 1 ? '1 minute ago' : '$minutes minutes ago';
+  }
+  return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+}
+
+String _extractHost(String url) {
+  final uri = Uri.tryParse(url);
+  if (uri == null || uri.host.isEmpty) {
+    return url;
+  }
+  return uri.host;
 }
 
 class CodeExecutionListView extends StatelessWidget {
