@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_handler/share_handler.dart' as sh;
 
@@ -72,45 +73,49 @@ final shareReceiverInitializerProvider = Provider<void>((ref) {
     () => maybeProcessPending(),
   );
 
-  // Hook into share_handler
-  final handler = sh.ShareHandler.instance;
+  // Hook into share_handler after a short defer to avoid startup contention
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    await Future.delayed(const Duration(milliseconds: 300));
 
-  // Handle initial share when app is cold-started via Share
-  Future.microtask(() async {
-    try {
-      final dynamic media = await handler.getInitialSharedMedia();
-      final payload = _toPayload(media);
-      if (payload.hasAnything) {
-        ref.read(pendingSharedPayloadProvider.notifier).set(payload);
-        maybeProcessPending();
+    final handler = sh.ShareHandler.instance;
+
+    // Handle initial share when app is cold-started via Share
+    Future.microtask(() async {
+      try {
+        final dynamic media = await handler.getInitialSharedMedia();
+        final payload = _toPayload(media);
+        if (payload.hasAnything) {
+          ref.read(pendingSharedPayloadProvider.notifier).set(payload);
+          maybeProcessPending();
+        }
+      } catch (e) {
+        DebugLogger.log(
+          'ShareReceiver: failed to get initial shared media: $e',
+          scope: 'share',
+        );
       }
-    } catch (e) {
-      DebugLogger.log(
-        'ShareReceiver: failed to get initial shared media: $e',
-        scope: 'share',
-      );
-    }
-  });
+    });
 
-  // Handle subsequent shares while app is alive
-  final streamSub = handler.sharedMediaStream.listen((dynamic media) {
-    try {
-      final payload = _toPayload(media);
-      if (payload.hasAnything) {
-        ref.read(pendingSharedPayloadProvider.notifier).set(payload);
-        maybeProcessPending();
+    // Handle subsequent shares while app is alive
+    final streamSub = handler.sharedMediaStream.listen((dynamic media) {
+      try {
+        final payload = _toPayload(media);
+        if (payload.hasAnything) {
+          ref.read(pendingSharedPayloadProvider.notifier).set(payload);
+          maybeProcessPending();
+        }
+      } catch (e) {
+        DebugLogger.log(
+          'ShareReceiver: failed to parse shared media: $e',
+          scope: 'share',
+        );
       }
-    } catch (e) {
-      DebugLogger.log(
-        'ShareReceiver: failed to parse shared media: $e',
-        scope: 'share',
-      );
-    }
-  });
+    });
 
-  // Ensure cleanup
-  ref.onDispose(() async {
-    await streamSub.cancel();
+    // Ensure cleanup
+    ref.onDispose(() async {
+      await streamSub.cancel();
+    });
   });
 });
 

@@ -149,11 +149,15 @@ final appStartupFlowProvider = Provider<void>((ref) {
   Future.microtask(() async {
     final online = ref.read(isOnlineProvider);
     if (!online) return;
+    // Slightly increase jitter to reduce contention on startup
     final jitter = Duration(
-      milliseconds: 50 + (DateTime.now().millisecond % 100),
+      milliseconds: 150 + (DateTime.now().millisecond % 200),
     );
-    await Future.delayed(jitter);
-    _scheduleConversationWarmup(ref);
+    // Defer until after first frame to keep first paint smooth
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(jitter);
+      _scheduleConversationWarmup(ref);
+    });
   });
 
   // One-time, post-frame system UI polish: set status bar icon brightness to

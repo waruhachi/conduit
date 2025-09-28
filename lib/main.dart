@@ -55,12 +55,12 @@ void main() {
       _startupTimeline!.start('app_startup');
       _startupTimeline!.instant('bindings_initialized');
 
-      // Enable edge-to-edge globally (back-compat on pre-Android 15)
-      // Pairs with Activity's EdgeToEdge.enable and our SafeArea usage.
-      // Do not block first frame on system UI mode; apply shortly after startup
-      // ignore: discarded_futures
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      _startupTimeline!.instant('edge_to_edge_enabled');
+      // Defer edge-to-edge mode to post-frame to avoid impacting first paint
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // ignore: discarded_futures
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        _startupTimeline?.instant('edge_to_edge_enabled');
+      });
 
       final sharedPrefs = await SharedPreferences.getInstance();
       _startupTimeline!.instant('shared_prefs_ready');

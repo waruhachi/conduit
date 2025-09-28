@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -207,9 +208,12 @@ final socketServiceProvider = Provider<SocketService?>((ref) {
         authToken: token,
         websocketOnly: transportMode == 'ws',
       );
-      // best-effort connect; errors handled internally
-      // ignore unawaited_futures
-      s.connect();
+      // best-effort connect, but defer to post-frame with a small delay
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await Future.delayed(const Duration(milliseconds: 150));
+        // ignore: discarded_futures
+        s.connect();
+      });
       // Keep socket token up-to-date without reconstructing the service
       ref.listen<String?>(authTokenProvider3, (prev, next) {
         s.updateAuthToken(next);
@@ -881,24 +885,28 @@ final backgroundModelLoadProvider = Provider<void>((ref) {
   // Ensure API token updater is initialized
   ref.watch(apiTokenUpdaterProvider);
 
-  // Schedule background loading without blocking
-  Future.microtask(() async {
-    // Wait a bit to ensure auth is complete
-    await Future.delayed(const Duration(milliseconds: 200));
+  // Only run when authenticated, and defer until after first frame
+  final navState = ref.read(authNavigationStateProvider);
+  if (navState != AuthNavigationState.authenticated) {
+    return;
+  }
 
-    DebugLogger.log('bg-start', scope: 'models/background');
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Schedule background loading without blocking startup frame
+    Future.microtask(() async {
+      // Small delay to allow initial build/layout to settle
+      await Future.delayed(const Duration(milliseconds: 250));
 
-    // Load default model in background
-    try {
-      await ref.read(defaultModelProvider.future);
-      DebugLogger.log('bg-complete', scope: 'models/background');
-    } catch (e) {
-      // Ignore errors in background loading
-      DebugLogger.error('bg-failed', scope: 'models/background', error: e);
-    }
+      DebugLogger.log('bg-start', scope: 'models/background');
+      try {
+        await ref.read(defaultModelProvider.future);
+        DebugLogger.log('bg-complete', scope: 'models/background');
+      } catch (e) {
+        DebugLogger.error('bg-failed', scope: 'models/background', error: e);
+      }
+    });
   });
 
-  // Return immediately, don't block the UI
   return;
 });
 
