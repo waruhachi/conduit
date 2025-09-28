@@ -24,6 +24,7 @@ import '../services/settings_service.dart';
 import '../services/optimized_storage_service.dart';
 import '../services/socket_service.dart';
 import '../utils/debug_logger.dart';
+import '../models/socket_event.dart';
 
 part 'app_providers.g.dart';
 
@@ -281,41 +282,30 @@ enum SocketConnectionState { disconnected, connecting, connected }
 class SocketConnectionStream extends _$SocketConnectionStream {
   StreamController<SocketConnectionState>? _controller;
   ProviderSubscription<AsyncValue<SocketService?>>? _serviceSubscription;
-  void Function()? _cancelConnectListener;
-  void Function()? _cancelDisconnectListener;
+  VoidCallback? _cancelConnectListener;
+  VoidCallback? _cancelDisconnectListener;
+  SocketConnectionState _latestState = SocketConnectionState.disconnected;
 
   @override
   Stream<SocketConnectionState> build() {
-    final controller = StreamController<SocketConnectionState>.broadcast();
+    final controller = StreamController<SocketConnectionState>.broadcast(
+      sync: true,
+    );
+    controller
+      ..onListen = _primeState
+      ..onCancel = _maybeNotifyDisconnected;
     _controller = controller;
 
-    void emitState(SocketService? service) {
-      if (service == null) {
-        controller.add(SocketConnectionState.disconnected);
-        _unbindSocket();
-        return;
-      }
-      controller.add(
-        service.isConnected
-            ? SocketConnectionState.connected
-            : SocketConnectionState.connecting,
-      );
-      _bindSocket(service);
-    }
-
-    emitState(
-      ref
-          .watch(socketServiceManagerProvider)
-          .maybeWhen(data: (service) => service, orElse: () => null),
-    );
+    final initialService = ref
+        .watch(socketServiceManagerProvider)
+        .maybeWhen(data: (service) => service, orElse: () => null);
+    _handleServiceChange(initialService);
 
     _serviceSubscription = ref.listen<AsyncValue<SocketService?>>(
       socketServiceManagerProvider,
-      (previous, next) {
-        emitState(
-          next.maybeWhen(data: (service) => service, orElse: () => null),
-        );
-      },
+      (_, next) => _handleServiceChange(
+        next.maybeWhen(data: (service) => service, orElse: () => null),
+      ),
     );
 
     ref.onDispose(() {
@@ -329,15 +319,45 @@ class SocketConnectionStream extends _$SocketConnectionStream {
     return controller.stream;
   }
 
+  /// Publishes a disconnected state when the final listener cancels.
+  void _maybeNotifyDisconnected() {
+    try {
+      _controller?.add(SocketConnectionState.disconnected);
+      _latestState = SocketConnectionState.disconnected;
+    } catch (_) {}
+  }
+
+  /// Replays the cached state to new listeners.
+  void _primeState() {
+    try {
+      _controller?.add(_latestState);
+    } catch (_) {}
+  }
+
+  void _handleServiceChange(SocketService? service) {
+    if (service == null) {
+      _unbindSocket();
+      _emit(SocketConnectionState.disconnected);
+      return;
+    }
+
+    _emit(
+      service.isConnected
+          ? SocketConnectionState.connected
+          : SocketConnectionState.connecting,
+    );
+    _bindSocket(service);
+  }
+
   void _bindSocket(SocketService service) {
     _unbindSocket();
 
     void handleConnect(dynamic _) {
-      _controller?.add(SocketConnectionState.connected);
+      _emit(SocketConnectionState.connected);
     }
 
     void handleDisconnect(dynamic _) {
-      _controller?.add(SocketConnectionState.disconnected);
+      _emit(SocketConnectionState.disconnected);
     }
 
     service.socket?.on('connect', handleConnect);
@@ -351,13 +371,148 @@ class SocketConnectionStream extends _$SocketConnectionStream {
     };
   }
 
+  void _emit(SocketConnectionState next) {
+    if (_latestState == next) {
+      return;
+    }
+    _latestState = next;
+    try {
+      _controller?.add(next);
+    } catch (_) {}
+  }
+
   void _unbindSocket() {
     _cancelConnectListener?.call();
     _cancelDisconnectListener?.call();
     _cancelConnectListener = null;
     _cancelDisconnectListener = null;
   }
+
+  /// Forces a best-effort reconnect of the underlying socket service.
+  Future<void> reconnect({
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
+    final service = ref.read(socketServiceProvider);
+    if (service == null) {
+      return;
+    }
+    final connected = await service.ensureConnected(timeout: timeout);
+    _emit(
+      connected
+          ? SocketConnectionState.connected
+          : SocketConnectionState.connecting,
+    );
+  }
+
+  /// Exposes the latest cached state for imperative reads.
+  SocketConnectionState get latest => _latestState;
 }
+
+@Riverpod(keepAlive: true)
+class ConversationDeltaStream extends _$ConversationDeltaStream {
+  StreamController<ConversationDelta>? _controller;
+  ProviderSubscription<AsyncValue<SocketService?>>? _serviceSubscription;
+  SocketEventSubscription? _socketSubscription;
+
+  @override
+  Stream<ConversationDelta> build(ConversationDeltaRequest request) {
+    final controller = StreamController<ConversationDelta>.broadcast(
+      sync: true,
+      onCancel: _maybeTearDownSocket,
+    );
+    _controller = controller;
+
+    final initialService = ref
+        .watch(socketServiceManagerProvider)
+        .maybeWhen(data: (service) => service, orElse: () => null);
+    _bindSocket(initialService, request);
+
+    _serviceSubscription = ref.listen<AsyncValue<SocketService?>>(
+      socketServiceManagerProvider,
+      (_, next) => _bindSocket(
+        next.maybeWhen(data: (service) => service, orElse: () => null),
+        request,
+      ),
+    );
+
+    ref.onDispose(() {
+      _serviceSubscription?.close();
+      _serviceSubscription = null;
+      _socketSubscription?.dispose();
+      _socketSubscription = null;
+      _controller?.close();
+      _controller = null;
+    });
+
+    return controller.stream;
+  }
+
+  void _bindSocket(SocketService? service, ConversationDeltaRequest request) {
+    _socketSubscription?.dispose();
+    _socketSubscription = null;
+
+    if (service == null) {
+      return;
+    }
+
+    switch (request.source) {
+      case ConversationDeltaSource.chat:
+        _socketSubscription = service.addChatEventHandler(
+          conversationId: request.conversationId,
+          sessionId: request.sessionId,
+          requireFocus: request.requireFocus,
+          handler: (event, ack) {
+            _controller?.add(
+              ConversationDelta.fromSocketEvent(
+                ConversationDeltaSource.chat,
+                event,
+                ack,
+              ),
+            );
+          },
+        );
+        break;
+      case ConversationDeltaSource.channel:
+        _socketSubscription = service.addChannelEventHandler(
+          conversationId: request.conversationId,
+          sessionId: request.sessionId,
+          requireFocus: request.requireFocus,
+          handler: (event, ack) {
+            _controller?.add(
+              ConversationDelta.fromSocketEvent(
+                ConversationDeltaSource.channel,
+                event,
+                ack,
+              ),
+            );
+          },
+        );
+        break;
+    }
+  }
+
+  void _maybeTearDownSocket() {
+    if (_controller?.hasListener == true) {
+      return;
+    }
+    _socketSubscription?.dispose();
+    _socketSubscription = null;
+  }
+
+  Stream<ConversationDelta> get stream =>
+      _controller?.stream ?? const Stream<ConversationDelta>.empty();
+}
+
+final conversationDeltaEventsProvider =
+    StreamProvider.family<ConversationDelta, ConversationDeltaRequest>((
+      ref,
+      request,
+    ) {
+      final notifier = ref.watch(
+        conversationDeltaStreamProvider(request).notifier,
+      );
+      return notifier.stream;
+    });
 
 // Attachment upload queue provider
 final attachmentUploadQueueProvider = Provider<AttachmentUploadQueue?>((ref) {

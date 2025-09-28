@@ -6,10 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/utils/tool_calls_parser.dart';
 import '../../../core/services/streaming_helper.dart';
-import '../../../core/services/socket_service.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/models/conversation.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/models/socket_event.dart';
 import '../../../core/auth/auth_state_manager.dart';
 import '../../../core/utils/inactivity_watchdog.dart';
 import '../services/reviewer_mode_service.dart';
@@ -89,7 +89,7 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   StreamSubscription? _messageStream;
   ProviderSubscription? _conversationListener;
   final List<StreamSubscription> _subscriptions = [];
-  final List<SocketEventSubscription> _socketSubscriptions = [];
+  final List<VoidCallback> _socketSubscriptions = [];
   VoidCallback? _socketTeardown;
   // Activity-based watchdog to prevent stuck typing indicator
   InactivityWatchdog? _typingWatchdog;
@@ -397,7 +397,7 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   }
 
   void setSocketSubscriptions(
-    List<SocketEventSubscription> subscriptions, {
+    List<VoidCallback> subscriptions, {
     VoidCallback? onDispose,
   }) {
     cancelSocketSubscriptions();
@@ -411,9 +411,9 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
       _socketTeardown = null;
       return;
     }
-    for (final sub in _socketSubscriptions) {
+    for (final dispose in _socketSubscriptions) {
       try {
-        sub.dispose();
+        dispose();
       } catch (_) {}
     }
     _socketSubscriptions.clear();
@@ -1332,6 +1332,30 @@ Future<void> regenerateMessage(
       });
     } catch (_) {}
 
+    final chatEventsStream = ref
+        .read(
+          conversationDeltaStreamProvider(
+            ConversationDeltaRequest.chat(
+              conversationId: activeConversation.id,
+              sessionId: effectiveSessionId,
+              requireFocus: false,
+            ),
+          ).notifier,
+        )
+        .stream;
+
+    final channelEventsStream = ref
+        .read(
+          conversationDeltaStreamProvider(
+            ConversationDeltaRequest.channel(
+              conversationId: activeConversation.id,
+              sessionId: effectiveSessionId,
+              requireFocus: false,
+            ),
+          ).notifier,
+        )
+        .stream;
+
     final activeStream = attachUnifiedChunkedStreaming(
       stream: stream,
       webSearchEnabled: webSearchEnabled,
@@ -1342,6 +1366,8 @@ Future<void> regenerateMessage(
       activeConversationId: activeConversation.id,
       api: api,
       socketService: socketService,
+      chatEvents: chatEventsStream,
+      channelEvents: channelEventsStream,
       appendToLastMessage: (c) =>
           ref.read(chatMessagesProvider.notifier).appendToLastMessage(c),
       replaceLastMessageContent: (c) =>
@@ -1867,6 +1893,30 @@ Future<void> _sendMessageInternal(
       });
     } catch (_) {}
 
+    final chatEventsStream = ref
+        .read(
+          conversationDeltaStreamProvider(
+            ConversationDeltaRequest.chat(
+              conversationId: activeConversation?.id,
+              sessionId: effectiveSessionId,
+              requireFocus: false,
+            ),
+          ).notifier,
+        )
+        .stream;
+
+    final channelEventsStream = ref
+        .read(
+          conversationDeltaStreamProvider(
+            ConversationDeltaRequest.channel(
+              conversationId: activeConversation?.id,
+              sessionId: effectiveSessionId,
+              requireFocus: false,
+            ),
+          ).notifier,
+        )
+        .stream;
+
     final activeStream = attachUnifiedChunkedStreaming(
       stream: stream,
       webSearchEnabled: webSearchEnabled,
@@ -1877,6 +1927,8 @@ Future<void> _sendMessageInternal(
       activeConversationId: activeConversation?.id,
       api: api,
       socketService: socketService,
+      chatEvents: chatEventsStream,
+      channelEvents: channelEventsStream,
       appendToLastMessage: (c) =>
           ref.read(chatMessagesProvider.notifier).appendToLastMessage(c),
       replaceLastMessageContent: (c) =>

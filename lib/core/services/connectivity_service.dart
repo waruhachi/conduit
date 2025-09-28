@@ -1,7 +1,12 @@
 import 'dart:async';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
 import '../providers/app_providers.dart';
+
+part 'connectivity_service.g.dart';
 
 enum ConnectivityStatus { online, offline, checking }
 
@@ -211,10 +216,29 @@ final connectivityServiceProvider = Provider<ConnectivityService>((ref) {
   return service;
 });
 
-final connectivityStatusProvider = StreamProvider<ConnectivityStatus>((ref) {
-  final service = ref.watch(connectivityServiceProvider);
-  return service.connectivityStream;
-});
+@Riverpod(keepAlive: true)
+class ConnectivityStatusNotifier extends _$ConnectivityStatusNotifier {
+  StreamSubscription<ConnectivityStatus>? _subscription;
+
+  @override
+  FutureOr<ConnectivityStatus> build() {
+    final service = ref.watch(connectivityServiceProvider);
+
+    _subscription?.cancel();
+    _subscription = service.connectivityStream.listen(
+      (status) => state = AsyncValue.data(status),
+      onError: (error, stackTrace) =>
+          state = AsyncValue.error(error, stackTrace),
+    );
+
+    ref.onDispose(() {
+      _subscription?.cancel();
+      _subscription = null;
+    });
+
+    return service.currentStatus;
+  }
+}
 
 final isOnlineProvider = Provider<bool>((ref) {
   // In reviewer mode, treat app as online to enable flows

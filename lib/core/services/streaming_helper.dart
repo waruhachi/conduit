@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../core/models/chat_message.dart';
+import '../../core/models/socket_event.dart';
 import '../../core/services/persistent_streaming_service.dart';
 import '../../core/services/socket_service.dart';
 import '../../core/utils/inactivity_watchdog.dart';
@@ -25,7 +26,7 @@ class ActiveSocketStream {
   });
 
   final StreamSubscription<String> streamSubscription;
-  final List<SocketEventSubscription> socketSubscriptions;
+  final List<VoidCallback> socketSubscriptions;
   final VoidCallback disposeWatchdog;
 }
 
@@ -44,6 +45,8 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
   required String? activeConversationId,
   required dynamic api,
   required SocketService? socketService,
+  Stream<ConversationDelta>? chatEvents,
+  Stream<ConversationDelta>? channelEvents,
   // Message update callbacks
   required void Function(String) appendToLastMessage,
   required void Function(String) replaceLastMessageContent,
@@ -91,8 +94,10 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
   );
 
   InactivityWatchdog? socketWatchdog;
-  final socketSubscriptions = <SocketEventSubscription>[];
-  if (socketService != null) {
+  final socketSubscriptions = <VoidCallback>[];
+  final hasSocketSignals =
+      socketService != null || chatEvents != null || channelEvents != null;
+  if (hasSocketSignals) {
     // Increase timeout to match OpenWebUI's more generous timeouts for long responses
     socketWatchdog = InactivityWatchdog(
       window: const Duration(minutes: 15), // Increased from 5 to 15 minutes
@@ -102,8 +107,10 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
           scope: 'streaming/helper',
         );
         try {
-          for (final sub in socketSubscriptions) {
-            sub.dispose();
+          for (final dispose in socketSubscriptions) {
+            try {
+              dispose();
+            } catch (_) {}
           }
           socketSubscriptions.clear();
         } catch (_) {}
@@ -124,9 +131,9 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
     if (socketSubscriptions.isEmpty) {
       return;
     }
-    for (final sub in socketSubscriptions) {
+    for (final dispose in socketSubscriptions) {
       try {
-        sub.dispose();
+        dispose();
       } catch (_) {}
     }
     socketSubscriptions.clear();
@@ -983,22 +990,40 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
     } catch (_) {}
   }
 
-  if (socketService != null) {
+  if (chatEvents != null) {
+    final subscription = chatEvents.listen((event) {
+      socketWatchdog?.ping();
+      chatHandler(event.raw, event.ack);
+    });
+    socketSubscriptions.add(() {
+      unawaited(subscription.cancel());
+    });
+  } else if (socketService != null) {
     final chatSub = socketService.addChatEventHandler(
       conversationId: activeConversationId,
       sessionId: sessionId,
       requireFocus: false,
       handler: chatHandler,
     );
-    socketSubscriptions.add(chatSub);
+    socketSubscriptions.add(chatSub.dispose);
+  }
 
+  if (channelEvents != null) {
+    final subscription = channelEvents.listen((event) {
+      socketWatchdog?.ping();
+      channelEventsHandler(event.raw, event.ack);
+    });
+    socketSubscriptions.add(() {
+      unawaited(subscription.cancel());
+    });
+  } else if (socketService != null) {
     final channelSub = socketService.addChannelEventHandler(
       conversationId: activeConversationId,
       sessionId: sessionId,
       requireFocus: false,
       handler: channelEventsHandler,
     );
-    socketSubscriptions.add(channelSub);
+    socketSubscriptions.add(channelSub.dispose);
   }
 
   final subscription = persistentController.stream.listen(
