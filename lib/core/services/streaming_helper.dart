@@ -705,7 +705,35 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
             } catch (_) {}
           } else {
             try {
-              final source = ChatSourceReference.fromJson(map);
+              // Handle nested source structure from OpenWebUI
+              final sourceData = map['source'];
+              final ChatSourceReference source;
+
+              if (sourceData is Map<String, dynamic>) {
+                // Extract the actual source information from nested structure
+                final sourceMap = Map<String, dynamic>.from(sourceData);
+
+                // Add additional metadata from the outer structure if available
+                if (map.containsKey('document') && map['document'] is List) {
+                  final documents = map['document'] as List;
+                  if (documents.isNotEmpty) {
+                    sourceMap['snippet'] = documents.first?.toString();
+                  }
+                }
+
+                if (map.containsKey('metadata') && map['metadata'] is List) {
+                  final metadata = map['metadata'] as List;
+                  if (metadata.isNotEmpty && metadata.first is Map) {
+                    sourceMap['metadata'] = metadata.first;
+                  }
+                }
+
+                source = ChatSourceReference.fromJson(sourceMap);
+              } else {
+                // Fallback: treat the entire map as a source (for backward compatibility)
+                source = ChatSourceReference.fromJson(map);
+              }
+
               final targetId = _resolveTargetMessageId(messageId, getMessages);
               if (targetId != null) {
                 appendSourceReference(targetId, source);

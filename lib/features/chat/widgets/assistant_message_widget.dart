@@ -20,6 +20,7 @@ import '../../../shared/widgets/model_avatar.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import '../providers/chat_providers.dart' show sendMessage;
 import '../../../core/utils/debug_logger.dart';
+import 'sources/openwebui_sources.dart';
 
 class AssistantMessageWidget extends ConsumerStatefulWidget {
   final dynamic message;
@@ -654,8 +655,11 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                     ],
 
                     if (hasSources) ...[
-                      const SizedBox(height: Spacing.md),
-                      CitationListView(sources: widget.message.sources),
+                      const SizedBox(height: Spacing.xs),
+                      OpenWebUISourcesWidget(
+                        sources: widget.message.sources,
+                        messageId: widget.message.id,
+                      ),
                     ],
                   ],
                 ),
@@ -1848,6 +1852,9 @@ class CodeExecutionListView extends StatelessWidget {
   }
 }
 
+// Legacy CitationListView - replaced with OpenWebUISourcesWidget
+// Keeping for reference, can be removed after testing
+/*
 class CitationListView extends StatelessWidget {
   const CitationListView({super.key, required this.sources});
 
@@ -1899,6 +1906,7 @@ class CitationListView extends StatelessWidget {
     );
   }
 }
+*/
 
 class FollowUpSuggestionBar extends StatelessWidget {
   const FollowUpSuggestionBar({

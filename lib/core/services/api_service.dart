@@ -1290,11 +1290,43 @@ class ApiService {
           .map((entry) {
             try {
               // Convert Map to Map<String, dynamic> safely
-              final Map<String, dynamic> sourceMap = {};
+              final Map<String, dynamic> entryMap = {};
               entry.forEach((key, value) {
-                sourceMap[key.toString()] = value;
+                entryMap[key.toString()] = value;
               });
-              return ChatSourceReference.fromJson(sourceMap);
+
+              // Handle nested source structure from OpenWebUI
+              // Sources can have structure like: { "source": { "name": "...", "id": "..." }, "document": [...], "metadata": [...] }
+              final sourceData = entryMap['source'];
+              if (sourceData is Map) {
+                // Extract the actual source information from nested structure
+                final Map<String, dynamic> sourceMap = {};
+                sourceData.forEach((key, value) {
+                  sourceMap[key.toString()] = value;
+                });
+
+                // Add additional metadata from the outer structure if available
+                if (entryMap.containsKey('document') &&
+                    entryMap['document'] is List) {
+                  final documents = entryMap['document'] as List;
+                  if (documents.isNotEmpty) {
+                    sourceMap['snippet'] = documents.first?.toString();
+                  }
+                }
+
+                if (entryMap.containsKey('metadata') &&
+                    entryMap['metadata'] is List) {
+                  final metadata = entryMap['metadata'] as List;
+                  if (metadata.isNotEmpty && metadata.first is Map) {
+                    sourceMap['metadata'] = metadata.first;
+                  }
+                }
+
+                return ChatSourceReference.fromJson(sourceMap);
+              } else {
+                // Fallback: treat the entire entry as a source (for backward compatibility)
+                return ChatSourceReference.fromJson(entryMap);
+              }
             } catch (e) {
               // Log the error and skip this entry
               DebugLogger.log(
