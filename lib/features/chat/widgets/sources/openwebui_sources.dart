@@ -337,9 +337,6 @@ class _OpenWebUISourcesWidgetState extends State<OpenWebUISourcesWidget> {
             source.metadata!['link']?.toString();
       }
     }
-    debugPrint(
-      '_getSourceUrl: source.url=${source.url}, metadata_source=${source.metadata?['source']}, final_url=$url',
-    );
     return url;
   }
 

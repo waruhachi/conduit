@@ -16,6 +16,7 @@ import '../error/api_error_interceptor.dart';
 // Tool-call details are parsed in the UI layer to render collapsible blocks
 import 'persistent_streaming_service.dart';
 import '../utils/debug_logger.dart';
+import '../utils/openwebui_source_parser.dart';
 
 const bool _traceApiLogs = false;
 const bool _traceConversationParsing = false;
@@ -1284,64 +1285,11 @@ class ApiService {
   }
 
   List<ChatSourceReference> _parseSourcesField(dynamic raw) {
-    if (raw is List) {
-      return raw
-          .whereType<Map>()
-          .map((entry) {
-            try {
-              // Convert Map to Map<String, dynamic> safely
-              final Map<String, dynamic> entryMap = {};
-              entry.forEach((key, value) {
-                entryMap[key.toString()] = value;
-              });
-
-              // Handle nested source structure from OpenWebUI
-              // Sources can have structure like: { "source": { "name": "...", "id": "..." }, "document": [...], "metadata": [...] }
-              final sourceData = entryMap['source'];
-              if (sourceData is Map) {
-                // Extract the actual source information from nested structure
-                final Map<String, dynamic> sourceMap = {};
-                sourceData.forEach((key, value) {
-                  sourceMap[key.toString()] = value;
-                });
-
-                // Add additional metadata from the outer structure if available
-                if (entryMap.containsKey('document') &&
-                    entryMap['document'] is List) {
-                  final documents = entryMap['document'] as List;
-                  if (documents.isNotEmpty) {
-                    sourceMap['snippet'] = documents.first?.toString();
-                  }
-                }
-
-                if (entryMap.containsKey('metadata') &&
-                    entryMap['metadata'] is List) {
-                  final metadata = entryMap['metadata'] as List;
-                  if (metadata.isNotEmpty && metadata.first is Map) {
-                    sourceMap['metadata'] = metadata.first;
-                  }
-                }
-
-                return ChatSourceReference.fromJson(sourceMap);
-              } else {
-                // Fallback: treat the entire entry as a source (for backward compatibility)
-                return ChatSourceReference.fromJson(entryMap);
-              }
-            } catch (e) {
-              // Log the error and skip this entry
-              DebugLogger.log(
-                'source-parse-error',
-                scope: 'api/chat',
-                data: {'error': e.toString(), 'entry': entry.toString()},
-              );
-              return null;
-            }
-          })
-          .where((item) => item != null)
-          .cast<ChatSourceReference>()
-          .toList(growable: false);
+    try {
+      return parseOpenWebUISourceList(raw);
+    } catch (_) {
+      return const <ChatSourceReference>[];
     }
-    return const <ChatSourceReference>[];
   }
 
   // Create new conversation using OpenWebUI API
