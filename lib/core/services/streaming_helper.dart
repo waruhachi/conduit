@@ -7,7 +7,6 @@ import '../../core/models/chat_message.dart';
 import '../../core/services/persistent_streaming_service.dart';
 import '../../core/services/socket_service.dart';
 import '../../core/utils/inactivity_watchdog.dart';
-import '../../core/utils/stream_chunker.dart';
 import '../../core/utils/tool_calls_parser.dart';
 import 'navigation_service.dart';
 import '../../shared/widgets/themed_dialogs.dart';
@@ -66,22 +65,12 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
   required void Function() finishStreaming,
   required List<ChatMessage> Function() getMessages,
 }) {
-  // Temporarily disable chunking to debug second turn issues
-  // OpenWebUI doesn't use complex chunking like this
-  final chunkedStream = StreamChunker.chunkStream(
-    stream,
-    enableChunking: false, // Disabled for debugging
-    minChunkSize: 5,
-    maxChunkLength: 3,
-    delayBetweenChunks: const Duration(milliseconds: 15),
-  );
-
   // Persistable controller to survive brief app suspensions
   final persistentController = StreamController<String>.broadcast();
   final persistentService = PersistentStreamingService();
 
   final streamId = persistentService.registerStream(
-    subscription: chunkedStream.listen(
+    subscription: stream.listen(
       persistentController.add,
       onDone: persistentController.close,
       onError: persistentController.addError,
