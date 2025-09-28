@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -435,8 +434,9 @@ class _ConversationsCacheTimestampNotifier extends Notifier<DateTime?> {
 
 // Conversation providers - Now using correct OpenWebUI API with caching
 final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
-  // Do not fetch protected data until authenticated
-  final authed = ref.read(isAuthenticatedProvider2);
+  // Do not fetch protected data until authenticated. Use watch so we refetch
+  // when the auth state transitions in either direction.
+  final authed = ref.watch(isAuthenticatedProvider2);
   if (!authed) {
     DebugLogger.log('skip-unauthed', scope: 'conversations');
     return [];
