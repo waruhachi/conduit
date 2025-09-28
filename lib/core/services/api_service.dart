@@ -1198,11 +1198,26 @@ class ApiService {
     if (raw is List) {
       return raw
           .whereType<Map>()
-          .map(
-            (entry) => ChatStatusUpdate.fromJson(
-              entry.map((key, value) => MapEntry(key.toString(), value)),
-            ),
-          )
+          .map((entry) {
+            try {
+              // Convert Map to Map<String, dynamic> safely
+              final Map<String, dynamic> statusMap = {};
+              entry.forEach((key, value) {
+                statusMap[key.toString()] = value;
+              });
+              return ChatStatusUpdate.fromJson(statusMap);
+            } catch (e) {
+              // Log the error and skip this entry
+              DebugLogger.log(
+                'status-parse-error',
+                scope: 'api/chat',
+                data: {'error': e.toString(), 'entry': entry.toString()},
+              );
+              return null;
+            }
+          })
+          .where((item) => item != null)
+          .cast<ChatStatusUpdate>()
           .toList(growable: false);
     }
     return const <ChatStatusUpdate>[];
@@ -1226,11 +1241,26 @@ class ApiService {
     if (raw is List) {
       return raw
           .whereType<Map>()
-          .map(
-            (entry) => ChatCodeExecution.fromJson(
-              entry.map((key, value) => MapEntry(key.toString(), value)),
-            ),
-          )
+          .map((entry) {
+            try {
+              // Convert Map to Map<String, dynamic> safely
+              final Map<String, dynamic> execMap = {};
+              entry.forEach((key, value) {
+                execMap[key.toString()] = value;
+              });
+              return ChatCodeExecution.fromJson(execMap);
+            } catch (e) {
+              // Log the error and skip this entry
+              DebugLogger.log(
+                'code-exec-parse-error',
+                scope: 'api/chat',
+                data: {'error': e.toString(), 'entry': entry.toString()},
+              );
+              return null;
+            }
+          })
+          .where((item) => item != null)
+          .cast<ChatCodeExecution>()
           .toList(growable: false);
     }
     return const <ChatCodeExecution>[];
@@ -1240,11 +1270,26 @@ class ApiService {
     if (raw is List) {
       return raw
           .whereType<Map>()
-          .map(
-            (entry) => ChatSourceReference.fromJson(
-              entry.map((key, value) => MapEntry(key.toString(), value)),
-            ),
-          )
+          .map((entry) {
+            try {
+              // Convert Map to Map<String, dynamic> safely
+              final Map<String, dynamic> sourceMap = {};
+              entry.forEach((key, value) {
+                sourceMap[key.toString()] = value;
+              });
+              return ChatSourceReference.fromJson(sourceMap);
+            } catch (e) {
+              // Log the error and skip this entry
+              DebugLogger.log(
+                'source-parse-error',
+                scope: 'api/chat',
+                data: {'error': e.toString(), 'entry': entry.toString()},
+              );
+              return null;
+            }
+          })
+          .where((item) => item != null)
+          .cast<ChatSourceReference>()
           .toList(growable: false);
     }
     return const <ChatSourceReference>[];

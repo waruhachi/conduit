@@ -157,11 +157,21 @@ List<ChatStatusItem> _statusItemsFromJson(dynamic value) {
   if (value is List) {
     return value
         .whereType<Map>()
-        .map(
-          (item) => ChatStatusItem.fromJson(
-            item.map((key, v) => MapEntry(key.toString(), v)),
-          ),
-        )
+        .map((item) {
+          try {
+            // Convert Map to Map<String, dynamic> safely
+            final Map<String, dynamic> itemMap = {};
+            item.forEach((key, v) {
+              itemMap[key.toString()] = v;
+            });
+            return ChatStatusItem.fromJson(itemMap);
+          } catch (e) {
+            // Skip invalid entries
+            return null;
+          }
+        })
+        .where((item) => item != null)
+        .cast<ChatStatusItem>()
         .toList(growable: false);
   }
   return const [];
@@ -175,11 +185,21 @@ List<ChatExecutionFile> _executionFilesFromJson(dynamic value) {
   if (value is List) {
     return value
         .whereType<Map>()
-        .map(
-          (item) => ChatExecutionFile.fromJson(
-            item.map((key, v) => MapEntry(key.toString(), v)),
-          ),
-        )
+        .map((item) {
+          try {
+            // Convert Map to Map<String, dynamic> safely
+            final Map<String, dynamic> fileMap = {};
+            item.forEach((key, v) {
+              fileMap[key.toString()] = v;
+            });
+            return ChatExecutionFile.fromJson(fileMap);
+          } catch (e) {
+            // Skip invalid entries
+            return null;
+          }
+        })
+        .where((item) => item != null)
+        .cast<ChatExecutionFile>()
         .toList(growable: false);
   }
   return const [];
@@ -195,11 +215,21 @@ List<ChatSourceReference> _sourceRefsFromJson(dynamic value) {
   if (value is List) {
     return value
         .whereType<Map>()
-        .map(
-          (item) => ChatSourceReference.fromJson(
-            item.map((key, v) => MapEntry(key.toString(), v)),
-          ),
-        )
+        .map((item) {
+          try {
+            // Convert Map to Map<String, dynamic> safely
+            final Map<String, dynamic> refMap = {};
+            item.forEach((key, v) {
+              refMap[key.toString()] = v;
+            });
+            return ChatSourceReference.fromJson(refMap);
+          } catch (e) {
+            // Skip invalid entries
+            return null;
+          }
+        })
+        .where((item) => item != null)
+        .cast<ChatSourceReference>()
         .toList(growable: false);
   }
   return const [];
