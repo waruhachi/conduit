@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../providers/app_providers.dart';
 import '../../features/auth/providers/unified_auth_providers.dart';
@@ -15,6 +16,8 @@ import '../../shared/theme/theme_extensions.dart';
 import '../services/connectivity_service.dart';
 import '../utils/debug_logger.dart';
 import '../models/server_config.dart';
+
+part 'app_startup_providers.g.dart';
 
 enum _ConversationWarmupStatus { idle, warming, complete }
 
@@ -116,149 +119,174 @@ void _scheduleConversationWarmup(Ref ref, {bool force = false}) {
 
 /// App-level startup/background task flow orchestrator.
 ///
-/// Moves background initialization out of widgets and into a Riverpod provider,
-/// keeping UI lean and business logic centralized.
-final appStartupFlowProvider = Provider<void>((ref) {
-  // Ensure token integration listeners are active
-  ref.watch(authApiIntegrationProvider);
-  ref.watch(apiTokenUpdaterProvider);
-  ref.watch(silentLoginCoordinatorProvider);
+/// Moves background initialization out of widgets and into a Riverpod controller,
+/// keeping UI lean and business logic centralized while avoiding side effects
+/// during provider build.
+@Riverpod(keepAlive: true)
+class AppStartupFlow extends _$AppStartupFlow {
+  bool _started = false;
 
-  // Kick background model loading flow (non-blocking)
-  ref.watch(backgroundModelLoadProvider);
+  @override
+  FutureOr<void> build() {}
 
-  // If authenticated, keep socket service alive and connected
-  final navState = ref.watch(authNavigationStateProvider);
-  if (navState == AuthNavigationState.authenticated) {
-    ref.watch(socketServiceProvider);
+  void start() {
+    if (_started) return;
+    _started = true;
+    state = const AsyncValue<void>.data(null);
+    _activate();
   }
 
-  // Ensure resume-triggered foreground refresh is active
-  ref.watch(foregroundRefreshProvider);
+  void _activate() {
+    final ref = this.ref;
 
-  // Keep Socket.IO connection alive in background within platform limits
-  ref.watch(socketPersistenceProvider);
+    // Ensure token integration listeners are active
+    ref.watch(authApiIntegrationProvider);
+    ref.watch(apiTokenUpdaterProvider);
+    ref.watch(silentLoginCoordinatorProvider);
 
-  // Ensure persistent streaming uses the shared connectivity service
-  final connectivityService = ref.watch(connectivityServiceProvider);
-  PersistentStreamingService().attachConnectivityService(connectivityService);
+    // Kick background model loading flow (non-blocking)
+    ref.watch(backgroundModelLoadProvider);
 
-  // Warm the conversations list in the background as soon as possible,
-  // but avoid doing so on poor connectivity to reduce startup load.
-  // Apply a small randomized delay to smooth load spikes across app wakes.
-  Future.microtask(() async {
-    final online = ref.read(isOnlineProvider);
-    if (!online) return;
-    // Slightly increase jitter to reduce contention on startup
-    final jitter = Duration(
-      milliseconds: 150 + (DateTime.now().millisecond % 200),
-    );
-    // Defer until after first frame to keep first paint smooth
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future.delayed(jitter);
-      _scheduleConversationWarmup(ref);
-    });
-  });
+    // If authenticated, keep socket service alive and connected
+    final navState = ref.watch(authNavigationStateProvider);
+    if (navState == AuthNavigationState.authenticated) {
+      ref.watch(socketServiceProvider);
+    }
 
-  // One-time, post-frame system UI polish: set status bar icon brightness to
-  // match theme after the first frame. Avoids flicker at startup.
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    try {
-      final context = NavigationService.context;
-      final view = context != null ? View.maybeOf(context) : null;
-      final dispatcher = WidgetsBinding.instance.platformDispatcher;
-      final platformBrightness =
-          view?.platformDispatcher.platformBrightness ??
-          dispatcher.platformBrightness;
-      final isDark = platformBrightness == Brightness.dark;
-      SystemChrome.setSystemUIOverlayStyle(
-        SystemUiOverlayStyle(
-          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-          systemNavigationBarIconBrightness: isDark
-              ? Brightness.light
-              : Brightness.dark,
-        ),
+    // Ensure resume-triggered foreground refresh is active
+    ref.watch(foregroundRefreshProvider);
+
+    // Keep Socket.IO connection alive in background within platform limits
+    ref.watch(socketPersistenceProvider);
+    ref.watch(socketConnectionStreamProvider);
+
+    // Ensure persistent streaming uses the shared connectivity service
+    final connectivityService = ref.watch(connectivityServiceProvider);
+    PersistentStreamingService().attachConnectivityService(connectivityService);
+
+    // Warm the conversations list in the background as soon as possible,
+    // but avoid doing so on poor connectivity to reduce startup load.
+    // Apply a small randomized delay to smooth load spikes across app wakes.
+    Future.microtask(() async {
+      final online = ref.read(isOnlineProvider);
+      if (!online) return;
+      // Slightly increase jitter to reduce contention on startup
+      final jitter = Duration(
+        milliseconds: 150 + (DateTime.now().millisecond % 200),
       );
-    } catch (_) {}
-  });
-
-  // Watch for auth transitions to trigger warmup and other background work
-  ref.listen<AuthNavigationState>(authNavigationStateProvider, (prev, next) {
-    if (next == AuthNavigationState.authenticated) {
-      // Schedule microtask so we don't perform side-effects inside build
-      Future.microtask(() async {
-        try {
-          final api = ref.read(apiServiceProvider);
-          if (api == null) {
-            DebugLogger.warning('API service not available for startup flow');
-            return;
-          }
-
-          // Ensure API has the latest token immediately
-          final authToken = ref.read(authTokenProvider3);
-          if (authToken != null && authToken.isNotEmpty) {
-            api.updateAuthToken(authToken);
-            DebugLogger.auth('StartupFlow: Applied auth token to API');
-          }
-
-          // Preload default model in background (best-effort) with an adaptive
-          // delay based on network latency to avoid hammering poor networks.
-          final latency = ref.read(connectivityServiceProvider).lastLatencyMs;
-          final delayMs = latency < 0
-              ? 300
-              : latency > 800
-              ? 600
-              : 200 + (latency ~/ 2);
-          Future.delayed(Duration(milliseconds: delayMs), () async {
-            try {
-              await ref.read(defaultModelProvider.future);
-            } catch (e) {
-              DebugLogger.warning(
-                'model-preload-failed',
-                scope: 'startup',
-                data: {'error': e},
-              );
-            }
-          });
-
-          // Kick background chat warmup now that we're authenticated
-          _scheduleConversationWarmup(ref, force: true);
-
-          // Show onboarding once when user reaches chat and hasn't seen it yet
-          await _maybeShowOnboarding(ref);
-        } catch (e) {
-          DebugLogger.error('startup-flow-failed', scope: 'startup', error: e);
-        }
+      // Defer until after first frame to keep first paint smooth
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await Future.delayed(jitter);
+        _scheduleConversationWarmup(ref);
       });
-    } else {
-      // Reset warmup state when leaving authenticated flow
-      ref
-          .read(_conversationWarmupStatusProvider.notifier)
-          .set(_ConversationWarmupStatus.idle);
-    }
-  });
+    });
 
-  // Retry warmup when connectivity is restored
-  ref.listen<bool>(isOnlineProvider, (prev, next) {
-    if (next == true) {
-      _scheduleConversationWarmup(ref);
-    }
-  });
+    // One-time, post-frame system UI polish: set status bar icon brightness to
+    // match theme after the first frame. Avoids flicker at startup.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        final context = NavigationService.context;
+        final view = context != null ? View.maybeOf(context) : null;
+        final dispatcher = WidgetsBinding.instance.platformDispatcher;
+        final platformBrightness =
+            view?.platformDispatcher.platformBrightness ??
+            dispatcher.platformBrightness;
+        final isDark = platformBrightness == Brightness.dark;
+        SystemChrome.setSystemUIOverlayStyle(
+          SystemUiOverlayStyle(
+            statusBarIconBrightness: isDark
+                ? Brightness.light
+                : Brightness.dark,
+            systemNavigationBarIconBrightness: isDark
+                ? Brightness.light
+                : Brightness.dark,
+          ),
+        );
+      } catch (_) {}
+    });
 
-  // When conversations reload (e.g., manual refresh), ensure warmup runs again
-  ref.listen<AsyncValue<List<Conversation>>>(conversationsProvider, (
-    previous,
-    next,
-  ) {
-    final wasReady = previous?.hasValue == true || previous?.hasError == true;
-    if (wasReady && next.isLoading) {
-      ref
-          .read(_conversationWarmupStatusProvider.notifier)
-          .set(_ConversationWarmupStatus.idle);
-      Future.microtask(() => _scheduleConversationWarmup(ref, force: true));
-    }
-  });
-});
+    // Watch for auth transitions to trigger warmup and other background work
+    ref.listen<AuthNavigationState>(authNavigationStateProvider, (prev, next) {
+      if (next == AuthNavigationState.authenticated) {
+        // Schedule microtask so we don't perform side-effects inside build
+        Future.microtask(() async {
+          try {
+            final api = ref.read(apiServiceProvider);
+            if (api == null) {
+              DebugLogger.warning('API service not available for startup flow');
+              return;
+            }
+
+            // Ensure API has the latest token immediately
+            final authToken = ref.read(authTokenProvider3);
+            if (authToken != null && authToken.isNotEmpty) {
+              api.updateAuthToken(authToken);
+              DebugLogger.auth('StartupFlow: Applied auth token to API');
+            }
+
+            // Preload default model in background (best-effort) with an adaptive
+            // delay based on network latency to avoid hammering poor networks.
+            final latency = ref.read(connectivityServiceProvider).lastLatencyMs;
+            final delayMs = latency < 0
+                ? 300
+                : latency > 800
+                ? 600
+                : 200 + (latency ~/ 2);
+            Future.delayed(Duration(milliseconds: delayMs), () async {
+              try {
+                await ref.read(defaultModelProvider.future);
+              } catch (e) {
+                DebugLogger.warning(
+                  'model-preload-failed',
+                  scope: 'startup',
+                  data: {'error': e},
+                );
+              }
+            });
+
+            // Kick background chat warmup now that we're authenticated
+            _scheduleConversationWarmup(ref, force: true);
+
+            // Show onboarding once when user reaches chat and hasn't seen it yet
+            await _maybeShowOnboarding(ref);
+          } catch (e) {
+            DebugLogger.error(
+              'startup-flow-failed',
+              scope: 'startup',
+              error: e,
+            );
+          }
+        });
+      } else {
+        // Reset warmup state when leaving authenticated flow
+        ref
+            .read(_conversationWarmupStatusProvider.notifier)
+            .set(_ConversationWarmupStatus.idle);
+      }
+    });
+
+    // Retry warmup when connectivity is restored
+    ref.listen<bool>(isOnlineProvider, (prev, next) {
+      if (next == true) {
+        _scheduleConversationWarmup(ref);
+      }
+    });
+
+    // When conversations reload (e.g., manual refresh), ensure warmup runs again
+    ref.listen<AsyncValue<List<Conversation>>>(conversationsProvider, (
+      previous,
+      next,
+    ) {
+      final wasReady = previous?.hasValue == true || previous?.hasError == true;
+      if (wasReady && next.isLoading) {
+        ref
+            .read(_conversationWarmupStatusProvider.notifier)
+            .set(_ConversationWarmupStatus.idle);
+        Future.microtask(() => _scheduleConversationWarmup(ref, force: true));
+      }
+    });
+  }
+}
 
 // Tracks whether we've already attempted a silent login for the current app session.
 final _silentLoginAttemptedProvider =

@@ -18,13 +18,10 @@ class AuthActions {
     String password, {
     bool rememberCredentials = false,
   }) {
-    // Defer mutation to a microtask to avoid provider-build side-effects
-    return Future(
-      () => _auth.login(
-        username,
-        password,
-        rememberCredentials: rememberCredentials,
-      ),
+    return _auth.login(
+      username,
+      password,
+      rememberCredentials: rememberCredentials,
     );
   }
 
@@ -32,24 +29,22 @@ class AuthActions {
     String apiKey, {
     bool rememberCredentials = false,
   }) {
-    return Future(
-      () => _auth.loginWithApiKey(
-        apiKey,
-        rememberCredentials: rememberCredentials,
-      ),
+    return _auth.loginWithApiKey(
+      apiKey,
+      rememberCredentials: rememberCredentials,
     );
   }
 
   Future<bool> silentLogin() {
-    return Future(() => _auth.silentLogin());
+    return _auth.silentLogin();
   }
 
   Future<void> logout() {
-    return Future(() => _auth.logout());
+    return _auth.logout();
   }
 
   Future<void> refresh() {
-    return Future(() => _auth.refresh());
+    return _auth.refresh();
   }
 }
 
@@ -67,29 +62,43 @@ final hasSavedCredentialsProvider2 = FutureProvider<bool>((ref) async {
 /// These automatically update when auth state changes
 
 final isAuthenticatedProvider2 = Provider<bool>((ref) {
-  return ref.watch(
-    authStateManagerProvider.select((state) => state.isAuthenticated),
+  final authState = ref.watch(authStateManagerProvider);
+  return authState.maybeWhen(
+    data: (state) => state.isAuthenticated,
+    orElse: () => false,
   );
 });
 
 final authTokenProvider3 = Provider<String?>((ref) {
-  return ref.watch(authStateManagerProvider.select((state) => state.token));
+  final authState = ref.watch(authStateManagerProvider);
+  return authState.maybeWhen(data: (state) => state.token, orElse: () => null);
 });
 
 final currentUserProvider2 = Provider<User?>((ref) {
-  return ref.watch(authStateManagerProvider.select((state) => state.user));
+  final authState = ref.watch(authStateManagerProvider);
+  return authState.maybeWhen(data: (state) => state.user, orElse: () => null);
 });
 
 final authErrorProvider3 = Provider<String?>((ref) {
-  return ref.watch(authStateManagerProvider.select((state) => state.error));
+  final authState = ref.watch(authStateManagerProvider);
+  return authState.maybeWhen(data: (state) => state.error, orElse: () => null);
 });
 
 final isAuthLoadingProvider2 = Provider<bool>((ref) {
-  return ref.watch(authStateManagerProvider.select((state) => state.isLoading));
+  final authState = ref.watch(authStateManagerProvider);
+  if (authState.isLoading) return true;
+  return authState.maybeWhen(
+    data: (state) => state.isLoading,
+    orElse: () => false,
+  );
 });
 
 final authStatusProvider = Provider<AuthStatus>((ref) {
-  return ref.watch(authStateManagerProvider.select((state) => state.status));
+  final authState = ref.watch(authStateManagerProvider);
+  return authState.maybeWhen(
+    data: (state) => state.status,
+    orElse: () => AuthStatus.loading,
+  );
 });
 
 // Use `ref.read(authActionsProvider).refresh()` instead of refresh providers
@@ -107,19 +116,24 @@ final authApiIntegrationProvider = Provider<void>((ref) {
 /// Navigation helper provider - determines where user should go
 final authNavigationStateProvider = Provider<AuthNavigationState>((ref) {
   final authState = ref.watch(authStateManagerProvider);
-
-  switch (authState.status) {
-    case AuthStatus.initial:
-    case AuthStatus.loading:
-      return AuthNavigationState.loading;
-    case AuthStatus.authenticated:
-      return AuthNavigationState.authenticated;
-    case AuthStatus.unauthenticated:
-    case AuthStatus.tokenExpired:
-      return AuthNavigationState.needsLogin;
-    case AuthStatus.error:
-      return AuthNavigationState.error;
-  }
+  return authState.when(
+    data: (state) {
+      switch (state.status) {
+        case AuthStatus.initial:
+        case AuthStatus.loading:
+          return AuthNavigationState.loading;
+        case AuthStatus.authenticated:
+          return AuthNavigationState.authenticated;
+        case AuthStatus.unauthenticated:
+        case AuthStatus.tokenExpired:
+          return AuthNavigationState.needsLogin;
+        case AuthStatus.error:
+          return AuthNavigationState.error;
+      }
+    },
+    loading: () => AuthNavigationState.loading,
+    error: (_, stack) => AuthNavigationState.error,
+  );
 });
 
 enum AuthNavigationState { loading, authenticated, needsLogin, error }

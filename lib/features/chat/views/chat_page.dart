@@ -10,11 +10,11 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io' show Platform;
 import 'dart:async';
 import '../../../core/providers/app_providers.dart';
-import '../../../core/auth/auth_state_manager.dart';
 import '../providers/chat_providers.dart';
 import '../../../core/utils/debug_logger.dart';
 import '../../../core/utils/user_display_name.dart';
 import '../../../core/utils/model_icon_utils.dart';
+import '../../auth/providers/unified_auth_providers.dart';
 
 import '../widgets/modern_chat_input.dart';
 import '../widgets/user_message_bubble.dart';
@@ -901,7 +901,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       data: (user) => user,
       orElse: () => null,
     );
-    final authUser = ref.watch(authUserProvider);
+    final authUser = ref.watch(currentUserProvider2);
     final user = userFromProfile ?? authUser;
     final greetingName = deriveUserDisplayName(user);
     return LayoutBuilder(

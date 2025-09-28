@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/storage_service.dart';
 // (removed duplicate) import '../services/optimized_storage_service.dart';
@@ -21,6 +24,8 @@ import '../services/settings_service.dart';
 import '../services/optimized_storage_service.dart';
 import '../services/socket_service.dart';
 import '../utils/debug_logger.dart';
+
+part 'app_providers.g.dart';
 
 // Storage providers
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
@@ -189,44 +194,170 @@ final apiServiceProvider = Provider<ApiService?>((ref) {
 });
 
 // Socket.IO service provider
-final socketServiceProvider = Provider<SocketService?>((ref) {
-  final reviewerMode = ref.watch(reviewerModeProvider);
-  if (reviewerMode) return null;
+@Riverpod(keepAlive: true)
+class SocketServiceManager extends _$SocketServiceManager {
+  SocketService? _service;
+  ProviderSubscription<String?>? _tokenSubscription;
 
-  final activeServer = ref.watch(activeServerProvider);
-  final token = ref.watch(authTokenProvider3.select((t) => t));
-  final transportMode = ref.watch(
-    appSettingsProvider.select((s) => s.socketTransportMode),
-  );
+  @override
+  FutureOr<SocketService?> build() async {
+    final reviewerMode = ref.watch(reviewerModeProvider);
+    if (reviewerMode) {
+      _disposeService();
+      return null;
+    }
 
-  return activeServer.maybeWhen(
-    data: (server) {
-      if (server == null) return null;
-      final s = SocketService(
+    final server = await ref.watch(activeServerProvider.future);
+    if (server == null) {
+      _disposeService();
+      return null;
+    }
+
+    final transportMode = ref.watch(
+      appSettingsProvider.select((settings) => settings.socketTransportMode),
+    );
+    final websocketOnly = transportMode == 'ws';
+    final token = ref.watch(authTokenProvider3);
+
+    final requiresNewService =
+        _service == null ||
+        _service!.serverConfig.id != server.id ||
+        _service!.websocketOnly != websocketOnly;
+    if (requiresNewService) {
+      _disposeService();
+      _service = SocketService(
         serverConfig: server,
         authToken: token,
-        websocketOnly: transportMode == 'ws',
+        websocketOnly: websocketOnly,
       );
-      // best-effort connect, but defer to post-frame with a small delay
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await Future.delayed(const Duration(milliseconds: 150));
-        // ignore: discarded_futures
-        s.connect();
-      });
-      // Keep socket token up-to-date without reconstructing the service
-      ref.listen<String?>(authTokenProvider3, (prev, next) {
-        s.updateAuthToken(next);
-      });
-      ref.onDispose(() {
-        try {
-          s.dispose();
-        } catch (_) {}
-      });
-      return s;
-    },
-    orElse: () => null,
-  );
+      _scheduleConnect(_service!);
+    } else {
+      _service!.updateAuthToken(token);
+    }
+
+    _tokenSubscription ??= ref.listen<String?>(authTokenProvider3, (
+      previous,
+      next,
+    ) {
+      _service?.updateAuthToken(next);
+    });
+
+    ref.onDispose(() {
+      _tokenSubscription?.close();
+      _tokenSubscription = null;
+      _disposeService();
+    });
+
+    return _service;
+  }
+
+  void _scheduleConnect(SocketService service) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(milliseconds: 150));
+      if (!ref.mounted) return;
+      try {
+        unawaited(service.connect());
+      } catch (_) {}
+    });
+  }
+
+  void _disposeService() {
+    if (_service == null) return;
+    try {
+      _service!.dispose();
+    } catch (_) {}
+    _service = null;
+  }
+}
+
+final socketServiceProvider = Provider<SocketService?>((ref) {
+  final asyncService = ref.watch(socketServiceManagerProvider);
+  return asyncService.maybeWhen(data: (service) => service, orElse: () => null);
 });
+
+enum SocketConnectionState { disconnected, connecting, connected }
+
+@Riverpod(keepAlive: true)
+class SocketConnectionStream extends _$SocketConnectionStream {
+  StreamController<SocketConnectionState>? _controller;
+  ProviderSubscription<AsyncValue<SocketService?>>? _serviceSubscription;
+  void Function()? _cancelConnectListener;
+  void Function()? _cancelDisconnectListener;
+
+  @override
+  Stream<SocketConnectionState> build() {
+    final controller = StreamController<SocketConnectionState>.broadcast();
+    _controller = controller;
+
+    void emitState(SocketService? service) {
+      if (service == null) {
+        controller.add(SocketConnectionState.disconnected);
+        _unbindSocket();
+        return;
+      }
+      controller.add(
+        service.isConnected
+            ? SocketConnectionState.connected
+            : SocketConnectionState.connecting,
+      );
+      _bindSocket(service);
+    }
+
+    emitState(
+      ref
+          .watch(socketServiceManagerProvider)
+          .maybeWhen(data: (service) => service, orElse: () => null),
+    );
+
+    _serviceSubscription = ref.listen<AsyncValue<SocketService?>>(
+      socketServiceManagerProvider,
+      (previous, next) {
+        emitState(
+          next.maybeWhen(data: (service) => service, orElse: () => null),
+        );
+      },
+    );
+
+    ref.onDispose(() {
+      _serviceSubscription?.close();
+      _serviceSubscription = null;
+      _unbindSocket();
+      _controller?.close();
+      _controller = null;
+    });
+
+    return controller.stream;
+  }
+
+  void _bindSocket(SocketService service) {
+    _unbindSocket();
+
+    void handleConnect(dynamic _) {
+      _controller?.add(SocketConnectionState.connected);
+    }
+
+    void handleDisconnect(dynamic _) {
+      _controller?.add(SocketConnectionState.disconnected);
+    }
+
+    service.socket?.on('connect', handleConnect);
+    service.socket?.on('disconnect', handleDisconnect);
+
+    _cancelConnectListener = () {
+      service.socket?.off('connect', handleConnect);
+    };
+    _cancelDisconnectListener = () {
+      service.socket?.off('disconnect', handleDisconnect);
+    };
+  }
+
+  void _unbindSocket() {
+    _cancelConnectListener?.call();
+    _cancelDisconnectListener?.call();
+    _cancelConnectListener = null;
+    _cancelDisconnectListener = null;
+  }
+}
 
 // Attachment upload queue provider
 final attachmentUploadQueueProvider = Provider<AttachmentUploadQueue?>((ref) {

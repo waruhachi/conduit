@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io' show Platform;
 import '../../core/services/connectivity_service.dart';
+import '../../core/providers/app_providers.dart';
 import '../theme/theme_extensions.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 
@@ -20,7 +21,12 @@ class OfflineIndicator extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final connectivityStatus = ref.watch(connectivityStatusProvider);
+    final socketConnection = ref.watch(socketConnectionStreamProvider);
     final wasOffline = ref.watch(_wasOfflineProvider);
+    final socketOffline = socketConnection.maybeWhen(
+      data: (state) => state == SocketConnectionState.disconnected,
+      orElse: () => false,
+    );
 
     return Stack(
       children: [
@@ -28,7 +34,7 @@ class OfflineIndicator extends ConsumerWidget {
         if (showBanner)
           connectivityStatus.when(
             data: (status) {
-              if (status == ConnectivityStatus.offline) {
+              if (status == ConnectivityStatus.offline || socketOffline) {
                 return _OfflineBanner();
               }
               // Announce back-online briefly if we were previously offline

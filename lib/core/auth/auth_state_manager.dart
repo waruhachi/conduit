@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 // Types are used through app_providers.dart
 import '../providers/app_providers.dart';
 import '../models/user.dart';
 import 'token_validator.dart';
 import 'auth_cache_manager.dart';
 import '../utils/debug_logger.dart';
+
+part 'auth_state_manager.g.dart';
 
 /// Comprehensive auth state representation
 @immutable
@@ -78,25 +82,41 @@ enum AuthStatus {
 }
 
 /// Unified auth state manager - single source of truth for all auth operations
-class AuthStateManager extends Notifier<AuthState> {
+@Riverpod(keepAlive: true)
+class AuthStateManager extends _$AuthStateManager {
   final AuthCacheManager _cacheManager = AuthCacheManager();
-  // Prevent overlapping silent-login attempts from multiple triggers
   Future<bool>? _silentLoginFuture;
-  bool _initialized = false;
+
+  AuthState get _current =>
+      state.asData?.value ?? const AuthState(status: AuthStatus.initial);
+
+  void _set(AuthState next, {bool cache = false}) {
+    state = AsyncValue.data(next);
+    if (cache) {
+      _cacheManager.cacheAuthState(next);
+    }
+  }
+
+  void _update(
+    AuthState Function(AuthState current) transform, {
+    bool cache = false,
+  }) {
+    final next = transform(_current);
+    _set(next, cache: cache);
+  }
 
   @override
-  AuthState build() {
-    if (!_initialized) {
-      _initialized = true;
-      Future.microtask(_initialize);
-    }
-
-    return const AuthState(status: AuthStatus.initial);
+  Future<AuthState> build() async {
+    await _initialize();
+    return _current;
   }
 
   /// Initialize auth state from storage
   Future<void> _initialize() async {
-    state = state.copyWith(status: AuthStatus.loading, isLoading: true);
+    _update(
+      (current) =>
+          current.copyWith(status: AuthStatus.loading, isLoading: true),
+    );
 
     try {
       final storage = ref.read(optimizedStorageServiceProvider);
@@ -107,11 +127,14 @@ class AuthStateManager extends Notifier<AuthState> {
         // Fast path: trust token format to avoid blocking startup on network
         final formatOk = _isValidTokenFormat(token);
         if (formatOk) {
-          state = state.copyWith(
-            status: AuthStatus.authenticated,
-            token: token,
-            isLoading: false,
-            clearError: true,
+          _update(
+            (current) => current.copyWith(
+              status: AuthStatus.authenticated,
+              token: token,
+              isLoading: false,
+              clearError: true,
+            ),
+            cache: true,
           );
 
           // Update API service with token and load user data in background
@@ -132,27 +155,33 @@ class AuthStateManager extends Notifier<AuthState> {
           // Token format invalid; clear and require login
           DebugLogger.auth('Token format invalid, deleting token');
           await storage.deleteAuthToken();
-          state = state.copyWith(
+          _update(
+            (current) => current.copyWith(
+              status: AuthStatus.unauthenticated,
+              isLoading: false,
+              clearToken: true,
+              clearError: true,
+            ),
+          );
+        }
+      } else {
+        _update(
+          (current) => current.copyWith(
             status: AuthStatus.unauthenticated,
             isLoading: false,
             clearToken: true,
             clearError: true,
-          );
-        }
-      } else {
-        state = state.copyWith(
-          status: AuthStatus.unauthenticated,
-          isLoading: false,
-          clearToken: true,
-          clearError: true,
+          ),
         );
       }
     } catch (e) {
       DebugLogger.error('auth-init-failed', scope: 'auth/state', error: e);
-      state = state.copyWith(
-        status: AuthStatus.error,
-        error: 'Failed to initialize auth: $e',
-        isLoading: false,
+      _update(
+        (current) => current.copyWith(
+          status: AuthStatus.error,
+          error: 'Failed to initialize auth: $e',
+          isLoading: false,
+        ),
       );
     }
   }
@@ -162,10 +191,12 @@ class AuthStateManager extends Notifier<AuthState> {
     String apiKey, {
     bool rememberCredentials = false,
   }) async {
-    state = state.copyWith(
-      status: AuthStatus.loading,
-      isLoading: true,
-      clearError: true,
+    _update(
+      (current) => current.copyWith(
+        status: AuthStatus.loading,
+        isLoading: true,
+        clearError: true,
+      ),
     );
 
     try {
@@ -216,18 +247,18 @@ class AuthStateManager extends Notifier<AuthState> {
         }
 
         // Update state (without user data initially)
-        state = state.copyWith(
-          status: AuthStatus.authenticated,
-          token: tokenStr,
-          isLoading: false,
-          clearError: true,
+        _update(
+          (current) => current.copyWith(
+            status: AuthStatus.authenticated,
+            token: tokenStr,
+            isLoading: false,
+            clearError: true,
+          ),
+          cache: true,
         );
 
         // Update API service with token
         _updateApiServiceToken(tokenStr);
-
-        // Cache the successful auth state
-        _cacheManager.cacheAuthState(state);
 
         // Load user data in background (consistent with credentials method)
         _loadUserData();
@@ -240,11 +271,13 @@ class AuthStateManager extends Notifier<AuthState> {
       }
     } catch (e) {
       DebugLogger.error('api-key-login-failed', scope: 'auth/state', error: e);
-      state = state.copyWith(
-        status: AuthStatus.error,
-        error: e.toString(),
-        isLoading: false,
-        clearToken: true,
+      _update(
+        (current) => current.copyWith(
+          status: AuthStatus.error,
+          error: e.toString(),
+          isLoading: false,
+          clearToken: true,
+        ),
       );
       return false;
     }
@@ -256,10 +289,12 @@ class AuthStateManager extends Notifier<AuthState> {
     String password, {
     bool rememberCredentials = false,
   }) async {
-    state = state.copyWith(
-      status: AuthStatus.loading,
-      isLoading: true,
-      clearError: true,
+    _update(
+      (current) => current.copyWith(
+        status: AuthStatus.loading,
+        isLoading: true,
+        clearError: true,
+      ),
     );
 
     try {
@@ -302,17 +337,17 @@ class AuthStateManager extends Notifier<AuthState> {
       }
 
       // Update state and API service
-      state = state.copyWith(
-        status: AuthStatus.authenticated,
-        token: tokenStr,
-        isLoading: false,
-        clearError: true,
+      _update(
+        (current) => current.copyWith(
+          status: AuthStatus.authenticated,
+          token: tokenStr,
+          isLoading: false,
+          clearError: true,
+        ),
+        cache: true,
       );
 
       _updateApiServiceToken(tokenStr);
-
-      // Cache the successful auth state
-      _cacheManager.cacheAuthState(state);
 
       // Load user data in background
       _loadUserData();
@@ -321,11 +356,13 @@ class AuthStateManager extends Notifier<AuthState> {
       return true;
     } catch (e) {
       DebugLogger.error('login-failed', scope: 'auth/state', error: e);
-      state = state.copyWith(
-        status: AuthStatus.error,
-        error: e.toString(),
-        isLoading: false,
-        clearToken: true,
+      _update(
+        (current) => current.copyWith(
+          status: AuthStatus.error,
+          error: e.toString(),
+          isLoading: false,
+          clearToken: true,
+        ),
       );
       return false;
     }
@@ -361,10 +398,12 @@ class AuthStateManager extends Notifier<AuthState> {
   }
 
   Future<bool> _performSilentLogin() async {
-    state = state.copyWith(
-      status: AuthStatus.loading,
-      isLoading: true,
-      clearError: true,
+    _update(
+      (current) => current.copyWith(
+        status: AuthStatus.loading,
+        isLoading: true,
+        clearError: true,
+      ),
     );
 
     try {
@@ -372,10 +411,12 @@ class AuthStateManager extends Notifier<AuthState> {
       final savedCredentials = await storage.getSavedCredentials();
 
       if (savedCredentials == null) {
-        state = state.copyWith(
-          status: AuthStatus.unauthenticated,
-          isLoading: false,
-          clearError: true,
+        _update(
+          (current) => current.copyWith(
+            status: AuthStatus.unauthenticated,
+            isLoading: false,
+            clearError: true,
+          ),
         );
         return false;
       }
@@ -394,11 +435,13 @@ class AuthStateManager extends Notifier<AuthState> {
         ref.invalidate(serverConfigsProvider);
         ref.invalidate(activeServerProvider);
 
-        state = state.copyWith(
-          status: AuthStatus.error,
-          error:
-              'Saved server configuration is no longer available. Please reconnect.',
-          isLoading: false,
+        _update(
+          (current) => current.copyWith(
+            status: AuthStatus.error,
+            error:
+                'Saved server configuration is no longer available. Please reconnect.',
+            isLoading: false,
+          ),
         );
         return false;
       }
@@ -411,10 +454,12 @@ class AuthStateManager extends Notifier<AuthState> {
       final activeServer = await ref.read(activeServerProvider.future);
       if (activeServer == null) {
         await storage.setActiveServerId(null);
-        state = state.copyWith(
-          status: AuthStatus.error,
-          error: 'Server configuration not found',
-          isLoading: false,
+        _update(
+          (current) => current.copyWith(
+            status: AuthStatus.error,
+            error: 'Server configuration not found',
+            isLoading: false,
+          ),
         );
         return false;
       }
@@ -439,11 +484,13 @@ class AuthStateManager extends Notifier<AuthState> {
         await storage.deleteSavedCredentials();
       }
 
-      state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        error: e.toString(),
-        isLoading: false,
-        clearToken: true,
+      _update(
+        (current) => current.copyWith(
+          status: AuthStatus.unauthenticated,
+          error: e.toString(),
+          isLoading: false,
+          clearToken: true,
+        ),
       );
       return false;
     }
@@ -463,11 +510,13 @@ class AuthStateManager extends Notifier<AuthState> {
     _updateApiServiceToken(null);
 
     // Update state
-    state = state.copyWith(
-      status: AuthStatus.tokenExpired,
-      clearToken: true,
-      clearUser: true,
-      clearError: true,
+    _update(
+      (current) => current.copyWith(
+        status: AuthStatus.tokenExpired,
+        clearToken: true,
+        clearUser: true,
+        clearError: true,
+      ),
     );
 
     // Attempt silent re-login if credentials are available
@@ -482,7 +531,10 @@ class AuthStateManager extends Notifier<AuthState> {
 
   /// Logout user
   Future<void> logout() async {
-    state = state.copyWith(status: AuthStatus.loading, isLoading: true);
+    _update(
+      (current) =>
+          current.copyWith(status: AuthStatus.loading, isLoading: true),
+    );
 
     try {
       // Call server logout if possible
@@ -505,24 +557,28 @@ class AuthStateManager extends Notifier<AuthState> {
       _updateApiServiceToken(null);
 
       // Update state
-      state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        isLoading: false,
-        clearToken: true,
-        clearUser: true,
-        clearError: true,
+      _update(
+        (current) => current.copyWith(
+          status: AuthStatus.unauthenticated,
+          isLoading: false,
+          clearToken: true,
+          clearUser: true,
+          clearError: true,
+        ),
       );
 
       DebugLogger.auth('Logout complete');
     } catch (e) {
       DebugLogger.error('logout-failed', scope: 'auth/state', error: e);
       // Even if logout fails, clear local state
-      state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        isLoading: false,
-        clearToken: true,
-        clearUser: true,
-        error: 'Logout error: $e',
+      _update(
+        (current) => current.copyWith(
+          status: AuthStatus.unauthenticated,
+          isLoading: false,
+          clearToken: true,
+          clearUser: true,
+          error: 'Logout error: $e',
+        ),
       );
       _updateApiServiceToken(null);
     }
@@ -532,13 +588,14 @@ class AuthStateManager extends Notifier<AuthState> {
   Future<void> _loadUserData() async {
     try {
       // First try to extract user info from JWT token if available
-      if (state.token != null) {
-        final jwtUserInfo = TokenValidator.extractUserInfo(state.token!);
+      final current = _current;
+      if (current.token != null) {
+        final jwtUserInfo = TokenValidator.extractUserInfo(current.token!);
         if (jwtUserInfo != null) {
           final userFromJwt = _userFromJwtClaims(jwtUserInfo);
           if (userFromJwt != null) {
             DebugLogger.auth('Extracted user info from JWT token');
-            state = state.copyWith(user: userFromJwt);
+            _update((current) => current.copyWith(user: userFromJwt));
           }
 
           // Still try to load from server in background for complete data
@@ -563,15 +620,16 @@ class AuthStateManager extends Notifier<AuthState> {
   Future<void> _loadServerUserData() async {
     try {
       final api = ref.read(apiServiceProvider);
-      if (api != null && state.isAuthenticated) {
+      final current = _current;
+      if (api != null && current.isAuthenticated) {
         // Check if we already have user data from token validation
-        if (state.user != null) {
+        if (current.user != null) {
           DebugLogger.auth('user-data-present-from-token', scope: 'auth/state');
           return;
         }
 
         final user = await api.getCurrentUser();
-        state = state.copyWith(user: user);
+        _update((current) => current.copyWith(user: user));
         DebugLogger.auth('Loaded complete user data from server');
       }
     } catch (e) {
@@ -647,8 +705,8 @@ class AuthStateManager extends Notifier<AuthState> {
       // Store the user data if validation was successful
       if (serverResult.isValid &&
           validationUser != null &&
-          state.isAuthenticated) {
-        state = state.copyWith(user: validationUser);
+          _current.isAuthenticated) {
+        _update((current) => current.copyWith(user: validationUser));
         DebugLogger.auth('Cached user data from token validation');
       }
 
@@ -754,31 +812,3 @@ class AuthStateManager extends Notifier<AuthState> {
 extension _StringFallbackExtension on String {
   String ifEmptyReturn(String fallback) => isEmpty ? fallback : this;
 }
-
-/// Provider for the unified auth state manager
-final authStateManagerProvider = NotifierProvider<AuthStateManager, AuthState>(
-  AuthStateManager.new,
-);
-
-/// Computed providers for common auth state queries
-final isAuthenticatedProvider = Provider<bool>((ref) {
-  return ref.watch(
-    authStateManagerProvider.select((state) => state.isAuthenticated),
-  );
-});
-
-final authTokenProvider2 = Provider<String?>((ref) {
-  return ref.watch(authStateManagerProvider.select((state) => state.token));
-});
-
-final authUserProvider = Provider<User?>((ref) {
-  return ref.watch(authStateManagerProvider.select((state) => state.user));
-});
-
-final authErrorProvider2 = Provider<String?>((ref) {
-  return ref.watch(authStateManagerProvider.select((state) => state.error));
-});
-
-final isAuthLoadingProvider = Provider<bool>((ref) {
-  return ref.watch(authStateManagerProvider.select((state) => state.isLoading));
-});

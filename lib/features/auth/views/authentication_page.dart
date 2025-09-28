@@ -124,10 +124,15 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
   @override
   Widget build(BuildContext context) {
     // Listen for auth state changes to navigate on successful login
-    ref.listen<AuthState>(authStateManagerProvider, (previous, next) {
+    ref.listen<AsyncValue<AuthState>>(authStateManagerProvider, (
+      previous,
+      next,
+    ) {
+      final nextState = next.asData?.value;
+      final prevState = previous?.asData?.value;
       if (mounted &&
-          next.isAuthenticated &&
-          previous?.isAuthenticated != true) {
+          nextState?.isAuthenticated == true &&
+          prevState?.isAuthenticated != true) {
         DebugLogger.auth(
           'Authentication successful, initializing background resources',
         );

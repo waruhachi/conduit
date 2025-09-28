@@ -14,10 +14,10 @@ import '../../chat/providers/chat_providers.dart' as chat;
 import '../../../shared/utils/ui_utils.dart';
 import '../../../core/services/navigation_service.dart';
 import '../../../shared/widgets/themed_dialogs.dart';
-import '../../../core/auth/auth_state_manager.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import '../../../core/utils/user_display_name.dart';
 import '../../../core/utils/model_icon_utils.dart';
+import '../../auth/providers/unified_auth_providers.dart';
 import '../../../core/utils/user_avatar_utils.dart';
 import '../../../shared/utils/conversation_context_menu.dart';
 import '../../../shared/widgets/user_avatar.dart';
@@ -1218,7 +1218,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       data: (u) => u,
       orElse: () => null,
     );
-    final authUser = ref.watch(authUserProvider);
+    final authUser = ref.watch(currentUserProvider2);
     final user = userFromProfile ?? authUser;
     final api = ref.watch(apiServiceProvider);
 

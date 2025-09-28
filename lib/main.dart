@@ -116,19 +116,12 @@ class ConduitApp extends ConsumerStatefulWidget {
 }
 
 class _ConduitAppState extends ConsumerState<ConduitApp> {
-  ProviderSubscription<void>? _startupFlowSubscription;
   Brightness? _lastAppliedOverlayBrightness;
   @override
   void initState() {
     super.initState();
     // Defer heavy provider initialization to after first frame to render UI sooner
     WidgetsBinding.instance.addPostFrameCallback((_) => _initializeAppState());
-
-    // Activate app startup flow without tying it to root widget rebuilds
-    _startupFlowSubscription = ref.listenManual<void>(
-      appStartupFlowProvider,
-      (previous, next) {},
-    );
   }
 
   void _initializeAppState() {
@@ -138,11 +131,11 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
     ref.read(authApiIntegrationProvider);
     ref.read(defaultModelAutoSelectionProvider);
     ref.read(shareReceiverInitializerProvider);
+    ref.read(appStartupFlowProvider.notifier).start();
   }
 
   @override
   void dispose() {
-    _startupFlowSubscription?.close();
     super.dispose();
   }
 
