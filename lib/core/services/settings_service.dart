@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'animation_service.dart';
+
+part 'settings_service.g.dart';
 
 /// Service for managing app-wide settings including accessibility preferences
 class SettingsService {
@@ -404,11 +407,8 @@ bool _listEquals(List<String> a, List<String> b) {
 }
 
 /// Provider for app settings
-final appSettingsProvider = NotifierProvider<AppSettingsNotifier, AppSettings>(
-  AppSettingsNotifier.new,
-);
-
-class AppSettingsNotifier extends Notifier<AppSettings> {
+@riverpod
+class AppSettingsNotifier extends _$AppSettingsNotifier {
   bool _initialized = false;
 
   @override
