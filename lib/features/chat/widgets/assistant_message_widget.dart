@@ -970,77 +970,57 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
 
   Widget _buildTypingIndicator() {
     final theme = context.conduitTheme;
-    final gradient = LinearGradient(
-      begin: Alignment.bottomCenter,
-      end: Alignment.topCenter,
-      colors: [
-        theme.surfaceBackground.withValues(alpha: 0.0),
-        theme.surfaceContainer.withValues(alpha: 0.9),
-      ],
-    );
-    final haloColor = theme.textSecondary.withValues(alpha: 0.18);
     final dotColor = theme.textSecondary.withValues(alpha: 0.75);
 
     const double dotSize = 8.0;
-    final min = AnimationValues.typingIndicatorScale;
+    const double dotSpacing = 6.0;
+    const int numberOfDots = 3;
 
-    final dot =
-        Container(
-              width: dotSize,
-              height: dotSize,
-              decoration: BoxDecoration(
-                color: dotColor,
-                shape: BoxShape.circle,
-              ),
-            )
-            .animate(onPlay: (controller) => controller.repeat())
-            .scale(
-              duration: AnimationDuration.typingIndicator,
-              curve: AnimationCurves.typingIndicator,
-              begin: Offset(min, min),
-              end: const Offset(1, 1),
-            )
-            .then(delay: AnimationDelay.typingDelay)
-            .scale(
-              duration: AnimationDuration.typingIndicator,
-              curve: AnimationCurves.typingIndicator,
-              begin: const Offset(1, 1),
-              end: Offset(min, min),
-            );
+    // Create three dots with staggered animations
+    final dots = List.generate(numberOfDots, (index) {
+      final delay = Duration(milliseconds: 150 * index);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: Spacing.md),
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 4),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: gradient,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: SizedBox(
-              height: dotSize * 2,
-              width: dotSize * 2,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    width: dotSize * 2,
-                    height: dotSize * 2,
-                    decoration: BoxDecoration(
-                      color: haloColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  dot,
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
+      return Container(
+            width: dotSize,
+            height: dotSize,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          )
+          .animate(onPlay: (controller) => controller.repeat())
+          .then(delay: delay)
+          .fadeIn(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          )
+          .scale(
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOut,
+            begin: const Offset(0.4, 0.4),
+            end: const Offset(1, 1),
+          )
+          .then()
+          .scale(
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOut,
+            begin: const Offset(1.2, 1.2),
+            end: const Offset(0.5, 0.5),
+          );
+    });
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Add left padding to prevent clipping when dots scale up
+          const SizedBox(width: dotSize * 0.2),
+          for (int i = 0; i < numberOfDots; i++) ...[
+            dots[i],
+            if (i < numberOfDots - 1) const SizedBox(width: dotSpacing),
+          ],
+          // Add right padding to prevent clipping when dots scale up
+          const SizedBox(width: dotSize * 0.2),
+        ],
+      ),
     );
   }
 
