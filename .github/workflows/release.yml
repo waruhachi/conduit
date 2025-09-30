@@ -184,7 +184,7 @@ jobs:
             echo "Primary ipa build failed (will attempt fallback)."
           fi
 
-      - name: Fallback: Build iOS App (if IPA missing)
+      - name: Fallback Build iOS App (if IPA missing)
         shell: bash
         run: |
           set -e
