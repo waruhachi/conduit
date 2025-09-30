@@ -1197,11 +1197,8 @@ final backgroundModelLoadProvider = Provider<void>((ref) {
 });
 
 // Search query provider
-final searchQueryProvider = NotifierProvider<SearchQueryNotifier, String>(
-  SearchQueryNotifier.new,
-);
-
-class SearchQueryNotifier extends Notifier<String> {
+@riverpod
+class SearchQuery extends _$SearchQuery {
   @override
   String build() => '';
 
