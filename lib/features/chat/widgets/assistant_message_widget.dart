@@ -18,7 +18,7 @@ import 'enhanced_attachment.dart';
 import 'package:conduit/shared/widgets/chat_action_button.dart';
 import '../../../shared/widgets/model_avatar.dart';
 import 'package:url_launcher/url_launcher_string.dart';
-import '../providers/chat_providers.dart' show sendMessage;
+import '../providers/chat_providers.dart' show sendMessageWithContainer;
 import '../../../core/utils/debug_logger.dart';
 import 'sources/openwebui_sources.dart';
 import '../providers/assistant_response_builder_provider.dart';
@@ -70,7 +70,8 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
       return;
     }
     try {
-      await sendMessage(ref, trimmed, null);
+      final container = ProviderScope.containerOf(context, listen: false);
+      await sendMessageWithContainer(container, trimmed, null);
     } catch (err, stack) {
       DebugLogger.log(
         'Failed to send follow-up: $err',

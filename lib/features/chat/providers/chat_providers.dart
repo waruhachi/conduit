@@ -1447,6 +1447,15 @@ Future<void> sendMessageFromService(
   await _sendMessageInternal(ref, message, attachments, toolIds);
 }
 
+Future<void> sendMessageWithContainer(
+  ProviderContainer container,
+  String message,
+  List<String>? attachments, [
+  List<String>? toolIds,
+]) async {
+  await _sendMessageInternal(container, message, attachments, toolIds);
+}
+
 // Internal send message implementation
 Future<void> _sendMessageInternal(
   dynamic ref,

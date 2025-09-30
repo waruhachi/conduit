@@ -372,10 +372,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       // Scroll to bottom after enqueuing (only if user was near bottom)
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
-          final maxScroll = _scrollController.position.maxScrollExtent;
           final currentScroll = _scrollController.position.pixels;
           // Only auto-scroll if user was already near the bottom (within 300px)
-          if (maxScroll - currentScroll < 300) {
+          if (currentScroll <= 300) {
             _scrollToBottom();
           }
         }
@@ -543,26 +542,18 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     _scrollDebounceTimer = Timer(const Duration(milliseconds: 80), () {
       if (!mounted || _isDeactivated || !_scrollController.hasClients) return;
 
-      final maxScroll = _scrollController.position.maxScrollExtent;
       final currentScroll = _scrollController.position.pixels;
+      final maxScroll = _scrollController.position.maxScrollExtent;
 
-      // Hysteresis thresholds to avoid flicker
-      const double showThreshold =
-          300.0; // show when farther than this from bottom
-      const double hideThreshold =
-          150.0; // hide when within this distance of bottom
+      const double showThreshold = 300.0;
+      const double hideThreshold = 150.0;
 
-      final bool farFromBottom = currentScroll < (maxScroll - showThreshold);
-      final bool nearBottom = currentScroll >= (maxScroll - hideThreshold);
+      final bool farFromBottom = currentScroll > showThreshold;
+      final bool nearBottom = currentScroll <= hideThreshold;
 
-      bool showButton;
-      if (_showScrollToBottom) {
-        // Currently shown: keep it until we are near the bottom
-        showButton = !nearBottom && maxScroll > showThreshold;
-      } else {
-        // Currently hidden: only show when far from bottom
-        showButton = farFromBottom && maxScroll > showThreshold;
-      }
+      final bool showButton = _showScrollToBottom
+          ? !nearBottom && maxScroll > showThreshold
+          : farFromBottom && maxScroll > showThreshold;
 
       if (showButton != _showScrollToBottom && mounted && !_isDeactivated) {
         setState(() {
@@ -575,17 +566,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   void _scrollToBottom({bool smooth = true}) {
     if (!_scrollController.hasClients) return;
 
-    final maxScroll = _scrollController.position.maxScrollExtent;
-    if (maxScroll <= 0) return;
-
+    final target = 0.0;
     if (smooth) {
       _scrollController.animateTo(
-        maxScroll,
+        target,
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
       );
     } else {
-      _scrollController.jumpTo(maxScroll);
+      _scrollController.jumpTo(target);
     }
   }
 
@@ -742,6 +731,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       scrollController: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       items: messages,
+      reverse: true,
       padding: const EdgeInsets.fromLTRB(
         Spacing.lg,
         Spacing.md,
@@ -1029,9 +1019,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (_scrollController.hasClients) {
-          final maxScroll = _scrollController.position.maxScrollExtent;
           final currentScroll = _scrollController.position.pixels;
-          if (maxScroll - currentScroll < 300) {
+          if (currentScroll <= 300) {
             _scrollToBottom(smooth: true);
           }
         }

@@ -146,6 +146,8 @@ class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
             ? const AlwaysScrollableScrollPhysics()
             : const ClampingScrollPhysics());
 
+    final reverse = widget.reverse;
+
     if (widget.separatorBuilder != null) {
       listWidget = ListView.separated(
         controller: _scrollController,
@@ -154,7 +156,7 @@ class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
         keyboardDismissBehavior: widget.keyboardDismissBehavior,
         shrinkWrap: widget.shrinkWrap,
         scrollDirection: widget.scrollDirection,
-        reverse: widget.reverse,
+        reverse: reverse,
         cacheExtent: widget.cacheExtent ?? 250.0,
         addAutomaticKeepAlives: widget.addAutomaticKeepAlives,
         addRepaintBoundaries: widget.addRepaintBoundaries,
@@ -165,7 +167,7 @@ class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
             return _buildLoadMoreIndicator();
           }
 
-          return _buildOptimizedItem(context, index);
+          return _buildOptimizedItem(context, index, reverse: reverse);
         },
       );
     } else {
@@ -176,7 +178,7 @@ class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
         keyboardDismissBehavior: widget.keyboardDismissBehavior,
         shrinkWrap: widget.shrinkWrap,
         scrollDirection: widget.scrollDirection,
-        reverse: widget.reverse,
+        reverse: reverse,
         cacheExtent: widget.cacheExtent ?? 250.0,
         addAutomaticKeepAlives: widget.addAutomaticKeepAlives,
         addRepaintBoundaries: widget.addRepaintBoundaries,
@@ -187,7 +189,7 @@ class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
             return _buildLoadMoreIndicator();
           }
 
-          return _buildOptimizedItem(context, index);
+          return _buildOptimizedItem(context, index, reverse: reverse);
         },
       );
     }
@@ -200,15 +202,21 @@ class _OptimizedListState<T> extends ConsumerState<OptimizedList<T>> {
     return listWidget;
   }
 
-  Widget _buildOptimizedItem(BuildContext context, int index) {
-    final item = widget.items[index];
+  Widget _buildOptimizedItem(
+    BuildContext context,
+    int index, {
+    required bool reverse,
+  }) {
+    final effectiveIndex = reverse ? widget.items.length - index - 1 : index;
+    final item = widget.items[effectiveIndex];
 
-    // Wrap in repaint boundary for performance
     if (widget.addRepaintBoundaries) {
-      return RepaintBoundary(child: widget.itemBuilder(context, item, index));
+      return RepaintBoundary(
+        child: widget.itemBuilder(context, item, effectiveIndex),
+      );
     }
 
-    return widget.itemBuilder(context, item, index);
+    return widget.itemBuilder(context, item, effectiveIndex);
   }
 
   Widget _buildLoadMoreIndicator() {
