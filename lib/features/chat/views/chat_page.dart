@@ -65,6 +65,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   double _inputHeight = 0; // dynamic input height to position scroll button
   bool _lastKeyboardVisible = false; // track keyboard visibility transitions
   bool _didStartupFocus = false; // one-time auto-focus on startup
+  String? _lastConversationId;
+  bool _shouldAutoScrollToBottom = true;
+  bool _autoScrollCallbackScheduled = false;
 
   String _formatModelDisplayName(String name, {required bool omitProvider}) {
     var display = name.trim();
@@ -99,6 +102,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
     }
+
+    _shouldAutoScrollToBottom = true;
+    _scheduleAutoScrollToBottom();
   }
 
   Future<void> _checkAndAutoSelectModel() async {
@@ -274,6 +280,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     // Listen to scroll events to show/hide scroll to bottom button
     _scrollController.addListener(_onScroll);
 
+    _scheduleAutoScrollToBottom();
+
     // Initialize chat page components
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -371,12 +379,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
       // Scroll to bottom after enqueuing (only if user was near bottom)
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          final currentScroll = _scrollController.position.pixels;
-          // Only auto-scroll if user was already near the bottom (within 300px)
-          if (currentScroll <= 300) {
-            _scrollToBottom();
-          }
+        // Only auto-scroll if user was already near the bottom (within 300 px)
+        final distanceFromBottom = _distanceFromBottom();
+        if (distanceFromBottom <= 300) {
+          _scrollToBottom();
         }
       });
     } catch (e) {
@@ -542,18 +548,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     _scrollDebounceTimer = Timer(const Duration(milliseconds: 80), () {
       if (!mounted || _isDeactivated || !_scrollController.hasClients) return;
 
-      final currentScroll = _scrollController.position.pixels;
       final maxScroll = _scrollController.position.maxScrollExtent;
+      final distanceFromBottom = _distanceFromBottom();
 
       const double showThreshold = 300.0;
       const double hideThreshold = 150.0;
 
-      final bool farFromBottom = currentScroll > showThreshold;
-      final bool nearBottom = currentScroll <= hideThreshold;
+      final bool farFromBottom = distanceFromBottom > showThreshold;
+      final bool nearBottom = distanceFromBottom <= hideThreshold;
+      final bool hasScrollableContent =
+          maxScroll.isFinite && maxScroll > showThreshold;
 
       final bool showButton = _showScrollToBottom
-          ? !nearBottom && maxScroll > showThreshold
-          : farFromBottom && maxScroll > showThreshold;
+          ? !nearBottom && hasScrollableContent
+          : farFromBottom && hasScrollableContent;
 
       if (showButton != _showScrollToBottom && mounted && !_isDeactivated) {
         setState(() {
@@ -563,10 +571,39 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     });
   }
 
+  double _distanceFromBottom() {
+    if (!_scrollController.hasClients) {
+      return double.infinity;
+    }
+    final position = _scrollController.position;
+    final maxScroll = position.maxScrollExtent;
+    if (!maxScroll.isFinite) {
+      return double.infinity;
+    }
+    final distance = maxScroll - position.pixels;
+    return distance >= 0 ? distance : 0.0;
+  }
+
+  void _scheduleAutoScrollToBottom() {
+    if (_autoScrollCallbackScheduled) return;
+    _autoScrollCallbackScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoScrollCallbackScheduled = false;
+      if (!mounted || !_shouldAutoScrollToBottom) return;
+      if (!_scrollController.hasClients) {
+        _scheduleAutoScrollToBottom();
+        return;
+      }
+      _scrollToBottom(smooth: false);
+      _shouldAutoScrollToBottom = false;
+    });
+  }
+
   void _scrollToBottom({bool smooth = true}) {
     if (!_scrollController.hasClients) return;
-
-    final target = 0.0;
+    final position = _scrollController.position;
+    final maxScroll = position.maxScrollExtent;
+    final target = maxScroll.isFinite ? maxScroll : 0.0;
     if (smooth) {
       _scrollController.animateTo(
         target,
@@ -726,12 +763,25 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     final apiService = ref.watch(apiServiceProvider);
 
+    if (_shouldAutoScrollToBottom) {
+      _scheduleAutoScrollToBottom();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        const double keepPinnedThreshold = 60.0;
+        final distanceFromBottom = _distanceFromBottom();
+        if (distanceFromBottom > 0 &&
+            distanceFromBottom <= keepPinnedThreshold) {
+          _scrollToBottom(smooth: false);
+        }
+      });
+    }
+
     return OptimizedList<ChatMessage>(
       key: const ValueKey('actual_messages'),
       scrollController: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       items: messages,
-      reverse: true,
       padding: const EdgeInsets.fromLTRB(
         Spacing.lg,
         Spacing.md,
@@ -977,6 +1027,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         (settings) => settings.omitProviderInModelName,
       ),
     );
+    final conversationId = ref.watch(
+      activeConversationProvider.select((conv) => conv?.id),
+    );
+    if (conversationId != _lastConversationId) {
+      _lastConversationId = conversationId;
+      _shouldAutoScrollToBottom = true;
+      _scheduleAutoScrollToBottom();
+    }
     final conversationTitle = ref.watch(
       activeConversationProvider.select((conv) => conv?.title),
     );
@@ -1018,11 +1076,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     if (keyboardVisible && !_lastKeyboardVisible) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        if (_scrollController.hasClients) {
-          final currentScroll = _scrollController.position.pixels;
-          if (currentScroll <= 300) {
-            _scrollToBottom(smooth: true);
-          }
+        final distanceFromBottom = _distanceFromBottom();
+        if (distanceFromBottom <= 300) {
+          _scrollToBottom(smooth: true);
         }
       });
     }
