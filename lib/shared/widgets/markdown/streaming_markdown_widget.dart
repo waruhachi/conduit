@@ -1,22 +1,18 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:markdown_widget/markdown_widget.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:conduit/shared/widgets/markdown/markdown_config.dart';
 
 class StreamingMarkdownWidget extends StatefulWidget {
   final Stream<String>? contentStream;
   final String? staticContent;
   final bool isStreaming;
-  final ScrollController? scrollController;
-  final EdgeInsetsGeometry? padding;
 
   const StreamingMarkdownWidget({
     super.key,
     this.contentStream,
     this.staticContent,
     required this.isStreaming,
-    this.scrollController,
-    this.padding,
   });
 
   @override
@@ -110,36 +106,14 @@ class _StreamingMarkdownWidgetState extends State<StreamingMarkdownWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final config = ConduitMarkdownConfig.getConfig(
-      isDark: isDark,
-      context: context,
-      isStreaming: widget.isStreaming,
-    );
+    final config = ConduitMarkdownConfig.getStyleConfig(context: context);
 
     if (_renderedContent.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    if (widget.isStreaming && _renderedContent.isNotEmpty) {
-      // Use MarkdownBlock for streaming - it's optimized for live updates
-      return MarkdownBlock(
-        data: _renderedContent,
-        config: config,
-        selectable: true,
-      );
-    } else {
-      // Use MarkdownWidget for completed messages
-      // This provides better interactivity and selection
-      return MarkdownWidget(
-        data: _renderedContent,
-        config: config,
-        selectable: true,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        padding: EdgeInsets.zero,
-      );
-    }
+    // GptMarkdown handles both streaming and static content elegantly
+    return GptMarkdown(_renderedContent, style: config.textStyle);
   }
 
   @override
@@ -152,15 +126,10 @@ class _StreamingMarkdownWidgetState extends State<StreamingMarkdownWidget> {
 
 /// Extension to provide easy access to streaming markdown
 extension StreamingMarkdownExtension on String {
-  Widget toMarkdown({
-    required BuildContext context,
-    bool isStreaming = false,
-    EdgeInsetsGeometry? padding,
-  }) {
+  Widget toMarkdown({required BuildContext context, bool isStreaming = false}) {
     return StreamingMarkdownWidget(
       staticContent: this,
       isStreaming: isStreaming,
-      padding: padding,
     );
   }
 }
@@ -169,28 +138,18 @@ extension StreamingMarkdownExtension on String {
 class MarkdownWithLoading extends StatelessWidget {
   final String? content;
   final bool isLoading;
-  final EdgeInsetsGeometry? padding;
 
-  const MarkdownWithLoading({
-    super.key,
-    this.content,
-    required this.isLoading,
-    this.padding,
-  });
+  const MarkdownWithLoading({super.key, this.content, required this.isLoading});
 
   @override
   Widget build(BuildContext context) {
     if (isLoading && (content == null || content!.isEmpty)) {
-      return Container(
-        padding: padding ?? const EdgeInsets.all(16),
-        child: const Center(child: CircularProgressIndicator()),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     return StreamingMarkdownWidget(
       staticContent: content ?? '',
       isStreaming: isLoading,
-      padding: padding,
     );
   }
 }

@@ -28,8 +28,7 @@ dependencies:
   shared_preferences: ^2.3.2
   
   # UI Components - Enhanced Markdown  
-  markdown_widget: ^2.3.2+8
-  flutter_highlight: ^0.7.0
+  gpt_markdown: ^1.1.4
   cached_network_image: ^3.3.1
   socket_io_client: ^3.1.2
   yaml: ^3.1.2
