@@ -119,12 +119,14 @@ class LocaleNotifier extends Notifier<Locale?> {
 }
 
 // Server connection providers - optimized with caching
-final serverConfigsProvider = FutureProvider<List<ServerConfig>>((ref) async {
+@riverpod
+Future<List<ServerConfig>> serverConfigs(ServerConfigsRef ref) async {
   final storage = ref.watch(optimizedStorageServiceProvider);
   return storage.getServerConfigs();
-});
+}
 
-final activeServerProvider = FutureProvider<ServerConfig?>((ref) async {
+@riverpod
+Future<ServerConfig?> activeServer(ActiveServerRef ref) async {
   final storage = ref.watch(optimizedStorageServiceProvider);
   final configs = await ref.watch(serverConfigsProvider.future);
   final activeId = await storage.getActiveServerId();
@@ -138,7 +140,7 @@ final activeServerProvider = FutureProvider<ServerConfig?>((ref) async {
   }
 
   return null;
-});
+}
 
 final serverConnectionStateProvider = Provider<bool>((ref) {
   final activeServer = ref.watch(activeServerProvider);
@@ -546,7 +548,8 @@ final apiTokenUpdaterProvider = Provider<void>((ref) {
   });
 });
 
-final currentUserProvider = FutureProvider<User?>((ref) async {
+@riverpod
+Future<User?> currentUser(CurrentUserRef ref) async {
   final api = ref.read(apiServiceProvider);
   final isAuthenticated = ref.watch(isAuthenticatedProvider2);
 
@@ -557,7 +560,7 @@ final currentUserProvider = FutureProvider<User?>((ref) async {
   } catch (e) {
     return null;
   }
-});
+}
 
 // Helper provider to force refresh auth state - now using unified system
 final refreshAuthStateProvider = Provider<void>((ref) {
@@ -567,7 +570,8 @@ final refreshAuthStateProvider = Provider<void>((ref) {
 });
 
 // Model providers
-final modelsProvider = FutureProvider<List<Model>>((ref) async {
+@riverpod
+Future<List<Model>> models(ModelsRef ref) async {
   // Reviewer mode returns mock models
   final reviewerMode = ref.watch(reviewerModeProvider);
   if (reviewerMode) {
@@ -613,7 +617,7 @@ final modelsProvider = FutureProvider<List<Model>>((ref) async {
 
     return [];
   }
-});
+}
 
 @riverpod
 class SelectedModel extends _$SelectedModel {
