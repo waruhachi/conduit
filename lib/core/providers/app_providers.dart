@@ -1201,10 +1201,8 @@ class SearchQuery extends _$SearchQuery {
 }
 
 // Server-side search provider for chats
-final serverSearchProvider = FutureProvider.family<List<Conversation>, String>((
-  ref,
-  query,
-) async {
+@riverpod
+Future<List<Conversation>> serverSearch(Ref ref, String query) async {
   if (query.trim().isEmpty) {
     // Return empty list for empty query instead of all conversations
     return [];
@@ -1312,7 +1310,7 @@ final serverSearchProvider = FutureProvider.family<List<Conversation>, String>((
               ));
     }).toList();
   }
-});
+}
 
 final filteredConversationsProvider = Provider<List<Conversation>>((ref) {
   final conversations = ref.watch(conversationsProvider);
@@ -1566,10 +1564,8 @@ Future<List<FileInfo>> userFiles(Ref ref) async {
 }
 
 // File content provider
-final fileContentProvider = FutureProvider.family<String, String>((
-  ref,
-  fileId,
-) async {
+@riverpod
+Future<String> fileContent(Ref ref, String fileId) async {
   // Protected: require authentication
   if (!ref.read(isAuthenticatedProvider2)) {
     DebugLogger.log('skip-unauthed', scope: 'files/content');
@@ -1589,7 +1585,7 @@ final fileContentProvider = FutureProvider.family<String, String>((
     );
     throw Exception('Failed to load file content: $e');
   }
-});
+}
 
 // Knowledge Base providers
 @riverpod
@@ -1611,30 +1607,31 @@ Future<List<KnowledgeBase>> knowledgeBases(Ref ref) async {
   }
 }
 
-final knowledgeBaseItemsProvider =
-    FutureProvider.family<List<KnowledgeBaseItem>, String>((ref, kbId) async {
-      // Protected: require authentication
-      if (!ref.read(isAuthenticatedProvider2)) {
-        DebugLogger.log('skip-unauthed', scope: 'knowledge/items');
-        return [];
-      }
-      final api = ref.watch(apiServiceProvider);
-      if (api == null) return [];
+@riverpod
+Future<List<KnowledgeBaseItem>> knowledgeBaseItems(
+  Ref ref,
+  String kbId,
+) async {
+  // Protected: require authentication
+  if (!ref.read(isAuthenticatedProvider2)) {
+    DebugLogger.log('skip-unauthed', scope: 'knowledge/items');
+    return [];
+  }
+  final api = ref.watch(apiServiceProvider);
+  if (api == null) return [];
 
-      try {
-        final itemsData = await api.getKnowledgeBaseItems(kbId);
-        return itemsData
-            .map((data) => KnowledgeBaseItem.fromJson(data))
-            .toList();
-      } catch (e) {
-        DebugLogger.error(
-          'knowledge-items-failed',
-          scope: 'knowledge',
-          error: e,
-        );
-        return [];
-      }
-    });
+  try {
+    final itemsData = await api.getKnowledgeBaseItems(kbId);
+    return itemsData.map((data) => KnowledgeBaseItem.fromJson(data)).toList();
+  } catch (e) {
+    DebugLogger.error(
+      'knowledge-items-failed',
+      scope: 'knowledge',
+      error: e,
+    );
+    return [];
+  }
+}
 
 // Audio providers
 @riverpod
