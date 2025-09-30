@@ -989,10 +989,8 @@ class ActiveConversationNotifier extends Notifier<Conversation?> {
 }
 
 // Provider to load full conversation with messages
-final loadConversationProvider = FutureProvider.family<Conversation, String>((
-  ref,
-  conversationId,
-) async {
+@riverpod
+Future<Conversation> loadConversation(Ref ref, String conversationId) async {
   final api = ref.watch(apiServiceProvider);
   if (api == null) {
     throw Exception('No API service available');
@@ -1011,7 +1009,7 @@ final loadConversationProvider = FutureProvider.family<Conversation, String>((
   );
 
   return fullConversation;
-});
+}
 
 // Provider to automatically load and set the default model from user settings or OpenWebUI
 final defaultModelProvider = FutureProvider<Model?>((ref) async {
