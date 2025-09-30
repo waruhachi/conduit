@@ -924,7 +924,9 @@ Future<List<Conversation>> conversations(Ref ref) async {
       );
 
       // Update cache timestamp
-      ref.read(_conversationsCacheTimestampProvider.notifier).set(DateTime.now());
+      ref
+          .read(_conversationsCacheTimestampProvider.notifier)
+          .set(DateTime.now());
 
       return sortedConversations;
     } catch (e) {
@@ -942,7 +944,9 @@ Future<List<Conversation>> conversations(Ref ref) async {
       );
 
       // Update cache timestamp
-      ref.read(_conversationsCacheTimestampProvider.notifier).set(DateTime.now());
+      ref
+          .read(_conversationsCacheTimestampProvider.notifier)
+          .set(DateTime.now());
 
       return conversations; // Return original conversations if folder fetch fails
     }
@@ -1003,13 +1007,16 @@ Future<Conversation> loadConversation(Ref ref, String conversationId) async {
 }
 
 // Provider to automatically load and set the default model from user settings or OpenWebUI
-@riverpod
+@Riverpod(keepAlive: true)
 Future<Model?> defaultModel(Ref ref) async {
+  DebugLogger.log('provider-called', scope: 'models/default');
+
   // Initialize the settings watcher (side-effect only)
   ref.read(_settingsWatcherProvider);
   // Read settings without subscribing to rebuilds to avoid watch/await hazards
   final reviewerMode = ref.read(reviewerModeProvider);
   if (reviewerMode) {
+    DebugLogger.log('reviewer-mode', scope: 'models/default');
     // Check if a model is manually selected
     final currentSelected = ref.read(selectedModelProvider);
     final isManualSelection = ref.read(isManualModelSelectionProvider);
@@ -1037,11 +1044,17 @@ Future<Model?> defaultModel(Ref ref) async {
       }
       return defaultModel;
     }
+    DebugLogger.warning('no-demo-models', scope: 'models/default');
     return null;
   }
 
   final api = ref.watch(apiServiceProvider);
-  if (api == null) return null;
+  if (api == null) {
+    DebugLogger.warning('no-api', scope: 'models/default');
+    return null;
+  }
+
+  DebugLogger.log('api-available', scope: 'models/default');
 
   try {
     // Respect manual selection if present
@@ -1065,7 +1078,10 @@ Future<Model?> defaultModel(Ref ref) async {
         // Reconcile against real models in background
         Future.microtask(() async {
           try {
+            if (!ref.mounted) return;
             final models = await ref.read(modelsProvider.future);
+            if (!ref.mounted) return;
+
             Model? resolved;
             try {
               resolved = models.firstWhere((m) => m.id == storedDefaultId);
@@ -1076,6 +1092,8 @@ Future<Model?> defaultModel(Ref ref) async {
               if (byName.length == 1) resolved = byName.first;
             }
             resolved ??= models.isNotEmpty ? models.first : null;
+
+            if (!ref.mounted) return;
             if (resolved != null && !ref.read(isManualModelSelectionProvider)) {
               ref.read(selectedModelProvider.notifier).set(resolved);
               DebugLogger.log(
@@ -1084,7 +1102,13 @@ Future<Model?> defaultModel(Ref ref) async {
                 data: {'name': resolved.name, 'source': 'stored'},
               );
             }
-          } catch (_) {}
+          } catch (e) {
+            DebugLogger.error(
+              'reconcile-failed',
+              scope: 'models/default',
+              error: e,
+            );
+          }
         });
         return ref.read(selectedModelProvider);
       }
@@ -1105,7 +1129,10 @@ Future<Model?> defaultModel(Ref ref) async {
         // Reconcile against real models in background
         Future.microtask(() async {
           try {
+            if (!ref.mounted) return;
             final models = await ref.read(modelsProvider.future);
+            if (!ref.mounted) return;
+
             Model? resolved;
             try {
               resolved = models.firstWhere((m) => m.id == serverDefault);
@@ -1116,6 +1143,8 @@ Future<Model?> defaultModel(Ref ref) async {
               if (byName.length == 1) resolved = byName.first;
             }
             resolved ??= models.isNotEmpty ? models.first : null;
+
+            if (!ref.mounted) return;
             if (resolved != null && !ref.read(isManualModelSelectionProvider)) {
               ref.read(selectedModelProvider.notifier).set(resolved);
               DebugLogger.log(
@@ -1124,14 +1153,26 @@ Future<Model?> defaultModel(Ref ref) async {
                 data: {'name': resolved.name, 'source': 'server'},
               );
             }
-          } catch (_) {}
+          } catch (e) {
+            DebugLogger.error(
+              'reconcile-failed',
+              scope: 'models/default',
+              error: e,
+            );
+          }
         });
         return ref.read(selectedModelProvider);
       }
     } catch (_) {}
 
     // 3) Fallback: fetch models and pick first available
+    DebugLogger.log('fallback-path', scope: 'models/default');
     final models = await ref.read(modelsProvider.future);
+    DebugLogger.log(
+      'models-loaded',
+      scope: 'models/default',
+      data: {'count': models.length},
+    );
     if (models.isEmpty) {
       DebugLogger.warning('no-models', scope: 'models/default');
       return null;
@@ -1140,10 +1181,12 @@ Future<Model?> defaultModel(Ref ref) async {
     if (!ref.read(isManualModelSelectionProvider)) {
       ref.read(selectedModelProvider.notifier).set(selectedModel);
       DebugLogger.log(
-        'fallback',
+        'fallback-selected',
         scope: 'models/default',
-        data: {'name': selectedModel.name},
+        data: {'name': selectedModel.name, 'id': selectedModel.id},
       );
+    } else {
+      DebugLogger.log('skip-manual-override', scope: 'models/default');
     }
     return selectedModel;
   } catch (e) {
@@ -1158,24 +1201,46 @@ final backgroundModelLoadProvider = Provider<void>((ref) {
   // Ensure API token updater is initialized
   ref.watch(apiTokenUpdaterProvider);
 
-  // Only run when authenticated, and defer until after first frame
-  final navState = ref.read(authNavigationStateProvider);
+  // Watch auth state to trigger model loading when authenticated
+  final navState = ref.watch(authNavigationStateProvider);
   if (navState != AuthNavigationState.authenticated) {
+    DebugLogger.log('skip-not-authed', scope: 'models/background');
     return;
   }
 
+  // Use a flag to prevent multiple concurrent loads
+  var isLoading = false;
+
   WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (isLoading) return;
+    isLoading = true;
+
     // Schedule background loading without blocking startup frame
     Future.microtask(() async {
-      // Small delay to allow initial build/layout to settle
-      await Future.delayed(const Duration(milliseconds: 250));
+      // Reduced delay for faster startup model selection
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      if (!ref.mounted) {
+        DebugLogger.log('cancelled-unmounted', scope: 'models/background');
+        return;
+      }
 
       DebugLogger.log('bg-start', scope: 'models/background');
       try {
-        await ref.read(defaultModelProvider.future);
-        DebugLogger.log('bg-complete', scope: 'models/background');
+        final model = await ref.read(defaultModelProvider.future);
+        if (!ref.mounted) {
+          DebugLogger.log('complete-unmounted', scope: 'models/background');
+          return;
+        }
+        DebugLogger.log(
+          'bg-complete',
+          scope: 'models/background',
+          data: {'model': model?.name ?? 'null'},
+        );
       } catch (e) {
         DebugLogger.error('bg-failed', scope: 'models/background', error: e);
+      } finally {
+        isLoading = false;
       }
     });
   });
@@ -1600,10 +1665,7 @@ Future<List<KnowledgeBase>> knowledgeBases(Ref ref) async {
 }
 
 @riverpod
-Future<List<KnowledgeBaseItem>> knowledgeBaseItems(
-  Ref ref,
-  String kbId,
-) async {
+Future<List<KnowledgeBaseItem>> knowledgeBaseItems(Ref ref, String kbId) async {
   // Protected: require authentication
   if (!ref.read(isAuthenticatedProvider2)) {
     DebugLogger.log('skip-unauthed', scope: 'knowledge/items');
@@ -1616,11 +1678,7 @@ Future<List<KnowledgeBaseItem>> knowledgeBaseItems(
     final itemsData = await api.getKnowledgeBaseItems(kbId);
     return itemsData.map((data) => KnowledgeBaseItem.fromJson(data)).toList();
   } catch (e) {
-    DebugLogger.error(
-      'knowledge-items-failed',
-      scope: 'knowledge',
-      error: e,
-    );
+    DebugLogger.error('knowledge-items-failed', scope: 'knowledge', error: e);
     return [];
   }
 }

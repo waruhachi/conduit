@@ -1170,11 +1170,43 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     ),
                   )
                 : GestureDetector(
-                    onTap: () {
+                    onTap: () async {
                       final modelsAsync = ref.read(modelsProvider);
-                      modelsAsync.whenData(
-                        (models) => _showModelDropdown(context, ref, models),
-                      );
+
+                      // Handle all async states properly
+                      if (modelsAsync.isLoading) {
+                        // If still loading, wait for it to complete
+                        try {
+                          final models = await ref.read(modelsProvider.future);
+                          if (mounted) {
+                            _showModelDropdown(context, ref, models);
+                          }
+                        } catch (e) {
+                          DebugLogger.error(
+                            'model-load-failed',
+                            scope: 'chat/model-selector',
+                            error: e,
+                          );
+                        }
+                      } else if (modelsAsync.hasValue) {
+                        // If we have data, show immediately
+                        _showModelDropdown(context, ref, modelsAsync.value!);
+                      } else if (modelsAsync.hasError) {
+                        // If there's an error, try to refresh and load
+                        try {
+                          ref.invalidate(modelsProvider);
+                          final models = await ref.read(modelsProvider.future);
+                          if (mounted) {
+                            _showModelDropdown(context, ref, models);
+                          }
+                        } catch (e) {
+                          DebugLogger.error(
+                            'model-refresh-failed',
+                            scope: 'chat/model-selector',
+                            error: e,
+                          );
+                        }
+                      }
                     },
                     onLongPress: () {
                       final conversation = ref.read(activeConversationProvider);
