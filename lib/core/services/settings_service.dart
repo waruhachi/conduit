@@ -407,7 +407,7 @@ bool _listEquals(List<String> a, List<String> b) {
 }
 
 /// Provider for app settings
-@riverpod
+@Riverpod(keepAlive: true)
 class AppSettingsNotifier extends _$AppSettingsNotifier {
   bool _initialized = false;
 

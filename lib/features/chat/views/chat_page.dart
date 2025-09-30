@@ -1167,9 +1167,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         // If still loading, wait for it to complete
                         try {
                           final models = await ref.read(modelsProvider.future);
-                          if (mounted) {
-                            _showModelDropdown(context, ref, models);
-                          }
+                          // Check mounted and use context immediately together
+                          if (!mounted) return;
+                          // ignore: use_build_context_synchronously
+                          _showModelDropdown(context, ref, models);
                         } catch (e) {
                           DebugLogger.error(
                             'model-load-failed',
@@ -1178,16 +1179,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                           );
                         }
                       } else if (modelsAsync.hasValue) {
-                        // If we have data, show immediately
+                        // If we have data, show immediately (no async gap)
                         _showModelDropdown(context, ref, modelsAsync.value!);
                       } else if (modelsAsync.hasError) {
                         // If there's an error, try to refresh and load
                         try {
                           ref.invalidate(modelsProvider);
                           final models = await ref.read(modelsProvider.future);
-                          if (mounted) {
-                            _showModelDropdown(context, ref, models);
-                          }
+                          // Check mounted and use context immediately together
+                          if (!mounted) return;
+                          // ignore: use_build_context_synchronously
+                          _showModelDropdown(context, ref, models);
                         } catch (e) {
                           DebugLogger.error(
                             'model-refresh-failed',

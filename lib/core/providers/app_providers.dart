@@ -113,13 +113,13 @@ class AppLocale extends _$AppLocale {
 }
 
 // Server connection providers - optimized with caching
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<ServerConfig>> serverConfigs(Ref ref) async {
   final storage = ref.watch(optimizedStorageServiceProvider);
   return storage.getServerConfigs();
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 Future<ServerConfig?> activeServer(Ref ref) async {
   final storage = ref.watch(optimizedStorageServiceProvider);
   final configs = await ref.watch(serverConfigsProvider.future);
@@ -385,6 +385,8 @@ class SocketConnectionStream extends _$SocketConnectionStream {
   }
 
   /// Forces a best-effort reconnect of the underlying socket service.
+  /// This is an action method, not state exposure.
+  // ignore: avoid_public_notifier_properties
   Future<void> reconnect({
     Duration timeout = const Duration(seconds: 2),
   }) async {
@@ -399,9 +401,6 @@ class SocketConnectionStream extends _$SocketConnectionStream {
           : SocketConnectionState.connecting,
     );
   }
-
-  /// Exposes the latest cached state for imperative reads.
-  SocketConnectionState get latest => _latestState;
 }
 
 @Riverpod(keepAlive: true)
@@ -495,6 +494,11 @@ class ConversationDeltaStream extends _$ConversationDeltaStream {
     _socketSubscription = null;
   }
 
+  /// Provides direct access to the underlying stream.
+  /// Note: This getter is necessary for compatibility with StreamProvider.
+  /// While Riverpod 3 discourages public getters on Notifiers, this is a
+  /// pragmatic exception for stream delegation patterns.
+  // ignore: avoid_public_notifier_properties
   Stream<ConversationDelta> get stream =>
       _controller?.stream ?? const Stream<ConversationDelta>.empty();
 }
@@ -564,7 +568,7 @@ final refreshAuthStateProvider = Provider<void>((ref) {
 });
 
 // Model providers
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<Model>> models(Ref ref) async {
   // Reviewer mode returns mock models
   final reviewerMode = ref.watch(reviewerModeProvider);
@@ -613,7 +617,7 @@ Future<List<Model>> models(Ref ref) async {
   }
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 class SelectedModel extends _$SelectedModel {
   @override
   Model? build() => null;
@@ -624,7 +628,7 @@ class SelectedModel extends _$SelectedModel {
 }
 
 // Track if the current model selection is manual (user-selected) or automatic (default)
-@riverpod
+@Riverpod(keepAlive: true)
 class IsManualModelSelection extends _$IsManualModelSelection {
   @override
   bool build() => false;
@@ -633,6 +637,7 @@ class IsManualModelSelection extends _$IsManualModelSelection {
 }
 
 // Listen for settings changes and reset manual selection when default model changes
+// keepAlive to maintain listener throughout app lifecycle
 final _settingsWatcherProvider = Provider<void>((ref) {
   ref.listen<AppSettings>(appSettingsProvider, (previous, next) {
     if (previous?.defaultModel != next.defaultModel) {
@@ -643,6 +648,7 @@ final _settingsWatcherProvider = Provider<void>((ref) {
 });
 
 // Auto-apply default model from settings when it changes (and not manually overridden)
+// keepAlive to maintain listener throughout app lifecycle
 final defaultModelAutoSelectionProvider = Provider<void>((ref) {
   ref.listen<AppSettings>(appSettingsProvider, (previous, next) {
     // Only react when default model value changes
@@ -697,7 +703,7 @@ final defaultModelAutoSelectionProvider = Provider<void>((ref) {
 });
 
 // Cache timestamp for conversations to prevent rapid re-fetches
-@riverpod
+@Riverpod(keepAlive: true)
 class _ConversationsCacheTimestamp extends _$ConversationsCacheTimestamp {
   @override
   DateTime? build() => null;
@@ -706,7 +712,8 @@ class _ConversationsCacheTimestamp extends _$ConversationsCacheTimestamp {
 }
 
 // Conversation providers - Now using correct OpenWebUI API with caching
-@riverpod
+// keepAlive to maintain cache during authenticated session
+@Riverpod(keepAlive: true)
 Future<List<Conversation>> conversations(Ref ref) async {
   // Do not fetch protected data until authenticated. Use watch so we refetch
   // when the auth state transitions in either direction.
@@ -1459,7 +1466,7 @@ final archivedConversationsProvider = Provider<List<Conversation>>((ref) {
 });
 
 // Reviewer mode provider (persisted)
-@riverpod
+@Riverpod(keepAlive: true)
 class ReviewerMode extends _$ReviewerMode {
   late final OptimizedStorageService _storage;
   bool _initialized = false;
