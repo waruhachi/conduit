@@ -24,6 +24,19 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Mark Workspace as Safe (Git)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Git Diagnostics (pre-build)
+        run: |
+          set -e
+          git --version
+          git status || true
+          git rev-parse HEAD || true
+          git tag -l | head -n 10 || true
 
       - name: Set Up Java
         uses: actions/setup-java@v3
@@ -73,6 +86,13 @@ jobs:
       - name: Build App Bundle (unsigned)
         run: flutter build appbundle --release --build-name "$VERSION_NAME" --build-number "$BUILD_NUMBER"
 
+      - name: List Android Outputs
+        run: |
+          echo "APK files:"
+          ls -1 build/app/outputs/flutter-apk || true
+          echo "Bundle files:"
+          ls -1 build/app/outputs/bundle/release || true
+
       - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -90,6 +110,19 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Mark Workspace as Safe (Git)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Git Diagnostics (pre-build)
+        run: |
+          set -e
+          git --version
+          git status || true
+          git rev-parse HEAD || true
+          git tag -l | head -n 10 || true
 
       - name: Set Up Flutter
         uses: subosito/flutter-action@v2
@@ -120,20 +153,62 @@ jobs:
           VERSION_NAME="${RELEASE_TAG#v}"
           echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
           CURRENT_VERSION_LINE=$(grep "^version:" pubspec.yaml || true)
-            CURRENT_BUILD=$(echo "$CURRENT_VERSION_LINE" | awk -F'+' '{print $2}')
-            if [[ -z "$CURRENT_BUILD" ]]; then CURRENT_BUILD=1; fi
-            if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-              BASE_BUILD=$CURRENT_BUILD
-              RUN_NUM=${GITHUB_RUN_NUMBER:-1}
-              BUILD_NUMBER=$((BASE_BUILD + RUN_NUM))
-            else
-              BUILD_NUMBER="$CURRENT_BUILD"
-            fi
-            echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
-            echo "Using tag=$RELEASE_TAG version=$VERSION_NAME build=$BUILD_NUMBER"
+          CURRENT_BUILD=$(echo "$CURRENT_VERSION_LINE" | awk -F'+' '{print $2}')
+          if [[ -z "$CURRENT_BUILD" ]]; then CURRENT_BUILD=1; fi
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            BASE_BUILD=$CURRENT_BUILD
+            RUN_NUM=${GITHUB_RUN_NUMBER:-1}
+            BUILD_NUMBER=$((BASE_BUILD + RUN_NUM))
+          else
+            BUILD_NUMBER="$CURRENT_BUILD"
+          fi
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
+          echo "Using tag=$RELEASE_TAG version=$VERSION_NAME build=$BUILD_NUMBER"
 
-      - name: Build iOS (Unsigned IPA)
-        run: flutter build ipa --release --no-codesign --build-name "$VERSION_NAME" --build-number "$BUILD_NUMBER"
+      - name: Build iOS (Attempt IPA)
+        run: |
+          set -e
+          flutter build ipa --release --no-codesign --build-name "$VERSION_NAME" --build-number "$BUILD_NUMBER" || {
+            echo "flutter build ipa failed (non-fatal for unsigned build); will try fallback."
+          }
+
+      - name: Fallback: Build iOS App (if IPA missing)
+        run: |
+          set -e
+          if ls build/ios/ipa/*.ipa 1>/dev/null 2>&1; then
+            echo "IPA already exists; skipping fallback .app build."
+          else
+            echo "No IPA produced; building ios (no-codesign) to package manually."
+            flutter build ios --release --no-codesign --build-name "$VERSION_NAME" --build-number "$BUILD_NUMBER"
+          fi
+
+      - name: Manual Package Unsigned IPA (if needed)
+        run: |
+          set -e
+            if ls build/ios/ipa/*.ipa 1>/dev/null 2>&1; then
+              echo "Existing IPA found; manual packaging not required."
+            else
+              echo "Creating unsigned IPA manually."
+              APP_PATH="build/ios/iphoneos/Runner.app"
+              if [ ! -d "$APP_PATH" ]; then
+                echo "ERROR: Runner.app not found at $APP_PATH"
+                exit 1
+              fi
+              mkdir -p build/ios/ipa
+              rm -rf Payload
+              mkdir Payload
+              cp -R "$APP_PATH" Payload/
+              (zip -qry build/ios/ipa/Runner-unsigned.ipa Payload || (echo "Zip failed"; exit 1))
+              rm -rf Payload
+              echo "Created build/ios/ipa/Runner-unsigned.ipa"
+            fi
+
+      - name: List iOS Build Outputs
+        run: |
+          echo "=== build/ios directory tree ==="
+          find build/ios -maxdepth 4 -type f -print
+          echo "IPA contents:"
+          ls -1 build/ios/ipa || true
 
       - name: Upload iOS Artifact
         uses: actions/upload-artifact@v4
@@ -151,6 +226,11 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Mark Workspace as Safe (Git)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Determine Release Tag and Version
         id: meta
@@ -194,8 +274,8 @@ jobs:
       - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
-          path: release-artifacts
-          merge-multiple: true
+            path: release-artifacts
+            merge-multiple: true
 
       - name: List Downloaded Artifacts
         run: ls -R release-artifacts
@@ -204,6 +284,10 @@ jobs:
         id: artifact_list
         run: |
           ARTIFACT_LIST=$(find release-artifacts -type f -print | paste -sd, -)
+          if [ -z "$ARTIFACT_LIST" ]; then
+            echo "ERROR: No artifacts found to upload."
+            exit 1
+          fi
           echo "ARTIFACT_LIST=$ARTIFACT_LIST" >> $GITHUB_ENV
           echo "Artifacts: $ARTIFACT_LIST"
 
