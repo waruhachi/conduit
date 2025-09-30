@@ -1331,25 +1331,29 @@ Future<void> regenerateMessage(
       });
     } catch (_) {}
 
-    final chatEventsStream = ref.read(
-      conversationDeltaStreamProvider(
-        ConversationDeltaRequest.chat(
-          conversationId: activeConversation.id,
-          sessionId: effectiveSessionId,
-          requireFocus: false,
-        ),
-      ),
-    );
+    final chatEventsStream = ref
+        .read(
+          conversationDeltaStreamProvider(
+            ConversationDeltaRequest.chat(
+              conversationId: activeConversation.id,
+              sessionId: effectiveSessionId,
+              requireFocus: false,
+            ),
+          ).notifier,
+        )
+        .stream;
 
-    final channelEventsStream = ref.read(
-      conversationDeltaStreamProvider(
-        ConversationDeltaRequest.channel(
-          conversationId: activeConversation.id,
-          sessionId: effectiveSessionId,
-          requireFocus: false,
-        ),
-      ),
-    );
+    final channelEventsStream = ref
+        .read(
+          conversationDeltaStreamProvider(
+            ConversationDeltaRequest.channel(
+              conversationId: activeConversation.id,
+              sessionId: effectiveSessionId,
+              requireFocus: false,
+            ),
+          ).notifier,
+        )
+        .stream;
 
     final activeStream = attachUnifiedChunkedStreaming(
       stream: stream,
@@ -1897,25 +1901,29 @@ Future<void> _sendMessageInternal(
       });
     } catch (_) {}
 
-    final chatEventsStream = ref.read(
-      conversationDeltaStreamProvider(
-        ConversationDeltaRequest.chat(
-          conversationId: activeConversation?.id,
-          sessionId: effectiveSessionId,
-          requireFocus: false,
-        ),
-      ),
-    );
+    final chatEventsStream = ref
+        .read(
+          conversationDeltaStreamProvider(
+            ConversationDeltaRequest.chat(
+              conversationId: activeConversation?.id,
+              sessionId: effectiveSessionId,
+              requireFocus: false,
+            ),
+          ).notifier,
+        )
+        .stream;
 
-    final channelEventsStream = ref.read(
-      conversationDeltaStreamProvider(
-        ConversationDeltaRequest.channel(
-          conversationId: activeConversation?.id,
-          sessionId: effectiveSessionId,
-          requireFocus: false,
-        ),
-      ),
-    );
+    final channelEventsStream = ref
+        .read(
+          conversationDeltaStreamProvider(
+            ConversationDeltaRequest.channel(
+              conversationId: activeConversation?.id,
+              sessionId: effectiveSessionId,
+              requireFocus: false,
+            ),
+          ).notifier,
+        )
+        .stream;
 
     final activeStream = attachUnifiedChunkedStreaming(
       stream: stream,
