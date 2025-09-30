@@ -1438,7 +1438,8 @@ class ReviewerMode extends _$ReviewerMode {
 }
 
 // User Settings providers
-final userSettingsProvider = FutureProvider<UserSettings>((ref) async {
+@riverpod
+Future<UserSettings> userSettings(Ref ref) async {
   final api = ref.watch(apiServiceProvider);
   if (api == null) {
     // Return default settings if no API
@@ -1453,12 +1454,11 @@ final userSettingsProvider = FutureProvider<UserSettings>((ref) async {
     // Return default settings on error
     return const UserSettings();
   }
-});
+}
 
 // Conversation Suggestions provider
-final conversationSuggestionsProvider = FutureProvider<List<String>>((
-  ref,
-) async {
+@riverpod
+Future<List<String>> conversationSuggestions(Ref ref) async {
   final api = ref.watch(apiServiceProvider);
   if (api == null) return [];
 
@@ -1468,12 +1468,11 @@ final conversationSuggestionsProvider = FutureProvider<List<String>>((
     DebugLogger.error('suggestions-failed', scope: 'suggestions', error: e);
     return [];
   }
-});
+}
 
 // Server features and permissions
-final userPermissionsProvider = FutureProvider<Map<String, dynamic>>((
-  ref,
-) async {
+@riverpod
+Future<Map<String, dynamic>> userPermissions(Ref ref) async {
   final api = ref.watch(apiServiceProvider);
   if (api == null) return {};
 
@@ -1483,7 +1482,7 @@ final userPermissionsProvider = FutureProvider<Map<String, dynamic>>((
     DebugLogger.error('permissions-failed', scope: 'permissions', error: e);
     return {};
   }
-});
+}
 
 final imageGenerationAvailableProvider = Provider<bool>((ref) {
   final perms = ref.watch(userPermissionsProvider);
@@ -1518,7 +1517,8 @@ final webSearchAvailableProvider = Provider<bool>((ref) {
 });
 
 // Folders provider
-final foldersProvider = FutureProvider<List<Folder>>((ref) async {
+@riverpod
+Future<List<Folder>> folders(Ref ref) async {
   // Protected: require authentication
   if (!ref.read(isAuthenticatedProvider2)) {
     DebugLogger.log('skip-unauthed', scope: 'folders');
@@ -1545,10 +1545,11 @@ final foldersProvider = FutureProvider<List<Folder>>((ref) async {
     DebugLogger.error('fetch-failed', scope: 'folders', error: e);
     return [];
   }
-});
+}
 
 // Files provider
-final userFilesProvider = FutureProvider<List<FileInfo>>((ref) async {
+@riverpod
+Future<List<FileInfo>> userFiles(Ref ref) async {
   // Protected: require authentication
   if (!ref.read(isAuthenticatedProvider2)) {
     DebugLogger.log('skip-unauthed', scope: 'files');
@@ -1564,7 +1565,7 @@ final userFilesProvider = FutureProvider<List<FileInfo>>((ref) async {
     DebugLogger.error('files-failed', scope: 'files', error: e);
     return [];
   }
-});
+}
 
 // File content provider
 final fileContentProvider = FutureProvider.family<String, String>((
@@ -1593,7 +1594,8 @@ final fileContentProvider = FutureProvider.family<String, String>((
 });
 
 // Knowledge Base providers
-final knowledgeBasesProvider = FutureProvider<List<KnowledgeBase>>((ref) async {
+@riverpod
+Future<List<KnowledgeBase>> knowledgeBases(Ref ref) async {
   // Protected: require authentication
   if (!ref.read(isAuthenticatedProvider2)) {
     DebugLogger.log('skip-unauthed', scope: 'knowledge');
@@ -1609,7 +1611,7 @@ final knowledgeBasesProvider = FutureProvider<List<KnowledgeBase>>((ref) async {
     DebugLogger.error('knowledge-bases-failed', scope: 'knowledge', error: e);
     return [];
   }
-});
+}
 
 final knowledgeBaseItemsProvider =
     FutureProvider.family<List<KnowledgeBaseItem>, String>((ref, kbId) async {
@@ -1637,7 +1639,8 @@ final knowledgeBaseItemsProvider =
     });
 
 // Audio providers
-final availableVoicesProvider = FutureProvider<List<String>>((ref) async {
+@riverpod
+Future<List<String>> availableVoices(Ref ref) async {
   // Protected: require authentication
   if (!ref.read(isAuthenticatedProvider2)) {
     DebugLogger.log('skip-unauthed', scope: 'voices');
@@ -1652,12 +1655,11 @@ final availableVoicesProvider = FutureProvider<List<String>>((ref) async {
     DebugLogger.error('voices-failed', scope: 'voices', error: e);
     return [];
   }
-});
+}
 
 // Image Generation providers
-final imageModelsProvider = FutureProvider<List<Map<String, dynamic>>>((
-  ref,
-) async {
+@riverpod
+Future<List<Map<String, dynamic>>> imageModels(Ref ref) async {
   final api = ref.watch(apiServiceProvider);
   if (api == null) return [];
 
@@ -1667,4 +1669,4 @@ final imageModelsProvider = FutureProvider<List<Map<String, dynamic>>>((
     DebugLogger.error('image-models-failed', scope: 'image-models', error: e);
     return [];
   }
-});
+}

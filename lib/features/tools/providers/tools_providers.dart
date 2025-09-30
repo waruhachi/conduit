@@ -1,19 +1,19 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
 import 'package:conduit/core/models/tool.dart';
 import 'package:conduit/core/services/tools_service.dart';
 
-final toolsListProvider = FutureProvider<List<Tool>>((ref) async {
+part 'tools_providers.g.dart';
+
+@riverpod
+Future<List<Tool>> toolsList(Ref ref) async {
   final toolsService = ref.watch(toolsServiceProvider);
   if (toolsService == null) return [];
   return await toolsService.getTools();
-});
+}
 
-final selectedToolIdsProvider =
-    NotifierProvider<SelectedToolIdsNotifier, List<String>>(
-      SelectedToolIdsNotifier.new,
-    );
-
-class SelectedToolIdsNotifier extends Notifier<List<String>> {
+@riverpod
+class SelectedToolIds extends _$SelectedToolIds {
   @override
   List<String> build() => [];
 

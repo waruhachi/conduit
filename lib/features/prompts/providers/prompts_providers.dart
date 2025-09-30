@@ -1,20 +1,19 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:conduit/core/models/prompt.dart';
 import 'package:conduit/core/services/prompts_service.dart';
 
-final promptsListProvider = FutureProvider<List<Prompt>>((ref) async {
+part 'prompts_providers.g.dart';
+
+@riverpod
+Future<List<Prompt>> promptsList(Ref ref) async {
   final promptsService = ref.watch(promptsServiceProvider);
   if (promptsService == null) return const <Prompt>[];
   return promptsService.getPrompts();
-});
+}
 
-final activePromptCommandProvider =
-    NotifierProvider<ActivePromptCommandNotifier, String?>(
-      ActivePromptCommandNotifier.new,
-    );
-
-class ActivePromptCommandNotifier extends Notifier<String?> {
+@riverpod
+class ActivePromptCommand extends _$ActivePromptCommand {
   @override
   String? build() => null;
 
