@@ -404,47 +404,18 @@ class SocketConnectionStream extends _$SocketConnectionStream {
 }
 
 @Riverpod(keepAlive: true)
-class ConversationDeltaStream extends _$ConversationDeltaStream {
-  StreamController<ConversationDelta>? _controller;
-  ProviderSubscription<AsyncValue<SocketService?>>? _serviceSubscription;
-  SocketEventSubscription? _socketSubscription;
+Stream<ConversationDelta> conversationDeltaStream(
+  Ref ref,
+  ConversationDeltaRequest request,
+) {
+  final controller = StreamController<ConversationDelta>.broadcast(sync: true);
 
-  @override
-  Stream<ConversationDelta> build(ConversationDeltaRequest request) {
-    final controller = StreamController<ConversationDelta>.broadcast(
-      sync: true,
-      onCancel: _maybeTearDownSocket,
-    );
-    _controller = controller;
+  ProviderSubscription<AsyncValue<SocketService?>>? serviceSubscription;
+  SocketEventSubscription? socketSubscription;
 
-    final initialService = ref
-        .watch(socketServiceManagerProvider)
-        .maybeWhen(data: (service) => service, orElse: () => null);
-    _bindSocket(initialService, request);
-
-    _serviceSubscription = ref.listen<AsyncValue<SocketService?>>(
-      socketServiceManagerProvider,
-      (_, next) => _bindSocket(
-        next.maybeWhen(data: (service) => service, orElse: () => null),
-        request,
-      ),
-    );
-
-    ref.onDispose(() {
-      _serviceSubscription?.close();
-      _serviceSubscription = null;
-      _socketSubscription?.dispose();
-      _socketSubscription = null;
-      _controller?.close();
-      _controller = null;
-    });
-
-    return controller.stream;
-  }
-
-  void _bindSocket(SocketService? service, ConversationDeltaRequest request) {
-    _socketSubscription?.dispose();
-    _socketSubscription = null;
+  void bindSocket(SocketService? service) {
+    socketSubscription?.dispose();
+    socketSubscription = null;
 
     if (service == null) {
       return;
@@ -452,67 +423,64 @@ class ConversationDeltaStream extends _$ConversationDeltaStream {
 
     switch (request.source) {
       case ConversationDeltaSource.chat:
-        _socketSubscription = service.addChatEventHandler(
+        socketSubscription = service.addChatEventHandler(
           conversationId: request.conversationId,
           sessionId: request.sessionId,
           requireFocus: request.requireFocus,
           handler: (event, ack) {
-            _controller?.add(
-              ConversationDelta.fromSocketEvent(
-                ConversationDeltaSource.chat,
-                event,
-                ack,
-              ),
-            );
+            if (!controller.isClosed) {
+              controller.add(
+                ConversationDelta.fromSocketEvent(
+                  ConversationDeltaSource.chat,
+                  event,
+                  ack,
+                ),
+              );
+            }
           },
         );
         break;
       case ConversationDeltaSource.channel:
-        _socketSubscription = service.addChannelEventHandler(
+        socketSubscription = service.addChannelEventHandler(
           conversationId: request.conversationId,
           sessionId: request.sessionId,
           requireFocus: request.requireFocus,
           handler: (event, ack) {
-            _controller?.add(
-              ConversationDelta.fromSocketEvent(
-                ConversationDeltaSource.channel,
-                event,
-                ack,
-              ),
-            );
+            if (!controller.isClosed) {
+              controller.add(
+                ConversationDelta.fromSocketEvent(
+                  ConversationDeltaSource.channel,
+                  event,
+                  ack,
+                ),
+              );
+            }
           },
         );
         break;
     }
   }
 
-  void _maybeTearDownSocket() {
-    if (_controller?.hasListener == true) {
-      return;
-    }
-    _socketSubscription?.dispose();
-    _socketSubscription = null;
-  }
+  final initialService = ref
+      .watch(socketServiceManagerProvider)
+      .maybeWhen(data: (service) => service, orElse: () => null);
+  bindSocket(initialService);
 
-  /// Provides direct access to the underlying stream.
-  /// Note: This getter is necessary for compatibility with StreamProvider.
-  /// While Riverpod 3 discourages public getters on Notifiers, this is a
-  /// pragmatic exception for stream delegation patterns.
-  // ignore: avoid_public_notifier_properties
-  Stream<ConversationDelta> get stream =>
-      _controller?.stream ?? const Stream<ConversationDelta>.empty();
+  serviceSubscription = ref.listen<AsyncValue<SocketService?>>(
+    socketServiceManagerProvider,
+    (_, next) => bindSocket(
+      next.maybeWhen(data: (service) => service, orElse: () => null),
+    ),
+  );
+
+  ref.onDispose(() {
+    serviceSubscription?.close();
+    socketSubscription?.dispose();
+    controller.close();
+  });
+
+  return controller.stream;
 }
-
-final conversationDeltaEventsProvider =
-    StreamProvider.family<ConversationDelta, ConversationDeltaRequest>((
-      ref,
-      request,
-    ) {
-      final notifier = ref.watch(
-        conversationDeltaStreamProvider(request).notifier,
-      );
-      return notifier.stream;
-    });
 
 // Attachment upload queue provider
 final attachmentUploadQueueProvider = Provider<AttachmentUploadQueue?>((ref) {
