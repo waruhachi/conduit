@@ -141,9 +141,9 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = ref.watch(themeModeProvider.select((mode) => mode));
+    final themeMode = ref.watch(appThemeModeProvider.select((mode) => mode));
     final router = ref.watch(goRouterProvider);
-    final locale = ref.watch(localeProvider);
+    final locale = ref.watch(appLocaleProvider);
 
     return ErrorBoundary(
       child: MaterialApp.router(

@@ -68,11 +68,8 @@ final optimizedStorageServiceProvider = Provider<OptimizedStorageService>((
 });
 
 // Theme provider
-final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
-  ThemeModeNotifier.new,
-);
-
-class ThemeModeNotifier extends Notifier<ThemeMode> {
+@riverpod
+class AppThemeMode extends _$AppThemeMode {
   late final OptimizedStorageService _storage;
 
   @override
@@ -95,11 +92,8 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
 }
 
 // Locale provider
-final localeProvider = NotifierProvider<LocaleNotifier, Locale?>(
-  LocaleNotifier.new,
-);
-
-class LocaleNotifier extends Notifier<Locale?> {
+@riverpod
+class AppLocale extends _$AppLocale {
   late final OptimizedStorageService _storage;
 
   @override

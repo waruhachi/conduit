@@ -19,7 +19,7 @@ class AppCustomizationPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(appSettingsProvider);
-    final themeMode = ref.watch(themeModeProvider);
+    final themeMode = ref.watch(appThemeModeProvider);
     final platformBrightness = MediaQuery.platformBrightnessOf(context);
     final themeDescription = () {
       if (themeMode == ThemeMode.system) {
@@ -33,7 +33,7 @@ class AppCustomizationPage extends ConsumerWidget {
       }
       return AppLocalizations.of(context)!.currentlyUsingLightTheme;
     }();
-    final locale = ref.watch(localeProvider);
+    final locale = ref.watch(appLocaleProvider);
     final currentLanguageCode = locale?.languageCode ?? 'system';
     final languageLabel = _resolveLanguageLabel(context, currentLanguageCode);
 
@@ -143,10 +143,10 @@ class AppCustomizationPage extends ConsumerWidget {
             );
             if (selected == null) return;
             if (selected == 'system') {
-              await ref.read(localeProvider.notifier).setLocale(null);
+              await ref.read(appLocaleProvider.notifier).setLocale(null);
             } else {
               await ref
-                  .read(localeProvider.notifier)
+                  .read(appLocaleProvider.notifier)
                   .setLocale(Locale(selected));
             }
           },
@@ -289,7 +289,7 @@ class AppCustomizationPage extends ConsumerWidget {
       label: label,
       icon: icon,
       isSelected: isSelected,
-      onTap: () => ref.read(themeModeProvider.notifier).setTheme(mode),
+      onTap: () => ref.read(appThemeModeProvider.notifier).setTheme(mode),
     );
   }
 
