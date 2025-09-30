@@ -706,7 +706,8 @@ class _ConversationsCacheTimestamp extends _$ConversationsCacheTimestamp {
 }
 
 // Conversation providers - Now using correct OpenWebUI API with caching
-final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
+@riverpod
+Future<List<Conversation>> conversations(Ref ref) async {
   // Do not fetch protected data until authenticated. Use watch so we refetch
   // when the auth state transitions in either direction.
   final authed = ref.watch(isAuthenticatedProvider2);
@@ -962,7 +963,7 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
     // Return empty list instead of re-throwing to allow app to continue functioning
     return [];
   }
-});
+}
 
 final activeConversationProvider =
     NotifierProvider<ActiveConversationNotifier, Conversation?>(
