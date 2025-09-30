@@ -721,7 +721,7 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
     return [];
   }
   // Check if we have a recent cache (within 5 seconds)
-  final lastFetch = ref.read(_conversationsCacheTimestamp);
+  final lastFetch = ref.read(_conversationsCacheTimestampProvider);
   if (lastFetch != null && DateTime.now().difference(lastFetch).inSeconds < 5) {
     DebugLogger.log(
       'cache-hit',
@@ -929,7 +929,7 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
       );
 
       // Update cache timestamp
-      ref.read(_conversationsCacheTimestamp.notifier).set(DateTime.now());
+      ref.read(_conversationsCacheTimestampProvider.notifier).set(DateTime.now());
 
       return sortedConversations;
     } catch (e) {
@@ -947,7 +947,7 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
       );
 
       // Update cache timestamp
-      ref.read(_conversationsCacheTimestamp.notifier).set(DateTime.now());
+      ref.read(_conversationsCacheTimestampProvider.notifier).set(DateTime.now());
 
       return conversations; // Return original conversations if folder fetch fails
     }
