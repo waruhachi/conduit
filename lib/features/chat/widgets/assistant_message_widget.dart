@@ -21,6 +21,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../providers/chat_providers.dart' show sendMessage;
 import '../../../core/utils/debug_logger.dart';
 import 'sources/openwebui_sources.dart';
+import '../providers/assistant_response_builder_provider.dart';
 
 class AssistantMessageWidget extends ConsumerStatefulWidget {
   final dynamic message;
@@ -746,10 +747,23 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     // Process images in the remaining text
     final processedContent = _processContentForImages(cleaned);
 
-    return StreamingMarkdownWidget(
-      staticContent: processedContent,
+    Widget buildDefault(BuildContext context) => StreamingMarkdownWidget(
+      content: processedContent,
       isStreaming: widget.isStreaming,
     );
+
+    final responseBuilder = ref.watch(assistantResponseBuilderProvider);
+    if (responseBuilder != null) {
+      final contextData = AssistantResponseContext(
+        message: widget.message,
+        markdown: processedContent,
+        isStreaming: widget.isStreaming,
+        buildDefault: buildDefault,
+      );
+      return responseBuilder(context, contextData);
+    }
+
+    return buildDefault(context);
   }
 
   String _processContentForImages(String content) {

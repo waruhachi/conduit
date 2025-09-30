@@ -1,38 +1,87 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
+
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:conduit/shared/theme/theme_extensions.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:markdown/markdown.dart' as md;
+
 import 'package:conduit/l10n/app_localizations.dart';
 
-/// Configuration for markdown styling
-class ConduitMarkdownStyleConfig {
-  final TextStyle textStyle;
+import '../../theme/theme_extensions.dart';
 
-  const ConduitMarkdownStyleConfig({required this.textStyle});
+class ConduitMarkdownTheme {
+  const ConduitMarkdownTheme({
+    required this.styleSheet,
+    required this.builders,
+    required this.imageBuilder,
+    this.inlineSyntaxes = const <md.InlineSyntax>[],
+  });
+
+  final MarkdownStyleSheet styleSheet;
+  final Map<String, MarkdownElementBuilder> builders;
+  final MarkdownImageBuilder imageBuilder;
+  final List<md.InlineSyntax> inlineSyntaxes;
 }
 
 class ConduitMarkdownConfig {
-  static ConduitMarkdownStyleConfig getStyleConfig({
-    required BuildContext context,
-  }) {
+  static ConduitMarkdownTheme resolve(BuildContext context) {
     final theme = context.conduitTheme;
+    final materialTheme = Theme.of(context);
 
-    return ConduitMarkdownStyleConfig(
-      textStyle: AppTypography.chatMessageStyle.copyWith(
-        color: theme.textPrimary,
-        height: 1.45,
+    final baseSheet = MarkdownStyleSheet.fromTheme(materialTheme);
+    final bodyStyle = AppTypography.bodyMediumStyle.copyWith(
+      color: theme.textPrimary,
+      height: 1.45,
+    );
+
+    final codeColor = theme.code?.color ?? theme.textSecondary;
+
+    final styleSheet = baseSheet.copyWith(
+      p: bodyStyle,
+      h1: AppTypography.headlineLargeStyle.copyWith(color: theme.textPrimary),
+      h2: AppTypography.headlineMediumStyle.copyWith(color: theme.textPrimary),
+      h3: AppTypography.headlineSmallStyle.copyWith(color: theme.textPrimary),
+      strong: bodyStyle.copyWith(fontWeight: FontWeight.w600),
+      em: bodyStyle.copyWith(fontStyle: FontStyle.italic),
+      blockquote: bodyStyle.copyWith(
+        color: theme.textSecondary,
+        fontStyle: FontStyle.italic,
       ),
+      code: AppTypography.codeStyle.copyWith(color: codeColor),
+      listBullet: bodyStyle,
+      tableBody: bodyStyle,
+      tableHead: bodyStyle.copyWith(fontWeight: FontWeight.w600),
+    );
+
+    final builders = <String, MarkdownElementBuilder>{
+      'codeblock': _ConduitCodeBlockBuilder(theme),
+    };
+
+    return ConduitMarkdownTheme(
+      styleSheet: styleSheet,
+      builders: builders,
+      imageBuilder: (uri, title, alt) {
+        final scheme = uri.scheme;
+
+        if (scheme == 'data') {
+          return buildBase64Image(uri.toString(), context, theme);
+        }
+
+        if (scheme.isEmpty || scheme == 'http' || scheme == 'https') {
+          return buildNetworkImage(uri.toString(), context, theme);
+        }
+
+        return const SizedBox.shrink();
+      },
     );
   }
 
-  /// Legacy method for base64 image support (if needed elsewhere)
   static Widget buildBase64Image(
     String dataUrl,
     BuildContext context,
     ConduitThemeExtension theme,
   ) {
     try {
-      // Extract base64 part from data URL
       final commaIndex = dataUrl.indexOf(',');
       if (commaIndex == -1) {
         throw Exception('Invalid data URL format');
@@ -50,50 +99,16 @@ class ConduitMarkdownConfig {
             imageBytes,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {
-              return Container(
-                height: 100,
-                decoration: BoxDecoration(
-                  color: theme.surfaceBackground.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                  border: Border.all(
-                    color: theme.error.withValues(alpha: 0.3),
-                    width: BorderWidth.thin,
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.error_outline, color: theme.error, size: 32),
-                    const SizedBox(height: Spacing.xs),
-                    Text(
-                      AppLocalizations.of(context)!.invalidImageFormat,
-                      style: TextStyle(color: theme.error, fontSize: 12),
-                    ),
-                  ],
-                ),
-              );
+              return _buildImageError(context, theme);
             },
           ),
         ),
       );
     } catch (e) {
-      return Container(
-        height: 100,
-        decoration: BoxDecoration(
-          color: theme.surfaceBackground.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        ),
-        child: Center(
-          child: Text(
-            AppLocalizations.of(context)!.invalidImageFormat,
-            style: TextStyle(color: theme.error, fontSize: 12),
-          ),
-        ),
-      );
+      return _buildImageError(context, theme);
     }
   }
 
-  /// Build a cached network image widget
   static Widget buildNetworkImage(
     String url,
     BuildContext context,
@@ -114,39 +129,82 @@ class ConduitMarkdownConfig {
           ),
         ),
       ),
-      errorWidget: (context, url, error) => Container(
-        height: 100,
-        decoration: BoxDecoration(
-          color: theme.surfaceBackground.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(AppBorderRadius.md),
-          border: Border.all(
-            color: theme.error.withValues(alpha: 0.3),
-            width: BorderWidth.thin,
+      errorWidget: (context, url, error) => _buildImageError(context, theme),
+    );
+  }
+
+  static Widget _buildImageError(
+    BuildContext context,
+    ConduitThemeExtension theme,
+  ) {
+    return Container(
+      height: 100,
+      decoration: BoxDecoration(
+        color: theme.surfaceBackground.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        border: Border.all(
+          color: theme.error.withValues(alpha: 0.3),
+          width: BorderWidth.thin,
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.broken_image_outlined, color: theme.error, size: 32),
+          const SizedBox(height: Spacing.xs),
+          Text(
+            AppLocalizations.of(context)!.failedToLoadImage(''),
+            style: TextStyle(color: theme.error, fontSize: 12),
           ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.broken_image_outlined, color: theme.error, size: 32),
-            const SizedBox(height: Spacing.xs),
-            Text(
-              AppLocalizations.of(context)!.failedToLoadImage(''),
-              style: TextStyle(color: theme.error, fontSize: 12),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
 }
 
-/// Custom wrapper for code blocks with copy functionality
-class CodeBlockWrapper extends StatelessWidget {
-  final Widget child;
-  final String code;
-  final String? language;
+class _ConduitCodeBlockBuilder extends MarkdownElementBuilder {
+  _ConduitCodeBlockBuilder(this.theme);
+
   final ConduitThemeExtension theme;
 
+  @override
+  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+    final rawText = element.textContent;
+    final classAttribute = element.attributes['class'];
+    String? language;
+    if (classAttribute != null && classAttribute.startsWith('language-')) {
+      language = classAttribute.substring('language-'.length);
+    }
+
+    final textStyle = (preferredStyle ?? AppTypography.codeStyle).copyWith(
+      color: theme.code?.color ?? theme.textSecondary,
+    );
+
+    final container = Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: Spacing.xs),
+      padding: const EdgeInsets.all(Spacing.sm),
+      decoration: BoxDecoration(
+        color: theme.surfaceBackground.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        border: Border.all(
+          color: theme.cardBorder.withValues(alpha: 0.2),
+          width: BorderWidth.micro,
+        ),
+      ),
+      child: SelectableText(rawText, style: textStyle),
+    );
+
+    return CodeBlockWrapper(
+      code: rawText,
+      language: language,
+      theme: theme,
+      child: container,
+    );
+  }
+}
+
+class CodeBlockWrapper extends StatelessWidget {
   const CodeBlockWrapper({
     super.key,
     required this.child,
@@ -154,6 +212,11 @@ class CodeBlockWrapper extends StatelessWidget {
     this.language,
     required this.theme,
   });
+
+  final Widget child;
+  final String code;
+  final String? language;
+  final ConduitThemeExtension theme;
 
   @override
   Widget build(BuildContext context) {
@@ -168,8 +231,7 @@ class CodeBlockWrapper extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(AppBorderRadius.sm),
               onTap: () {
-                // Copy code to clipboard
-                // Implementation depends on clipboard service
+                // Copy implementation provided by higher level clipboard service.
               },
               child: Container(
                 padding: const EdgeInsets.all(Spacing.xs),
@@ -201,8 +263,9 @@ class CodeBlockWrapper extends StatelessWidget {
               ),
               child: Text(
                 language!,
-                style: AppTypography.captionStyle.copyWith(
+                style: AppTypography.bodySmallStyle.copyWith(
                   color: theme.textSecondary,
+                  fontFamily: AppTypography.monospaceFontFamily,
                 ),
               ),
             ),

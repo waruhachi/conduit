@@ -14,18 +14,19 @@ import '../../shared/widgets/themed_dialogs.dart';
 import '../../shared/theme/theme_extensions.dart';
 import '../utils/debug_logger.dart';
 import '../utils/openwebui_source_parser.dart';
+import 'streaming_response_controller.dart';
 
 // Keep local verbosity toggle for socket logs
 const bool kSocketVerboseLogging = false;
 
 class ActiveSocketStream {
   ActiveSocketStream({
-    required this.streamSubscription,
+    required this.controller,
     required this.socketSubscriptions,
     required this.disposeWatchdog,
   });
 
-  final StreamSubscription<String> streamSubscription;
+  final StreamingResponseController controller;
   final List<VoidCallback> socketSubscriptions;
   final VoidCallback disposeWatchdog;
 }
@@ -1026,8 +1027,9 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
     socketSubscriptions.add(channelSub.dispose);
   }
 
-  final subscription = persistentController.stream.listen(
-    (chunk) {
+  final controller = StreamingResponseController(
+    stream: persistentController.stream,
+    onChunk: (chunk) {
       var effectiveChunk = chunk;
       if (webSearchEnabled && !isSearching) {
         if (chunk.contains('[SEARCHING]') ||
@@ -1061,7 +1063,7 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
         updateImagesFromCurrentContent();
       }
     },
-    onDone: () async {
+    onComplete: () {
       // Unregister from persistent service
       persistentService.unregisterStream(streamId);
 
@@ -1073,7 +1075,7 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
         Future.microtask(refreshConversationSnapshot);
       }
     },
-    onError: (error) async {
+    onError: (error, stackTrace) async {
       DebugLogger.error(
         'Stream error occurred',
         scope: 'streaming/helper',
@@ -1090,11 +1092,12 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
       } catch (_) {}
 
       // Check if this is a recoverable error (network issues, etc.)
+      final errorText = error.toString();
       final isRecoverable =
-          error is! FormatException &&
-              error.toString().contains('SocketException') ||
-          error.toString().contains('TimeoutException') ||
-          error.toString().contains('HandshakeException');
+          (error is! FormatException &&
+              errorText.contains('SocketException')) ||
+          errorText.contains('TimeoutException') ||
+          errorText.contains('HandshakeException');
 
       if (isRecoverable && socketService != null) {
         // Try to recover via socket connection if available
@@ -1118,7 +1121,7 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
   );
 
   return ActiveSocketStream(
-    streamSubscription: subscription,
+    controller: controller,
     socketSubscriptions: socketSubscriptions,
     disposeWatchdog: () => socketWatchdog?.stop(),
   );

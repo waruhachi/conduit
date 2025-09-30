@@ -13,8 +13,10 @@ import '../../../core/models/conversation.dart';
 import '../../../core/models/socket_event.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/services/streaming_helper.dart';
+import '../../../core/services/streaming_response_controller.dart';
 import '../../../core/utils/debug_logger.dart';
 import '../../../core/utils/inactivity_watchdog.dart';
+import '../../../core/utils/markdown_stream_formatter.dart';
 import '../../../core/utils/tool_calls_parser.dart';
 import '../../../shared/services/tasks/task_queue.dart';
 import '../../tools/providers/tools_providers.dart';
@@ -76,7 +78,7 @@ class ComposerHasFocus extends _$ComposerHasFocus {
 
 // Chat messages notifier class
 class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
-  StreamSubscription? _messageStream;
+  StreamingResponseController? _messageStream;
   ProviderSubscription? _conversationListener;
   final List<StreamSubscription> _subscriptions = [];
   final List<VoidCallback> _socketSubscriptions = [];
@@ -84,6 +86,9 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   // Activity-based watchdog to prevent stuck typing indicator
   InactivityWatchdog? _typingWatchdog;
   DateTime? _lastStreamingActivity;
+
+  MarkdownStreamFormatter? _markdownFormatter;
+  String? _activeStreamingMessageId;
 
   bool _initialized = false;
 
@@ -170,19 +175,60 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
     return activeConversation?.messages ?? const [];
   }
 
-  void _addSubscription(StreamSubscription subscription) {
-    _subscriptions.add(subscription);
-  }
-
   void _cancelMessageStream() {
-    _messageStream?.cancel();
+    final controller = _messageStream;
     _messageStream = null;
+    if (controller != null && controller.isActive) {
+      unawaited(controller.cancel());
+    }
+    _clearStreamingFormatter();
     cancelSocketSubscriptions();
   }
 
   void _cancelTypingGuard() {
     _typingWatchdog?.stop();
     _typingWatchdog = null;
+  }
+
+  void _clearStreamingFormatter() {
+    _markdownFormatter = null;
+    _activeStreamingMessageId = null;
+  }
+
+  void _ensureFormatterForMessage(ChatMessage message) {
+    if (_markdownFormatter != null && _activeStreamingMessageId == message.id) {
+      return;
+    }
+
+    final formatter = MarkdownStreamFormatter();
+    final seed = _stripStreamingPlaceholders(message.content);
+    if (seed.isNotEmpty) {
+      formatter.seed(seed);
+    }
+    _markdownFormatter = formatter;
+    _activeStreamingMessageId = message.id;
+  }
+
+  String _stripStreamingPlaceholders(String content) {
+    var result = content;
+    const ti = '[TYPING_INDICATOR]';
+    const searchBanner = '🔍 Searching the web...';
+    if (result.startsWith(ti)) {
+      result = result.substring(ti.length);
+    }
+    if (result.startsWith(searchBanner)) {
+      result = result.substring(searchBanner.length);
+    }
+    return result;
+  }
+
+  String _finalizeFormatter(String messageId, String fallback) {
+    if (_markdownFormatter != null && _activeStreamingMessageId == messageId) {
+      final output = _markdownFormatter!.finalize();
+      _clearStreamingFormatter();
+      return output;
+    }
+    return fallback;
   }
 
   void _scheduleTypingGuard({Duration? timeout}) {
@@ -378,12 +424,9 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
     }
   }
 
-  void setMessageStream(StreamSubscription stream) {
+  void setMessageStream(StreamingResponseController controller) {
     _cancelMessageStream();
-    _messageStream = stream;
-
-    // Add to tracked subscriptions for comprehensive cleanup
-    _addSubscription(stream);
+    _messageStream = controller;
   }
 
   void setSocketSubscriptions(
@@ -438,22 +481,9 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
     final lastMessage = state.last;
     if (lastMessage.role != 'assistant') return;
 
-    // Ensure we never keep the typing placeholder in persisted content
-    String sanitized(String s) {
-      const ti = '[TYPING_INDICATOR]';
-      const searchBanner = '🔍 Searching the web...';
-      if (s.startsWith(ti)) {
-        s = s.substring(ti.length);
-      }
-      if (s.startsWith(searchBanner)) {
-        s = s.substring(searchBanner.length);
-      }
-      return s;
-    }
-
     state = [
       ...state.sublist(0, state.length - 1),
-      lastMessage.copyWith(content: sanitized(content)),
+      lastMessage.copyWith(content: _stripStreamingPlaceholders(content)),
     ];
     _touchStreamingActivity();
   }
@@ -565,21 +595,13 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
       return;
     }
 
-    // Strip a leading typing indicator if present, then append delta
-    const ti = '[TYPING_INDICATOR]';
-    const searchBanner = '🔍 Searching the web...';
-    String current = lastMessage.content;
-    if (current.startsWith(ti)) {
-      current = current.substring(ti.length);
-    }
-    if (current.startsWith(searchBanner)) {
-      current = current.substring(searchBanner.length);
-    }
-    final newContent = current.isEmpty ? content : current + content;
+    _ensureFormatterForMessage(lastMessage);
+    final formatter = _markdownFormatter!;
+    final preview = formatter.ingest(content);
 
     state = [
       ...state.sublist(0, state.length - 1),
-      lastMessage.copyWith(content: newContent),
+      lastMessage.copyWith(content: preview),
     ];
     _touchStreamingActivity();
   }
@@ -594,16 +616,10 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
       return;
     }
 
-    // Remove typing indicator if present in the replacement
-    String sanitized = content;
-    const ti = '[TYPING_INDICATOR]';
-    const searchBanner = '🔍 Searching the web...';
-    if (sanitized.startsWith(ti)) {
-      sanitized = sanitized.substring(ti.length);
-    }
-    if (sanitized.startsWith(searchBanner)) {
-      sanitized = sanitized.substring(searchBanner.length);
-    }
+    _ensureFormatterForMessage(lastMessage);
+    final formatter = _markdownFormatter!;
+    final sanitized = formatter.replace(_stripStreamingPlaceholders(content));
+
     state = [
       ...state.sublist(0, state.length - 1),
       lastMessage.copyWith(content: sanitized),
@@ -617,21 +633,14 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
     final lastMessage = state.last;
     if (lastMessage.role != 'assistant' || !lastMessage.isStreaming) return;
 
-    // Also strip any leftover typing indicator before finalizing
-    const ti = '[TYPING_INDICATOR]';
-    const searchBanner = '🔍 Searching the web...';
-    String cleaned = lastMessage.content;
-    if (cleaned.startsWith(ti)) {
-      cleaned = cleaned.substring(ti.length);
-    }
-    if (cleaned.startsWith(searchBanner)) {
-      cleaned = cleaned.substring(searchBanner.length);
-    }
+    final finalized = _finalizeFormatter(lastMessage.id, lastMessage.content);
+    final cleaned = _stripStreamingPlaceholders(finalized);
 
     state = [
       ...state.sublist(0, state.length - 1),
       lastMessage.copyWith(isStreaming: false, content: cleaned),
     ];
+    _messageStream = null;
     _cancelTypingGuard();
 
     // Trigger a refresh of the conversations list so UI like the Chats Drawer
@@ -1407,7 +1416,7 @@ Future<void> regenerateMessage(
       getMessages: () => ref.read(chatMessagesProvider),
     );
     ref.read(chatMessagesProvider.notifier)
-      ..setMessageStream(activeStream.streamSubscription)
+      ..setMessageStream(activeStream.controller)
       ..setSocketSubscriptions(
         activeStream.socketSubscriptions,
         onDispose: activeStream.disposeWatchdog,
@@ -1969,7 +1978,7 @@ Future<void> _sendMessageInternal(
     );
 
     ref.read(chatMessagesProvider.notifier)
-      ..setMessageStream(activeStream.streamSubscription)
+      ..setMessageStream(activeStream.controller)
       ..setSocketSubscriptions(
         activeStream.socketSubscriptions,
         onDispose: activeStream.disposeWatchdog,
