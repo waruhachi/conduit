@@ -1,10 +1,14 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:record/record.dart';
-import 'package:flutter/widgets.dart';
 import 'dart:async';
 import 'dart:io' show Platform;
-// Removed path imports as server transcription fallback was removed
+
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:record/record.dart';
 import 'package:stts/stts.dart';
+
+part 'voice_input_service.g.dart';
+// Removed path imports as server transcription fallback was removed
 
 // Lightweight replacement for previous stt.LocaleName used across the UI
 class LocaleName {
@@ -322,7 +326,8 @@ final voiceInputServiceProvider = Provider<VoiceInputService>((ref) {
   return VoiceInputService();
 });
 
-final voiceInputAvailableProvider = FutureProvider<bool>((ref) async {
+@riverpod
+Future<bool> voiceInputAvailable(Ref ref) async {
   final service = ref.watch(voiceInputServiceProvider);
   if (!service.isSupportedPlatform) return false;
   final initialized = await service.initialize();
@@ -332,7 +337,7 @@ final voiceInputAvailableProvider = FutureProvider<bool>((ref) async {
   final hasPermission = await service.checkPermissions();
   if (!hasPermission) return false;
   return service.isAvailable;
-});
+}
 
 final voiceInputStreamProvider = StreamProvider<String>((ref) {
   final service = ref.watch(voiceInputServiceProvider);
