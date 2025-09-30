@@ -703,12 +703,8 @@ final defaultModelAutoSelectionProvider = Provider<void>((ref) {
 });
 
 // Cache timestamp for conversations to prevent rapid re-fetches
-final _conversationsCacheTimestamp =
-    NotifierProvider<_ConversationsCacheTimestampNotifier, DateTime?>(
-      _ConversationsCacheTimestampNotifier.new,
-    );
-
-class _ConversationsCacheTimestampNotifier extends Notifier<DateTime?> {
+@riverpod
+class _ConversationsCacheTimestamp extends _$ConversationsCacheTimestamp {
   @override
   DateTime? build() => null;
 

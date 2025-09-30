@@ -1,12 +1,17 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'dart:io' show Platform;
+
 import '../../core/services/connectivity_service.dart';
 import '../../core/providers/app_providers.dart';
 import '../theme/theme_extensions.dart';
 import 'package:conduit/l10n/app_localizations.dart';
+
+part 'offline_indicator.g.dart';
 
 class OfflineIndicator extends ConsumerWidget {
   final Widget child;
@@ -52,11 +57,8 @@ class OfflineIndicator extends ConsumerWidget {
 }
 
 // Tracks if the app was recently offline to enable a one-shot back-online toast
-final _wasOfflineProvider = NotifierProvider<_WasOfflineNotifier, bool>(
-  _WasOfflineNotifier.new,
-);
-
-class _WasOfflineNotifier extends Notifier<bool> {
+@riverpod
+class _WasOffline extends _$WasOffline {
   @override
   bool build() {
     // Initialize based on current connectivity (assume online until proven otherwise)
