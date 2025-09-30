@@ -120,13 +120,13 @@ class LocaleNotifier extends Notifier<Locale?> {
 
 // Server connection providers - optimized with caching
 @riverpod
-Future<List<ServerConfig>> serverConfigs(ServerConfigsRef ref) async {
+Future<List<ServerConfig>> serverConfigs(Ref ref) async {
   final storage = ref.watch(optimizedStorageServiceProvider);
   return storage.getServerConfigs();
 }
 
 @riverpod
-Future<ServerConfig?> activeServer(ActiveServerRef ref) async {
+Future<ServerConfig?> activeServer(Ref ref) async {
   final storage = ref.watch(optimizedStorageServiceProvider);
   final configs = await ref.watch(serverConfigsProvider.future);
   final activeId = await storage.getActiveServerId();
@@ -549,7 +549,7 @@ final apiTokenUpdaterProvider = Provider<void>((ref) {
 });
 
 @riverpod
-Future<User?> currentUser(CurrentUserRef ref) async {
+Future<User?> currentUser(Ref ref) async {
   final api = ref.read(apiServiceProvider);
   final isAuthenticated = ref.watch(isAuthenticatedProvider2);
 
@@ -571,7 +571,7 @@ final refreshAuthStateProvider = Provider<void>((ref) {
 
 // Model providers
 @riverpod
-Future<List<Model>> models(ModelsRef ref) async {
+Future<List<Model>> models(Ref ref) async {
   // Reviewer mode returns mock models
   final reviewerMode = ref.watch(reviewerModeProvider);
   if (reviewerMode) {
