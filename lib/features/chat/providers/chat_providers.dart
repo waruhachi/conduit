@@ -74,9 +74,8 @@ class ComposerHasFocus extends _$ComposerHasFocus {
   void set(bool value) => state = value;
 }
 
-// Old class removed - migrated to ChatMessages @riverpod class above
-// (keeping this line for reference during migration)
-class _OldChatMessagesNotifier extends Notifier<List<ChatMessage>> {
+// Chat messages notifier class
+class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   StreamSubscription? _messageStream;
   ProviderSubscription? _conversationListener;
   final List<StreamSubscription> _subscriptions = [];
