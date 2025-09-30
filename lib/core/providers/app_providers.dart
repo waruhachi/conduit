@@ -1002,7 +1002,8 @@ Future<Conversation> loadConversation(Ref ref, String conversationId) async {
 }
 
 // Provider to automatically load and set the default model from user settings or OpenWebUI
-final defaultModelProvider = FutureProvider<Model?>((ref) async {
+@riverpod
+Future<Model?> defaultModel(Ref ref) async {
   // Initialize the settings watcher (side-effect only)
   ref.read(_settingsWatcherProvider);
   // Read settings without subscribing to rebuilds to avoid watch/await hazards
@@ -1148,7 +1149,7 @@ final defaultModelProvider = FutureProvider<Model?>((ref) async {
     DebugLogger.error('set-default-failed', scope: 'models/default', error: e);
     return null;
   }
-});
+}
 
 // Background model loading provider that doesn't block UI
 // This just schedules the loading, doesn't wait for it
