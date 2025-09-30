@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:gpt_markdown/gpt_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:conduit/shared/theme/theme_extensions.dart';
 import 'package:conduit/shared/widgets/markdown/markdown_config.dart';
 
 class StreamingMarkdownWidget extends StatefulWidget {
@@ -107,13 +108,44 @@ class _StreamingMarkdownWidgetState extends State<StreamingMarkdownWidget> {
   @override
   Widget build(BuildContext context) {
     final config = ConduitMarkdownConfig.getStyleConfig(context: context);
+    final theme = Theme.of(context);
+    final styleSheet = MarkdownStyleSheet.fromTheme(
+      theme,
+    ).copyWith(p: config.textStyle);
+    final conduitTheme = context.conduitTheme;
 
     if (_renderedContent.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    // GptMarkdown handles both streaming and static content elegantly
-    return GptMarkdown(_renderedContent, style: config.textStyle);
+    // MarkdownBody handles both streaming and static content elegantly
+    return MarkdownBody(
+      data: _renderedContent,
+      styleSheet: styleSheet,
+      softLineBreak: true,
+      selectable: true,
+      imageBuilder: (uri, title, alt) {
+        final scheme = uri.scheme;
+
+        if (scheme == 'data') {
+          return ConduitMarkdownConfig.buildBase64Image(
+            uri.toString(),
+            context,
+            conduitTheme,
+          );
+        }
+
+        if (scheme.isEmpty || scheme == 'http' || scheme == 'https') {
+          return ConduitMarkdownConfig.buildNetworkImage(
+            uri.toString(),
+            context,
+            conduitTheme,
+          );
+        }
+
+        return const SizedBox.shrink();
+      },
+    );
   }
 
   @override

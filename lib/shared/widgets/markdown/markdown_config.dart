@@ -4,7 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:conduit/shared/theme/theme_extensions.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 
-/// Configuration for GptMarkdown styling
+/// Configuration for markdown styling
 class ConduitMarkdownStyleConfig {
   final TextStyle textStyle;
 
