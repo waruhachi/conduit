@@ -164,42 +164,55 @@ linter:
 ```
 
 ### State Management
-* **Built-in Solutions:** Prefer Flutter's built-in state management solutions.
-  Do not use a third-party package unless explicitly requested.
-* **Streams:** Use `Streams` and `StreamBuilder` for handling a sequence of
-  asynchronous events.
-* **Futures:** Use `Futures` and `FutureBuilder` for handling a single
-  asynchronous operation that will complete in the future.
-* **ValueNotifier:** Use `ValueNotifier` with `ValueListenableBuilder` for
-  simple, local state that involves a single value.
-
+* **Riverpod 3.0:** This project uses Riverpod 3.0 for state management.
+* **Code Generation:** Always use `@riverpod` annotation with code generation 
+  for new providers. See existing examples in `lib/core/providers/`.
+* **Notifier Classes:** Use `Notifier` and `AsyncNotifier` for mutable state:
   ```dart
-  // Define a ValueNotifier to hold the state.
-  final ValueNotifier<int> _counter = ValueNotifier<int>(0);
-
-  // Use ValueListenableBuilder to listen and rebuild.
-  ValueListenableBuilder<int>(
-    valueListenable: _counter,
-    builder: (context, value, child) {
-      return Text('Count: $value');
-    },
-  );
-    ```
-
-* **ChangeNotifier:** For state that is more complex or shared across multiple
-  widgets, use `ChangeNotifier`.
-* **ListenableBuilder:** Use `ListenableBuilder` to listen to changes from a
-  `ChangeNotifier` or other `Listenable`.
-* **MVVM:** When a more robust solution is needed, structure the app using the
-  Model-View-ViewModel (MVVM) pattern.
-* **Dependency Injection:** Use simple manual constructor dependency injection
-  to make a class's dependencies explicit in its API, and to manage dependencies
-  between different layers of the application.
-* **Provider:** If a dependency injection solution beyond manual constructor
-  injection is explicitly requested, `provider` can be used to make services,
-  repositories, or complex state objects available to the UI layer without tight
-  coupling (note: this document generally defaults against third-party packages
-  for state management unless explicitly requested).
+  @riverpod
+  class Counter extends _$Counter {
+    @override
+    int build() => 0;
+    
+    void increment() => state++;
+  }
+  ```
+* **Provider Functions:** Use `@riverpod` functions for computed/derived state:
+  ```dart
+  @riverpod
+  int doubled(DoubledRef ref) {
+    final count = ref.watch(counterProvider);
+    return count * 2;
+  }
+  ```
+* **Keep Alive:** Use `@Riverpod(keepAlive: true)` for singletons:
+  ```dart
+  @Riverpod(keepAlive: true)
+  class AuthManager extends _$AuthManager { ... }
+  ```
+* **Async Safety:** Always check `ref.mounted` before state updates in async ops:
+  ```dart
+  Future<void> loadData() async {
+    final data = await fetchData();
+    if (!ref.mounted) return;  // ✅ Prevent updates after disposal
+    state = data;
+  }
+  ```
+* **Automatic Retry:** Providers automatically retry on failure with exponential
+  backoff. Customize if needed:
+  ```dart
+  @riverpod
+  Future<Data> myData(MyDataRef ref) async {
+    ref.onDispose(() {
+      // Cleanup
+    });
+    return await fetchData();
+  }
+  ```
+* **Lint Rules:** Use `custom_lint` with `riverpod_lint` to catch common mistakes.
+  Run `dart run custom_lint` before committing.
+* **MVVM Pattern:** Structure the app using Model-View-ViewModel with Riverpod
+  providers acting as ViewModels.
 
 ### Data Flow
 * **Data Structures:** Define data structures (classes) to represent the data

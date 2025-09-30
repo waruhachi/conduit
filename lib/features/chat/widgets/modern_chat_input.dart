@@ -141,9 +141,8 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
   @override
   void dispose() {
-    try {
-      ref.read(composerHasFocusProvider.notifier).set(false);
-    } catch (_) {}
+    // Note: Avoid using ref in dispose as per Riverpod best practices
+    // The focus state will be naturally cleared when the widget is disposed
     _controller.removeListener(_handleComposerChanged);
     _controller.dispose();
     _focusNode.dispose();
