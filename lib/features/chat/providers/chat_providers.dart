@@ -1,22 +1,26 @@
+import 'dart:async';
 import 'dart:convert';
-import 'package:yaml/yaml.dart' as yaml;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
-import '../../../core/utils/tool_calls_parser.dart';
-import '../../../core/services/streaming_helper.dart';
+import 'package:yaml/yaml.dart' as yaml;
+
+import '../../../core/auth/auth_state_manager.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/models/conversation.dart';
-import '../../../core/providers/app_providers.dart';
 import '../../../core/models/socket_event.dart';
-import '../../../core/auth/auth_state_manager.dart';
+import '../../../core/providers/app_providers.dart';
+import '../../../core/services/streaming_helper.dart';
+import '../../../core/utils/debug_logger.dart';
 import '../../../core/utils/inactivity_watchdog.dart';
-import '../services/reviewer_mode_service.dart';
+import '../../../core/utils/tool_calls_parser.dart';
 import '../../../shared/services/tasks/task_queue.dart';
 import '../../tools/providers/tools_providers.dart';
-import 'dart:async';
-import '../../../core/utils/debug_logger.dart';
+import '../services/reviewer_mode_service.dart';
+
+part 'chat_providers.g.dart';
 
 const bool kSocketVerboseLogging = false;
 
@@ -27,36 +31,17 @@ final chatMessagesProvider =
     );
 
 // Loading state for conversation (used to show chat skeletons during fetch)
-final isLoadingConversationProvider =
-    NotifierProvider<IsLoadingConversationNotifier, bool>(
-      IsLoadingConversationNotifier.new,
-    );
-
-// Prefilled input text (e.g., when sharing text from other apps)
-final prefilledInputTextProvider =
-    NotifierProvider<PrefilledInputTextNotifier, String?>(
-      PrefilledInputTextNotifier.new,
-    );
-
-// Trigger to request focus on the chat input (increment to signal)
-final inputFocusTriggerProvider =
-    NotifierProvider<InputFocusTriggerNotifier, int>(
-      InputFocusTriggerNotifier.new,
-    );
-
-// Whether the chat composer currently has focus
-final composerHasFocusProvider = NotifierProvider<ComposerFocusNotifier, bool>(
-  ComposerFocusNotifier.new,
-);
-
-class IsLoadingConversationNotifier extends Notifier<bool> {
+@riverpod
+class IsLoadingConversation extends _$IsLoadingConversation {
   @override
   bool build() => false;
 
   void set(bool value) => state = value;
 }
 
-class PrefilledInputTextNotifier extends Notifier<String?> {
+// Prefilled input text (e.g., when sharing text from other apps)
+@riverpod
+class PrefilledInputText extends _$PrefilledInputText {
   @override
   String? build() => null;
 
@@ -65,7 +50,9 @@ class PrefilledInputTextNotifier extends Notifier<String?> {
   void clear() => state = null;
 }
 
-class InputFocusTriggerNotifier extends Notifier<int> {
+// Trigger to request focus on the chat input (increment to signal)
+@riverpod
+class InputFocusTrigger extends _$InputFocusTrigger {
   @override
   int build() => 0;
 
@@ -78,7 +65,9 @@ class InputFocusTriggerNotifier extends Notifier<int> {
   }
 }
 
-class ComposerFocusNotifier extends Notifier<bool> {
+// Whether the chat composer currently has focus
+@riverpod
+class ComposerHasFocus extends _$ComposerHasFocus {
   @override
   bool build() => false;
 

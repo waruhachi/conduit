@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
 import '../../shared/theme/theme_extensions.dart';
+
+part 'animation_service.g.dart';
 
 /// Service for managing animations with performance optimization and accessibility
 class AnimationService {
@@ -208,22 +212,19 @@ class AnimationService {
 enum PageTransitionType { fade, slide, scale }
 
 /// Provider for reduced motion preference
-final reducedMotionProvider = NotifierProvider<ReducedMotionNotifier, bool>(
-  ReducedMotionNotifier.new,
-);
+@riverpod
+class ReducedMotion extends _$ReducedMotion {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
 
 /// Provider for animation performance settings
 final animationPerformanceProvider =
     NotifierProvider<AnimationPerformanceNotifier, AnimationPerformance>(
       AnimationPerformanceNotifier.new,
     );
-
-class ReducedMotionNotifier extends Notifier<bool> {
-  @override
-  bool build() => false;
-
-  void set(bool value) => state = value;
-}
 
 class AnimationPerformanceNotifier extends Notifier<AnimationPerformance> {
   @override

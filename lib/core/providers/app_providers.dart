@@ -615,17 +615,8 @@ final modelsProvider = FutureProvider<List<Model>>((ref) async {
   }
 });
 
-final selectedModelProvider = NotifierProvider<SelectedModelNotifier, Model?>(
-  SelectedModelNotifier.new,
-);
-
-// Track if the current model selection is manual (user-selected) or automatic (default)
-final isManualModelSelectionProvider =
-    NotifierProvider<IsManualModelSelectionNotifier, bool>(
-      IsManualModelSelectionNotifier.new,
-    );
-
-class SelectedModelNotifier extends Notifier<Model?> {
+@riverpod
+class SelectedModel extends _$SelectedModel {
   @override
   Model? build() => null;
 
@@ -634,7 +625,9 @@ class SelectedModelNotifier extends Notifier<Model?> {
   void clear() => state = null;
 }
 
-class IsManualModelSelectionNotifier extends Notifier<bool> {
+// Track if the current model selection is manual (user-selected) or automatic (default)
+@riverpod
+class IsManualModelSelection extends _$IsManualModelSelection {
   @override
   bool build() => false;
 
@@ -1409,11 +1402,8 @@ final archivedConversationsProvider = Provider<List<Conversation>>((ref) {
 });
 
 // Reviewer mode provider (persisted)
-final reviewerModeProvider = NotifierProvider<ReviewerModeNotifier, bool>(
-  ReviewerModeNotifier.new,
-);
-
-class ReviewerModeNotifier extends Notifier<bool> {
+@riverpod
+class ReviewerMode extends _$ReviewerMode {
   late final OptimizedStorageService _storage;
   bool _initialized = false;
 

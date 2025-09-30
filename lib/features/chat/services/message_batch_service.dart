@@ -1,9 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
 import '../../../core/models/chat_message.dart';
 import '../../../core/models/conversation.dart';
+
+part 'message_batch_service.g.dart';
 
 /// Service for managing batch operations on messages
 class MessageBatchService {
@@ -529,9 +534,13 @@ final selectedMessagesProvider =
     );
 
 /// Provider for batch operation mode
-final batchModeProvider = NotifierProvider<BatchModeNotifier, bool>(
-  BatchModeNotifier.new,
-);
+@riverpod
+class BatchMode extends _$BatchMode {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
 
 /// Provider for message filter
 final messageFilterProvider =
@@ -546,13 +555,6 @@ class SelectedMessagesNotifier extends Notifier<Set<String>> {
   void set(Set<String> messages) => state = Set<String>.from(messages);
 
   void clear() => state = <String>{};
-}
-
-class BatchModeNotifier extends Notifier<bool> {
-  @override
-  bool build() => false;
-
-  void set(bool value) => state = value;
 }
 
 class MessageFilterNotifier extends Notifier<MessageFilter?> {
