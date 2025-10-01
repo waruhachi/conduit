@@ -1123,14 +1123,22 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       message: tooltip,
       child: Opacity(
         opacity: enabled ? 1.0 : Alpha.disabled,
-        child: IconButton(
-          onPressed: enabled
-              ? () {
-                  HapticFeedback.selectionClick();
-                  _showOverflowSheet();
-                }
-              : null,
-          icon: Icon(icon, size: iconSize, color: iconColor),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppBorderRadius.circular),
+            onTap: enabled
+                ? () {
+                    HapticFeedback.selectionClick();
+                    _showOverflowSheet();
+                  }
+                : null,
+            child: SizedBox(
+              width: TouchTarget.minimum,
+              height: TouchTarget.minimum,
+              child: Icon(icon, size: iconSize, color: iconColor),
+            ),
+          ),
         ),
       ),
     );
@@ -1269,25 +1277,33 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       message: AppLocalizations.of(context)!.voiceInput,
       child: Opacity(
         opacity: enabledMic ? Alpha.primary : Alpha.disabled,
-        child: IconButton(
-          onPressed: enabledMic
-              ? () {
-                  HapticFeedback.selectionClick();
-                  _toggleVoice();
-                }
-              : null,
-          icon: Icon(
-            Platform.isIOS ? CupertinoIcons.mic : Icons.mic,
-            size: IconSize.large,
-            color: _isRecording
-                ? context.conduitTheme.buttonPrimary
-                : (enabledMic
-                      ? context.conduitTheme.textPrimary.withValues(
-                          alpha: Alpha.strong,
-                        )
-                      : context.conduitTheme.textPrimary.withValues(
-                          alpha: Alpha.disabled,
-                        )),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppBorderRadius.circular),
+            onTap: enabledMic
+                ? () {
+                    HapticFeedback.selectionClick();
+                    _toggleVoice();
+                  }
+                : null,
+            child: SizedBox(
+              width: TouchTarget.minimum,
+              height: TouchTarget.minimum,
+              child: Icon(
+                Platform.isIOS ? CupertinoIcons.mic : Icons.mic,
+                size: IconSize.large,
+                color: _isRecording
+                    ? context.conduitTheme.buttonPrimary
+                    : (enabledMic
+                          ? context.conduitTheme.textPrimary.withValues(
+                              alpha: Alpha.strong,
+                            )
+                          : context.conduitTheme.textPrimary.withValues(
+                              alpha: Alpha.disabled,
+                            )),
+              ),
+            ),
           ),
         ),
       ),
