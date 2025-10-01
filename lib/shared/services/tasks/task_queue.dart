@@ -4,7 +4,8 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../core/providers/app_providers.dart';
+import '../../../core/persistence/persistence_providers.dart';
+import '../../../core/persistence/hive_boxes.dart';
 import 'outbound_task.dart';
 import 'task_worker.dart';
 import '../../../core/utils/debug_logger.dart';
@@ -15,7 +16,7 @@ final taskQueueProvider =
     );
 
 class TaskQueueNotifier extends Notifier<List<OutboundTask>> {
-  static const _prefsKey = 'outbound_task_queue_v1';
+  static const _storageKey = HiveStoreKeys.taskQueue;
   final _uuid = const Uuid();
   bool _bootstrapScheduled = false;
 
@@ -34,10 +35,20 @@ class TaskQueueNotifier extends Notifier<List<OutboundTask>> {
 
   Future<void> _load() async {
     try {
-      final prefs = ref.read(sharedPreferencesProvider);
-      final jsonStr = prefs.getString(_prefsKey);
-      if (jsonStr == null || jsonStr.isEmpty) return;
-      final raw = (jsonDecode(jsonStr) as List).cast<Map<String, dynamic>>();
+      final boxes = ref.read(hiveBoxesProvider);
+      final stored = boxes.caches.get(_storageKey);
+      if (stored == null) return;
+
+      List<Map<String, dynamic>> raw;
+      if (stored is String && stored.isNotEmpty) {
+        raw = (jsonDecode(stored) as List).cast<Map<String, dynamic>>();
+      } else if (stored is List) {
+        raw = stored
+            .map((entry) => Map<String, dynamic>.from(entry as Map))
+            .toList(growable: false);
+      } else {
+        return;
+      }
       final tasks = raw.map(OutboundTask.fromJson).toList();
       // Only restore non-completed tasks
       state = tasks
@@ -62,7 +73,7 @@ class TaskQueueNotifier extends Notifier<List<OutboundTask>> {
 
   Future<void> _save() async {
     try {
-      final prefs = ref.read(sharedPreferencesProvider);
+      final boxes = ref.read(hiveBoxesProvider);
       final retained = [
         for (final task in state)
           if (task.status == TaskStatus.queued ||
@@ -76,7 +87,7 @@ class TaskQueueNotifier extends Notifier<List<OutboundTask>> {
       }
 
       final raw = retained.map((t) => t.toJson()).toList(growable: false);
-      await prefs.setString(_prefsKey, jsonEncode(raw));
+      await boxes.caches.put(_storageKey, raw);
     } catch (e) {
       DebugLogger.log('Failed to persist task queue: $e', scope: 'tasks/queue');
     }

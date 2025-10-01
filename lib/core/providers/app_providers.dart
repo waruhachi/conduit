@@ -4,9 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../services/storage_service.dart';
-// (removed duplicate) import '../services/optimized_storage_service.dart';
+import '../persistence/persistence_providers.dart';
 import '../services/api_service.dart';
 import '../auth/auth_state_manager.dart';
 import '../../features/auth/providers/unified_auth_providers.dart';
@@ -29,10 +27,6 @@ import '../models/socket_event.dart';
 part 'app_providers.g.dart';
 
 // Storage providers
-final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
-  throw UnimplementedError();
-});
-
 final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
   // Single, shared instance with explicit platform options
   return const FlutterSecureStorage(
@@ -50,20 +44,13 @@ final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
   );
 });
 
-final storageServiceProvider = Provider<StorageService>((ref) {
-  return StorageService(
-    secureStorage: ref.watch(secureStorageProvider),
-    prefs: ref.watch(sharedPreferencesProvider),
-  );
-});
-
 // Optimized storage service provider
 final optimizedStorageServiceProvider = Provider<OptimizedStorageService>((
   ref,
 ) {
   return OptimizedStorageService(
     secureStorage: ref.watch(secureStorageProvider),
-    prefs: ref.watch(sharedPreferencesProvider),
+    boxes: ref.watch(hiveBoxesProvider),
   );
 });
 

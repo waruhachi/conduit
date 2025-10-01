@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive_ce/hive.dart';
+import '../persistence/hive_boxes.dart';
 import '../utils/debug_logger.dart';
 
 /// Status of a queued attachment upload
@@ -110,12 +111,12 @@ class AttachmentUploadQueue {
   factory AttachmentUploadQueue() => _instance;
   AttachmentUploadQueue._internal();
 
-  static const String _prefsKey = 'attachment_upload_queue';
   static const int _maxRetries = 4;
   static const Duration _baseRetryDelay = Duration(seconds: 5);
   static const Duration _maxRetryDelay = Duration(minutes: 5);
 
-  SharedPreferences? _prefs;
+  late final Box<dynamic> _queueBox;
+  bool _initialized = false;
   final List<QueuedAttachment> _queue = [];
   Timer? _retryTimer;
   bool _isProcessing = false;
@@ -136,11 +137,14 @@ class AttachmentUploadQueue {
   }) async {
     _onUpload = onUpload;
     _onQueueChanged = onQueueChanged;
-    _prefs ??= await SharedPreferences.getInstance();
+    if (!_initialized) {
+      _queueBox = Hive.box<dynamic>(HiveBoxNames.attachmentQueue);
+      _initialized = true;
+    }
     await _load();
     _startPeriodicProcessing();
     DebugLogger.log(
-      'AttachmentUploadQueue initialized with ${_queue.length} items',
+      'AttachmentUploadQueue initialized with \${_queue.length} items',
       scope: 'attachments/queue',
     );
   }
@@ -328,20 +332,33 @@ class AttachmentUploadQueue {
 
   // Utilities
   Future<void> _load() async {
-    final jsonStr = (_prefs ?? await SharedPreferences.getInstance()).getString(
-      _prefsKey,
-    );
-    if (jsonStr == null || jsonStr.isEmpty) return;
-    final list = (jsonDecode(jsonStr) as List).cast<Map<String, dynamic>>();
+    final stored = _queueBox.get(HiveStoreKeys.attachmentQueueEntries);
+    if (stored == null) {
+      return;
+    }
+
+    List<dynamic> rawList;
+    if (stored is String && stored.isNotEmpty) {
+      rawList = (jsonDecode(stored) as List<dynamic>);
+    } else if (stored is List) {
+      rawList = stored;
+    } else {
+      return;
+    }
+
     _queue
       ..clear()
-      ..addAll(list.map(QueuedAttachment.fromJson));
+      ..addAll(
+        rawList.map(
+          (item) =>
+              QueuedAttachment.fromJson(Map<String, dynamic>.from(item as Map)),
+        ),
+      );
   }
 
   Future<void> _save() async {
-    final prefs = _prefs ?? await SharedPreferences.getInstance();
     final list = _queue.map((e) => e.toJson()).toList(growable: false);
-    await prefs.setString(_prefsKey, jsonEncode(list));
+    await _queueBox.put(HiveStoreKeys.attachmentQueueEntries, list);
   }
 
   void _notify() {

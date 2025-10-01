@@ -5,9 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/widgets/error_boundary.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/providers/app_providers.dart';
+import 'core/persistence/hive_bootstrap.dart';
+import 'core/persistence/persistence_migrator.dart';
+import 'core/persistence/persistence_providers.dart';
 import 'core/router/app_router.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/widgets/offline_indicator.dart';
@@ -62,8 +64,6 @@ void main() {
         _startupTimeline?.instant('edge_to_edge_enabled');
       });
 
-      final sharedPrefs = await SharedPreferences.getInstance();
-      _startupTimeline!.instant('shared_prefs_ready');
       const secureStorage = FlutterSecureStorage(
         aOptions: AndroidOptions(
           encryptedSharedPreferences: true,
@@ -78,6 +78,13 @@ void main() {
       );
       _startupTimeline!.instant('secure_storage_ready');
 
+      final hiveBoxes = await HiveBootstrap.instance.ensureInitialized();
+      _startupTimeline!.instant('hive_ready');
+
+      final migrator = PersistenceMigrator(hiveBoxes: hiveBoxes);
+      await migrator.migrateIfNeeded();
+      _startupTimeline!.instant('migration_complete');
+
       // Finish timeline after first frame paints
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _startupTimeline?.instant('first_frame_rendered');
@@ -88,8 +95,8 @@ void main() {
       runApp(
         ProviderScope(
           overrides: [
-            sharedPreferencesProvider.overrideWithValue(sharedPrefs),
             secureStorageProvider.overrideWithValue(secureStorage),
+            hiveBoxesProvider.overrideWithValue(hiveBoxes),
           ],
           child: const ConduitApp(),
         ),
