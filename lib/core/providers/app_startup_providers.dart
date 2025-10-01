@@ -103,7 +103,7 @@ void _scheduleConversationWarmup(Ref ref, {bool force = false}) {
         return;
       }
       if (existing.hasError) {
-        ref.invalidate(conversationsProvider);
+        refreshConversationsCache(ref);
       }
       final conversations = await ref.read(conversationsProvider.future);
       statusController.set(_ConversationWarmupStatus.complete);
@@ -368,7 +368,7 @@ class _ForegroundRefreshObserver extends WidgetsBindingObserver {
       // Schedule to avoid side-effects during build frames
       Future.microtask(() {
         try {
-          _ref.invalidate(conversationsProvider);
+          refreshConversationsCache(_ref);
           _ref
               .read(_conversationWarmupStatusProvider.notifier)
               .set(_ConversationWarmupStatus.idle);

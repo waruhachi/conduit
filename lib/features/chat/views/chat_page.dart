@@ -236,7 +236,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     // Force refresh conversations provider to ensure we get the demo conversations
     if (!mounted) return;
-    ref.invalidate(conversationsProvider);
+    refreshConversationsCache(ref);
 
     // Try to load demo conversation
     for (int i = 0; i < 10; i++) {
@@ -1486,7 +1486,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                           // Also refresh the conversations list to reconcile missed events
                           // and keep timestamps/order in sync with the server.
                           try {
-                            ref.invalidate(conversationsProvider);
+                            refreshConversationsCache(ref);
                             // Best-effort await to stabilize UI; ignore errors.
                             await ref.read(conversationsProvider.future);
                           } catch (_) {}

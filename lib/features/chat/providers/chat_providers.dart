@@ -647,7 +647,7 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
     // can pick up updated titles and ordering once streaming completes.
     // Best-effort: ignore if ref lifecycle/context prevents invalidation.
     try {
-      ref.invalidate(conversationsProvider);
+      refreshConversationsCache(ref);
     } catch (_) {}
   }
 }
@@ -1373,10 +1373,10 @@ Future<void> regenerateMessage(
               .read(activeConversationProvider.notifier)
               .set(active.copyWith(title: newTitle));
         }
-        ref.invalidate(conversationsProvider);
+        refreshConversationsCache(ref);
       },
       onChatTagsUpdated: () {
-        ref.invalidate(conversationsProvider);
+        refreshConversationsCache(ref);
         final active = ref.read(activeConversationProvider);
         final api = ref.read(apiServiceProvider);
         if (active != null && api != null) {
@@ -1523,7 +1523,7 @@ Future<void> _sendMessageInternal(
           try {
             // Guard against using ref after widget disposal
             if (ref.mounted == true) {
-              ref.invalidate(conversationsProvider);
+              refreshConversationsCache(ref);
             }
           } catch (_) {
             // If ref doesn't support mounted or is disposed, skip
@@ -1920,10 +1920,10 @@ Future<void> _sendMessageInternal(
               .read(activeConversationProvider.notifier)
               .set(active.copyWith(title: newTitle));
         }
-        ref.invalidate(conversationsProvider);
+        refreshConversationsCache(ref);
       },
       onChatTagsUpdated: () {
-        ref.invalidate(conversationsProvider);
+        refreshConversationsCache(ref);
         final active = ref.read(activeConversationProvider);
         final api = ref.read(apiServiceProvider);
         if (active != null && api != null) {
@@ -2057,7 +2057,7 @@ Future<void> _saveConversationLocally(dynamic ref) async {
 
     await storage.setString('conversations', jsonEncode(conversations));
     ref.read(activeConversationProvider.notifier).set(updatedConversation);
-    ref.invalidate(conversationsProvider);
+    refreshConversationsCache(ref);
   } catch (e) {
     // Handle local storage errors silently
   }
@@ -2095,7 +2095,7 @@ Future<void> pinConversation(
     await api.pinConversation(conversationId, pinned);
 
     // Refresh conversations list to reflect the change
-    ref.invalidate(conversationsProvider);
+    refreshConversationsCache(ref);
 
     // Update active conversation if it's the one being pinned
     final activeConversation = ref.read(activeConversationProvider);
@@ -2134,7 +2134,7 @@ Future<void> archiveConversation(
     await api.archiveConversation(conversationId, archived);
 
     // Refresh conversations list to reflect the change
-    ref.invalidate(conversationsProvider);
+    refreshConversationsCache(ref);
   } catch (e) {
     DebugLogger.log(
       'Error ${archived ? 'archiving' : 'unarchiving'} conversation: $e',
@@ -2160,7 +2160,7 @@ Future<String?> shareConversation(WidgetRef ref, String conversationId) async {
     final shareId = await api.shareConversation(conversationId);
 
     // Refresh conversations list to reflect the change
-    ref.invalidate(conversationsProvider);
+    refreshConversationsCache(ref);
 
     return shareId;
   } catch (e) {
@@ -2183,7 +2183,7 @@ Future<void> cloneConversation(WidgetRef ref, String conversationId) async {
     // The ChatMessagesNotifier will automatically load messages when activeConversation changes
 
     // Refresh conversations list to show the new conversation
-    ref.invalidate(conversationsProvider);
+    refreshConversationsCache(ref);
   } catch (e) {
     DebugLogger.log('Error cloning conversation: $e', scope: 'chat/providers');
     rethrow;

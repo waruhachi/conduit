@@ -661,6 +661,17 @@ class _ConversationsCacheTimestamp extends _$ConversationsCacheTimestamp {
   void set(DateTime? timestamp) => state = timestamp;
 }
 
+/// Clears the in-memory timestamp cache and invalidates the conversations
+/// provider so the next read forces a refetch. Optionally invalidates the
+/// folders provider when folder metadata must stay in sync with conversations.
+void refreshConversationsCache(dynamic ref, {bool includeFolders = false}) {
+  ref.read(_conversationsCacheTimestampProvider.notifier).set(null);
+  ref.invalidate(conversationsProvider);
+  if (includeFolders) {
+    ref.invalidate(foldersProvider);
+  }
+}
+
 // Conversation providers - Now using correct OpenWebUI API with caching
 // keepAlive to maintain cache during authenticated session
 @Riverpod(keepAlive: true)

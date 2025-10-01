@@ -1112,7 +1112,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       activeColor = null;
     }
 
-    const double iconSize = IconSize.xl;
+    const double iconSize = IconSize.large;
 
     final Color iconColor = !enabled
         ? context.conduitTheme.textPrimary.withValues(alpha: Alpha.disabled)

@@ -11,7 +11,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import '../../chat/providers/chat_providers.dart' as chat;
 // import '../../files/views/files_page.dart';
-import '../../../shared/utils/ui_utils.dart';
+import '../../../core/utils/debug_logger.dart';
 import '../../../core/services/navigation_service.dart';
 import '../../../shared/widgets/themed_dialogs.dart';
 import 'package:conduit/l10n/app_localizations.dart';
@@ -55,12 +55,11 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
 
   Future<void> _refreshChats() async {
     try {
-      // Always refresh folders
-      ref.invalidate(foldersProvider);
+      // Always refresh folders and conversations cache
+      refreshConversationsCache(ref, includeFolders: true);
 
       if (_query.trim().isEmpty) {
         // Refresh main conversations list
-        ref.invalidate(conversationsProvider);
         try {
           await ref.read(conversationsProvider.future);
         } catch (_) {}
@@ -629,15 +628,17 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       if (api == null) throw Exception('No API service');
       await api.createFolder(name: name);
       HapticFeedback.lightImpact();
-      ref.invalidate(foldersProvider);
+      refreshConversationsCache(ref, includeFolders: true);
+    } catch (e, stackTrace) {
       if (!mounted) return;
-      UiUtils.showMessage(context, AppLocalizations.of(context)!.folderCreated);
-    } catch (e) {
-      if (!mounted) return;
-      UiUtils.showMessage(
-        context,
+      DebugLogger.error(
+        'create-folder-failed',
+        scope: 'drawer',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      await _showDrawerError(
         AppLocalizations.of(context)!.failedToCreateFolder,
-        isError: true,
       );
     }
   }
@@ -668,22 +669,17 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           if (api == null) throw Exception('No API service');
           await api.moveConversationToFolder(details.data.id, folderId);
           HapticFeedback.selectionClick();
-          ref.invalidate(conversationsProvider);
-          ref.invalidate(foldersProvider);
+          refreshConversationsCache(ref, includeFolders: true);
+        } catch (e, stackTrace) {
+          DebugLogger.error(
+            'move-conversation-failed',
+            scope: 'drawer',
+            error: e,
+            stackTrace: stackTrace,
+          );
           if (mounted) {
-            UiUtils.showMessage(
-              context,
-              AppLocalizations.of(
-                context,
-              )!.movedChatToFolder(details.data.title, name),
-            );
-          }
-        } catch (_) {
-          if (mounted) {
-            UiUtils.showMessage(
-              context,
+            await _showDrawerError(
               AppLocalizations.of(context)!.failedToMoveChat,
-              isError: true,
             );
           }
         }
@@ -868,6 +864,28 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     return null;
   }
 
+  Future<void> _showDrawerError(String message) async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    final theme = context.conduitTheme;
+    await ThemedDialogs.show<void>(
+      context,
+      title: l10n.errorMessage,
+      content: Text(
+        message,
+        style: AppTypography.bodyMediumStyle.copyWith(
+          color: theme.textSecondary,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.ok),
+        ),
+      ],
+    );
+  }
+
   void _showFolderContextMenu(
     BuildContext context,
     String folderId,
@@ -923,14 +941,16 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       if (api == null) throw Exception('No API service');
       await api.updateFolder(folderId, name: newName);
       HapticFeedback.selectionClick();
-      ref.invalidate(foldersProvider);
-    } catch (_) {
+      refreshConversationsCache(ref, includeFolders: true);
+    } catch (e, stackTrace) {
       if (!mounted) return;
-      UiUtils.showMessage(
-        this.context,
-        'Failed to rename folder',
-        isError: true,
+      DebugLogger.error(
+        'rename-folder-failed',
+        scope: 'drawer',
+        error: e,
+        stackTrace: stackTrace,
       );
+      await _showDrawerError('Failed to rename folder');
     }
   }
 
@@ -956,11 +976,16 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       if (api == null) throw Exception('No API service');
       await api.deleteFolder(folderId);
       HapticFeedback.mediumImpact();
-      ref.invalidate(foldersProvider);
-      ref.invalidate(conversationsProvider);
-    } catch (_) {
+      refreshConversationsCache(ref, includeFolders: true);
+    } catch (e, stackTrace) {
       if (!mounted) return;
-      UiUtils.showMessage(this.context, deleteFolderError, isError: true);
+      DebugLogger.error(
+        'delete-folder-failed',
+        scope: 'drawer',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      await _showDrawerError(deleteFolderError);
     }
   }
 
@@ -984,17 +1009,16 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           if (api == null) throw Exception('No API service');
           await api.moveConversationToFolder(details.data.id, null);
           HapticFeedback.selectionClick();
-          ref.invalidate(conversationsProvider);
-          ref.invalidate(foldersProvider);
+          refreshConversationsCache(ref, includeFolders: true);
+        } catch (e, stackTrace) {
+          DebugLogger.error(
+            'unfile-conversation-failed',
+            scope: 'drawer',
+            error: e,
+            stackTrace: stackTrace,
+          );
           if (mounted) {
-            UiUtils.showMessage(
-              context,
-              'Removed "${details.data.title}" from folder',
-            );
-          }
-        } catch (_) {
-          if (mounted) {
-            UiUtils.showMessage(context, l10n.failedToMoveChat, isError: true);
+            await _showDrawerError(l10n.failedToMoveChat);
           }
         }
       },
