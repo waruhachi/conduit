@@ -462,26 +462,7 @@ class ConversationDeltaStream extends _$ConversationDeltaStream {
     _socketSubscription?.dispose();
     _socketSubscription = null;
   }
-
-  /// Provides direct access to the underlying stream.
-  /// Note: This getter is necessary for compatibility with StreamProvider.
-  /// While Riverpod 3 discourages public getters on Notifiers, this is a
-  /// pragmatic exception for stream delegation patterns.
-  // ignore: avoid_public_notifier_properties
-  Stream<ConversationDelta> get stream =>
-      _controller?.stream ?? const Stream<ConversationDelta>.empty();
 }
-
-final conversationDeltaEventsProvider =
-    StreamProvider.family<ConversationDelta, ConversationDeltaRequest>((
-      ref,
-      request,
-    ) {
-      final notifier = ref.watch(
-        conversationDeltaStreamProvider(request).notifier,
-      );
-      return notifier.stream;
-    });
 
 // Attachment upload queue provider
 final attachmentUploadQueueProvider = Provider<AttachmentUploadQueue?>((ref) {

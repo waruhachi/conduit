@@ -1331,29 +1331,23 @@ Future<void> regenerateMessage(
       });
     } catch (_) {}
 
-    final chatEventsStream = ref
-        .read(
-          conversationDeltaStreamProvider(
-            ConversationDeltaRequest.chat(
-              conversationId: activeConversation.id,
-              sessionId: effectiveSessionId,
-              requireFocus: false,
-            ),
-          ).notifier,
-        )
-        .stream;
+    final chatEventsHandle = _conversationDeltaStream(
+      ref,
+      ConversationDeltaRequest.chat(
+        conversationId: activeConversation.id,
+        sessionId: effectiveSessionId,
+        requireFocus: false,
+      ),
+    );
 
-    final channelEventsStream = ref
-        .read(
-          conversationDeltaStreamProvider(
-            ConversationDeltaRequest.channel(
-              conversationId: activeConversation.id,
-              sessionId: effectiveSessionId,
-              requireFocus: false,
-            ),
-          ).notifier,
-        )
-        .stream;
+    final channelEventsHandle = _conversationDeltaStream(
+      ref,
+      ConversationDeltaRequest.channel(
+        conversationId: activeConversation.id,
+        sessionId: effectiveSessionId,
+        requireFocus: false,
+      ),
+    );
 
     final activeStream = attachUnifiedChunkedStreaming(
       stream: stream,
@@ -1365,8 +1359,8 @@ Future<void> regenerateMessage(
       activeConversationId: activeConversation.id,
       api: api,
       socketService: socketService,
-      chatEvents: chatEventsStream,
-      channelEvents: channelEventsStream,
+      chatEvents: chatEventsHandle.stream,
+      channelEvents: channelEventsHandle.stream,
       appendToLastMessage: (c) =>
           ref.read(chatMessagesProvider.notifier).appendToLastMessage(c),
       replaceLastMessageContent: (c) =>
@@ -1417,10 +1411,11 @@ Future<void> regenerateMessage(
     );
     ref.read(chatMessagesProvider.notifier)
       ..setMessageStream(activeStream.controller)
-      ..setSocketSubscriptions(
-        activeStream.socketSubscriptions,
-        onDispose: activeStream.disposeWatchdog,
-      );
+      ..setSocketSubscriptions([
+        ...activeStream.socketSubscriptions,
+        chatEventsHandle.dispose,
+        channelEventsHandle.dispose,
+      ], onDispose: activeStream.disposeWatchdog);
     return;
   } catch (e) {
     rethrow;
@@ -1454,6 +1449,44 @@ Future<void> sendMessageWithContainer(
   List<String>? toolIds,
 ]) async {
   await _sendMessageInternal(container, message, attachments, toolIds);
+}
+
+({Stream<ConversationDelta> stream, void Function() dispose})
+_conversationDeltaStream(dynamic ref, ConversationDeltaRequest request) {
+  final controller = StreamController<ConversationDelta>.broadcast();
+  var isDisposed = false;
+
+  void close() {
+    if (isDisposed) return;
+    isDisposed = true;
+    controller.close();
+  }
+
+  final subscription = ref.listen<AsyncValue<ConversationDelta>>(
+    conversationDeltaStreamProvider(request),
+    (previous, next) {
+      if (next is AsyncData<ConversationDelta>) {
+        if (!controller.isClosed) controller.add(next.value);
+        return;
+      }
+      if (next is AsyncError<ConversationDelta>) {
+        if (!controller.isClosed) {
+          controller.addError(next.error, next.stackTrace);
+        }
+      }
+    },
+    fireImmediately: false,
+  );
+
+  void dispose() {
+    if (isDisposed) return;
+    subscription.close();
+    close();
+  }
+
+  controller.onCancel = dispose;
+
+  return (stream: controller.stream, dispose: dispose);
 }
 
 // Internal send message implementation
@@ -1901,29 +1934,23 @@ Future<void> _sendMessageInternal(
       });
     } catch (_) {}
 
-    final chatEventsStream = ref
-        .read(
-          conversationDeltaStreamProvider(
-            ConversationDeltaRequest.chat(
-              conversationId: activeConversation?.id,
-              sessionId: effectiveSessionId,
-              requireFocus: false,
-            ),
-          ).notifier,
-        )
-        .stream;
+    final chatEventsHandle = _conversationDeltaStream(
+      ref,
+      ConversationDeltaRequest.chat(
+        conversationId: activeConversation?.id,
+        sessionId: effectiveSessionId,
+        requireFocus: false,
+      ),
+    );
 
-    final channelEventsStream = ref
-        .read(
-          conversationDeltaStreamProvider(
-            ConversationDeltaRequest.channel(
-              conversationId: activeConversation?.id,
-              sessionId: effectiveSessionId,
-              requireFocus: false,
-            ),
-          ).notifier,
-        )
-        .stream;
+    final channelEventsHandle = _conversationDeltaStream(
+      ref,
+      ConversationDeltaRequest.channel(
+        conversationId: activeConversation?.id,
+        sessionId: effectiveSessionId,
+        requireFocus: false,
+      ),
+    );
 
     final activeStream = attachUnifiedChunkedStreaming(
       stream: stream,
@@ -1935,8 +1962,8 @@ Future<void> _sendMessageInternal(
       activeConversationId: activeConversation?.id,
       api: api,
       socketService: socketService,
-      chatEvents: chatEventsStream,
-      channelEvents: channelEventsStream,
+      chatEvents: chatEventsHandle.stream,
+      channelEvents: channelEventsHandle.stream,
       appendToLastMessage: (c) =>
           ref.read(chatMessagesProvider.notifier).appendToLastMessage(c),
       replaceLastMessageContent: (c) =>
@@ -1988,10 +2015,11 @@ Future<void> _sendMessageInternal(
 
     ref.read(chatMessagesProvider.notifier)
       ..setMessageStream(activeStream.controller)
-      ..setSocketSubscriptions(
-        activeStream.socketSubscriptions,
-        onDispose: activeStream.disposeWatchdog,
-      );
+      ..setSocketSubscriptions([
+        ...activeStream.socketSubscriptions,
+        chatEventsHandle.dispose,
+        channelEventsHandle.dispose,
+      ], onDispose: activeStream.disposeWatchdog);
     return;
   } catch (e) {
     // Handle error - remove the assistant message placeholder
