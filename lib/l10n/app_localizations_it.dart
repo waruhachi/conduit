@@ -753,6 +753,13 @@ class AppLocalizationsIt extends AppLocalizations {
   String get themeDark => 'Scuro';
 
   @override
+  String get themePalette => 'Palette di colori';
+
+  @override
+  String get themePaletteDescription =>
+      'Scegli i colori di accento usati per pulsanti, schede e bolle di chat.';
+
+  @override
   String get themeLight => 'Chiaro';
 
   @override

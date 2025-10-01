@@ -752,6 +752,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeDark => 'Dark';
 
   @override
+  String get themePalette => 'Accent palette';
+
+  @override
+  String get themePaletteDescription =>
+      'Choose the accent colors used for buttons, cards, and chat bubbles.';
+
+  @override
   String get themeLight => 'Light';
 
   @override

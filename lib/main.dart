@@ -11,7 +11,6 @@ import 'core/persistence/hive_bootstrap.dart';
 import 'core/persistence/persistence_migrator.dart';
 import 'core/persistence/persistence_providers.dart';
 import 'core/router/app_router.dart';
-import 'shared/theme/app_theme.dart';
 import 'shared/widgets/offline_indicator.dart';
 import 'features/auth/providers/unified_auth_providers.dart';
 import 'core/auth/auth_state_manager.dart';
@@ -151,13 +150,15 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
     final themeMode = ref.watch(appThemeModeProvider.select((mode) => mode));
     final router = ref.watch(goRouterProvider);
     final locale = ref.watch(appLocaleProvider);
+    final lightTheme = ref.watch(appLightThemeProvider);
+    final darkTheme = ref.watch(appDarkThemeProvider);
 
     return ErrorBoundary(
       child: MaterialApp.router(
         routerConfig: router,
         onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
-        theme: AppTheme.conduitLightTheme,
-        darkTheme: AppTheme.conduitDarkTheme,
+        theme: lightTheme,
+        darkTheme: darkTheme,
         themeMode: themeMode,
         debugShowCheckedModeBanner: false,
         locale: locale,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 // Using system fonts; no GoogleFonts dependency required
 import 'app_theme.dart';
+import 'color_palettes.dart';
 
 /// Extended theme data for consistent styling across the app
 @immutable
@@ -501,263 +502,263 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
     );
   }
 
-  /// Dark theme extension
-  static const ConduitThemeExtension dark = ConduitThemeExtension(
-    // Chat-specific colors - Enhanced for production-grade look
-    chatBubbleUser: AppTheme.brandPrimaryDark,
-    chatBubbleAssistant: Color(0xFF0E1010),
-    chatBubbleUserText: AppTheme.neutral50,
-    chatBubbleAssistantText: AppTheme.neutral50,
-    chatBubbleUserBorder: AppTheme.brandPrimaryDark,
-    chatBubbleAssistantBorder: Color(0xFF1A1D1C),
-    // Input and form colors
-    inputBackground: Color(0xFF141615),
-    inputBorder: AppTheme.neutral600,
-    inputBorderFocused: AppTheme.brandPrimaryDark,
-    inputText: AppTheme.neutral50,
-    inputPlaceholder: AppTheme.neutral300,
-    inputError: AppTheme.error,
+  /// Dark theme extension derived from the active color palette.
+  static ConduitThemeExtension darkPalette(AppColorPalette palette) {
+    final darkTone = palette.dark;
+    return ConduitThemeExtension(
+      chatBubbleUser: darkTone.primary,
+      chatBubbleAssistant: const Color(0xFF0E1010),
+      chatBubbleUserText: AppTheme.neutral50,
+      chatBubbleAssistantText: AppTheme.neutral50,
+      chatBubbleUserBorder: darkTone.secondary,
+      chatBubbleAssistantBorder: const Color(0xFF1A1D1C),
+      inputBackground: const Color(0xFF141615),
+      inputBorder: AppTheme.neutral600,
+      inputBorderFocused: darkTone.primary,
+      inputText: AppTheme.neutral50,
+      inputPlaceholder: AppTheme.neutral300,
+      inputError: AppTheme.error,
+      cardBackground: const Color(0xFF0C0F0E),
+      cardBorder: const Color(0xFF151918),
+      cardShadow: AppTheme.neutral900,
+      surfaceBackground: const Color(0xFF0A0D0C),
+      surfaceContainer: const Color(0xFF0C0F0E),
+      surfaceContainerHighest: const Color(0xFF121514),
+      buttonPrimary: darkTone.primary,
+      buttonPrimaryText: AppTheme.neutral50,
+      buttonSecondary: const Color(0xFF151918),
+      buttonSecondaryText: AppTheme.neutral50,
+      buttonDisabled: AppTheme.neutral600,
+      buttonDisabledText: AppTheme.neutral400,
+      success: const Color(0xFF34D399),
+      successBackground: const Color(0xFF14532D),
+      error: const Color(0xFFFCA5A5),
+      errorBackground: const Color(0xFF7F1D1D),
+      warning: const Color(0xFFFBBF24),
+      warningBackground: const Color(0xFF451A03),
+      info: const Color(0xFF93C5FD),
+      infoBackground: const Color(0xFF0C4A6E),
+      dividerColor: AppTheme.neutral600,
+      navigationBackground: const Color(0xFF0A0D0C),
+      navigationSelected: darkTone.primary,
+      navigationUnselected: AppTheme.neutral300,
+      navigationSelectedBackground: _surfaceTint(
+        darkTone.primary,
+        const Color(0xFF0A0D0C),
+        0.24,
+      ),
+      shimmerBase: const Color(0xFF121514),
+      shimmerHighlight: const Color(0xFF1A1D1C),
+      loadingIndicator: darkTone.primary,
+      textPrimary: AppTheme.neutral50,
+      textSecondary: const Color(0xFFBAC2C0),
+      textTertiary: AppTheme.neutral400,
+      textInverse: AppTheme.neutral900,
+      textDisabled: AppTheme.neutral600,
+      iconPrimary: AppTheme.neutral50,
+      iconSecondary: const Color(0xFFA0A8A5),
+      iconDisabled: AppTheme.neutral600,
+      iconInverse: AppTheme.neutral900,
+      headingLarge: TextStyle(
+        fontSize: AppTypography.displaySmall,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.neutral50,
+        height: 1.2,
+      ),
+      headingMedium: TextStyle(
+        fontSize: AppTypography.headlineLarge,
+        fontWeight: FontWeight.w600,
+        color: AppTheme.neutral50,
+        height: 1.3,
+      ),
+      headingSmall: TextStyle(
+        fontSize: AppTypography.headlineSmall,
+        fontWeight: FontWeight.w600,
+        color: AppTheme.neutral50,
+        height: 1.4,
+      ),
+      bodyLarge: TextStyle(
+        fontSize: AppTypography.bodyLarge,
+        fontWeight: FontWeight.w400,
+        color: AppTheme.neutral50,
+        height: 1.5,
+      ),
+      bodyMedium: TextStyle(
+        fontSize: AppTypography.bodyMedium,
+        fontWeight: FontWeight.w400,
+        color: AppTheme.neutral50,
+        height: 1.5,
+      ),
+      bodySmall: TextStyle(
+        fontSize: AppTypography.bodySmall,
+        fontWeight: FontWeight.w400,
+        color: const Color(0xFFD1D5DB),
+        height: 1.4,
+      ),
+      caption: TextStyle(
+        fontSize: AppTypography.labelMedium,
+        fontWeight: FontWeight.w500,
+        color: AppTheme.neutral300,
+        height: 1.3,
+        letterSpacing: 0.5,
+      ),
+      label: TextStyle(
+        fontSize: AppTypography.labelLarge,
+        fontWeight: FontWeight.w500,
+        color: const Color(0xFFD1D5DB),
+        height: 1.3,
+      ),
+      code: TextStyle(
+        fontSize: AppTypography.bodySmall,
+        fontWeight: FontWeight.w400,
+        color: const Color(0xFFD1D5DB),
+        height: 1.4,
+        fontFamily: AppTypography.monospaceFontFamily,
+      ),
+    );
+  }
 
-    // Card and surface colors - Enhanced depth and hierarchy
-    cardBackground: Color(0xFF0C0F0E),
-    cardBorder: Color(0xFF151918),
-    cardShadow: AppTheme.neutral900,
-    surfaceBackground: Color(0xFF0A0D0C),
-    surfaceContainer: Color(0xFF0C0F0E),
-    surfaceContainerHighest: Color(0xFF121514),
+  /// Light theme extension derived from the active color palette.
+  static ConduitThemeExtension lightPalette(AppColorPalette palette) {
+    final lightTone = palette.light;
+    final darkTone = palette.dark;
+    return ConduitThemeExtension(
+      chatBubbleUser: lightTone.primary,
+      chatBubbleAssistant: const Color(0xFFF7F7F7),
+      chatBubbleUserText: AppTheme.neutral50,
+      chatBubbleAssistantText: const Color(0xFF1C1C1C),
+      chatBubbleUserBorder: darkTone.primary,
+      chatBubbleAssistantBorder: const Color(0xFFE7E7E7),
+      inputBackground: AppTheme.neutral50,
+      inputBorder: AppTheme.neutral200,
+      inputBorderFocused: lightTone.primary,
+      inputText: AppTheme.neutral900,
+      inputPlaceholder: AppTheme.neutral500,
+      inputError: AppTheme.error,
+      cardBackground: AppTheme.neutral50,
+      cardBorder: const Color(0xFFE7E7E7),
+      cardShadow: const Color(0xFFF3F4F6),
+      surfaceBackground: AppTheme.neutral50,
+      surfaceContainer: const Color(0xFFF7F7F7),
+      surfaceContainerHighest: const Color(0xFFF0F1F1),
+      buttonPrimary: lightTone.primary,
+      buttonPrimaryText: AppTheme.neutral50,
+      buttonSecondary: const Color(0xFFF0F1F1),
+      buttonSecondaryText: const Color(0xFF1C1C1C),
+      buttonDisabled: AppTheme.neutral300,
+      buttonDisabledText: AppTheme.neutral500,
+      success: const Color(0xFF166534),
+      successBackground: const Color(0xFFECFDF3),
+      error: const Color(0xFFB91C1C),
+      errorBackground: const Color(0xFFFEE2E2),
+      warning: const Color(0xFF92400E),
+      warningBackground: const Color(0xFFFEF3C7),
+      info: const Color(0xFF1D4ED8),
+      infoBackground: const Color(0xFFDBEAFE),
+      dividerColor: AppTheme.neutral100,
+      navigationBackground: AppTheme.neutral50,
+      navigationSelected: lightTone.primary,
+      navigationUnselected: AppTheme.neutral600,
+      navigationSelectedBackground: _surfaceTint(
+        lightTone.primary,
+        AppTheme.neutral50,
+        0.16,
+      ),
+      shimmerBase: const Color(0xFFF3F4F6),
+      shimmerHighlight: AppTheme.neutral50,
+      loadingIndicator: lightTone.primary,
+      textPrimary: const Color(0xFF1C1C1C),
+      textSecondary: const Color(0xFF3A3F3E),
+      textTertiary: AppTheme.neutral500,
+      textInverse: AppTheme.neutral50,
+      textDisabled: AppTheme.neutral400,
+      iconPrimary: const Color(0xFF1C1C1C),
+      iconSecondary: const Color(0xFF666C6A),
+      iconDisabled: AppTheme.neutral400,
+      iconInverse: AppTheme.neutral50,
+      headingLarge: TextStyle(
+        fontSize: AppTypography.displaySmall,
+        fontWeight: FontWeight.w700,
+        color: const Color(0xFF111827),
+        height: 1.2,
+      ),
+      headingMedium: TextStyle(
+        fontSize: AppTypography.headlineLarge,
+        fontWeight: FontWeight.w600,
+        color: const Color(0xFF111827),
+        height: 1.3,
+      ),
+      headingSmall: TextStyle(
+        fontSize: AppTypography.headlineSmall,
+        fontWeight: FontWeight.w600,
+        color: const Color(0xFF111827),
+        height: 1.4,
+      ),
+      bodyLarge: TextStyle(
+        fontSize: AppTypography.bodyLarge,
+        fontWeight: FontWeight.w400,
+        color: const Color(0xFF111827),
+        height: 1.5,
+      ),
+      bodyMedium: TextStyle(
+        fontSize: AppTypography.bodyMedium,
+        fontWeight: FontWeight.w400,
+        color: const Color(0xFF111827),
+        height: 1.5,
+      ),
+      bodySmall: TextStyle(
+        fontSize: AppTypography.bodySmall,
+        fontWeight: FontWeight.w400,
+        color: AppTheme.neutral500,
+        height: 1.4,
+      ),
+      caption: TextStyle(
+        fontSize: AppTypography.labelMedium,
+        fontWeight: FontWeight.w500,
+        color: AppTheme.neutral400,
+        height: 1.3,
+        letterSpacing: 0.5,
+      ),
+      label: TextStyle(
+        fontSize: AppTypography.labelLarge,
+        fontWeight: FontWeight.w500,
+        color: const Color(0xFF444948),
+        height: 1.3,
+      ),
+      code: TextStyle(
+        fontSize: AppTypography.bodySmall,
+        fontWeight: FontWeight.w400,
+        color: const Color(0xFF1C1C1C),
+        height: 1.4,
+        fontFamily: AppTypography.monospaceFontFamily,
+      ),
+    );
+  }
 
-    // Interactive element colors - More vibrant and accessible
-    buttonPrimary: AppTheme.brandPrimaryDark,
-    buttonPrimaryText: AppTheme.neutral50,
-    buttonSecondary: Color(0xFF151918),
-    buttonSecondaryText: AppTheme.neutral50,
-    buttonDisabled: AppTheme.neutral600,
-    buttonDisabledText: AppTheme.neutral400,
-
-    // Status and feedback colors - Enhanced visibility
-    success: Color(0xFF34D399),
-    successBackground: Color(0xFF14532D),
-    error: Color(0xFFFCA5A5),
-    errorBackground: Color(0xFF7F1D1D),
-    warning: Color(0xFFFBBF24),
-    warningBackground: Color(0xFF451A03),
-    info: Color(0xFF93C5FD),
-    infoBackground: Color(0xFF0C4A6E),
-
-    // Navigation and UI element colors - Enhanced contrast
-    dividerColor: AppTheme.neutral600,
-    navigationBackground: Color(0xFF0A0D0C),
-    navigationSelected: AppTheme.brandPrimaryDark,
-    navigationUnselected: AppTheme.neutral300,
-    navigationSelectedBackground: Color(0xFF312E81),
-
-    // Loading and animation colors - Enhanced visibility
-    shimmerBase: Color(0xFF121514),
-    shimmerHighlight: Color(0xFF1A1D1C),
-    loadingIndicator: AppTheme.brandPrimaryDark,
-    // Text colors - Enhanced hierarchy
-    textPrimary: AppTheme.neutral50,
-    textSecondary: Color(0xFFBAC2C0),
-    textTertiary: AppTheme.neutral400,
-    textInverse: AppTheme.neutral900,
-    textDisabled: AppTheme.neutral600,
-
-    // Icon colors - Enhanced visibility
-    iconPrimary: AppTheme.neutral50,
-    iconSecondary: Color(0xFFA0A8A5),
-    iconDisabled: AppTheme.neutral600,
-    iconInverse: AppTheme.neutral900,
-
-    // Typography styles
-    headingLarge: TextStyle(
-      fontSize: AppTypography.displaySmall,
-      fontWeight: FontWeight.w700,
-      color: AppTheme.neutral50,
-      height: 1.2,
-    ),
-    headingMedium: TextStyle(
-      fontSize: AppTypography.headlineLarge,
-      fontWeight: FontWeight.w600,
-      color: AppTheme.neutral50,
-      height: 1.3,
-    ),
-    headingSmall: TextStyle(
-      fontSize: AppTypography.headlineSmall,
-      fontWeight: FontWeight.w600,
-      color: AppTheme.neutral50,
-      height: 1.4,
-    ),
-    bodyLarge: TextStyle(
-      fontSize: AppTypography.bodyLarge,
-      fontWeight: FontWeight.w400,
-      color: AppTheme.neutral50,
-      height: 1.5,
-    ),
-    bodyMedium: TextStyle(
-      fontSize: AppTypography.bodyMedium,
-      fontWeight: FontWeight.w400,
-      color: AppTheme.neutral50,
-      height: 1.5,
-    ),
-    bodySmall: TextStyle(
-      fontSize: AppTypography.bodySmall,
-      fontWeight: FontWeight.w400,
-      color: Color(0xFFD1D5DB), // Enhanced contrast
-      height: 1.4,
-    ),
-    caption: TextStyle(
-      fontSize: AppTypography.labelMedium,
-      fontWeight: FontWeight.w500,
-      color: AppTheme.neutral300,
-      height: 1.3,
-      letterSpacing: 0.5,
-    ),
-    label: TextStyle(
-      fontSize: AppTypography.labelLarge,
-      fontWeight: FontWeight.w500,
-      color: Color(0xFFD1D5DB), // Enhanced contrast
-      height: 1.3,
-    ),
-    code: TextStyle(
-      fontSize: AppTypography.bodySmall,
-      fontWeight: FontWeight.w400,
-      color: Color(0xFFD1D5DB), // Enhanced contrast
-      height: 1.4,
-      fontFamily: AppTypography.monospaceFontFamily,
-    ),
-  );
-
-  /// Light theme extension
-  static const ConduitThemeExtension light = ConduitThemeExtension(
-    // Chat-specific colors - Enhanced for production-grade look
-    chatBubbleUser: AppTheme.brandPrimary,
-    chatBubbleAssistant: Color(0xFFF7F7F7),
-    chatBubbleUserText: AppTheme.neutral50,
-    chatBubbleAssistantText: Color(0xFF1C1C1C),
-    chatBubbleUserBorder: AppTheme.brandPrimaryDark,
-    chatBubbleAssistantBorder: Color(0xFFE7E7E7),
-    // Input and form colors
-    inputBackground: AppTheme.neutral50,
-    inputBorder: AppTheme.neutral200,
-    inputBorderFocused: AppTheme.brandPrimary,
-    inputText: AppTheme.neutral900,
-    inputPlaceholder: AppTheme.neutral500,
-    inputError: AppTheme.error,
-
-    // Card and surface colors - Enhanced depth and hierarchy
-    cardBackground: AppTheme.neutral50,
-    cardBorder: Color(0xFFE7E7E7),
-    cardShadow: Color(0xFFF3F4F6),
-    surfaceBackground: AppTheme.neutral50,
-    surfaceContainer: Color(0xFFF7F7F7),
-    surfaceContainerHighest: Color(0xFFF0F1F1),
-    // Interactive element colors - More vibrant and accessible
-    buttonPrimary: AppTheme.brandPrimary,
-    buttonPrimaryText: AppTheme.neutral50,
-    buttonSecondary: Color(0xFFF0F1F1),
-    buttonSecondaryText: Color(0xFF1C1C1C),
-    buttonDisabled: AppTheme.neutral300,
-    buttonDisabledText: AppTheme.neutral500,
-
-    // Status and feedback colors - Enhanced visibility
-    success: Color(0xFF166534),
-    successBackground: Color(0xFFECFDF3),
-    error: Color(0xFFB91C1C),
-    errorBackground: Color(0xFFFEE2E2),
-    warning: Color(0xFF92400E),
-    warningBackground: Color(0xFFFEF3C7),
-    info: Color(0xFF1D4ED8),
-    infoBackground: Color(0xFFDBEAFE),
-
-    // Navigation and UI element colors - Enhanced contrast
-    dividerColor: AppTheme.neutral100,
-    navigationBackground: AppTheme.neutral50,
-    navigationSelected: AppTheme.brandPrimary,
-    navigationUnselected: AppTheme.neutral600,
-    navigationSelectedBackground: Color(0xFFE0E7FF),
-
-    // Loading and animation colors - Enhanced visibility
-    shimmerBase: Color(0xFFF3F4F6),
-    shimmerHighlight: AppTheme.neutral50,
-    loadingIndicator: AppTheme.brandPrimary,
-    // Text colors - Enhanced hierarchy
-    textPrimary: Color(0xFF1C1C1C),
-    textSecondary: Color(0xFF3A3F3E),
-    textTertiary: AppTheme.neutral500,
-    textInverse: AppTheme.neutral50,
-    textDisabled: AppTheme.neutral400,
-
-    // Icon colors - Enhanced visibility
-    iconPrimary: Color(0xFF1C1C1C),
-    iconSecondary: Color(0xFF666C6A),
-    iconDisabled: AppTheme.neutral400,
-    iconInverse: AppTheme.neutral50,
-
-    // Typography styles
-    headingLarge: TextStyle(
-      fontSize: AppTypography.displaySmall,
-      fontWeight: FontWeight.w700,
-      color: Color(0xFF111827), // Better contrast
-      height: 1.2,
-    ),
-    headingMedium: TextStyle(
-      fontSize: AppTypography.headlineLarge,
-      fontWeight: FontWeight.w600,
-      color: Color(0xFF111827), // Better contrast
-      height: 1.3,
-    ),
-    headingSmall: TextStyle(
-      fontSize: AppTypography.headlineSmall,
-      fontWeight: FontWeight.w600,
-      color: Color(0xFF111827), // Better contrast
-      height: 1.4,
-    ),
-    bodyLarge: TextStyle(
-      fontSize: AppTypography.bodyLarge,
-      fontWeight: FontWeight.w400,
-      color: Color(0xFF111827), // Better contrast
-      height: 1.5,
-    ),
-    bodyMedium: TextStyle(
-      fontSize: AppTypography.bodyMedium,
-      fontWeight: FontWeight.w400,
-      color: Color(0xFF374151), // Better contrast
-      height: 1.5,
-    ),
-    bodySmall: TextStyle(
-      fontSize: AppTypography.bodySmall,
-      fontWeight: FontWeight.w400,
-      color: Color(0xFF6B7280), // Better contrast
-      height: 1.4,
-    ),
-    caption: TextStyle(
-      fontSize: AppTypography.labelMedium,
-      fontWeight: FontWeight.w500,
-      color: AppTheme.neutral500,
-      height: 1.3,
-      letterSpacing: 0.5,
-    ),
-    label: TextStyle(
-      fontSize: AppTypography.labelLarge,
-      fontWeight: FontWeight.w500,
-      color: Color(0xFF374151), // Better contrast
-      height: 1.3,
-    ),
-    code: TextStyle(
-      fontSize: AppTypography.bodySmall,
-      fontWeight: FontWeight.w400,
-      color: Color(0xFF374151), // Better contrast
-      height: 1.4,
-      fontFamily: AppTypography.monospaceFontFamily,
-    ),
-  );
+  static Color _surfaceTint(Color tone, Color surface, double opacity) {
+    return Color.alphaBlend(tone.withValues(alpha: opacity), surface);
+  }
 }
 
 /// Extension method to easily access Conduit theme from BuildContext
 extension ConduitThemeContext on BuildContext {
   ConduitThemeExtension get conduitTheme {
-    return Theme.of(this).extension<ConduitThemeExtension>() ??
-        ConduitThemeExtension.dark;
+    final theme = Theme.of(this);
+    final extension = theme.extension<ConduitThemeExtension>();
+    if (extension != null) return extension;
+    final palette =
+        theme.extension<AppPaletteThemeExtension>()?.palette ??
+        AppColorPalettes.auroraViolet;
+    return theme.brightness == Brightness.dark
+        ? ConduitThemeExtension.darkPalette(palette)
+        : ConduitThemeExtension.lightPalette(palette);
+  }
+}
+
+extension ConduitPaletteContext on BuildContext {
+  AppColorPalette get conduitPalette {
+    return Theme.of(this).extension<AppPaletteThemeExtension>()?.palette ??
+        AppColorPalettes.auroraViolet;
   }
 }
 
@@ -931,7 +932,9 @@ class ConduitShadows {
 
   static List<BoxShadow> get glow => [
     BoxShadow(
-      color: AppTheme.brandPrimary.withValues(alpha: 0.25),
+      color: AppColorPalettes.auroraViolet.light.primary.withValues(
+        alpha: 0.25,
+      ),
       blurRadius: 20,
       offset: const Offset(0, 0),
       spreadRadius: 0,

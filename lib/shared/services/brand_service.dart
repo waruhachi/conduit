@@ -3,6 +3,7 @@ import '../theme/theme_extensions.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:io' show Platform;
 import '../theme/app_theme.dart';
+import '../theme/color_palettes.dart';
 
 /// Centralized service for consistent brand identity throughout the app
 /// Uses the hub icon as the primary brand element
@@ -20,9 +21,32 @@ class BrandService {
       Platform.isIOS ? CupertinoIcons.globe : Icons.public;
 
   /// Brand colors - these should be accessed through context.conduitTheme in UI components
-  static Color get primaryBrandColor => AppTheme.brandPrimary;
-  static Color get secondaryBrandColor => AppTheme.brandPrimaryLight;
-  static Color get accentBrandColor => AppTheme.brandPrimaryDark;
+  static Color primaryBrandColor({
+    BuildContext? context,
+    Brightness? brightness,
+  }) {
+    final palette = _resolvePalette(context);
+    final resolvedBrightness = brightness ?? _resolveBrightness(context);
+    return palette.primaryFor(resolvedBrightness);
+  }
+
+  static Color secondaryBrandColor({
+    BuildContext? context,
+    Brightness? brightness,
+  }) {
+    final palette = _resolvePalette(context);
+    final resolvedBrightness = brightness ?? _resolveBrightness(context);
+    return palette.secondaryFor(resolvedBrightness);
+  }
+
+  static Color accentBrandColor({
+    BuildContext? context,
+    Brightness? brightness,
+  }) {
+    final palette = _resolvePalette(context);
+    final resolvedBrightness = brightness ?? _resolveBrightness(context);
+    return palette.accentFor(resolvedBrightness);
+  }
 
   /// Creates a branded icon with consistent styling
   static Widget createBrandIcon({
@@ -31,21 +55,25 @@ class BrandService {
     IconData? icon,
     bool useGradient = false,
     bool addShadow = false,
+    BuildContext? context,
   }) {
     final iconData = icon ?? primaryIcon;
-    final iconColor = color ?? primaryBrandColor;
+    final resolvedColor = color ?? primaryBrandColor(context: context);
 
     Widget iconWidget = Icon(
       iconData,
       size: size,
-      color: useGradient ? null : iconColor,
+      color: useGradient ? null : resolvedColor,
     );
 
     if (useGradient) {
       iconWidget = ShaderMask(
         blendMode: BlendMode.srcIn,
         shaderCallback: (bounds) => LinearGradient(
-          colors: [primaryBrandColor, secondaryBrandColor],
+          colors: [
+            primaryBrandColor(context: context),
+            secondaryBrandColor(context: context),
+          ],
         ).createShader(bounds),
         child: Icon(iconData, size: size),
       );
@@ -56,7 +84,7 @@ class BrandService {
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(
-              color: primaryBrandColor.withValues(alpha: 0.3),
+              color: primaryBrandColor(context: context).withValues(alpha: 0.3),
               blurRadius: size * 0.3,
               offset: Offset(0, size * 0.1),
             ),
@@ -78,7 +106,7 @@ class BrandService {
     String? fallbackText,
     BuildContext? context,
   }) {
-    final bgColor = backgroundColor ?? primaryBrandColor;
+    final bgColor = backgroundColor ?? primaryBrandColor(context: context);
     final iColor =
         iconColor ?? (context?.conduitTheme.textInverse ?? AppTheme.neutral50);
 
@@ -90,14 +118,17 @@ class BrandService {
             ? LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [primaryBrandColor, secondaryBrandColor],
+                colors: [
+                  primaryBrandColor(context: context),
+                  secondaryBrandColor(context: context),
+                ],
               )
             : null,
         color: useGradient ? null : bgColor,
         borderRadius: BorderRadius.circular(size / 2),
         boxShadow: [
           BoxShadow(
-            color: primaryBrandColor.withValues(alpha: 0.3),
+            color: primaryBrandColor(context: context).withValues(alpha: 0.3),
             blurRadius: size * 0.2,
             offset: Offset(0, size * 0.1),
           ),
@@ -123,13 +154,16 @@ class BrandService {
     double size = 24,
     double strokeWidth = 2,
     Color? color,
+    BuildContext? context,
   }) {
     return SizedBox(
       width: size,
       height: size,
       child: CircularProgressIndicator(
         strokeWidth: strokeWidth,
-        valueColor: AlwaysStoppedAnimation<Color>(color ?? primaryBrandColor),
+        valueColor: AlwaysStoppedAnimation<Color>(
+          color ?? primaryBrandColor(context: context),
+        ),
       ),
     );
   }
@@ -149,6 +183,7 @@ class BrandService {
         size: size,
         color: iconColor,
         icon: primaryIconOutlined,
+        context: context,
       );
     }
 
@@ -167,6 +202,7 @@ class BrandService {
         size: size * 0.5,
         color: iconColor,
         icon: primaryIconOutlined,
+        context: context,
       ),
     );
   }
@@ -181,27 +217,27 @@ class BrandService {
     bool isSecondary = false,
     BuildContext? context,
   }) {
+    final theme = context?.conduitTheme;
     return SizedBox(
       width: width,
       height: 48,
       child: ElevatedButton.icon(
         onPressed: isLoading ? null : onPressed,
         icon: isLoading
-            ? createBrandLoadingIndicator(size: IconSize.sm)
+            ? createBrandLoadingIndicator(size: IconSize.sm, context: context)
             : createBrandIcon(
                 size: IconSize.md,
                 icon: icon ?? primaryIcon,
-                color: context?.conduitTheme.textInverse ?? AppTheme.neutral50,
+                color: theme?.textInverse ?? AppTheme.neutral50,
+                context: context,
               ),
         label: Text(text),
         style: ElevatedButton.styleFrom(
           backgroundColor: isSecondary
-              ? (context?.conduitTheme.buttonSecondary ?? AppTheme.neutral700)
-              : (context?.conduitTheme.buttonPrimary ?? primaryBrandColor),
-          foregroundColor:
-              context?.conduitTheme.buttonPrimaryText ?? AppTheme.neutral50,
-          disabledBackgroundColor:
-              context?.conduitTheme.buttonDisabled ?? AppTheme.neutral500,
+              ? (theme?.buttonSecondary ?? AppTheme.neutral700)
+              : (theme?.buttonPrimary ?? primaryBrandColor(context: context)),
+          foregroundColor: theme?.buttonPrimaryText ?? AppTheme.neutral50,
+          disabledBackgroundColor: theme?.buttonDisabled ?? AppTheme.neutral500,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppBorderRadius.md),
           ),
@@ -255,6 +291,14 @@ class BrandService {
     bool animate = true,
     BuildContext? context,
   }) {
+    final theme = context?.conduitTheme;
+    final baseColor =
+        theme?.buttonPrimary ??
+        primaryBrandColor(context: context, brightness: Brightness.dark);
+    final accentColor =
+        theme?.buttonPrimary.withValues(alpha: 0.8) ??
+        secondaryBrandColor(context: context, brightness: Brightness.dark);
+
     return Container(
       width: size,
       height: size,
@@ -262,11 +306,7 @@ class BrandService {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            context?.conduitTheme.buttonPrimary ?? primaryBrandColor,
-            context?.conduitTheme.buttonPrimary.withValues(alpha: 0.8) ??
-                secondaryBrandColor,
-          ],
+          colors: [baseColor, accentColor],
         ),
         borderRadius: BorderRadius.circular(size / 2),
         boxShadow: ConduitShadows.glow,
@@ -274,8 +314,20 @@ class BrandService {
       child: Icon(
         primaryIcon,
         size: size * 0.5,
-        color: context?.conduitTheme.textInverse ?? AppTheme.neutral50,
+        color: theme?.textInverse ?? AppTheme.neutral50,
       ),
     );
+  }
+
+  static AppColorPalette _resolvePalette(BuildContext? context) {
+    if (context == null) {
+      return AppColorPalettes.auroraViolet;
+    }
+    final extension = Theme.of(context).extension<AppPaletteThemeExtension>();
+    return extension?.palette ?? AppColorPalettes.auroraViolet;
+  }
+
+  static Brightness _resolveBrightness(BuildContext? context) {
+    return context != null ? Theme.of(context).brightness : Brightness.light;
   }
 }

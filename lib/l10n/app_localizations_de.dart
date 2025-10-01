@@ -756,6 +756,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get themeDark => 'Dunkel';
 
   @override
+  String get themePalette => 'Farbpalette';
+
+  @override
+  String get themePaletteDescription =>
+      'Wählen Sie die Akzentfarben für Schaltflächen, Karten und Chatblasen.';
+
+  @override
   String get themeLight => 'Hell';
 
   @override

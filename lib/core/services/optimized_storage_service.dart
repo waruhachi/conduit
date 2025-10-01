@@ -35,6 +35,7 @@ class OptimizedStorageService {
   static const String _rememberCredentialsKey =
       PreferenceKeys.rememberCredentials;
   static const String _themeModeKey = PreferenceKeys.themeMode;
+  static const String _themePaletteKey = PreferenceKeys.themePalette;
   static const String _localeCodeKey = PreferenceKeys.localeCode;
   static const String _localConversationsKey = HiveStoreKeys.localConversations;
   static const String _onboardingSeenKey = PreferenceKeys.onboardingSeen;
@@ -259,6 +260,14 @@ class OptimizedStorageService {
 
   Future<void> setThemeMode(String mode) async {
     await _preferencesBox.put(_themeModeKey, mode);
+  }
+
+  String? getThemePaletteId() {
+    return _preferencesBox.get(_themePaletteKey) as String?;
+  }
+
+  Future<void> setThemePaletteId(String paletteId) async {
+    await _preferencesBox.put(_themePaletteKey, paletteId);
   }
 
   String? getLocaleCode() {

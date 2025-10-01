@@ -23,6 +23,8 @@ import '../services/optimized_storage_service.dart';
 import '../services/socket_service.dart';
 import '../utils/debug_logger.dart';
 import '../models/socket_event.dart';
+import '../../shared/theme/color_palettes.dart';
+import '../../shared/theme/app_theme.dart';
 
 part 'app_providers.g.dart';
 
@@ -75,6 +77,42 @@ class AppThemeMode extends _$AppThemeMode {
   void setTheme(ThemeMode mode) {
     state = mode;
     _storage.setThemeMode(mode.toString());
+  }
+}
+
+@Riverpod(keepAlive: true)
+class AppThemePalette extends _$AppThemePalette {
+  late final OptimizedStorageService _storage;
+
+  @override
+  AppColorPalette build() {
+    _storage = ref.watch(optimizedStorageServiceProvider);
+    final storedId = _storage.getThemePaletteId();
+    return AppColorPalettes.byId(storedId);
+  }
+
+  Future<void> setPalette(String paletteId) async {
+    final palette = AppColorPalettes.byId(paletteId);
+    state = palette;
+    await _storage.setThemePaletteId(palette.id);
+  }
+}
+
+@Riverpod(keepAlive: true)
+class AppLightTheme extends _$AppLightTheme {
+  @override
+  ThemeData build() {
+    final palette = ref.watch(appThemePaletteProvider);
+    return AppTheme.light(palette);
+  }
+}
+
+@Riverpod(keepAlive: true)
+class AppDarkTheme extends _$AppDarkTheme {
+  @override
+  ThemeData build() {
+    final palette = ref.watch(appThemePaletteProvider);
+    return AppTheme.dark(palette);
   }
 }
 

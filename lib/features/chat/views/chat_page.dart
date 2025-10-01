@@ -946,8 +946,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final greetingName = deriveUserDisplayName(user);
     return LayoutBuilder(
       builder: (context, constraints) {
-        return SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
+        return Padding(
           padding: const EdgeInsets.all(Spacing.lg),
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),

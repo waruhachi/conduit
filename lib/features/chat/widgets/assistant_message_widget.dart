@@ -115,6 +115,15 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
       _updateTypingIndicatorGate();
     }
 
+    // Update typing indicator gate when message properties that affect emptiness change
+    if (oldWidget.message.statusHistory != widget.message.statusHistory ||
+        oldWidget.message.files != widget.message.files ||
+        oldWidget.message.attachmentIds != widget.message.attachmentIds ||
+        oldWidget.message.followUps != widget.message.followUps ||
+        oldWidget.message.codeExecutions != widget.message.codeExecutions) {
+      _updateTypingIndicatorGate();
+    }
+
     // Rebuild cached avatar if model name or icon changes
     if (oldWidget.modelName != widget.modelName ||
         oldWidget.modelIconUrl != widget.modelIconUrl) {
@@ -505,7 +514,17 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     }
 
     final hasCodeExecutions = widget.message.codeExecutions.isNotEmpty;
-    return !hasCodeExecutions;
+    if (hasCodeExecutions) {
+      return false;
+    }
+
+    // Check for tool calls in the content using ToolCallsParser
+    final hasToolCalls =
+        ToolCallsParser.segments(
+          content,
+        )?.any((segment) => segment.isToolCall) ??
+        false;
+    return !hasToolCalls;
   }
 
   void _buildCachedAvatar() {

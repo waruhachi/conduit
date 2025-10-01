@@ -764,6 +764,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get themeDark => 'Sombre';
 
   @override
+  String get themePalette => 'Palette de couleurs';
+
+  @override
+  String get themePaletteDescription =>
+      'Choisissez les couleurs d\'accent utilisées pour les boutons, les cartes et les bulles de discussion.';
+
+  @override
   String get themeLight => 'Clair';
 
   @override

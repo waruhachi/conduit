@@ -89,6 +89,7 @@ class PersistenceMigrator {
     copyBool(PreferenceKeys.rememberCredentials);
     copyString(PreferenceKeys.activeServerId);
     copyString(PreferenceKeys.themeMode);
+    copyString(PreferenceKeys.themePalette);
     copyString(PreferenceKeys.localeCode);
     copyBool(PreferenceKeys.onboardingSeen);
     copyBool(PreferenceKeys.reviewerMode);
@@ -194,6 +195,7 @@ class PersistenceMigrator {
       PreferenceKeys.rememberCredentials,
       PreferenceKeys.activeServerId,
       PreferenceKeys.themeMode,
+      PreferenceKeys.themePalette,
       PreferenceKeys.localeCode,
       PreferenceKeys.onboardingSeen,
       PreferenceKeys.reviewerMode,

@@ -18,6 +18,7 @@ final class PreferenceKeys {
   static const String rememberCredentials = 'remember_credentials';
   static const String activeServerId = 'active_server_id';
   static const String themeMode = 'theme_mode';
+  static const String themePalette = 'theme_palette_v1';
   static const String localeCode = 'locale_code_v1';
   static const String onboardingSeen = 'onboarding_seen_v1';
   static const String reviewerMode = 'reviewer_mode_v1';

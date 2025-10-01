@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/settings_service.dart';
 import '../../../shared/theme/theme_extensions.dart';
+import '../../../shared/theme/color_palettes.dart';
 import '../../tools/providers/tools_providers.dart';
 import '../../../core/models/tool.dart';
 import '../../../shared/widgets/conduit_components.dart';
@@ -36,6 +37,7 @@ class AppCustomizationPage extends ConsumerWidget {
     final locale = ref.watch(appLocaleProvider);
     final currentLanguageCode = locale?.languageCode ?? 'system';
     final languageLabel = _resolveLanguageLabel(context, currentLanguageCode);
+    final activePalette = ref.watch(appThemePaletteProvider);
 
     return Scaffold(
       backgroundColor: context.conduitTheme.surfaceBackground,
@@ -58,6 +60,7 @@ class AppCustomizationPage extends ConsumerWidget {
               currentLanguageCode,
               languageLabel,
               settings,
+              activePalette,
             ),
             const SizedBox(height: Spacing.sectionGap),
             _buildQuickPillsSection(context, ref, settings),
@@ -110,6 +113,7 @@ class AppCustomizationPage extends ConsumerWidget {
     String currentLanguageCode,
     String languageLabel,
     AppSettings settings,
+    AppColorPalette palette,
   ) {
     final theme = context.conduitTheme;
 
@@ -124,6 +128,8 @@ class AppCustomizationPage extends ConsumerWidget {
         ),
         const SizedBox(height: Spacing.sm),
         _buildThemeSelector(context, ref, themeMode, themeDescription),
+        const SizedBox(height: Spacing.md),
+        _buildPaletteSelector(context, ref, palette),
         const SizedBox(height: Spacing.md),
         _CustomizationTile(
           leading: _buildIconBadge(
@@ -274,6 +280,53 @@ class AppCustomizationPage extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPaletteSelector(
+    BuildContext context,
+    WidgetRef ref,
+    AppColorPalette activePalette,
+  ) {
+    final theme = context.conduitTheme;
+    final palettes = AppColorPalettes.all;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          AppLocalizations.of(context)!.themePalette,
+          style:
+              theme.bodyLarge?.copyWith(
+                color: theme.textPrimary,
+                fontWeight: FontWeight.w600,
+              ) ??
+              TextStyle(color: theme.textPrimary, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: Spacing.xs),
+        Text(
+          AppLocalizations.of(context)!.themePaletteDescription,
+          style:
+              theme.bodySmall?.copyWith(color: theme.textSecondary) ??
+              TextStyle(color: theme.textSecondary),
+        ),
+        const SizedBox(height: Spacing.sm),
+        ConduitCard(
+          padding: const EdgeInsets.all(Spacing.cardPadding),
+          child: Column(
+            children: [
+              for (final palette in palettes)
+                _PaletteOption(
+                  palette: palette,
+                  activeId: activePalette.id,
+                  onSelect: () => ref
+                      .read(appThemePaletteProvider.notifier)
+                      .setPalette(palette.id),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -545,6 +598,128 @@ class AppCustomizationPage extends ConsumerWidget {
               const SizedBox(height: Spacing.sm),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaletteOption extends StatelessWidget {
+  const _PaletteOption({
+    required this.palette,
+    required this.activeId,
+    required this.onSelect,
+  });
+
+  final AppColorPalette palette;
+  final String activeId;
+  final VoidCallback onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.conduitTheme;
+    final isSelected = palette.id == activeId;
+    final previewColors =
+        palette.preview ??
+        <Color>[
+          palette.light.primary,
+          palette.light.secondary,
+          palette.dark.primary,
+        ];
+
+    return InkWell(
+      onTap: onSelect,
+      borderRadius: BorderRadius.circular(AppBorderRadius.md),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: isSelected ? theme.buttonPrimary : theme.iconSecondary,
+              size: IconSize.md,
+            ),
+            const SizedBox(width: Spacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          palette.label,
+                          style:
+                              theme.bodyLarge?.copyWith(
+                                color: theme.textPrimary,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                              ) ??
+                              TextStyle(
+                                color: theme.textPrimary,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                              ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isSelected)
+                        Padding(
+                          padding: const EdgeInsets.only(left: Spacing.xs),
+                          child: Icon(
+                            Icons.check_circle,
+                            color: theme.buttonPrimary,
+                            size: IconSize.sm,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: Spacing.xxs),
+                  Text(
+                    palette.description,
+                    style:
+                        theme.bodySmall?.copyWith(color: theme.textSecondary) ??
+                        TextStyle(color: theme.textSecondary),
+                  ),
+                  const SizedBox(height: Spacing.xs),
+                  Row(
+                    children: [
+                      for (final color in previewColors)
+                        _PaletteColorDot(color: color),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PaletteColorDot extends StatelessWidget {
+  const _PaletteColorDot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.conduitTheme;
+    return Container(
+      margin: const EdgeInsets.only(right: Spacing.xs),
+      width: 20,
+      height: 20,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: theme.dividerColor.withValues(alpha: 0.4),
+          width: 1.2,
         ),
       ),
     );

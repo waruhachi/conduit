@@ -1458,6 +1458,18 @@ abstract class AppLocalizations {
   /// **'Dark'**
   String get themeDark;
 
+  /// Title for selecting the app color palette.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent palette'**
+  String get themePalette;
+
+  /// Helper text explaining palette selection.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the accent colors used for buttons, cards, and chat bubbles.'**
+  String get themePaletteDescription;
+
   /// Theme label for light appearance.
   ///
   /// In en, this message translates to:
