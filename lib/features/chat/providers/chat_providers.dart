@@ -33,7 +33,7 @@ final chatMessagesProvider =
     );
 
 // Loading state for conversation (used to show chat skeletons during fetch)
-@riverpod
+@Riverpod(keepAlive: true)
 class IsLoadingConversation extends _$IsLoadingConversation {
   @override
   bool build() => false;
@@ -42,7 +42,7 @@ class IsLoadingConversation extends _$IsLoadingConversation {
 }
 
 // Prefilled input text (e.g., when sharing text from other apps)
-@riverpod
+@Riverpod(keepAlive: true)
 class PrefilledInputText extends _$PrefilledInputText {
   @override
   String? build() => null;
@@ -53,7 +53,7 @@ class PrefilledInputText extends _$PrefilledInputText {
 }
 
 // Trigger to request focus on the chat input (increment to signal)
-@riverpod
+@Riverpod(keepAlive: true)
 class InputFocusTrigger extends _$InputFocusTrigger {
   @override
   int build() => 0;
@@ -68,7 +68,7 @@ class InputFocusTrigger extends _$InputFocusTrigger {
 }
 
 // Whether the chat composer currently has focus
-@riverpod
+@Riverpod(keepAlive: true)
 class ComposerHasFocus extends _$ComposerHasFocus {
   @override
   bool build() => false;

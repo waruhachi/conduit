@@ -55,7 +55,7 @@ final optimizedStorageServiceProvider = Provider<OptimizedStorageService>((
 });
 
 // Theme provider
-@riverpod
+@Riverpod(keepAlive: true)
 class AppThemeMode extends _$AppThemeMode {
   late final OptimizedStorageService _storage;
 
@@ -79,7 +79,7 @@ class AppThemeMode extends _$AppThemeMode {
 }
 
 // Locale provider
-@riverpod
+@Riverpod(keepAlive: true)
 class AppLocale extends _$AppLocale {
   late final OptimizedStorageService _storage;
 
@@ -370,24 +370,6 @@ class SocketConnectionStream extends _$SocketConnectionStream {
     _cancelConnectListener = null;
     _cancelDisconnectListener = null;
   }
-
-  /// Forces a best-effort reconnect of the underlying socket service.
-  /// This is an action method, not state exposure.
-  // ignore: avoid_public_notifier_properties
-  Future<void> reconnect({
-    Duration timeout = const Duration(seconds: 2),
-  }) async {
-    final service = ref.read(socketServiceProvider);
-    if (service == null) {
-      return;
-    }
-    final connected = await service.ensureConnected(timeout: timeout);
-    _emit(
-      connected
-          ? SocketConnectionState.connected
-          : SocketConnectionState.connecting,
-    );
-  }
 }
 
 @Riverpod(keepAlive: true)
@@ -480,26 +462,7 @@ class ConversationDeltaStream extends _$ConversationDeltaStream {
     _socketSubscription?.dispose();
     _socketSubscription = null;
   }
-
-  /// Provides direct access to the underlying stream.
-  /// Note: This getter is necessary for compatibility with StreamProvider.
-  /// While Riverpod 3 discourages public getters on Notifiers, this is a
-  /// pragmatic exception for stream delegation patterns.
-  // ignore: avoid_public_notifier_properties
-  Stream<ConversationDelta> get stream =>
-      _controller?.stream ?? const Stream<ConversationDelta>.empty();
 }
-
-final conversationDeltaEventsProvider =
-    StreamProvider.family<ConversationDelta, ConversationDeltaRequest>((
-      ref,
-      request,
-    ) {
-      final notifier = ref.watch(
-        conversationDeltaStreamProvider(request).notifier,
-      );
-      return notifier.stream;
-    });
 
 // Attachment upload queue provider
 final attachmentUploadQueueProvider = Provider<AttachmentUploadQueue?>((ref) {
@@ -533,7 +496,7 @@ final apiTokenUpdaterProvider = Provider<void>((ref) {
   });
 });
 
-@riverpod
+@Riverpod(keepAlive: true)
 Future<User?> currentUser(Ref ref) async {
   final api = ref.read(apiServiceProvider);
   final isAuthenticated = ref.watch(isAuthenticatedProvider2);
@@ -1243,7 +1206,7 @@ final backgroundModelLoadProvider = Provider<void>((ref) {
 });
 
 // Search query provider
-@riverpod
+@Riverpod(keepAlive: true)
 class SearchQuery extends _$SearchQuery {
   @override
   String build() => '';
@@ -1485,7 +1448,7 @@ class ReviewerMode extends _$ReviewerMode {
 }
 
 // User Settings providers
-@riverpod
+@Riverpod(keepAlive: true)
 Future<UserSettings> userSettings(Ref ref) async {
   final api = ref.watch(apiServiceProvider);
   if (api == null) {
@@ -1504,7 +1467,7 @@ Future<UserSettings> userSettings(Ref ref) async {
 }
 
 // Conversation Suggestions provider
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<String>> conversationSuggestions(Ref ref) async {
   final api = ref.watch(apiServiceProvider);
   if (api == null) return [];
@@ -1518,7 +1481,7 @@ Future<List<String>> conversationSuggestions(Ref ref) async {
 }
 
 // Server features and permissions
-@riverpod
+@Riverpod(keepAlive: true)
 Future<Map<String, dynamic>> userPermissions(Ref ref) async {
   final api = ref.watch(apiServiceProvider);
   if (api == null) return {};
@@ -1595,7 +1558,7 @@ Future<List<Folder>> folders(Ref ref) async {
 }
 
 // Files provider
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<FileInfo>> userFiles(Ref ref) async {
   // Protected: require authentication
   if (!ref.read(isAuthenticatedProvider2)) {
@@ -1639,7 +1602,7 @@ Future<String> fileContent(Ref ref, String fileId) async {
 }
 
 // Knowledge Base providers
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<KnowledgeBase>> knowledgeBases(Ref ref) async {
   // Protected: require authentication
   if (!ref.read(isAuthenticatedProvider2)) {
@@ -1678,7 +1641,7 @@ Future<List<KnowledgeBaseItem>> knowledgeBaseItems(Ref ref, String kbId) async {
 }
 
 // Audio providers
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<String>> availableVoices(Ref ref) async {
   // Protected: require authentication
   if (!ref.read(isAuthenticatedProvider2)) {
@@ -1697,7 +1660,7 @@ Future<List<String>> availableVoices(Ref ref) async {
 }
 
 // Image Generation providers
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<Map<String, dynamic>>> imageModels(Ref ref) async {
   final api = ref.watch(apiServiceProvider);
   if (api == null) return [];

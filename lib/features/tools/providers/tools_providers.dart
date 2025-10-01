@@ -5,14 +5,14 @@ import 'package:conduit/core/services/tools_service.dart';
 
 part 'tools_providers.g.dart';
 
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<Tool>> toolsList(Ref ref) async {
   final toolsService = ref.watch(toolsServiceProvider);
   if (toolsService == null) return [];
   return await toolsService.getTools();
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 class SelectedToolIds extends _$SelectedToolIds {
   @override
   List<String> build() => [];

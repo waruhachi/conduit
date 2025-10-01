@@ -57,7 +57,7 @@ class OfflineIndicator extends ConsumerWidget {
 }
 
 // Tracks if the app was recently offline to enable a one-shot back-online toast
-@riverpod
+@Riverpod(keepAlive: true)
 class _WasOffline extends _$WasOffline {
   @override
   bool build() {
