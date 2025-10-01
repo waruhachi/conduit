@@ -535,13 +535,13 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
     buttonDisabledText: AppTheme.neutral400,
 
     // Status and feedback colors - Enhanced visibility
-    success: Color(0xFF22C55E),
+    success: Color(0xFF34D399),
     successBackground: Color(0xFF14532D),
-    error: Color(0xFFEF4444),
+    error: Color(0xFFFCA5A5),
     errorBackground: Color(0xFF7F1D1D),
-    warning: Color(0xFFF59E0B),
-    warningBackground: Color(0xFF7C2D12),
-    info: Color(0xFF38BDF8),
+    warning: Color(0xFFFBBF24),
+    warningBackground: Color(0xFF451A03),
+    info: Color(0xFF93C5FD),
     infoBackground: Color(0xFF0C4A6E),
 
     // Navigation and UI element colors - Enhanced contrast
@@ -549,7 +549,7 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
     navigationBackground: Color(0xFF0A0D0C),
     navigationSelected: AppTheme.brandPrimary,
     navigationUnselected: AppTheme.neutral300,
-    navigationSelectedBackground: AppTheme.brandPrimary,
+    navigationSelectedBackground: Color(0xFF312E81),
 
     // Loading and animation colors - Enhanced visibility
     shimmerBase: Color(0xFF121514),
@@ -660,21 +660,21 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
     buttonDisabledText: AppTheme.neutral500,
 
     // Status and feedback colors - Enhanced visibility
-    success: Color(0xFF16A34A),
-    successBackground: Color(0xFFEFFBF3),
-    error: Color(0xFFDC2626),
-    errorBackground: Color(0xFFFDECEC),
-    warning: Color(0xFFD97706),
-    warningBackground: Color(0xFFFEF6E7),
-    info: Color(0xFF0284C7),
-    infoBackground: Color(0xFFE8F4FD),
+    success: Color(0xFF166534),
+    successBackground: Color(0xFFECFDF3),
+    error: Color(0xFFB91C1C),
+    errorBackground: Color(0xFFFEE2E2),
+    warning: Color(0xFF92400E),
+    warningBackground: Color(0xFFFEF3C7),
+    info: Color(0xFF1D4ED8),
+    infoBackground: Color(0xFFDBEAFE),
 
     // Navigation and UI element colors - Enhanced contrast
     dividerColor: AppTheme.neutral100,
     navigationBackground: AppTheme.neutral50,
     navigationSelected: AppTheme.brandPrimary,
     navigationUnselected: AppTheme.neutral600,
-    navigationSelectedBackground: AppTheme.brandPrimary,
+    navigationSelectedBackground: Color(0xFFE0E7FF),
 
     // Loading and animation colors - Enhanced visibility
     shimmerBase: Color(0xFFF3F4F6),

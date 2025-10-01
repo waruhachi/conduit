@@ -150,6 +150,24 @@ abstract class AppLocalizations {
   /// **'Please check your connection and try again'**
   String get pleaseCheckConnection;
 
+  /// Title shown when the configured server is unreachable
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t reach your server'**
+  String get connectionIssueTitle;
+
+  /// Subtitle explaining available actions when the server cannot be reached
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect to continue or sign out to choose a different server.'**
+  String get connectionIssueSubtitle;
+
+  /// Status message after a retry when connectivity has not been restored
+  ///
+  /// In en, this message translates to:
+  /// **'We still can\'t reach the server. Double-check your connection and try again.'**
+  String get stillOfflineMessage;
+
   /// Section header for account-related options.
   ///
   /// In en, this message translates to:
@@ -863,12 +881,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Empty image data'**
   String get emptyImageData;
-
-  /// Banner warning when device is offline.
-  ///
-  /// In en, this message translates to:
-  /// **'You\'re offline. Some features may be limited.'**
-  String get offlineBanner;
 
   /// Informational text explaining internet requirement.
   ///

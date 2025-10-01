@@ -15,6 +15,18 @@
   "unableToLoadProfile": "Unable to load profile",
   "@unableToLoadProfile": {"description": "Error title shown when profile request fails."},
   "pleaseCheckConnection": "Please check your connection and try again",
+  "connectionIssueTitle": "Can't reach your server",
+  "@connectionIssueTitle": {
+    "description": "Title shown when the configured server is unreachable"
+  },
+  "connectionIssueSubtitle": "Reconnect to continue or sign out to choose a different server.",
+  "@connectionIssueSubtitle": {
+    "description": "Subtitle explaining available actions when the server cannot be reached"
+  },
+  "stillOfflineMessage": "We still can't reach the server. Double-check your connection and try again.",
+  "@stillOfflineMessage": {
+    "description": "Status message after a retry when connectivity has not been restored"
+  },
   "@pleaseCheckConnection": {"description": "Generic connectivity hint after an error."},
   "account": "Account",
   "@account": {"description": "Section header for account-related options."},
@@ -282,8 +294,6 @@
   "emptyImageData": "Empty image data",
   "@emptyImageData": {"description": "Error when image data buffer is empty."}
   ,
-  "offlineBanner": "You're offline. Some features may be limited.",
-  "@offlineBanner": {"description": "Banner warning when device is offline."},
   "featureRequiresInternet": "This feature requires an internet connection",
   "@featureRequiresInternet": {"description": "Informational text explaining internet requirement."},
   "messagesWillSendWhenOnline": "Messages will be sent when you're back online",

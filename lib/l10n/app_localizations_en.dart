@@ -34,6 +34,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'Please check your connection and try again';
 
   @override
+  String get connectionIssueTitle => 'Can\'t reach your server';
+
+  @override
+  String get connectionIssueSubtitle =>
+      'Reconnect to continue or sign out to choose a different server.';
+
+  @override
+  String get stillOfflineMessage =>
+      'We still can\'t reach the server. Double-check your connection and try again.';
+
+  @override
   String get account => 'Account';
 
   @override
@@ -429,9 +440,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get emptyImageData => 'Empty image data';
-
-  @override
-  String get offlineBanner => 'You\'re offline. Some features may be limited.';
 
   @override
   String get featureRequiresInternet =>

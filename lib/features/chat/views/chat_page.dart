@@ -1158,8 +1158,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           backgroundColor: context.conduitTheme.surfaceBackground,
           // Left navigation drawer with draggable edge open (native, finger-following)
           drawerEnableOpenDragGesture: true,
-          drawerDragStartBehavior: DragStartBehavior.down,
-          drawerEdgeDragWidth: MediaQuery.of(context).size.width * 0.5,
+          drawerDragStartBehavior: DragStartBehavior.start,
+          drawerEdgeDragWidth: MediaQuery.of(context).size.width * 0.75,
           drawerScrimColor: Colors.black.withValues(alpha: 0.32),
           drawer: Drawer(
             width: (MediaQuery.of(context).size.width * 0.80).clamp(
@@ -1167,7 +1167,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               420.0,
             ),
             backgroundColor: context.conduitTheme.surfaceBackground,
-            child: const SafeArea(child: ChatsDrawer()),
+            child: SafeArea(
+              top: true,
+              bottom: true,
+              left: false,
+              right: false,
+              child: const ChatsDrawer(),
+            ),
           ),
           appBar: AppBar(
             backgroundColor: context.conduitTheme.surfaceBackground,

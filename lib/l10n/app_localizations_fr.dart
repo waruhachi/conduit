@@ -34,6 +34,17 @@ class AppLocalizationsFr extends AppLocalizations {
       'Veuillez vérifier votre connexion et réessayer';
 
   @override
+  String get connectionIssueTitle => 'Impossible d\'atteindre votre serveur';
+
+  @override
+  String get connectionIssueSubtitle =>
+      'Reconnectez-vous pour continuer ou déconnectez-vous pour choisir un autre serveur.';
+
+  @override
+  String get stillOfflineMessage =>
+      'Nous ne pouvons toujours pas joindre le serveur. Vérifiez votre connexion et réessayez.';
+
+  @override
   String get account => 'Compte';
 
   @override
@@ -438,10 +449,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get emptyImageData => 'Données d\'image vides';
-
-  @override
-  String get offlineBanner =>
-      'Vous êtes hors ligne. Certaines fonctions peuvent être limitées.';
 
   @override
   String get featureRequiresInternet =>

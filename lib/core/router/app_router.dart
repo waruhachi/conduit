@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/app_providers.dart';
+import '../services/connectivity_service.dart';
 import '../services/navigation_service.dart';
 import '../utils/debug_logger.dart';
 import '../../features/auth/providers/unified_auth_providers.dart';
 import '../../features/auth/views/authentication_page.dart';
 import '../../features/auth/views/connect_signin_page.dart';
+import '../../features/auth/views/connection_issue_page.dart';
 import '../../features/auth/views/server_connection_page.dart';
 import '../../features/chat/views/chat_page.dart';
 import '../../features/navigation/views/splash_launcher_page.dart';
@@ -67,19 +69,34 @@ class RouterNotifier extends ChangeNotifier {
     }
 
     if (activeServerAsync.hasError) {
-      return location == Routes.serverConnection
-          ? null
-          : Routes.serverConnection;
+      return location == Routes.connectionIssue ? null : Routes.connectionIssue;
     }
 
     final activeServer = activeServerAsync.asData?.value;
-    if (activeServer == null) {
+    final hasActiveServer = activeServer != null;
+    if (!hasActiveServer) {
       // Allow auth-related routes while no server configured
       if (_isAuthLocation(location)) return null;
       return Routes.serverConnection;
     }
 
+    if (location == Routes.serverConnection) {
+      return Routes.chat;
+    }
+
     final authState = ref.read(authNavigationStateProvider);
+    final connectivityAsync = ref.read(connectivityStatusProvider);
+    final connectivity = connectivityAsync.asData?.value;
+
+    final shouldShowConnectionIssue =
+        !reviewerMode &&
+        connectivity == ConnectivityStatus.offline &&
+        authState != AuthNavigationState.needsLogin;
+
+    if (shouldShowConnectionIssue) {
+      return location == Routes.connectionIssue ? null : Routes.connectionIssue;
+    }
+
     switch (authState) {
       case AuthNavigationState.loading:
         // Keep user on auth routes while loading to prevent bounce
@@ -87,12 +104,16 @@ class RouterNotifier extends ChangeNotifier {
         // Otherwise keep splash during session establishment
         return location == Routes.splash ? null : Routes.splash;
       case AuthNavigationState.needsLogin:
+        if (location == Routes.connectionIssue) return null;
+        return null;
       case AuthNavigationState.error:
-        if (_isAuthLocation(location)) return null;
-        return Routes.serverConnection;
+        if (location == Routes.connectionIssue) return null;
+        return null;
       case AuthNavigationState.authenticated:
         // Avoid unnecessary redirects if already on a non-auth route
-        if (_isAuthLocation(location) || location == Routes.splash) {
+        if (_isAuthLocation(location) ||
+            location == Routes.splash ||
+            location == Routes.connectionIssue) {
           return Routes.chat;
         }
         return null;
@@ -102,7 +123,8 @@ class RouterNotifier extends ChangeNotifier {
   bool _isAuthLocation(String location) {
     return location == Routes.serverConnection ||
         location == Routes.login ||
-        location == Routes.authentication;
+        location == Routes.authentication ||
+        location == Routes.connectionIssue;
   }
 
   @override
@@ -144,6 +166,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       path: Routes.serverConnection,
       name: RouteNames.serverConnection,
       builder: (context, state) => const ServerConnectionPage(),
+    ),
+    GoRoute(
+      path: Routes.connectionIssue,
+      name: RouteNames.connectionIssue,
+      builder: (context, state) => const ConnectionIssuePage(),
     ),
     GoRoute(
       path: Routes.authentication,

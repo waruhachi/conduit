@@ -149,8 +149,8 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(
-              Spacing.md,
-              0,
+              Spacing.inputPadding,
+              Spacing.sm,
               Spacing.md,
               Spacing.sm,
             ),

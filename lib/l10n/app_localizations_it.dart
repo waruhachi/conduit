@@ -33,6 +33,17 @@ class AppLocalizationsIt extends AppLocalizations {
   String get pleaseCheckConnection => 'Controlla la connessione e riprova';
 
   @override
+  String get connectionIssueTitle => 'Impossibile raggiungere il server';
+
+  @override
+  String get connectionIssueSubtitle =>
+      'Riconnettiti per continuare oppure esci per scegliere un server diverso.';
+
+  @override
+  String get stillOfflineMessage =>
+      'Non riusciamo ancora a raggiungere il server. Controlla la connessione e riprova.';
+
+  @override
   String get account => 'Account';
 
   @override
@@ -430,10 +441,6 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get emptyImageData => 'Dati immagine vuoti';
-
-  @override
-  String get offlineBanner =>
-      'Sei offline. Alcune funzioni potrebbero essere limitate.';
 
   @override
   String get featureRequiresInternet =>
