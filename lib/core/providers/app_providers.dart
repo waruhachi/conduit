@@ -267,7 +267,7 @@ class SocketConnectionStream extends _$SocketConnectionStream {
   ProviderSubscription<AsyncValue<SocketService?>>? _serviceSubscription;
   VoidCallback? _cancelConnectListener;
   VoidCallback? _cancelDisconnectListener;
-  SocketConnectionState _latestState = SocketConnectionState.disconnected;
+  SocketConnectionState _latestState = SocketConnectionState.connecting;
 
   @override
   Stream<SocketConnectionState> build() {
@@ -320,7 +320,7 @@ class SocketConnectionStream extends _$SocketConnectionStream {
   void _handleServiceChange(SocketService? service) {
     if (service == null) {
       _unbindSocket();
-      _emit(SocketConnectionState.disconnected);
+      _emit(SocketConnectionState.connecting);
       return;
     }
 
@@ -462,7 +462,23 @@ class ConversationDeltaStream extends _$ConversationDeltaStream {
     _socketSubscription?.dispose();
     _socketSubscription = null;
   }
+
+  /// Provides direct access to the underlying stream.
+  /// Exposed as a method to avoid property-based lint violations.
+  Stream<ConversationDelta> stream() =>
+      _controller?.stream ?? const Stream<ConversationDelta>.empty();
 }
+
+final conversationDeltaEventsProvider =
+    StreamProvider.family<ConversationDelta, ConversationDeltaRequest>((
+      ref,
+      request,
+    ) {
+      final notifier = ref.watch(
+        conversationDeltaStreamProvider(request).notifier,
+      );
+      return notifier.stream();
+    });
 
 // Attachment upload queue provider
 final attachmentUploadQueueProvider = Provider<AttachmentUploadQueue?>((ref) {

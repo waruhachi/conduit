@@ -246,7 +246,7 @@ final isOnlineProvider = Provider<bool>((ref) {
   if (reviewerMode) return true;
   final status = ref.watch(connectivityStatusProvider);
   return status.when(
-    data: (status) => status == ConnectivityStatus.online,
+    data: (status) => status != ConnectivityStatus.offline,
     loading: () => true, // Assume online while checking
     error: (_, _) =>
         true, // Assume online on error to avoid false offline states
