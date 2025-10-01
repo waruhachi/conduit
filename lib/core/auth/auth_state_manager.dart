@@ -137,8 +137,9 @@ class AuthStateManager extends _$AuthStateManager {
             cache: true,
           );
 
-          // Update API service with token and load user data in background
+          // Update API service with token and kick off dependent background work
           _updateApiServiceToken(token);
+          _preloadDefaultModel();
           _loadUserData();
 
           // Background server validation; if it fails, invalidate token gracefully
@@ -257,8 +258,9 @@ class AuthStateManager extends _$AuthStateManager {
           cache: true,
         );
 
-        // Update API service with token
+        // Update API service with token and kick off dependent background work
         _updateApiServiceToken(tokenStr);
+        _preloadDefaultModel();
 
         // Load user data in background (consistent with credentials method)
         _loadUserData();
@@ -348,6 +350,7 @@ class AuthStateManager extends _$AuthStateManager {
       );
 
       _updateApiServiceToken(tokenStr);
+      _preloadDefaultModel();
 
       // Load user data in background
       _loadUserData();
@@ -582,6 +585,24 @@ class AuthStateManager extends _$AuthStateManager {
       );
       _updateApiServiceToken(null);
     }
+  }
+
+  /// Preload the default model as soon as authentication succeeds.
+  void _preloadDefaultModel() {
+    Future.microtask(() async {
+      if (!ref.mounted) return;
+      try {
+        await ref.read(defaultModelProvider.future);
+        DebugLogger.auth('Default model preload requested');
+      } catch (e) {
+        if (!ref.mounted) return;
+        DebugLogger.warning(
+          'default-model-preload-failed',
+          scope: 'auth/state',
+          data: {'error': e.toString()},
+        );
+      }
+    });
   }
 
   /// Load user data in background with JWT extraction fallback
