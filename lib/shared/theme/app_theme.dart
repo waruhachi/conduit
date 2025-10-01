@@ -4,10 +4,10 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'theme_extensions.dart';
 
 class AppTheme {
-  // Brand accents (ChatGPT aesthetic)
-  static const Color brandPrimary = Color(0xFF4F46E5); // Indigo
-  static const Color brandPrimaryLight = Color(0xFF818CF8);
-  static const Color brandPrimaryDark = Color(0xFF4338CA);
+  // Brand accents tuned for WCAG contrast in light/dark modes
+  static const Color brandPrimary = Color(0xFFA420FF); // Light mode primary
+  static const Color brandPrimaryLight = Color(0xFFC773FF); // Light accents
+  static const Color brandPrimaryDark = Color(0xFF9500FF); // Dark mode primary
 
   // Enhanced neutral palette for better contrast (WCAG AA compliant)
   static const Color neutral900 = Color(0xFF000000); // Pure black
@@ -141,8 +141,8 @@ class AppTheme {
     brightness: Brightness.dark,
     scaffoldBackgroundColor: Color(0xFF0A0D0C),
     colorScheme: const ColorScheme.dark(
-      primary: brandPrimary,
-      secondary: brandPrimaryDark,
+      primary: brandPrimaryDark,
+      secondary: brandPrimary,
       surface: Color(0xFF0A0D0C),
       surfaceContainerHighest: neutral700,
       onSurface: neutral50,
@@ -217,7 +217,7 @@ class AppTheme {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        borderSide: const BorderSide(color: brandPrimary, width: 2),
+        borderSide: const BorderSide(color: brandPrimaryDark, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppBorderRadius.md),
@@ -276,8 +276,8 @@ class AppTheme {
   static ThemeData conduitDarkTheme = darkTheme.copyWith(
     scaffoldBackgroundColor: const Color(0xFF0A0D0C),
     colorScheme: darkTheme.colorScheme.copyWith(
-      primary: brandPrimary,
-      secondary: brandPrimaryDark,
+      primary: brandPrimaryDark,
+      secondary: brandPrimary,
       surface: const Color(0xFF0A0D0C),
       surfaceContainerHighest: neutral700,
     ),
@@ -301,7 +301,7 @@ class AppTheme {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        borderSide: const BorderSide(color: brandPrimary, width: 2),
+        borderSide: const BorderSide(color: brandPrimaryDark, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppBorderRadius.md),
@@ -322,7 +322,7 @@ class AppTheme {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return CupertinoThemeData(
       brightness: isDark ? Brightness.dark : Brightness.light,
-      primaryColor: brandPrimary,
+      primaryColor: isDark ? brandPrimaryDark : brandPrimary,
       scaffoldBackgroundColor: isDark ? neutral900 : neutral50,
       barBackgroundColor: isDark ? neutral900 : neutral50,
     );

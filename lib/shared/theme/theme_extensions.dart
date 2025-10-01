@@ -504,7 +504,7 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
   /// Dark theme extension
   static const ConduitThemeExtension dark = ConduitThemeExtension(
     // Chat-specific colors - Enhanced for production-grade look
-    chatBubbleUser: AppTheme.brandPrimary,
+    chatBubbleUser: AppTheme.brandPrimaryDark,
     chatBubbleAssistant: Color(0xFF0E1010),
     chatBubbleUserText: AppTheme.neutral50,
     chatBubbleAssistantText: AppTheme.neutral50,
@@ -513,7 +513,7 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
     // Input and form colors
     inputBackground: Color(0xFF141615),
     inputBorder: AppTheme.neutral600,
-    inputBorderFocused: AppTheme.brandPrimary,
+    inputBorderFocused: AppTheme.brandPrimaryDark,
     inputText: AppTheme.neutral50,
     inputPlaceholder: AppTheme.neutral300,
     inputError: AppTheme.error,
@@ -527,7 +527,7 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
     surfaceContainerHighest: Color(0xFF121514),
 
     // Interactive element colors - More vibrant and accessible
-    buttonPrimary: AppTheme.brandPrimary,
+    buttonPrimary: AppTheme.brandPrimaryDark,
     buttonPrimaryText: AppTheme.neutral50,
     buttonSecondary: Color(0xFF151918),
     buttonSecondaryText: AppTheme.neutral50,
@@ -547,14 +547,14 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
     // Navigation and UI element colors - Enhanced contrast
     dividerColor: AppTheme.neutral600,
     navigationBackground: Color(0xFF0A0D0C),
-    navigationSelected: AppTheme.brandPrimary,
+    navigationSelected: AppTheme.brandPrimaryDark,
     navigationUnselected: AppTheme.neutral300,
     navigationSelectedBackground: Color(0xFF312E81),
 
     // Loading and animation colors - Enhanced visibility
     shimmerBase: Color(0xFF121514),
     shimmerHighlight: Color(0xFF1A1D1C),
-    loadingIndicator: AppTheme.brandPrimary,
+    loadingIndicator: AppTheme.brandPrimaryDark,
     // Text colors - Enhanced hierarchy
     textPrimary: AppTheme.neutral50,
     textSecondary: Color(0xFFBAC2C0),
