@@ -1564,7 +1564,7 @@ final webSearchAvailableProvider = Provider<bool>((ref) {
 });
 
 // Folders provider
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<Folder>> folders(Ref ref) async {
   // Protected: require authentication
   if (!ref.read(isAuthenticatedProvider2)) {
