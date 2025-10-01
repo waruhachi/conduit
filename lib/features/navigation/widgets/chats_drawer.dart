@@ -23,6 +23,8 @@ import '../../../shared/utils/conversation_context_menu.dart';
 import '../../../shared/widgets/user_avatar.dart';
 import '../../../shared/widgets/model_avatar.dart';
 import '../../../core/models/model.dart';
+import '../../../core/models/conversation.dart';
+import '../../../core/models/folder.dart';
 
 class ChatsDrawer extends ConsumerStatefulWidget {
   const ChatsDrawer({super.key});
@@ -322,11 +324,18 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                       grouped.putIfAbsent(id, () => []).add(c);
                     }
 
+                    final expandedMap = ref.watch(_expandedFoldersProvider);
+
                     // Show all folders (including empty)
                     final sections = folders.map((folder) {
-                      final expandedMap = ref.watch(_expandedFoldersProvider);
-                      final isExpanded = expandedMap[folder.id] ?? false;
-                      final convs = grouped[folder.id] ?? const <dynamic>[];
+                      final existing = grouped[folder.id] ?? const <dynamic>[];
+                      final convs = _resolveFolderConversations(
+                        folder,
+                        existing,
+                      );
+                      final isExpanded =
+                          expandedMap[folder.id] ?? folder.isExpanded;
+                      final hasItems = convs.isNotEmpty;
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -334,8 +343,9 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                             folder.id,
                             folder.name,
                             convs.length,
+                            defaultExpanded: folder.isExpanded,
                           ),
-                          if (isExpanded && convs.isNotEmpty) ...[
+                          if (isExpanded && hasItems) ...[
                             const SizedBox(height: Spacing.xs),
                             ...convs.map(
                               (c) => _buildTileFor(c, inFolder: true),
@@ -480,10 +490,14 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                     grouped.putIfAbsent(id, () => []).add(c);
                   }
 
+                  final expandedMap = ref.watch(_expandedFoldersProvider);
+
                   final sections = folders.map((folder) {
-                    final expandedMap = ref.watch(_expandedFoldersProvider);
-                    final isExpanded = expandedMap[folder.id] ?? false;
-                    final convs = grouped[folder.id] ?? const <dynamic>[];
+                    final existing = grouped[folder.id] ?? const <dynamic>[];
+                    final convs = _resolveFolderConversations(folder, existing);
+                    final isExpanded =
+                        expandedMap[folder.id] ?? folder.isExpanded;
+                    final hasItems = convs.isNotEmpty;
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -491,8 +505,9 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                           folder.id,
                           folder.name,
                           convs.length,
+                          defaultExpanded: folder.isExpanded,
                         ),
-                        if (isExpanded && convs.isNotEmpty) ...[
+                        if (isExpanded && hasItems) ...[
                           const SizedBox(height: Spacing.xs),
                           ...convs.map((c) => _buildTileFor(c, inFolder: true)),
                           const SizedBox(height: Spacing.sm),
@@ -627,10 +642,15 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     }
   }
 
-  Widget _buildFolderHeader(String folderId, String name, int count) {
+  Widget _buildFolderHeader(
+    String folderId,
+    String name,
+    int count, {
+    bool defaultExpanded = false,
+  }) {
     final theme = context.conduitTheme;
     final expandedMap = ref.watch(_expandedFoldersProvider);
-    final isExpanded = expandedMap[folderId] ?? false;
+    final isExpanded = expandedMap[folderId] ?? defaultExpanded;
     final isHover = _dragHoverFolderId == folderId;
     return DragTarget<_DragConversationData>(
       onWillAcceptWithDetails: (details) {
@@ -696,7 +716,8 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
             borderRadius: BorderRadius.zero,
             onTap: () {
               final current = {...ref.read(_expandedFoldersProvider)};
-              current[folderId] = !isExpanded;
+              final next = !isExpanded;
+              current[folderId] = next;
               ref.read(_expandedFoldersProvider.notifier).set(current);
             },
             onLongPress: () {
@@ -778,6 +799,73 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         );
       },
     );
+  }
+
+  List<dynamic> _resolveFolderConversations(
+    Folder folder,
+    List<dynamic> existing,
+  ) {
+    // Preserve the current conversational ordering while ensuring items from
+    // the folder metadata appear even if the main list has not fetched them
+    // yet. This primarily happens when chats live exclusively inside folders
+    // and the conversations endpoint omits them.
+    final result = <dynamic>[];
+
+    final existingMap = <String, dynamic>{};
+    for (final item in existing) {
+      final id = _conversationId(item);
+      if (id != null) {
+        existingMap[id] = item;
+      }
+    }
+
+    if (folder.conversationIds.isNotEmpty) {
+      for (final convId in folder.conversationIds) {
+        final existingItem = existingMap.remove(convId);
+        if (existingItem != null) {
+          result.add(existingItem);
+        } else {
+          result.add(_placeholderConversation(convId, folder.id));
+        }
+      }
+
+      // Append any remaining conversations that claim this folder but are
+      // missing from the folder metadata list (defensive for API drift).
+      result.addAll(existingMap.values);
+    } else {
+      result.addAll(existingMap.values);
+    }
+
+    return result;
+  }
+
+  Conversation _placeholderConversation(
+    String conversationId,
+    String folderId,
+  ) {
+    const fallbackTitle = 'Chat';
+    final epoch = DateTime.fromMillisecondsSinceEpoch(0);
+    return Conversation(
+      id: conversationId,
+      title: fallbackTitle,
+      createdAt: epoch,
+      updatedAt: epoch,
+      folderId: folderId,
+      messages: const [],
+    );
+  }
+
+  String? _conversationId(dynamic item) {
+    if (item is Conversation) return item.id;
+    try {
+      final value = (item as dynamic).id;
+      if (value is String) {
+        return value;
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
   }
 
   void _showFolderContextMenu(

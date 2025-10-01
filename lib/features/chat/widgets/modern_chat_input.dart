@@ -740,10 +740,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         ],
       ),
       width: double.infinity,
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewPadding.bottom,
-        ),
+      child: SafeArea(
+        top: false,
+        bottom: true,
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.4,
@@ -1001,9 +1000,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(
-                        Spacing.inputPadding - Spacing.xs,
+                        Spacing.inputPadding,
                         0,
-                        Spacing.lg + Spacing.xs,
+                        Spacing.inputPadding,
                         0,
                       ),
                       child: Row(
@@ -1113,7 +1112,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       activeColor = null;
     }
 
-    const double iconSize = IconSize.large;
+    const double iconSize = IconSize.xl;
 
     final Color iconColor = !enabled
         ? context.conduitTheme.textPrimary.withValues(alpha: Alpha.disabled)
@@ -1124,24 +1123,14 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       message: tooltip,
       child: Opacity(
         opacity: enabled ? 1.0 : Alpha.disabled,
-        child: SizedBox(
-          width: TouchTarget.minimum,
-          height: TouchTarget.minimum,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(AppBorderRadius.round),
-              onTap: enabled
-                  ? () {
-                      HapticFeedback.selectionClick();
-                      _showOverflowSheet();
-                    }
-                  : null,
-              child: Center(
-                child: Icon(icon, size: iconSize, color: iconColor),
-              ),
-            ),
-          ),
+        child: IconButton(
+          onPressed: enabled
+              ? () {
+                  HapticFeedback.selectionClick();
+                  _showOverflowSheet();
+                }
+              : null,
+          icon: Icon(icon, size: iconSize, color: iconColor),
         ),
       ),
     );
@@ -1280,54 +1269,25 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       message: AppLocalizations.of(context)!.voiceInput,
       child: Opacity(
         opacity: enabledMic ? Alpha.primary : Alpha.disabled,
-        child: IgnorePointer(
-          ignoring: !enabledMic,
-          child: Material(
-            color: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(radius),
-              side: BorderSide(
-                color: _isRecording
-                    ? context.conduitTheme.buttonPrimary
-                    : context.conduitTheme.cardBorder.withValues(
-                        alpha: enabledMic ? Alpha.strong : Alpha.medium,
-                      ),
-                width: BorderWidth.regular,
-              ),
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(radius),
-              onTap: enabledMic
-                  ? () {
-                      HapticFeedback.selectionClick();
-                      _toggleVoice();
-                    }
-                  : null,
-              child: Container(
-                width: buttonSize,
-                height: buttonSize,
-                decoration: BoxDecoration(
-                  color: _isRecording
-                      ? context.conduitTheme.buttonPrimary.withValues(
-                          alpha: Alpha.buttonPressed,
+        child: IconButton(
+          onPressed: enabledMic
+              ? () {
+                  HapticFeedback.selectionClick();
+                  _toggleVoice();
+                }
+              : null,
+          icon: Icon(
+            Platform.isIOS ? CupertinoIcons.mic : Icons.mic,
+            size: IconSize.large,
+            color: _isRecording
+                ? context.conduitTheme.buttonPrimary
+                : (enabledMic
+                      ? context.conduitTheme.textPrimary.withValues(
+                          alpha: Alpha.strong,
                         )
-                      : context.conduitTheme.cardBackground,
-                  borderRadius: BorderRadius.circular(radius),
-                  boxShadow: ConduitShadows.button,
-                ),
-                child: Icon(
-                  Platform.isIOS ? CupertinoIcons.mic_fill : Icons.mic,
-                  size: IconSize.medium,
-                  color: _isRecording
-                      ? context.conduitTheme.buttonPrimary
-                      : (enabledMic
-                            ? context.conduitTheme.textPrimary
-                            : context.conduitTheme.textPrimary.withValues(
-                                alpha: Alpha.disabled,
-                              )),
-                ),
-              ),
-            ),
+                      : context.conduitTheme.textPrimary.withValues(
+                          alpha: Alpha.disabled,
+                        )),
           ),
         ),
       ),

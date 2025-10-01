@@ -814,20 +814,37 @@ Future<List<Conversation>> conversations(Ref ref) async {
         final missingIds = folder.conversationIds
             .where((id) => !existingIds.contains(id))
             .toList();
-        if (missingIds.isEmpty) continue;
+
+        final hasKnownConversations = conversationMap.values.any(
+          (conversation) => conversation.folderId == folder.id,
+        );
+
+        final shouldFetchFolder =
+            apiSvc != null &&
+            (missingIds.isNotEmpty ||
+                (!hasKnownConversations && folder.conversationIds.isEmpty));
 
         List<Conversation> folderConvs = const [];
-        try {
-          if (apiSvc != null) {
+        if (shouldFetchFolder) {
+          try {
             folderConvs = await apiSvc.getConversationsInFolder(folder.id);
+            DebugLogger.log(
+              'folder-sync',
+              scope: 'conversations/map',
+              data: {
+                'folderId': folder.id,
+                'fetched': folderConvs.length,
+                'missingIds': missingIds.length,
+              },
+            );
+          } catch (e) {
+            DebugLogger.error(
+              'folder-fetch-failed',
+              scope: 'conversations/map',
+              error: e,
+              data: {'folderId': folder.id},
+            );
           }
-        } catch (e) {
-          DebugLogger.error(
-            'folder-fetch-failed',
-            scope: 'conversations/map',
-            error: e,
-            data: {'folderId': folder.id},
-          );
         }
 
         // Index fetched folder conversations for quick lookup
@@ -864,6 +881,21 @@ Future<List<Conversation>> conversations(Ref ref) async {
               'add-placeholder',
               scope: 'conversations/map',
               data: {'conversationId': convId, 'folderId': folder.id},
+            );
+          }
+        }
+
+        if (folderConvs.isNotEmpty && folder.conversationIds.isEmpty) {
+          for (final conv in folderConvs) {
+            final toAdd = conv.folderId == null
+                ? conv.copyWith(folderId: folder.id)
+                : conv;
+            conversationMap[toAdd.id] = toAdd;
+            existingIds.add(toAdd.id);
+            DebugLogger.log(
+              'add-folder-fetch',
+              scope: 'conversations/map',
+              data: {'conversationId': toAdd.id, 'folderId': folder.id},
             );
           }
         }
