@@ -617,8 +617,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                         widget.message.files!.isNotEmpty) ...[
                       _buildFilesFromArray(),
                       const SizedBox(height: Spacing.md),
-                    ] else if (widget.message.attachmentIds != null &&
-                        widget.message.attachmentIds!.isNotEmpty) ...[
+                    ] else if (_shouldShowAttachmentGallery) ...[
                       _buildAttachmentItems(),
                       const SizedBox(height: Spacing.md),
                     ],
@@ -807,6 +806,32 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     }
 
     return content;
+  }
+
+  bool get _shouldShowAttachmentGallery {
+    final attachments = widget.message.attachmentIds;
+    if (attachments == null || attachments.isEmpty) {
+      return false;
+    }
+
+    final body = widget.message.content;
+    if (body.trim().isEmpty) {
+      return true;
+    }
+
+    // Only render the gallery when attachments are not already rendered inline.
+    final hasNonInline = attachments.any((id) {
+      if (id.startsWith('data:image/')) {
+        return !body.contains(id);
+      }
+      if (id.startsWith('http')) {
+        return !body.contains(id);
+      }
+      // Non-image attachments should still render in the gallery.
+      return true;
+    });
+
+    return hasNonInline;
   }
 
   Widget _buildAttachmentItems() {
