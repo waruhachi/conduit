@@ -2,8 +2,9 @@ import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
-import 'package:markdown/markdown.dart' as md;
+import 'package:gpt_markdown/custom_widgets/markdown_config.dart'
+    show CodeBlockBuilder, ImageBuilder;
+import 'package:gpt_markdown/gpt_markdown.dart';
 
 import 'package:conduit/l10n/app_localizations.dart';
 
@@ -11,16 +12,18 @@ import '../../theme/theme_extensions.dart';
 
 class ConduitMarkdownTheme {
   const ConduitMarkdownTheme({
-    required this.styleSheet,
-    required this.builders,
+    required this.textStyle,
+    required this.themeData,
     required this.imageBuilder,
-    this.inlineSyntaxes = const <md.InlineSyntax>[],
+    required this.codeBuilder,
+    this.followLinkColor = true,
   });
 
-  final MarkdownStyleSheet styleSheet;
-  final Map<String, MarkdownElementBuilder> builders;
-  final MarkdownImageBuilder imageBuilder;
-  final List<md.InlineSyntax> inlineSyntaxes;
+  final TextStyle textStyle;
+  final GptMarkdownThemeData themeData;
+  final ImageBuilder imageBuilder;
+  final CodeBlockBuilder codeBuilder;
+  final bool followLinkColor;
 }
 
 class ConduitMarkdownConfig {
@@ -28,7 +31,6 @@ class ConduitMarkdownConfig {
     final theme = context.conduitTheme;
     final materialTheme = Theme.of(context);
 
-    final baseSheet = MarkdownStyleSheet.fromTheme(materialTheme);
     final bodyStyle = AppTypography.bodyMediumStyle.copyWith(
       color: theme.textPrimary,
       height: 1.45,
@@ -36,42 +38,73 @@ class ConduitMarkdownConfig {
 
     final codeColor = theme.code?.color ?? theme.textSecondary;
 
-    final styleSheet = baseSheet.copyWith(
-      p: bodyStyle,
+    final markdownThemeData = GptMarkdownThemeData(
+      brightness: materialTheme.brightness,
       h1: AppTypography.headlineLargeStyle.copyWith(color: theme.textPrimary),
       h2: AppTypography.headlineMediumStyle.copyWith(color: theme.textPrimary),
       h3: AppTypography.headlineSmallStyle.copyWith(color: theme.textPrimary),
-      strong: bodyStyle.copyWith(fontWeight: FontWeight.w600),
-      em: bodyStyle.copyWith(fontStyle: FontStyle.italic),
-      blockquote: bodyStyle.copyWith(
+      h4: AppTypography.bodyLargeStyle.copyWith(color: theme.textPrimary),
+      h5: AppTypography.bodyMediumStyle.copyWith(
         color: theme.textSecondary,
-        fontStyle: FontStyle.italic,
+        fontWeight: FontWeight.w600,
       ),
-      code: AppTypography.codeStyle.copyWith(color: codeColor),
-      listBullet: bodyStyle,
-      tableBody: bodyStyle,
-      tableHead: bodyStyle.copyWith(fontWeight: FontWeight.w600),
+      h6: AppTypography.bodySmallStyle.copyWith(color: theme.textSecondary),
+      hrLineColor: theme.dividerColor,
+      highlightColor: theme.surfaceContainer.withValues(alpha: 0.4),
+      linkColor: materialTheme.colorScheme.primary,
+      linkHoverColor: materialTheme.colorScheme.primary.withValues(alpha: 0.8),
     );
 
-    final builders = <String, MarkdownElementBuilder>{
-      'codeblock': _ConduitCodeBlockBuilder(theme),
-    };
-
     return ConduitMarkdownTheme(
-      styleSheet: styleSheet,
-      builders: builders,
-      imageBuilder: (uri, title, alt) {
+      textStyle: bodyStyle,
+      themeData: markdownThemeData,
+      imageBuilder: (context, imageUrl) {
+        final uri = Uri.tryParse(imageUrl);
+        if (uri == null) {
+          return _buildImageError(context, context.conduitTheme);
+        }
+
         final scheme = uri.scheme;
 
         if (scheme == 'data') {
-          return buildBase64Image(uri.toString(), context, theme);
+          return buildBase64Image(imageUrl, context, context.conduitTheme);
         }
 
         if (scheme.isEmpty || scheme == 'http' || scheme == 'https') {
-          return buildNetworkImage(uri.toString(), context, theme);
+          return buildNetworkImage(imageUrl, context, context.conduitTheme);
         }
 
         return const SizedBox.shrink();
+      },
+      codeBuilder: (context, name, code, closed) {
+        final conduitTheme = context.conduitTheme;
+        final textStyle = AppTypography.codeStyle.copyWith(
+          color: conduitTheme.code?.color ?? codeColor,
+        );
+
+        final container = Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(vertical: Spacing.xs),
+          padding: const EdgeInsets.all(Spacing.sm),
+          decoration: BoxDecoration(
+            color: conduitTheme.surfaceBackground.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(AppBorderRadius.md),
+            border: Border.all(
+              color: conduitTheme.cardBorder.withValues(alpha: 0.2),
+              width: BorderWidth.micro,
+            ),
+          ),
+          child: SelectableText(code, style: textStyle),
+        );
+
+        final language = name.trim().isEmpty ? null : name.trim();
+
+        return CodeBlockWrapper(
+          code: code,
+          language: language,
+          theme: conduitTheme,
+          child: container,
+        );
       },
     );
   }
@@ -158,48 +191,6 @@ class ConduitMarkdownConfig {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ConduitCodeBlockBuilder extends MarkdownElementBuilder {
-  _ConduitCodeBlockBuilder(this.theme);
-
-  final ConduitThemeExtension theme;
-
-  @override
-  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
-    final rawText = element.textContent;
-    final classAttribute = element.attributes['class'];
-    String? language;
-    if (classAttribute != null && classAttribute.startsWith('language-')) {
-      language = classAttribute.substring('language-'.length);
-    }
-
-    final textStyle = (preferredStyle ?? AppTypography.codeStyle).copyWith(
-      color: theme.code?.color ?? theme.textSecondary,
-    );
-
-    final container = Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(vertical: Spacing.xs),
-      padding: const EdgeInsets.all(Spacing.sm),
-      decoration: BoxDecoration(
-        color: theme.surfaceBackground.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        border: Border.all(
-          color: theme.cardBorder.withValues(alpha: 0.2),
-          width: BorderWidth.micro,
-        ),
-      ),
-      child: SelectableText(rawText, style: textStyle),
-    );
-
-    return CodeBlockWrapper(
-      code: rawText,
-      language: language,
-      theme: theme,
-      child: container,
     );
   }
 }

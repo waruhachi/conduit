@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 
 import 'markdown_config.dart';
+
+typedef MarkdownLinkTapCallback = void Function(String url, String title);
 
 class StreamingMarkdownWidget extends StatelessWidget {
   const StreamingMarkdownWidget({
@@ -13,7 +15,7 @@ class StreamingMarkdownWidget extends StatelessWidget {
 
   final String content;
   final bool isStreaming;
-  final MarkdownTapLinkCallback? onTapLink;
+  final MarkdownLinkTapCallback? onTapLink;
 
   @override
   Widget build(BuildContext context) {
@@ -23,15 +25,20 @@ class StreamingMarkdownWidget extends StatelessWidget {
       return isStreaming ? const SizedBox.shrink() : const SizedBox.shrink();
     }
 
-    return MarkdownBody(
-      data: content,
-      styleSheet: markdownTheme.styleSheet,
-      softLineBreak: true,
-      selectable: true,
-      builders: markdownTheme.builders,
-      inlineSyntaxes: markdownTheme.inlineSyntaxes,
-      imageBuilder: markdownTheme.imageBuilder,
-      onTapLink: onTapLink,
+    final textScaler = MediaQuery.maybeOf(context)?.textScaler;
+
+    return GptMarkdownTheme(
+      gptThemeData: markdownTheme.themeData,
+      child: GptMarkdown(
+        content,
+        style: markdownTheme.textStyle,
+        followLinkColor: markdownTheme.followLinkColor,
+        textDirection: Directionality.of(context),
+        textScaler: textScaler,
+        onLinkTap: onTapLink,
+        codeBuilder: markdownTheme.codeBuilder,
+        imageBuilder: markdownTheme.imageBuilder,
+      ),
     );
   }
 }
