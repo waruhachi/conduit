@@ -1171,11 +1171,34 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     }
 
     const double iconSize = IconSize.large;
+    const double buttonSize = TouchTarget.minimum;
+    final Brightness brightness = Theme.of(context).brightness;
+    final bool isActive = activeColor != null;
 
     final Color iconColor = !enabled
         ? context.conduitTheme.textPrimary.withValues(alpha: Alpha.disabled)
         : (activeColor ??
               context.conduitTheme.textPrimary.withValues(alpha: Alpha.strong));
+
+    final Color baseBackground = brightness == Brightness.dark
+        ? context.conduitTheme.surfaceContainerHighest.withValues(alpha: 0.7)
+        : context.conduitTheme.surfaceContainerHighest;
+    final Color backgroundColor = !enabled
+        ? baseBackground.withValues(alpha: Alpha.disabled)
+        : isActive
+        ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.16)
+        : baseBackground;
+    final Color borderColor = isActive
+        ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.6)
+        : context.conduitTheme.cardBorder.withValues(alpha: 0.45);
+    final BoxShadow buttonShadow = BoxShadow(
+      color: context.conduitTheme.cardShadow.withValues(
+        alpha: brightness == Brightness.dark ? 0.36 : 0.18,
+      ),
+      blurRadius: 18,
+      spreadRadius: -6,
+      offset: const Offset(0, 8),
+    );
 
     return Tooltip(
       message: tooltip,
@@ -1184,17 +1207,27 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(AppBorderRadius.circular),
+            borderRadius: BorderRadius.circular(AppBorderRadius.round),
             onTap: enabled
                 ? () {
                     HapticFeedback.selectionClick();
                     _showOverflowSheet();
                   }
                 : null,
-            child: SizedBox(
-              width: TouchTarget.minimum,
-              height: TouchTarget.minimum,
-              child: Icon(icon, size: iconSize, color: iconColor),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
+              width: buttonSize,
+              height: buttonSize,
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                borderRadius: BorderRadius.circular(AppBorderRadius.round),
+                border: Border.all(color: borderColor, width: BorderWidth.thin),
+                boxShadow: enabled ? <BoxShadow>[buttonShadow] : const [],
+              ),
+              child: Center(
+                child: Icon(icon, size: iconSize, color: iconColor),
+              ),
             ),
           ),
         ),
@@ -1281,17 +1314,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
             ignoring: !enabled,
             child: Material(
               color: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(radius),
-                side: BorderSide(
-                  color: enabled
-                      ? context.conduitTheme.buttonPrimary
-                      : context.conduitTheme.cardBorder.withValues(
-                          alpha: Alpha.medium,
-                        ),
-                  width: BorderWidth.regular,
-                ),
-              ),
               child: InkWell(
                 borderRadius: BorderRadius.circular(radius),
                 onTap: enabled
@@ -1300,26 +1322,55 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                         _sendMessage();
                       }
                     : null,
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  curve: Curves.easeOutCubic,
                   width: buttonSize,
                   height: buttonSize,
                   decoration: BoxDecoration(
                     color: enabled
                         ? context.conduitTheme.buttonPrimary
-                        : context.conduitTheme.cardBackground,
+                        : context.conduitTheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(radius),
-                    boxShadow: ConduitShadows.button,
+                    border: Border.all(
+                      color: enabled
+                          ? context.conduitTheme.buttonPrimary.withValues(
+                              alpha: 0.8,
+                            )
+                          : context.conduitTheme.cardBorder.withValues(
+                              alpha: 0.45,
+                            ),
+                      width: BorderWidth.thin,
+                    ),
+                    boxShadow: enabled
+                        ? <BoxShadow>[
+                            BoxShadow(
+                              color: context.conduitTheme.cardShadow.withValues(
+                                alpha:
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? 0.36
+                                    : 0.18,
+                              ),
+                              blurRadius: 18,
+                              spreadRadius: -6,
+                              offset: const Offset(0, 8),
+                            ),
+                          ]
+                        : const [],
                   ),
-                  child: Icon(
-                    Platform.isIOS
-                        ? CupertinoIcons.arrow_up
-                        : Icons.arrow_upward,
-                    size: IconSize.medium,
-                    color: enabled
-                        ? context.conduitTheme.buttonPrimaryText
-                        : context.conduitTheme.textPrimary.withValues(
-                            alpha: Alpha.disabled,
-                          ),
+                  child: Center(
+                    child: Icon(
+                      Platform.isIOS
+                          ? CupertinoIcons.arrow_up
+                          : Icons.arrow_upward,
+                      size: IconSize.large,
+                      color: enabled
+                          ? context.conduitTheme.buttonPrimaryText
+                          : context.conduitTheme.textPrimary.withValues(
+                              alpha: Alpha.disabled,
+                            ),
+                    ),
                   ),
                 ),
               ),
