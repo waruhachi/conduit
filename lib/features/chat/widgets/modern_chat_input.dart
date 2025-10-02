@@ -723,22 +723,203 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       }
     }
 
+    final bool showCompactComposer = quickPills.isEmpty;
+
+    final BorderRadius shellRadius = BorderRadius.circular(
+      showCompactComposer ? AppBorderRadius.round : _composerRadius,
+    );
+
+    final BoxDecoration shellDecoration = BoxDecoration(
+      color: showCompactComposer ? Colors.transparent : composerBackground,
+      borderRadius: shellRadius,
+      border: showCompactComposer
+          ? null
+          : Border.all(color: outlineColor, width: BorderWidth.thin),
+      boxShadow: showCompactComposer
+          ? const <BoxShadow>[]
+          : <BoxShadow>[
+              BoxShadow(
+                color: shellShadowColor,
+                blurRadius: 12 + (isActive ? 4 : 0),
+                spreadRadius: -2,
+                offset: const Offset(0, -2),
+              ),
+            ],
+    );
+
+    final List<Widget> composerChildren = <Widget>[
+      if (_showPromptOverlay)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.sm,
+            0,
+            Spacing.sm,
+            Spacing.xs,
+          ),
+          child: _buildPromptOverlay(context),
+        ),
+      if (showCompactComposer)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.screenPadding,
+            Spacing.xs,
+            Spacing.screenPadding,
+            Spacing.sm,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _buildOverflowButton(
+                tooltip: AppLocalizations.of(context)!.more,
+                webSearchActive: webSearchEnabled,
+                imageGenerationActive: imageGenEnabled,
+                toolsActive: selectedToolIds.isNotEmpty,
+              ),
+              const SizedBox(width: Spacing.sm),
+              Expanded(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+                  constraints: const BoxConstraints(
+                    minHeight: TouchTarget.input,
+                  ),
+                  decoration: BoxDecoration(
+                    color: brightness == Brightness.dark
+                        ? composerSurface.withValues(alpha: 0.9)
+                        : context.conduitTheme.surfaceContainer,
+                    borderRadius: BorderRadius.circular(AppBorderRadius.round),
+                    border: Border.all(
+                      color: outlineColor.withValues(
+                        alpha: brightness == Brightness.dark ? 0.32 : 0.2,
+                      ),
+                      width: BorderWidth.micro,
+                    ),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: shellShadowColor.withValues(
+                          alpha: brightness == Brightness.dark ? 0.4 : 0.22,
+                        ),
+                        blurRadius: 24,
+                        spreadRadius: -6,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildComposerTextField(
+                      brightness: brightness,
+                      sendOnEnter: sendOnEnter,
+                      placeholderBase: placeholderBase,
+                      placeholderFocused: placeholderFocused,
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: Spacing.xs,
+                      ),
+                      isActive: isActive,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: Spacing.sm),
+              _buildPrimaryButton(
+                _hasText,
+                isGenerating,
+                stopGeneration,
+                voiceAvailable,
+              ),
+            ],
+          ),
+        )
+      else ...[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.sm,
+            Spacing.xs,
+            Spacing.sm,
+            Spacing.xs,
+          ),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(
+              Spacing.sm,
+              Spacing.xs,
+              Spacing.sm,
+              Spacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(_composerRadius),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: _buildComposerTextField(
+                    brightness: brightness,
+                    sendOnEnter: sendOnEnter,
+                    placeholderBase: placeholderBase,
+                    placeholderFocused: placeholderFocused,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: Spacing.sm,
+                      vertical: Spacing.xs,
+                    ),
+                    isActive: isActive,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.inputPadding,
+            0,
+            Spacing.inputPadding,
+            0,
+          ),
+          child: Row(
+            children: [
+              _buildOverflowButton(
+                tooltip: AppLocalizations.of(context)!.more,
+                webSearchActive: webSearchEnabled,
+                imageGenerationActive: imageGenEnabled,
+                toolsActive: selectedToolIds.isNotEmpty,
+              ),
+              const SizedBox(width: Spacing.xs),
+              Expanded(
+                child: ClipRect(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: _withHorizontalSpacing(quickPills, Spacing.xxs),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: Spacing.sm),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildPrimaryButton(
+                    _hasText,
+                    isGenerating,
+                    stopGeneration,
+                    voiceAvailable,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    ];
+
     Widget shell = AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-        color: composerBackground,
-        borderRadius: BorderRadius.circular(_composerRadius),
-        border: Border.all(color: outlineColor, width: BorderWidth.thin),
-        boxShadow: [
-          BoxShadow(
-            color: shellShadowColor,
-            blurRadius: 12 + (isActive ? 4 : 0),
-            spreadRadius: -2,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
+      decoration: shellDecoration,
       width: double.infinity,
       child: SafeArea(
         top: false,
@@ -756,297 +937,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               child: RepaintBoundary(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_showPromptOverlay)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          Spacing.sm,
-                          0,
-                          Spacing.sm,
-                          Spacing.xs,
-                        ),
-                        child: _buildPromptOverlay(context),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        Spacing.sm,
-                        Spacing.xs,
-                        Spacing.sm,
-                        Spacing.xs,
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(
-                          Spacing.sm,
-                          Spacing.xs,
-                          Spacing.sm,
-                          Spacing.xs,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(_composerRadius),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () {
-                                  if (!widget.enabled) return;
-                                  _ensureFocusedIfEnabled();
-                                },
-                                child: Semantics(
-                                  textField: true,
-                                  label: AppLocalizations.of(
-                                    context,
-                                  )!.messageInputLabel,
-                                  hint: AppLocalizations.of(
-                                    context,
-                                  )!.messageInputHint,
-                                  child: Shortcuts(
-                                    shortcuts: () {
-                                      final map = <LogicalKeySet, Intent>{
-                                        LogicalKeySet(
-                                          LogicalKeyboardKey.meta,
-                                          LogicalKeyboardKey.enter,
-                                        ): const _SendMessageIntent(),
-                                        LogicalKeySet(
-                                          LogicalKeyboardKey.control,
-                                          LogicalKeyboardKey.enter,
-                                        ): const _SendMessageIntent(),
-                                      };
-                                      if (sendOnEnter) {
-                                        map[LogicalKeySet(
-                                              LogicalKeyboardKey.enter,
-                                            )] =
-                                            const _SendMessageIntent();
-                                        map[LogicalKeySet(
-                                              LogicalKeyboardKey.shift,
-                                              LogicalKeyboardKey.enter,
-                                            )] =
-                                            const _InsertNewlineIntent();
-                                      }
-                                      if (_showPromptOverlay) {
-                                        map[LogicalKeySet(
-                                              LogicalKeyboardKey.arrowDown,
-                                            )] =
-                                            const _SelectNextPromptIntent();
-                                        map[LogicalKeySet(
-                                              LogicalKeyboardKey.arrowUp,
-                                            )] =
-                                            const _SelectPreviousPromptIntent();
-                                        map[LogicalKeySet(
-                                              LogicalKeyboardKey.escape,
-                                            )] =
-                                            const _DismissPromptIntent();
-                                      }
-                                      return map;
-                                    }(),
-                                    child: Actions(
-                                      actions: <Type, Action<Intent>>{
-                                        _SendMessageIntent:
-                                            CallbackAction<_SendMessageIntent>(
-                                              onInvoke: (intent) {
-                                                if (_showPromptOverlay) {
-                                                  _confirmPromptSelection();
-                                                  return null;
-                                                }
-                                                _sendMessage();
-                                                return null;
-                                              },
-                                            ),
-                                        _InsertNewlineIntent:
-                                            CallbackAction<
-                                              _InsertNewlineIntent
-                                            >(
-                                              onInvoke: (intent) {
-                                                _insertNewline();
-                                                return null;
-                                              },
-                                            ),
-                                        _SelectNextPromptIntent:
-                                            CallbackAction<
-                                              _SelectNextPromptIntent
-                                            >(
-                                              onInvoke: (intent) {
-                                                _movePromptSelection(1);
-                                                return null;
-                                              },
-                                            ),
-                                        _SelectPreviousPromptIntent:
-                                            CallbackAction<
-                                              _SelectPreviousPromptIntent
-                                            >(
-                                              onInvoke: (intent) {
-                                                _movePromptSelection(-1);
-                                                return null;
-                                              },
-                                            ),
-                                        _DismissPromptIntent:
-                                            CallbackAction<
-                                              _DismissPromptIntent
-                                            >(
-                                              onInvoke: (intent) {
-                                                _hidePromptOverlay();
-                                                return null;
-                                              },
-                                            ),
-                                      },
-                                      child: TweenAnimationBuilder<double>(
-                                        tween: Tween<double>(
-                                          begin: 0.0,
-                                          end: isActive ? 1.0 : 0.0,
-                                        ),
-                                        duration: const Duration(
-                                          milliseconds: 180,
-                                        ),
-                                        curve: Curves.easeOutCubic,
-                                        builder: (context, factor, child) {
-                                          final Color animatedPlaceholder =
-                                              Color.lerp(
-                                                placeholderBase,
-                                                placeholderFocused,
-                                                factor,
-                                              )!;
-                                          final Color animatedTextColor =
-                                              Color.lerp(
-                                                context.conduitTheme.inputText
-                                                    .withValues(alpha: 0.88),
-                                                context.conduitTheme.inputText,
-                                                factor,
-                                              )!;
-
-                                          final FontWeight recordingWeight =
-                                              _isRecording
-                                              ? FontWeight.w500
-                                              : FontWeight.w400;
-                                          final TextStyle baseChatStyle =
-                                              AppTypography.chatMessageStyle;
-
-                                          return TextField(
-                                            controller: _controller,
-                                            focusNode: _focusNode,
-                                            enabled: widget.enabled,
-                                            autofocus: false,
-                                            minLines: 1,
-                                            maxLines: null,
-                                            keyboardType:
-                                                TextInputType.multiline,
-                                            textCapitalization:
-                                                TextCapitalization.sentences,
-                                            textInputAction: sendOnEnter
-                                                ? TextInputAction.send
-                                                : TextInputAction.newline,
-                                            autofillHints: const <String>[],
-                                            showCursor: true,
-                                            scrollPadding:
-                                                const EdgeInsets.only(
-                                                  bottom: 80,
-                                                ),
-                                            keyboardAppearance: brightness,
-                                            cursorColor: animatedTextColor,
-                                            style: baseChatStyle.copyWith(
-                                              color: animatedTextColor,
-                                              fontStyle: _isRecording
-                                                  ? FontStyle.italic
-                                                  : FontStyle.normal,
-                                              fontWeight: recordingWeight,
-                                            ),
-                                            decoration: InputDecoration(
-                                              hintText: AppLocalizations.of(
-                                                context,
-                                              )!.messageHintText,
-                                              hintStyle: baseChatStyle.copyWith(
-                                                color: animatedPlaceholder,
-                                                fontWeight: recordingWeight,
-                                                fontStyle: _isRecording
-                                                    ? FontStyle.italic
-                                                    : FontStyle.normal,
-                                              ),
-                                              filled: false,
-                                              border: InputBorder.none,
-                                              enabledBorder: InputBorder.none,
-                                              focusedBorder: InputBorder.none,
-                                              errorBorder: InputBorder.none,
-                                              disabledBorder: InputBorder.none,
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: Spacing.sm,
-                                                    vertical: Spacing.xs,
-                                                  ),
-                                              isDense: true,
-                                              alignLabelWithHint: true,
-                                            ),
-                                            onSubmitted: (_) {
-                                              if (sendOnEnter) {
-                                                _sendMessage();
-                                              }
-                                            },
-                                            onTap: () {
-                                              if (!widget.enabled) return;
-                                              _ensureFocusedIfEnabled();
-                                            },
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        Spacing.inputPadding,
-                        0,
-                        Spacing.inputPadding,
-                        0,
-                      ),
-                      child: Row(
-                        children: [
-                          _buildOverflowButton(
-                            tooltip: AppLocalizations.of(context)!.more,
-                            webSearchActive: webSearchEnabled,
-                            imageGenerationActive: imageGenEnabled,
-                            toolsActive: selectedToolIds.isNotEmpty,
-                          ),
-                          const SizedBox(width: Spacing.xs),
-                          Expanded(
-                            child: quickPills.isEmpty
-                                ? const SizedBox.shrink()
-                                : ClipRect(
-                                    child: SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      physics: const BouncingScrollPhysics(),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: _withHorizontalSpacing(
-                                          quickPills,
-                                          Spacing.xxs,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                          const SizedBox(width: Spacing.sm),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildPrimaryButton(
-                                _hasText,
-                                isGenerating,
-                                stopGeneration,
-                                voiceAvailable,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  children: composerChildren,
                 ),
               ),
             ),
@@ -1055,9 +946,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       ),
     );
 
-    if (brightness == Brightness.dark) {
+    if (brightness == Brightness.dark && !showCompactComposer) {
       shell = ClipRRect(
-        borderRadius: BorderRadius.circular(_composerRadius),
+        borderRadius: shellRadius,
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: shell,
@@ -1086,6 +977,173 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       }
     }
     return result;
+  }
+
+  Widget _buildComposerTextField({
+    required Brightness brightness,
+    required bool sendOnEnter,
+    required Color placeholderBase,
+    required Color placeholderFocused,
+    required EdgeInsetsGeometry contentPadding,
+    required bool isActive,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (!widget.enabled) return;
+        _ensureFocusedIfEnabled();
+      },
+      child: Semantics(
+        textField: true,
+        label: AppLocalizations.of(context)!.messageInputLabel,
+        hint: AppLocalizations.of(context)!.messageInputHint,
+        child: Shortcuts(
+          shortcuts: () {
+            final map = <LogicalKeySet, Intent>{
+              LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.enter):
+                  const _SendMessageIntent(),
+              LogicalKeySet(
+                LogicalKeyboardKey.control,
+                LogicalKeyboardKey.enter,
+              ): const _SendMessageIntent(),
+            };
+            if (sendOnEnter) {
+              map[LogicalKeySet(LogicalKeyboardKey.enter)] =
+                  const _SendMessageIntent();
+              map[LogicalKeySet(
+                    LogicalKeyboardKey.shift,
+                    LogicalKeyboardKey.enter,
+                  )] =
+                  const _InsertNewlineIntent();
+            }
+            if (_showPromptOverlay) {
+              map[LogicalKeySet(LogicalKeyboardKey.arrowDown)] =
+                  const _SelectNextPromptIntent();
+              map[LogicalKeySet(LogicalKeyboardKey.arrowUp)] =
+                  const _SelectPreviousPromptIntent();
+              map[LogicalKeySet(LogicalKeyboardKey.escape)] =
+                  const _DismissPromptIntent();
+            }
+            return map;
+          }(),
+          child: Actions(
+            actions: <Type, Action<Intent>>{
+              _SendMessageIntent: CallbackAction<_SendMessageIntent>(
+                onInvoke: (intent) {
+                  if (_showPromptOverlay) {
+                    _confirmPromptSelection();
+                    return null;
+                  }
+                  _sendMessage();
+                  return null;
+                },
+              ),
+              _InsertNewlineIntent: CallbackAction<_InsertNewlineIntent>(
+                onInvoke: (intent) {
+                  _insertNewline();
+                  return null;
+                },
+              ),
+              _SelectNextPromptIntent: CallbackAction<_SelectNextPromptIntent>(
+                onInvoke: (intent) {
+                  _movePromptSelection(1);
+                  return null;
+                },
+              ),
+              _SelectPreviousPromptIntent:
+                  CallbackAction<_SelectPreviousPromptIntent>(
+                    onInvoke: (intent) {
+                      _movePromptSelection(-1);
+                      return null;
+                    },
+                  ),
+              _DismissPromptIntent: CallbackAction<_DismissPromptIntent>(
+                onInvoke: (intent) {
+                  _hidePromptOverlay();
+                  return null;
+                },
+              ),
+            },
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0.0, end: isActive ? 1.0 : 0.0),
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              builder: (context, factor, child) {
+                final Color animatedPlaceholder = Color.lerp(
+                  placeholderBase,
+                  placeholderFocused,
+                  factor,
+                )!;
+                final Color animatedTextColor = Color.lerp(
+                  context.conduitTheme.inputText.withValues(alpha: 0.88),
+                  context.conduitTheme.inputText,
+                  factor,
+                )!;
+
+                final FontWeight recordingWeight = _isRecording
+                    ? FontWeight.w500
+                    : FontWeight.w400;
+                final TextStyle baseChatStyle = AppTypography.chatMessageStyle;
+
+                return TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  enabled: widget.enabled,
+                  autofocus: false,
+                  minLines: 1,
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
+                  textCapitalization: TextCapitalization.sentences,
+                  textInputAction: sendOnEnter
+                      ? TextInputAction.send
+                      : TextInputAction.newline,
+                  autofillHints: const <String>[],
+                  showCursor: true,
+                  scrollPadding: const EdgeInsets.only(bottom: 80),
+                  keyboardAppearance: brightness,
+                  cursorColor: animatedTextColor,
+                  style: baseChatStyle.copyWith(
+                    color: animatedTextColor,
+                    fontStyle: _isRecording
+                        ? FontStyle.italic
+                        : FontStyle.normal,
+                    fontWeight: recordingWeight,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: AppLocalizations.of(context)!.messageHintText,
+                    hintStyle: baseChatStyle.copyWith(
+                      color: animatedPlaceholder,
+                      fontWeight: recordingWeight,
+                      fontStyle: _isRecording
+                          ? FontStyle.italic
+                          : FontStyle.normal,
+                    ),
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    contentPadding: contentPadding,
+                    isDense: true,
+                    alignLabelWithHint: true,
+                  ),
+                  onSubmitted: (_) {
+                    if (sendOnEnter) {
+                      _sendMessage();
+                    }
+                  },
+                  onTap: () {
+                    if (!widget.enabled) return;
+                    _ensureFocusedIfEnabled();
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildOverflowButton({
