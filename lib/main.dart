@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/widgets/error_boundary.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -126,18 +127,39 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
   @override
   void initState() {
     super.initState();
-    // Defer heavy provider initialization to after first frame to render UI sooner
+    // Delay heavy provider initialization until after the first frame so the
+    // initial paint stays responsive.
     WidgetsBinding.instance.addPostFrameCallback((_) => _initializeAppState());
   }
 
   void _initializeAppState() {
     DebugLogger.auth('init', scope: 'app');
 
-    ref.read(authStateManagerProvider);
-    ref.read(authApiIntegrationProvider);
-    ref.read(defaultModelAutoSelectionProvider);
-    ref.read(shareReceiverInitializerProvider);
-    ref.read(appStartupFlowProvider.notifier).start();
+    void queueInit(void Function() action, {Duration delay = Duration.zero}) {
+      Future<void>.delayed(delay, () {
+        if (!mounted) return;
+        action();
+      });
+    }
+
+    queueInit(() => ref.read(authStateManagerProvider));
+    queueInit(
+      () => ref.read(authApiIntegrationProvider),
+      delay: const Duration(milliseconds: 16),
+    );
+    queueInit(
+      () => ref.read(defaultModelAutoSelectionProvider),
+      delay: const Duration(milliseconds: 24),
+    );
+    queueInit(
+      () => ref.read(shareReceiverInitializerProvider),
+      delay: const Duration(milliseconds: 32),
+    );
+
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(appStartupFlowProvider.notifier).start();
+    });
   }
 
   @override

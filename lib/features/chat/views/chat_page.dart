@@ -1012,20 +1012,31 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       ),
                     )
                     .animate()
-                    .scale(duration: const Duration(milliseconds: 300))
+                    .fadeIn(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                    )
                     .then()
                     .shimmer(duration: const Duration(milliseconds: 1200)),
 
                 const SizedBox(height: Spacing.xl),
 
-                Text(
-                  l10n.onboardStartTitle(greetingName),
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: context.conduitTheme.textPrimary,
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) =>
+                      FadeTransition(opacity: animation, child: child),
+                  child: Text(
+                    l10n.onboardStartTitle(greetingName),
+                    key: ValueKey<String>(greetingName),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: context.conduitTheme.textPrimary,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ).animate().fadeIn(delay: const Duration(milliseconds: 150)),
+                ),
               ],
             ),
           ),

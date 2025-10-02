@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -11,6 +12,7 @@ import '../services/navigation_service.dart';
 import '../models/conversation.dart';
 import '../services/background_streaming_handler.dart';
 import '../services/persistent_streaming_service.dart';
+import '../services/socket_service.dart';
 import '../../features/onboarding/views/onboarding_sheet.dart';
 import '../../shared/theme/theme_extensions.dart';
 import '../services/connectivity_service.dart';
@@ -125,6 +127,7 @@ void _scheduleConversationWarmup(Ref ref, {bool force = false}) {
 @Riverpod(keepAlive: true)
 class AppStartupFlow extends _$AppStartupFlow {
   bool _started = false;
+  ProviderSubscription<SocketService?>? _socketSubscription;
 
   @override
   FutureOr<void> build() {}
@@ -133,36 +136,61 @@ class AppStartupFlow extends _$AppStartupFlow {
     if (_started) return;
     _started = true;
     state = const AsyncValue<void>.data(null);
-    _activate();
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!ref.mounted) return;
+      _activate();
+    });
   }
 
   void _activate() {
     final ref = this.ref;
 
+    ref.onDispose(() {
+      _socketSubscription?.close();
+      _socketSubscription = null;
+    });
+
+    void keepAlive<T>(ProviderListenable<T> provider) {
+      ref.listen<T>(provider, (previous, value) {});
+    }
+
     // Ensure token integration listeners are active
-    ref.watch(authApiIntegrationProvider);
-    ref.watch(apiTokenUpdaterProvider);
-    ref.watch(silentLoginCoordinatorProvider);
+    keepAlive(authApiIntegrationProvider);
+    keepAlive(apiTokenUpdaterProvider);
+    keepAlive(silentLoginCoordinatorProvider);
 
     // Kick background model loading flow (non-blocking)
-    ref.watch(backgroundModelLoadProvider);
+    Future<void>.delayed(const Duration(milliseconds: 120), () {
+      if (!ref.mounted) return;
+      ref.read(backgroundModelLoadProvider);
+    });
 
     // If authenticated, keep socket service alive and connected
-    final navState = ref.watch(authNavigationStateProvider);
+    final navState = ref.read(authNavigationStateProvider);
     if (navState == AuthNavigationState.authenticated) {
-      ref.watch(socketServiceProvider);
+      _ensureSocketAttached();
     }
 
     // Ensure resume-triggered foreground refresh is active
-    ref.watch(foregroundRefreshProvider);
+    Future<void>.delayed(const Duration(milliseconds: 48), () {
+      if (!ref.mounted) return;
+      keepAlive(foregroundRefreshProvider);
+    });
 
     // Keep Socket.IO connection alive in background within platform limits
-    ref.watch(socketPersistenceProvider);
-    ref.watch(socketConnectionStreamProvider);
+    Future<void>.delayed(const Duration(milliseconds: 96), () {
+      if (!ref.mounted) return;
+      keepAlive(socketPersistenceProvider);
+    });
 
     // Ensure persistent streaming uses the shared connectivity service
-    final connectivityService = ref.watch(connectivityServiceProvider);
-    PersistentStreamingService().attachConnectivityService(connectivityService);
+    final connectivityService = ref.read(connectivityServiceProvider);
+    Future<void>.delayed(const Duration(milliseconds: 160), () {
+      if (!ref.mounted) return;
+      PersistentStreamingService().attachConnectivityService(
+        connectivityService,
+      );
+    });
 
     // Warm the conversations list in the background as soon as possible,
     // but avoid doing so on poor connectivity to reduce startup load.
@@ -216,6 +244,8 @@ class AppStartupFlow extends _$AppStartupFlow {
               DebugLogger.warning('API service not available for startup flow');
               return;
             }
+
+            _ensureSocketAttached();
 
             // Ensure API has the latest token immediately
             final authToken = ref.read(authTokenProvider3);
@@ -285,6 +315,13 @@ class AppStartupFlow extends _$AppStartupFlow {
         Future.microtask(() => _scheduleConversationWarmup(ref, force: true));
       }
     });
+  }
+
+  void _ensureSocketAttached() {
+    _socketSubscription ??= ref.listen<SocketService?>(
+      socketServiceProvider,
+      (previous, value) {},
+    );
   }
 }
 
