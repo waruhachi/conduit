@@ -1459,7 +1459,7 @@ class _ConversationDragFeedback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderRadius = BorderRadius.circular(AppBorderRadius.navigation);
+    final borderRadius = BorderRadius.zero;
     final borderColor = theme.surfaceContainerHighest.withValues(alpha: 0.40);
 
     return Material(
@@ -1622,7 +1622,7 @@ class _ConversationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.conduitTheme;
     final brightness = Theme.of(context).brightness;
-    final borderRadius = BorderRadius.circular(AppBorderRadius.navigation);
+    final borderRadius = BorderRadius.zero;
     final Color background = selected
         ? theme.buttonPrimary.withValues(
             alpha: brightness == Brightness.dark ? 0.28 : 0.16,
