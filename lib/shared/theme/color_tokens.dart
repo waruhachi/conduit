@@ -146,15 +146,6 @@ class AppColorTokens extends ThemeExtension<AppColorTokens> {
         ? const Color.fromRGBO(21, 25, 32, 0.32)
         : const Color.fromRGBO(232, 236, 245, 0.48);
 
-    final Color codeBackground = isLight
-        ? const Color(0xFF0F172A)
-        : const Color(0xFF111828);
-    final Color codeBorder = isLight
-        ? const Color(0xFF1E293B)
-        : const Color(0xFF1F2937);
-    final Color codeText = const Color(0xFFE2E8F0);
-    final Color codeAccent = codeBorder;
-
     final ColorScheme seedScheme = ColorScheme.fromSeed(
       seedColor: tone.primary,
       brightness: brightness,
@@ -224,6 +215,13 @@ class AppColorTokens extends ThemeExtension<AppColorTokens> {
       light: neutralTone00,
       dark: neutralOnSurface,
     );
+
+    final Color codeBackground = isLight ? neutralTone10 : neutralTone00;
+    final Color codeBorder = isLight ? neutralTone20 : neutralTone40;
+    final Color codeText = neutralOnSurface;
+    final Color codeAccent = isLight
+        ? Color.alphaBlend(brandTone60.withValues(alpha: 0.14), codeBackground)
+        : Color.alphaBlend(brandTone40.withValues(alpha: 0.24), codeBackground);
 
     return AppColorTokens(
       brightness: brightness,
