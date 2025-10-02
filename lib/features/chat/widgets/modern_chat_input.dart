@@ -86,6 +86,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  bool _pendingFocus = false;
   bool _isRecording = false;
   // final String _voiceInputText = '';
   bool _hasText = false; // track locally without rebuilding on each keystroke
@@ -146,6 +147,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     _controller.removeListener(_handleComposerChanged);
     _controller.dispose();
     _focusNode.dispose();
+    _pendingFocus = false;
     _voiceStreamSubscription?.cancel();
     _intensitySub?.cancel();
     _textSub?.cancel();
@@ -154,11 +156,18 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   }
 
   void _ensureFocusedIfEnabled() {
-    if (!widget.enabled) return;
-    if (!_focusNode.hasFocus) {
-      // Use FocusNode directly to avoid depending on Inherited widgets
-      _focusNode.requestFocus();
+    if (!widget.enabled || _focusNode.hasFocus || _pendingFocus) {
+      return;
     }
+
+    _pendingFocus = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _pendingFocus = false;
+      if (widget.enabled && !_focusNode.hasFocus) {
+        _focusNode.requestFocus();
+      }
+    });
   }
 
   @override
@@ -1064,11 +1073,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                 },
               ),
             },
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0.0, end: isActive ? 1.0 : 0.0),
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              builder: (context, factor, child) {
+            child: Builder(
+              builder: (context) {
+                final double factor = isActive ? 1.0 : 0.0;
                 final Color animatedPlaceholder = Color.lerp(
                   placeholderBase,
                   placeholderFocused,

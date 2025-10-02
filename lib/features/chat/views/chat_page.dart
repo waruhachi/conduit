@@ -69,6 +69,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   bool _shouldAutoScrollToBottom = true;
   bool _autoScrollCallbackScheduled = false;
   bool _pendingConversationScrollReset = false;
+  String? _cachedGreetingName;
+  bool _greetingReady = false;
 
   String _formatModelDisplayName(String name, {required bool omitProvider}) {
     var display = name.trim();
@@ -972,72 +974,71 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     );
     final authUser = ref.watch(currentUserProvider2);
     final user = userFromProfile ?? authUser;
-    final greetingName = deriveUserDisplayName(user);
+    String? greetingName;
+    if (user != null) {
+      final derived = deriveUserDisplayName(user, fallback: '').trim();
+      if (derived.isNotEmpty) {
+        greetingName = derived;
+        _cachedGreetingName = derived;
+      }
+    }
+    greetingName ??= _cachedGreetingName;
+    final hasGreeting = greetingName != null && greetingName.isNotEmpty;
+    if (hasGreeting && !_greetingReady) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _greetingReady = true;
+        });
+      });
+    } else if (!hasGreeting && _greetingReady) {
+      _greetingReady = false;
+    }
+    final greetingStyle = theme.textTheme.headlineSmall?.copyWith(
+      fontWeight: FontWeight.w600,
+      color: context.conduitTheme.textPrimary,
+    );
+    final greetingHeight =
+        (greetingStyle?.fontSize ?? 24) * (greetingStyle?.height ?? 1.1);
+    final String? resolvedGreetingName = hasGreeting ? greetingName : null;
+    final greetingText = resolvedGreetingName != null
+        ? l10n.onboardStartTitle(resolvedGreetingName)
+        : null;
     return LayoutBuilder(
       builder: (context, constraints) {
-        return Padding(
-          padding: const EdgeInsets.all(Spacing.lg),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Minimal, clean empty state
-                Container(
-                      width: Spacing.xxl + Spacing.xxxl,
-                      height: Spacing.xxl + Spacing.xxxl,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            context.conduitTheme.buttonPrimary,
-                            context.conduitTheme.buttonPrimary.withValues(
-                              alpha: 0.8,
-                            ),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(
-                          AppBorderRadius.round,
-                        ),
-                        boxShadow: ConduitShadows.glow,
-                      ),
-                      child: Icon(
-                        Platform.isIOS
-                            ? CupertinoIcons.chat_bubble_2
-                            : Icons.chat,
-                        size: Spacing.xxxl - Spacing.xs,
-                        color: context.conduitTheme.textInverse,
-                      ),
-                    )
-                    .animate()
-                    .fadeIn(
-                      duration: const Duration(milliseconds: 220),
+        final greetingDisplay = greetingText ?? '';
+
+        return MediaQuery.removeViewInsets(
+          context: context,
+          removeBottom: true,
+          child: SizedBox(
+            width: double.infinity,
+            height: constraints.maxHeight,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  SizedBox(
+                    height: greetingHeight,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 260),
                       curve: Curves.easeOutCubic,
-                    )
-                    .then()
-                    .shimmer(duration: const Duration(milliseconds: 1200)),
-
-                const SizedBox(height: Spacing.xl),
-
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, animation) =>
-                      FadeTransition(opacity: animation, child: child),
-                  child: Text(
-                    l10n.onboardStartTitle(greetingName),
-                    key: ValueKey<String>(greetingName),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: context.conduitTheme.textPrimary,
+                      opacity: _greetingReady ? 1 : 0,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Text(
+                          _greetingReady ? greetingDisplay : '',
+                          style: greetingStyle,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -1127,6 +1128,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         }
       });
     }
+
     _lastKeyboardVisible = keyboardVisible;
 
     // Auto-select model when in reviewer mode with no selection
@@ -1138,19 +1140,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     // Focus composer on app startup once
     if (!_didStartupFocus) {
+      _didStartupFocus = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final current = ref.read(inputFocusTriggerProvider);
-        // Immediate focus bump
-        ref.read(inputFocusTriggerProvider.notifier).set(current + 1);
-        // Second bump shortly after to overcome route/IME timing
-        Future.delayed(const Duration(milliseconds: 120), () {
+        Future.delayed(const Duration(milliseconds: 200), () {
           if (!mounted) return;
-          final cur2 = ref.read(inputFocusTriggerProvider);
-          ref.read(inputFocusTriggerProvider.notifier).set(cur2 + 1);
+          final current = ref.read(inputFocusTriggerProvider);
+          ref.read(inputFocusTriggerProvider.notifier).set(current + 1);
         });
       });
-      _didStartupFocus = true;
     }
 
     return ErrorBoundary(
