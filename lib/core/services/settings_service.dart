@@ -32,7 +32,6 @@ class SettingsService {
       .quickPills; // StringList of identifiers e.g. ['web','image','tools']
   // Chat input behavior
   static const String _sendOnEnterKey = PreferenceKeys.sendOnEnterKey;
-
   static Box<dynamic> _preferencesBox() =>
       Hive.box<dynamic>(HiveBoxNames.preferences);
 
@@ -313,7 +312,6 @@ class AppSettings {
   final String socketTransportMode; // 'auto' or 'ws'
   final List<String> quickPills; // e.g., ['web','image']
   final bool sendOnEnter;
-
   const AppSettings({
     this.reduceMotion = false,
     this.animationSpeed = 1.0,
