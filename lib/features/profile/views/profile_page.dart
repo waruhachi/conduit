@@ -318,7 +318,10 @@ class ProfilePage extends ConsumerWidget {
     final accent = theme.buttonPrimary;
 
     return Container(
-      padding: const EdgeInsets.all(Spacing.cardPadding),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.md,
+        vertical: Spacing.sm,
+      ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -338,29 +341,6 @@ class ProfilePage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Spacing.sm,
-              vertical: Spacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: theme.surfaceBackground.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(AppBorderRadius.pill),
-            ),
-            child: Text(
-              AppLocalizations.of(context)!.account,
-              style:
-                  theme.caption?.copyWith(
-                    color: theme.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ) ??
-                  TextStyle(
-                    color: theme.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-          ),
-          const SizedBox(height: Spacing.lg),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -370,12 +350,12 @@ class ProfilePage extends ConsumerWidget {
                   boxShadow: ConduitShadows.high,
                 ),
                 child: UserAvatar(
-                  size: IconSize.huge,
+                  size: IconSize.avatar,
                   imageUrl: avatarUrl,
                   fallbackText: initial,
                 ),
               ),
-              const SizedBox(width: Spacing.lg),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -396,7 +376,7 @@ class ProfilePage extends ConsumerWidget {
                     const SizedBox(height: Spacing.sm),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: Spacing.md,
+                        horizontal: Spacing.sm,
                         vertical: Spacing.xs,
                       ),
                       decoration: BoxDecoration(
@@ -475,13 +455,6 @@ class ProfilePage extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          AppLocalizations.of(context)!.account,
-          style: context.conduitTheme.headingSmall?.copyWith(
-            color: context.conduitTheme.textPrimary,
-          ),
-        ),
-        const SizedBox(height: Spacing.sm),
         for (var i = 0; i < items.length; i++) ...[
           items[i],
           if (i != items.length - 1) const SizedBox(height: Spacing.md),
