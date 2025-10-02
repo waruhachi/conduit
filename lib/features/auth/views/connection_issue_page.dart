@@ -116,13 +116,7 @@ class _ConnectionIssuePageState extends ConsumerState<ConnectionIssuePage> {
           decoration: BoxDecoration(
             color: context.conduitTheme.surfaceContainerHighest,
             shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 18,
-                offset: const Offset(0, 12),
-              ),
-            ],
+            boxShadow: ConduitShadows.high(context),
           ),
           child: Icon(
             Platform.isIOS

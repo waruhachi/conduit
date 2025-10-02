@@ -84,7 +84,7 @@ Future<void> showConduitContextMenu({
           decoration: BoxDecoration(
             color: theme.surfaceBackground,
             borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-            boxShadow: ConduitShadows.modal,
+            boxShadow: ConduitShadows.modal(context),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

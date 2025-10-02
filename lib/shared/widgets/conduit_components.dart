@@ -326,7 +326,7 @@ class ConduitCard extends StatelessWidget {
                 : context.conduitTheme.cardBorder,
             width: BorderWidth.standard,
           ),
-          boxShadow: isElevated ? ConduitShadows.card : null,
+          boxShadow: isElevated ? ConduitShadows.card(context) : null,
         ),
         child: child,
       ),

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'api_error.dart';
 import 'api_error_handler.dart';
 import 'api_error_interceptor.dart';
-import '../../shared/theme/app_theme.dart';
 import '../../shared/theme/theme_extensions.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import '../utils/debug_logger.dart';
@@ -132,7 +131,7 @@ class EnhancedErrorService {
           ],
         ],
       ),
-      backgroundColor: _getErrorColor(error),
+      backgroundColor: _getErrorColor(context, error),
       duration: duration ?? _getSnackbarDuration(error),
       action: isRetryableError && onRetry != null
           ? SnackBarAction(
@@ -169,7 +168,7 @@ class EnhancedErrorService {
         return AlertDialog(
           title: Row(
             children: [
-              Icon(_getErrorIcon(error), color: _getErrorColor(error)),
+              Icon(_getErrorIcon(error), color: _getErrorColor(context, error)),
               const SizedBox(width: Spacing.sm),
               Expanded(child: Text(title ?? _getErrorTitle(error))),
             ],
@@ -250,7 +249,7 @@ class EnhancedErrorService {
           Icon(
             _getErrorIcon(error),
             size: IconSize.xxl,
-            color: _getErrorColor(error),
+            color: _getErrorColor(context, error),
           ),
           const SizedBox(height: Spacing.md),
           Text(
@@ -416,27 +415,28 @@ class EnhancedErrorService {
     return Icons.error_outline;
   }
 
-  Color _getErrorColor(dynamic error) {
+  Color _getErrorColor(BuildContext context, dynamic error) {
+    final tokens = context.colorTokens;
     if (error is ApiError) {
       switch (error.type) {
         case ApiErrorType.network:
         case ApiErrorType.timeout:
-          return AppTheme.warning;
+          return tokens.statusWarning60;
         case ApiErrorType.authentication:
         case ApiErrorType.authorization:
-          return AppTheme.error;
+          return tokens.statusError60;
         case ApiErrorType.validation:
         case ApiErrorType.badRequest:
-          return AppTheme.warning;
+          return tokens.statusWarning60;
         case ApiErrorType.server:
-          return AppTheme.error;
+          return tokens.statusError60;
         case ApiErrorType.rateLimit:
-          return AppTheme.info;
+          return tokens.statusInfo60;
         default:
-          return AppTheme.error;
+          return tokens.statusError60;
       }
     }
-    return AppTheme.error;
+    return tokens.statusError60;
   }
 
   String _getErrorTitle(dynamic error) {

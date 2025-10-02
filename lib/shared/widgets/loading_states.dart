@@ -5,7 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io' show Platform;
 import '../services/brand_service.dart';
-import '../theme/app_theme.dart';
+import '../theme/color_tokens.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 
 /// Standard loading indicators following Conduit design patterns
@@ -52,13 +52,14 @@ class ConduitLoading {
     Color? color,
     BuildContext? context,
   }) {
+    final tokens = context?.colorTokens ?? AppColorTokens.fallback();
     return _LoadingIndicator(
       size: size,
       color:
           color ??
           (context?.conduitTheme.buttonPrimaryText ??
               context?.conduitTheme.textPrimary ??
-              AppTheme.neutral50),
+              tokens.neutralTone00),
       type: _LoadingType.button,
     );
   }
@@ -175,7 +176,7 @@ class _LoadingOverlay extends StatelessWidget {
                 ? context.conduitTheme.surfaceBackground
                 : context.conduitTheme.surfaceBackground,
             borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-            boxShadow: ConduitShadows.high,
+            boxShadow: ConduitShadows.high(context),
           ),
           child: ConduitLoading.primary(
             size: IconSize.xl,

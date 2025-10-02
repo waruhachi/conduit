@@ -214,7 +214,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           borderRadius: const BorderRadius.vertical(
             top: Radius.circular(AppBorderRadius.modal),
           ),
-          boxShadow: ConduitShadows.modal,
+          boxShadow: ConduitShadows.modal(context),
         ),
         child: const OnboardingSheet(),
       ),
@@ -735,7 +735,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 color: context.conduitTheme.cardBorder,
                 width: BorderWidth.regular,
               ),
-              boxShadow: ConduitShadows.messageBubble,
+              boxShadow: ConduitShadows.messageBubble(context),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1202,7 +1202,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           drawerEnableOpenDragGesture: true,
           drawerDragStartBehavior: DragStartBehavior.start,
           drawerEdgeDragWidth: MediaQuery.of(context).size.width * 0.75,
-          drawerScrimColor: Colors.black.withValues(alpha: 0.32),
+          drawerScrimColor: context.colorTokens.overlayStrong,
           drawer: Drawer(
             width: (MediaQuery.of(context).size.width * 0.80).clamp(
               280.0,
@@ -1638,7 +1638,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                   borderRadius: BorderRadius.circular(
                                     AppBorderRadius.floatingButton,
                                   ),
-                                  boxShadow: ConduitShadows.button,
+                                  boxShadow: ConduitShadows.button(context),
                                 ),
                                 child: SizedBox(
                                   width: TouchTarget.button,
@@ -1838,7 +1838,7 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
                   color: context.conduitTheme.dividerColor,
                   width: BorderWidth.regular,
                 ),
-                boxShadow: ConduitShadows.modal,
+                boxShadow: ConduitShadows.modal(context),
               ),
               child: ModalSheetSafeArea(
                 padding: const EdgeInsets.symmetric(
@@ -2043,7 +2043,7 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
                 : context.conduitTheme.dividerColor,
             width: BorderWidth.regular,
           ),
-          boxShadow: isSelected ? ConduitShadows.card : null,
+          boxShadow: isSelected ? ConduitShadows.card(context) : null,
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(
@@ -2327,7 +2327,7 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
               color: context.conduitTheme.dividerColor,
               width: BorderWidth.regular,
             ),
-            boxShadow: ConduitShadows.modal,
+            boxShadow: ConduitShadows.modal(context),
           ),
           padding: const EdgeInsets.all(Spacing.bottomSheetPadding),
           child: SafeArea(
@@ -2435,7 +2435,7 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
           top: Radius.circular(AppBorderRadius.bottomSheet),
         ),
         border: Border.all(color: context.conduitTheme.dividerColor, width: 1),
-        boxShadow: ConduitShadows.modal,
+        boxShadow: ConduitShadows.modal(context),
       ),
       child: SafeArea(
         top: false,
@@ -2940,7 +2940,7 @@ class _SelectableMessageWrapper extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: context.conduitTheme.buttonPrimary,
                     shape: BoxShape.circle,
-                    boxShadow: ConduitShadows.medium,
+                    boxShadow: ConduitShadows.medium(context),
                   ),
                   child: Icon(
                     Icons.check,

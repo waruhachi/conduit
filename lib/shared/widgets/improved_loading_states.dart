@@ -297,7 +297,7 @@ class LoadingOverlay extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: context.conduitTheme.cardBackground,
                   borderRadius: BorderRadius.circular(AppBorderRadius.card),
-                  boxShadow: ConduitShadows.card,
+                  boxShadow: ConduitShadows.card(context),
                 ),
                 child: ImprovedLoadingState(
                   message: message,

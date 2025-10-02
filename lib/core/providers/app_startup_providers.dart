@@ -535,7 +535,7 @@ Future<void> _maybeShowOnboarding(Ref ref) async {
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(AppBorderRadius.modal),
             ),
-            boxShadow: ConduitShadows.modal,
+            boxShadow: ConduitShadows.modal(context),
           ),
           child: const OnboardingSheet(),
         ),

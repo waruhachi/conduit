@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/theme_extensions.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:io' show Platform;
-import '../theme/app_theme.dart';
+import '../theme/color_tokens.dart';
 import '../theme/color_palettes.dart';
 
 /// Centralized service for consistent brand identity throughout the app
@@ -107,8 +107,10 @@ class BrandService {
     BuildContext? context,
   }) {
     final bgColor = backgroundColor ?? primaryBrandColor(context: context);
+    final tokens = _resolveTokens(context);
     final iColor =
-        iconColor ?? (context?.conduitTheme.textInverse ?? AppTheme.neutral50);
+        iconColor ??
+        (context?.conduitTheme.textInverse ?? tokens.neutralTone00);
 
     return Container(
       width: size,
@@ -175,8 +177,9 @@ class BrandService {
     bool showBackground = true,
     BuildContext? context,
   }) {
+    final tokens = _resolveTokens(context);
     final iconColor =
-        color ?? (context?.conduitTheme.iconSecondary ?? AppTheme.neutral400);
+        color ?? (context?.conduitTheme.iconSecondary ?? tokens.neutralTone80);
 
     if (!showBackground) {
       return createBrandIcon(
@@ -191,10 +194,10 @@ class BrandService {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: context?.conduitTheme.surfaceBackground ?? AppTheme.neutral700,
+        color: context?.conduitTheme.surfaceBackground ?? tokens.neutralTone10,
         borderRadius: BorderRadius.circular(size / 2),
         border: Border.all(
-          color: context?.conduitTheme.dividerColor ?? AppTheme.neutral600,
+          color: context?.conduitTheme.dividerColor ?? tokens.neutralTone40,
           width: 2,
         ),
       ),
@@ -218,6 +221,7 @@ class BrandService {
     BuildContext? context,
   }) {
     final theme = context?.conduitTheme;
+    final tokens = _resolveTokens(context);
     return SizedBox(
       width: width,
       height: 48,
@@ -228,16 +232,17 @@ class BrandService {
             : createBrandIcon(
                 size: IconSize.md,
                 icon: icon ?? primaryIcon,
-                color: theme?.textInverse ?? AppTheme.neutral50,
+                color: theme?.textInverse ?? tokens.neutralTone00,
                 context: context,
               ),
         label: Text(text),
         style: ElevatedButton.styleFrom(
           backgroundColor: isSecondary
-              ? (theme?.buttonSecondary ?? AppTheme.neutral700)
+              ? (theme?.buttonSecondary ?? tokens.neutralTone20)
               : (theme?.buttonPrimary ?? primaryBrandColor(context: context)),
-          foregroundColor: theme?.buttonPrimaryText ?? AppTheme.neutral50,
-          disabledBackgroundColor: theme?.buttonDisabled ?? AppTheme.neutral500,
+          foregroundColor: theme?.buttonPrimaryText ?? tokens.brandOn60,
+          disabledBackgroundColor:
+              theme?.buttonDisabled ?? tokens.neutralTone40,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppBorderRadius.md),
           ),
@@ -292,6 +297,7 @@ class BrandService {
     BuildContext? context,
   }) {
     final theme = context?.conduitTheme;
+    final tokens = _resolveTokens(context);
     final baseColor =
         theme?.buttonPrimary ??
         primaryBrandColor(context: context, brightness: Brightness.dark);
@@ -309,12 +315,14 @@ class BrandService {
           colors: [baseColor, accentColor],
         ),
         borderRadius: BorderRadius.circular(size / 2),
-        boxShadow: ConduitShadows.glow,
+        boxShadow: context != null
+            ? ConduitShadows.glow(context)
+            : ConduitShadows.glowWithTokens(tokens),
       ),
       child: Icon(
         primaryIcon,
         size: size * 0.5,
-        color: theme?.textInverse ?? AppTheme.neutral50,
+        color: theme?.textInverse ?? tokens.neutralTone00,
       ),
     );
   }
@@ -329,5 +337,13 @@ class BrandService {
 
   static Brightness _resolveBrightness(BuildContext? context) {
     return context != null ? Theme.of(context).brightness : Brightness.light;
+  }
+
+  static AppColorTokens _resolveTokens(BuildContext? context) {
+    final palette = _resolvePalette(context);
+    final brightness = _resolveBrightness(context);
+    return brightness == Brightness.dark
+        ? AppColorTokens.dark(palette: palette)
+        : AppColorTokens.light(palette: palette);
   }
 }

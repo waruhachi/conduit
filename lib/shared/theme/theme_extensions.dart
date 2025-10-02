@@ -2,8 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 // Using system fonts; no GoogleFonts dependency required
-import 'app_theme.dart';
 import 'color_palettes.dart';
+import 'color_tokens.dart';
 
 /// Extended theme data for consistent styling across the app
 @immutable
@@ -61,6 +61,12 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
   final Color shimmerBase;
   final Color shimmerHighlight;
   final Color loadingIndicator;
+
+  // Markdown/code colors
+  final Color codeBackground;
+  final Color codeBorder;
+  final Color codeText;
+  final Color codeAccent;
 
   // Text colors
   final Color textPrimary;
@@ -140,6 +146,12 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
     required this.shimmerBase,
     required this.shimmerHighlight,
     required this.loadingIndicator,
+
+    // Markdown/code colors
+    required this.codeBackground,
+    required this.codeBorder,
+    required this.codeText,
+    required this.codeAccent,
 
     // Text colors
     required this.textPrimary,
@@ -221,6 +233,12 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
     Color? shimmerBase,
     Color? shimmerHighlight,
     Color? loadingIndicator,
+
+    // Markdown/code colors
+    Color? codeBackground,
+    Color? codeBorder,
+    Color? codeText,
+    Color? codeAccent,
 
     // Text colors
     Color? textPrimary,
@@ -304,6 +322,12 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
       shimmerBase: shimmerBase ?? this.shimmerBase,
       shimmerHighlight: shimmerHighlight ?? this.shimmerHighlight,
       loadingIndicator: loadingIndicator ?? this.loadingIndicator,
+
+      // Markdown/code colors
+      codeBackground: codeBackground ?? this.codeBackground,
+      codeBorder: codeBorder ?? this.codeBorder,
+      codeText: codeText ?? this.codeText,
+      codeAccent: codeAccent ?? this.codeAccent,
 
       // Text colors
       textPrimary: textPrimary ?? this.textPrimary,
@@ -477,6 +501,10 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
         other.loadingIndicator,
         t,
       )!,
+      codeBackground: Color.lerp(codeBackground, other.codeBackground, t)!,
+      codeBorder: Color.lerp(codeBorder, other.codeBorder, t)!,
+      codeText: Color.lerp(codeText, other.codeText, t)!,
+      codeAccent: Color.lerp(codeAccent, other.codeAccent, t)!,
 
       // Text colors
       textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
@@ -505,116 +533,136 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
   }
 
   /// Dark theme extension derived from the active color palette.
-  static ConduitThemeExtension darkPalette(AppColorPalette palette) {
+  static ConduitThemeExtension darkPalette({
+    required AppColorPalette palette,
+    required AppColorTokens tokens,
+  }) {
     final darkTone = palette.dark;
-    final onDarkPrimary = _onSurfaceColor(darkTone.primary);
+    final onPrimary = _onSurfaceColor(darkTone.primary, tokens);
+    Color blend(Color overlay, {Color? surface}) {
+      return Color.alphaBlend(overlay, surface ?? tokens.neutralTone10);
+    }
+
+    Color toneBackground(Color tone, {double opacity = 0.24}) {
+      return Color.alphaBlend(
+        tone.withValues(alpha: opacity),
+        tokens.neutralTone10,
+      );
+    }
+
     return ConduitThemeExtension(
       chatBubbleUser: darkTone.primary,
-      chatBubbleAssistant: const Color(0xFF0E1010),
-      chatBubbleUserText: onDarkPrimary,
-      chatBubbleAssistantText: AppTheme.neutral50,
+      chatBubbleAssistant: tokens.neutralTone20,
+      chatBubbleUserText: onPrimary,
+      chatBubbleAssistantText: tokens.neutralOnSurface,
       chatBubbleUserBorder: darkTone.secondary,
-      chatBubbleAssistantBorder: const Color(0xFF1A1D1C),
-      inputBackground: const Color(0xFF141615),
-      inputBorder: AppTheme.neutral600,
+      chatBubbleAssistantBorder: tokens.neutralTone40,
+      inputBackground: tokens.neutralTone20,
+      inputBorder: tokens.neutralTone40,
       inputBorderFocused: darkTone.primary,
-      inputText: AppTheme.neutral50,
-      inputPlaceholder: AppTheme.neutral300,
-      inputError: AppTheme.error,
-      cardBackground: const Color(0xFF0C0F0E),
-      cardBorder: const Color(0xFF151918),
-      cardShadow: AppTheme.neutral900,
-      surfaceBackground: const Color(0xFF0A0D0C),
-      surfaceContainer: const Color(0xFF0C0F0E),
-      surfaceContainerHighest: const Color(0xFF121514),
+      inputText: tokens.neutralOnSurface,
+      inputPlaceholder: tokens.neutralTone80,
+      inputError: tokens.statusError60,
+      cardBackground: tokens.neutralTone00,
+      cardBorder: tokens.neutralTone40,
+      cardShadow: blend(tokens.overlayWeak, surface: tokens.neutralTone00),
+      surfaceBackground: tokens.neutralTone10,
+      surfaceContainer: tokens.neutralTone00,
+      surfaceContainerHighest: tokens.neutralTone20,
       buttonPrimary: darkTone.primary,
-      buttonPrimaryText: onDarkPrimary,
-      buttonSecondary: const Color(0xFF151918),
-      buttonSecondaryText: AppTheme.neutral50,
-      buttonDisabled: AppTheme.neutral600,
-      buttonDisabledText: AppTheme.neutral400,
-      success: const Color(0xFF34D399),
-      successBackground: const Color(0xFF14532D),
-      error: const Color(0xFFFCA5A5),
-      errorBackground: const Color(0xFF7F1D1D),
-      warning: const Color(0xFFFBBF24),
-      warningBackground: const Color(0xFF451A03),
-      info: const Color(0xFF93C5FD),
-      infoBackground: const Color(0xFF0C4A6E),
-      dividerColor: AppTheme.neutral600,
-      navigationBackground: const Color(0xFF0A0D0C),
+      buttonPrimaryText: onPrimary,
+      buttonSecondary: tokens.neutralTone20,
+      buttonSecondaryText: tokens.neutralOnSurface,
+      buttonDisabled: tokens.neutralTone40,
+      buttonDisabledText: tokens.neutralTone80,
+      success: tokens.statusSuccess60,
+      successBackground: toneBackground(tokens.statusSuccess60),
+      error: tokens.statusError60,
+      errorBackground: toneBackground(tokens.statusError60),
+      warning: tokens.statusWarning60,
+      warningBackground: toneBackground(tokens.statusWarning60),
+      info: tokens.statusInfo60,
+      infoBackground: toneBackground(tokens.statusInfo60),
+      dividerColor: tokens.neutralTone40,
+      navigationBackground: tokens.neutralTone10,
       navigationSelected: darkTone.primary,
-      navigationUnselected: AppTheme.neutral300,
-      navigationSelectedBackground: _surfaceTint(
-        darkTone.primary,
-        const Color(0xFF0A0D0C),
-        0.24,
+      navigationUnselected: tokens.neutralTone80,
+      navigationSelectedBackground: blend(
+        tokens.overlayMedium,
+        surface: tokens.neutralTone10,
       ),
-      shimmerBase: const Color(0xFF121514),
-      shimmerHighlight: const Color(0xFF1A1D1C),
+      shimmerBase: blend(tokens.overlayWeak, surface: tokens.neutralTone10),
+      shimmerHighlight: blend(
+        tokens.overlayMedium,
+        surface: tokens.neutralTone20,
+      ),
       loadingIndicator: darkTone.primary,
-      textPrimary: AppTheme.neutral50,
-      textSecondary: const Color(0xFFBAC2C0),
-      textTertiary: AppTheme.neutral400,
-      textInverse: AppTheme.neutral900,
-      textDisabled: AppTheme.neutral600,
-      iconPrimary: AppTheme.neutral50,
-      iconSecondary: const Color(0xFFA0A8A5),
-      iconDisabled: AppTheme.neutral600,
-      iconInverse: AppTheme.neutral900,
+      codeBackground: tokens.codeBackground,
+      codeBorder: tokens.codeBorder,
+      codeText: tokens.codeText,
+      codeAccent: tokens.codeAccent,
+      textPrimary: tokens.neutralOnSurface,
+      textSecondary: tokens.neutralTone80,
+      textTertiary: tokens.neutralTone60,
+      textInverse: tokens.neutralTone00,
+      textDisabled: tokens.neutralTone40,
+      iconPrimary: tokens.neutralOnSurface,
+      iconSecondary: tokens.neutralTone80,
+      iconDisabled: tokens.neutralTone40,
+      iconInverse: tokens.neutralTone00,
       headingLarge: TextStyle(
         fontSize: AppTypography.displaySmall,
         fontWeight: FontWeight.w700,
-        color: AppTheme.neutral50,
+        color: tokens.neutralOnSurface,
         height: 1.2,
       ),
       headingMedium: TextStyle(
         fontSize: AppTypography.headlineLarge,
         fontWeight: FontWeight.w600,
-        color: AppTheme.neutral50,
+        color: tokens.neutralOnSurface,
         height: 1.3,
       ),
       headingSmall: TextStyle(
         fontSize: AppTypography.headlineSmall,
         fontWeight: FontWeight.w600,
-        color: AppTheme.neutral50,
+        color: tokens.neutralOnSurface,
         height: 1.4,
       ),
       bodyLarge: TextStyle(
         fontSize: AppTypography.bodyLarge,
         fontWeight: FontWeight.w400,
-        color: AppTheme.neutral50,
+        color: tokens.neutralOnSurface,
         height: 1.5,
       ),
       bodyMedium: TextStyle(
         fontSize: AppTypography.bodyMedium,
         fontWeight: FontWeight.w400,
-        color: AppTheme.neutral50,
+        color: tokens.neutralOnSurface,
         height: 1.5,
       ),
       bodySmall: TextStyle(
         fontSize: AppTypography.bodySmall,
         fontWeight: FontWeight.w400,
-        color: const Color(0xFFD1D5DB),
+        color: tokens.neutralTone80,
         height: 1.4,
       ),
       caption: TextStyle(
         fontSize: AppTypography.labelMedium,
         fontWeight: FontWeight.w500,
-        color: AppTheme.neutral300,
+        color: tokens.neutralTone80,
         height: 1.3,
         letterSpacing: 0.5,
       ),
       label: TextStyle(
         fontSize: AppTypography.labelLarge,
         fontWeight: FontWeight.w500,
-        color: const Color(0xFFD1D5DB),
+        color: tokens.neutralOnSurface,
         height: 1.3,
       ),
       code: TextStyle(
         fontSize: AppTypography.bodySmall,
         fontWeight: FontWeight.w400,
-        color: const Color(0xFFD1D5DB),
+        color: tokens.neutralOnSurface,
         height: 1.4,
         fontFamily: AppTypography.monospaceFontFamily,
       ),
@@ -622,133 +670,143 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
   }
 
   /// Light theme extension derived from the active color palette.
-  static ConduitThemeExtension lightPalette(AppColorPalette palette) {
+  static ConduitThemeExtension lightPalette({
+    required AppColorPalette palette,
+    required AppColorTokens tokens,
+  }) {
     final lightTone = palette.light;
     final darkTone = palette.dark;
-    final onLightPrimary = _onSurfaceColor(lightTone.primary);
+    final onPrimary = _onSurfaceColor(lightTone.primary, tokens);
+    Color blend(Color overlay, {Color? surface}) {
+      return Color.alphaBlend(overlay, surface ?? tokens.neutralTone00);
+    }
+
+    Color toneBackground(Color tone, {double opacity = 0.12}) {
+      return Color.alphaBlend(
+        tone.withValues(alpha: opacity),
+        tokens.neutralTone00,
+      );
+    }
+
     return ConduitThemeExtension(
       chatBubbleUser: lightTone.primary,
-      chatBubbleAssistant: const Color(0xFFF7F7F7),
-      chatBubbleUserText: onLightPrimary,
-      chatBubbleAssistantText: const Color(0xFF1C1C1C),
+      chatBubbleAssistant: tokens.neutralTone00,
+      chatBubbleUserText: onPrimary,
+      chatBubbleAssistantText: tokens.neutralOnSurface,
       chatBubbleUserBorder: darkTone.primary,
-      chatBubbleAssistantBorder: const Color(0xFFE7E7E7),
-      inputBackground: AppTheme.neutral50,
-      inputBorder: AppTheme.neutral200,
+      chatBubbleAssistantBorder: tokens.neutralTone20,
+      inputBackground: tokens.neutralTone00,
+      inputBorder: tokens.neutralTone20,
       inputBorderFocused: lightTone.primary,
-      inputText: AppTheme.neutral900,
-      inputPlaceholder: AppTheme.neutral500,
-      inputError: AppTheme.error,
-      cardBackground: AppTheme.neutral50,
-      cardBorder: const Color(0xFFE7E7E7),
-      cardShadow: const Color(0xFFF3F4F6),
-      surfaceBackground: AppTheme.neutral50,
-      surfaceContainer: const Color(0xFFF7F7F7),
-      surfaceContainerHighest: const Color(0xFFF0F1F1),
+      inputText: tokens.neutralOnSurface,
+      inputPlaceholder: tokens.neutralTone60,
+      inputError: tokens.statusError60,
+      cardBackground: tokens.neutralTone00,
+      cardBorder: tokens.neutralTone20,
+      cardShadow: blend(tokens.overlayWeak),
+      surfaceBackground: tokens.neutralTone10,
+      surfaceContainer: tokens.neutralTone00,
+      surfaceContainerHighest: tokens.neutralTone20,
       buttonPrimary: lightTone.primary,
-      buttonPrimaryText: onLightPrimary,
-      buttonSecondary: const Color(0xFFF0F1F1),
-      buttonSecondaryText: const Color(0xFF1C1C1C),
-      buttonDisabled: AppTheme.neutral300,
-      buttonDisabledText: AppTheme.neutral500,
-      success: const Color(0xFF166534),
-      successBackground: const Color(0xFFECFDF3),
-      error: const Color(0xFFB91C1C),
-      errorBackground: const Color(0xFFFEE2E2),
-      warning: const Color(0xFF92400E),
-      warningBackground: const Color(0xFFFEF3C7),
-      info: const Color(0xFF1D4ED8),
-      infoBackground: const Color(0xFFDBEAFE),
-      dividerColor: AppTheme.neutral100,
-      navigationBackground: AppTheme.neutral50,
+      buttonPrimaryText: onPrimary,
+      buttonSecondary: tokens.neutralTone20,
+      buttonSecondaryText: tokens.neutralOnSurface,
+      buttonDisabled: tokens.neutralTone40,
+      buttonDisabledText: tokens.neutralTone60,
+      success: tokens.statusSuccess60,
+      successBackground: toneBackground(tokens.statusSuccess60),
+      error: tokens.statusError60,
+      errorBackground: toneBackground(tokens.statusError60),
+      warning: tokens.statusWarning60,
+      warningBackground: toneBackground(tokens.statusWarning60),
+      info: tokens.statusInfo60,
+      infoBackground: toneBackground(tokens.statusInfo60),
+      dividerColor: tokens.neutralTone20,
+      navigationBackground: tokens.neutralTone00,
       navigationSelected: lightTone.primary,
-      navigationUnselected: AppTheme.neutral600,
-      navigationSelectedBackground: _surfaceTint(
-        lightTone.primary,
-        AppTheme.neutral50,
-        0.16,
-      ),
-      shimmerBase: const Color(0xFFF3F4F6),
-      shimmerHighlight: AppTheme.neutral50,
+      navigationUnselected: tokens.neutralTone60,
+      navigationSelectedBackground: blend(tokens.overlayMedium),
+      shimmerBase: blend(tokens.overlayWeak, surface: tokens.neutralTone10),
+      shimmerHighlight: tokens.neutralTone00,
       loadingIndicator: lightTone.primary,
-      textPrimary: const Color(0xFF1C1C1C),
-      textSecondary: const Color(0xFF3A3F3E),
-      textTertiary: AppTheme.neutral500,
-      textInverse: AppTheme.neutral50,
-      textDisabled: AppTheme.neutral400,
-      iconPrimary: const Color(0xFF1C1C1C),
-      iconSecondary: const Color(0xFF666C6A),
-      iconDisabled: AppTheme.neutral400,
-      iconInverse: AppTheme.neutral50,
+      codeBackground: tokens.codeBackground,
+      codeBorder: tokens.codeBorder,
+      codeText: tokens.codeText,
+      codeAccent: tokens.codeAccent,
+      textPrimary: tokens.neutralOnSurface,
+      textSecondary: tokens.neutralTone80,
+      textTertiary: tokens.neutralTone60,
+      textInverse: tokens.neutralTone00,
+      textDisabled: tokens.neutralTone60,
+      iconPrimary: tokens.neutralOnSurface,
+      iconSecondary: tokens.neutralTone80,
+      iconDisabled: tokens.neutralTone60,
+      iconInverse: tokens.neutralTone00,
       headingLarge: TextStyle(
         fontSize: AppTypography.displaySmall,
         fontWeight: FontWeight.w700,
-        color: const Color(0xFF111827),
+        color: tokens.neutralOnSurface,
         height: 1.2,
       ),
       headingMedium: TextStyle(
         fontSize: AppTypography.headlineLarge,
         fontWeight: FontWeight.w600,
-        color: const Color(0xFF111827),
+        color: tokens.neutralOnSurface,
         height: 1.3,
       ),
       headingSmall: TextStyle(
         fontSize: AppTypography.headlineSmall,
         fontWeight: FontWeight.w600,
-        color: const Color(0xFF111827),
+        color: tokens.neutralOnSurface,
         height: 1.4,
       ),
       bodyLarge: TextStyle(
         fontSize: AppTypography.bodyLarge,
         fontWeight: FontWeight.w400,
-        color: const Color(0xFF111827),
+        color: tokens.neutralOnSurface,
         height: 1.5,
       ),
       bodyMedium: TextStyle(
         fontSize: AppTypography.bodyMedium,
         fontWeight: FontWeight.w400,
-        color: const Color(0xFF111827),
+        color: tokens.neutralOnSurface,
         height: 1.5,
       ),
       bodySmall: TextStyle(
         fontSize: AppTypography.bodySmall,
         fontWeight: FontWeight.w400,
-        color: AppTheme.neutral500,
+        color: tokens.neutralTone60,
         height: 1.4,
       ),
       caption: TextStyle(
         fontSize: AppTypography.labelMedium,
         fontWeight: FontWeight.w500,
-        color: AppTheme.neutral400,
+        color: tokens.neutralTone60,
         height: 1.3,
         letterSpacing: 0.5,
       ),
       label: TextStyle(
         fontSize: AppTypography.labelLarge,
         fontWeight: FontWeight.w500,
-        color: const Color(0xFF444948),
+        color: tokens.neutralTone80,
         height: 1.3,
       ),
       code: TextStyle(
         fontSize: AppTypography.bodySmall,
         fontWeight: FontWeight.w400,
-        color: const Color(0xFF1C1C1C),
+        color: tokens.neutralOnSurface,
         height: 1.4,
         fontFamily: AppTypography.monospaceFontFamily,
       ),
     );
   }
 
-  static Color _surfaceTint(Color tone, Color surface, double opacity) {
-    return Color.alphaBlend(tone.withValues(alpha: opacity), surface);
-  }
-
-  static Color _onSurfaceColor(Color background) {
-    final contrastOnLight = _contrastRatio(background, AppTheme.neutral50);
-    final contrastOnDark = _contrastRatio(background, AppTheme.neutral900);
+  static Color _onSurfaceColor(Color background, AppColorTokens tokens) {
+    final contrastOnLight = _contrastRatio(background, tokens.neutralTone00);
+    final contrastOnDark = _contrastRatio(background, tokens.neutralOnSurface);
     return contrastOnLight >= contrastOnDark
-        ? AppTheme.neutral50
-        : AppTheme.neutral900;
+        ? tokens.neutralTone00
+        : tokens.neutralOnSurface;
   }
 
   static double _contrastRatio(Color a, Color b) {
@@ -769,9 +827,26 @@ extension ConduitThemeContext on BuildContext {
     final palette =
         theme.extension<AppPaletteThemeExtension>()?.palette ??
         AppColorPalettes.auroraViolet;
+    final tokens = theme.brightness == Brightness.dark
+        ? AppColorTokens.dark(palette: palette)
+        : AppColorTokens.light(palette: palette);
     return theme.brightness == Brightness.dark
-        ? ConduitThemeExtension.darkPalette(palette)
-        : ConduitThemeExtension.lightPalette(palette);
+        ? ConduitThemeExtension.darkPalette(palette: palette, tokens: tokens)
+        : ConduitThemeExtension.lightPalette(palette: palette, tokens: tokens);
+  }
+}
+
+extension ConduitColorTokensContext on BuildContext {
+  AppColorTokens get colorTokens {
+    final theme = Theme.of(this);
+    final tokens = theme.extension<AppColorTokens>();
+    if (tokens != null) return tokens;
+    final palette =
+        theme.extension<AppPaletteThemeExtension>()?.palette ??
+        AppColorPalettes.auroraViolet;
+    return theme.brightness == Brightness.dark
+        ? AppColorTokens.dark(palette: palette)
+        : AppColorTokens.light(palette: palette);
   }
 }
 
@@ -923,182 +998,153 @@ class Elevation {
 
 /// Helper class for consistent shadows - Enhanced for production with better hierarchy
 class ConduitShadows {
-  static List<BoxShadow> get low => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.08),
-      blurRadius: 8,
-      offset: const Offset(0, 2),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> low(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.08,
+    blurRadius: 8,
+    offset: const Offset(0, 2),
+  );
 
-  static List<BoxShadow> get medium => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.12),
-      blurRadius: 16,
-      offset: const Offset(0, 4),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> medium(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.12,
+    blurRadius: 16,
+    offset: const Offset(0, 4),
+  );
 
-  static List<BoxShadow> get high => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.16),
-      blurRadius: 24,
-      offset: const Offset(0, 8),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> high(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.16,
+    blurRadius: 24,
+    offset: const Offset(0, 8),
+  );
 
-  static List<BoxShadow> get glow => [
-    BoxShadow(
-      color: AppColorPalettes.auroraViolet.light.primary.withValues(
-        alpha: 0.25,
+  static List<BoxShadow> glow(BuildContext context) =>
+      glowWithTokens(context.colorTokens);
+
+  static List<BoxShadow> glowWithTokens(AppColorTokens tokens) {
+    final double alpha = tokens.brightness == Brightness.light ? 0.25 : 0.35;
+    return [
+      BoxShadow(
+        color: tokens.brandTone60.withValues(alpha: alpha),
+        blurRadius: 20,
+        offset: const Offset(0, 0),
+        spreadRadius: 0,
       ),
-      blurRadius: 20,
-      offset: const Offset(0, 0),
-      spreadRadius: 0,
-    ),
-  ];
+    ];
+  }
 
-  // Enhanced shadows for specific components with better hierarchy
-  static List<BoxShadow> get card => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.06),
-      blurRadius: 12,
-      offset: const Offset(0, 3),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> card(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.06,
+    blurRadius: 12,
+    offset: const Offset(0, 3),
+  );
 
-  static List<BoxShadow> get button => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.1),
-      blurRadius: 6,
-      offset: const Offset(0, 2),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> button(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.1,
+    blurRadius: 6,
+    offset: const Offset(0, 2),
+  );
 
-  static List<BoxShadow> get modal => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.2),
-      blurRadius: 32,
-      offset: const Offset(0, 12),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> modal(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.2,
+    blurRadius: 32,
+    offset: const Offset(0, 12),
+  );
 
-  static List<BoxShadow> get navigation => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.08),
-      blurRadius: 16,
-      offset: const Offset(0, -2),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> navigation(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.08,
+    blurRadius: 16,
+    offset: const Offset(0, -2),
+  );
 
-  static List<BoxShadow> get messageBubble => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.04),
-      blurRadius: 8,
-      offset: const Offset(0, 1),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> messageBubble(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.04,
+    blurRadius: 8,
+    offset: const Offset(0, 1),
+  );
 
-  static List<BoxShadow> get input => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.05),
-      blurRadius: 4,
-      offset: const Offset(0, 1),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> input(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.05,
+    blurRadius: 4,
+    offset: const Offset(0, 1),
+  );
 
-  // Dark theme specific shadows with better contrast
-  static List<BoxShadow> get darkCard => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.3),
-      blurRadius: 16,
-      offset: const Offset(0, 4),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> pressed(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.15,
+    blurRadius: 4,
+    offset: const Offset(0, 1),
+  );
 
-  static List<BoxShadow> get darkModal => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.4),
-      blurRadius: 40,
-      offset: const Offset(0, 16),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> hover(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.12,
+    blurRadius: 12,
+    offset: const Offset(0, 4),
+  );
 
-  // Interactive shadows with better feedback
-  static List<BoxShadow> get pressed => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.15),
-      blurRadius: 4,
-      offset: const Offset(0, 1),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> micro(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.04,
+    blurRadius: 4,
+    offset: const Offset(0, 1),
+  );
 
-  static List<BoxShadow> get hover => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.12),
-      blurRadius: 12,
-      offset: const Offset(0, 4),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> small(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.06,
+    blurRadius: 8,
+    offset: const Offset(0, 2),
+  );
 
-  // Enhanced shadows for better visual hierarchy
-  static List<BoxShadow> get micro => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.04),
-      blurRadius: 4,
-      offset: const Offset(0, 1),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> standard(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.08,
+    blurRadius: 12,
+    offset: const Offset(0, 3),
+  );
 
-  static List<BoxShadow> get small => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.06),
-      blurRadius: 8,
-      offset: const Offset(0, 2),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> large(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.12,
+    blurRadius: 16,
+    offset: const Offset(0, 4),
+  );
 
-  static List<BoxShadow> get standard => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.08),
-      blurRadius: 12,
-      offset: const Offset(0, 3),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> extraLarge(BuildContext context) => _shadow(
+    context.colorTokens,
+    opacity: 0.16,
+    blurRadius: 24,
+    offset: const Offset(0, 8),
+  );
 
-  static List<BoxShadow> get large => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.12),
-      blurRadius: 16,
-      offset: const Offset(0, 4),
-      spreadRadius: 0,
-    ),
-  ];
+  static List<BoxShadow> _shadow(
+    AppColorTokens tokens, {
+    required double opacity,
+    required double blurRadius,
+    required Offset offset,
+  }) {
+    return [
+      BoxShadow(
+        color: _overlayColor(tokens, opacity),
+        blurRadius: blurRadius,
+        offset: offset,
+        spreadRadius: 0,
+      ),
+    ];
+  }
 
-  static List<BoxShadow> get extraLarge => [
-    BoxShadow(
-      color: AppTheme.neutral900.withValues(alpha: 0.16),
-      blurRadius: 24,
-      offset: const Offset(0, 8),
-      spreadRadius: 0,
-    ),
-  ];
+  static Color _overlayColor(AppColorTokens tokens, double alpha) {
+    final Color base = tokens.overlayStrong.withValues(alpha: 1.0);
+    return base.withValues(alpha: alpha.clamp(0.0, 1.0));
+  }
 }
 
 /// Typography scale following Conduit design tokens - Enhanced for production

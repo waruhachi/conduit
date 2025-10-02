@@ -336,7 +336,7 @@ class ProfilePage extends ConsumerWidget {
           color: accent.withValues(alpha: 0.18),
           width: BorderWidth.thin,
         ),
-        boxShadow: ConduitShadows.medium,
+        boxShadow: ConduitShadows.medium(context),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,7 +347,7 @@ class ProfilePage extends ConsumerWidget {
               Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(AppBorderRadius.avatar),
-                  boxShadow: ConduitShadows.high,
+                  boxShadow: ConduitShadows.high(context),
                 ),
                 child: UserAvatar(
                   size: IconSize.avatar,
@@ -973,7 +973,7 @@ class _DefaultModelBottomSheetState
                   color: context.conduitTheme.dividerColor,
                   width: BorderWidth.regular,
                 ),
-                boxShadow: ConduitShadows.modal,
+                boxShadow: ConduitShadows.modal(context),
               ),
               child: ModalSheetSafeArea(
                 padding: const EdgeInsets.symmetric(
@@ -1234,7 +1234,7 @@ class _DefaultModelBottomSheetState
                 : context.conduitTheme.dividerColor,
             width: BorderWidth.regular,
           ),
-          boxShadow: isSelected ? ConduitShadows.card : null,
+          boxShadow: isSelected ? ConduitShadows.card(context) : null,
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(

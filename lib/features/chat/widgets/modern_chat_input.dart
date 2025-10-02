@@ -1281,7 +1281,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                   alpha: Alpha.buttonPressed,
                 ),
                 borderRadius: BorderRadius.circular(radius),
-                boxShadow: ConduitShadows.button,
+                boxShadow: ConduitShadows.button(context),
               ),
               child: Center(
                 child: Icon(
@@ -1696,7 +1696,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                             color: theme.dividerColor,
                             width: BorderWidth.thin,
                           ),
-                          boxShadow: ConduitShadows.modal,
+                          boxShadow: ConduitShadows.modal(context),
                         ),
                         child: ModalSheetSafeArea(
                           padding: const EdgeInsets.fromLTRB(
@@ -1810,7 +1810,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               color: background,
               borderRadius: BorderRadius.circular(AppBorderRadius.input),
               border: Border.all(color: borderColor, width: BorderWidth.thin),
-              boxShadow: value ? ConduitShadows.low : const [],
+              boxShadow: value ? ConduitShadows.low(context) : const [],
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -1897,7 +1897,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               color: background,
               borderRadius: BorderRadius.circular(AppBorderRadius.input),
               border: Border.all(color: borderColor, width: BorderWidth.thin),
-              boxShadow: selected ? ConduitShadows.low : const [],
+              boxShadow: selected ? ConduitShadows.low(context) : const [],
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,

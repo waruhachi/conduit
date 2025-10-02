@@ -1,59 +1,64 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'theme_extensions.dart';
 import 'color_palettes.dart';
+import 'color_tokens.dart';
 
 class AppTheme {
   // Enhanced neutral palette for better contrast (WCAG AA compliant)
-  static const Color neutral900 = Color(0xFF000000); // Pure black
-  static const Color neutral800 = Color(
-    0xFF0D0D0D,
-  ); // Darker for better contrast
-  static const Color neutral700 = Color(0xFF1A1A1A);
-  static const Color neutral600 = Color(0xFF2D2D2D); // Improved contrast
-  static const Color neutral500 = Color(0xFF404040); // Better middle gray
-  static const Color neutral400 = Color(0xFF525252);
-  static const Color neutral300 = Color(0xFF6B6B6B); // Improved contrast ratio
-  static const Color neutral200 = Color(0xFF9E9E9E); // Better readability
-  static const Color neutral100 = Color(0xFFD1D1D1); // Enhanced contrast
-  static const Color neutral50 = Color(
-    0xFFF8F8F8,
-  ); // Softer white for reduced eye strain
+  static const Color neutral900 = Color(0xFF0B0E14);
+  static const Color neutral800 = Color(0xFF161B24);
+  static const Color neutral700 = Color(0xFF1F2531);
+  static const Color neutral600 = Color(0xFF343C4D);
+  static const Color neutral500 = Color(0xFF4A5161);
+  static const Color neutral400 = Color(0xFF9099AC);
+  static const Color neutral300 = Color(0xFFC5CCD9);
+  static const Color neutral200 = Color(0xFFE6EAF1);
+  static const Color neutral100 = Color(0xFFF5F7FA);
+  static const Color neutral50 = Color(0xFFFFFFFF);
 
-  // Enhanced semantic colors for WCAG AA compliance
-  static const Color error = Color(0xFFDC2626); // Improved red contrast
-  static const Color errorDark = Color(0xFFB91C1C); // Darker red for dark theme
-  static const Color success = Color(0xFF059669); // Better green contrast
-  static const Color successDark = Color(0xFF047857); // Dark theme green
-  static const Color warning = Color(0xFFD97706); // Improved orange contrast
-  static const Color warningDark = Color(0xFFB45309); // Dark theme orange
-  static const Color info = Color(0xFF0284C7); // Better blue contrast
-  static const Color infoDark = Color(0xFF0369A1); // Dark theme blue
+  // Semantic colors derived from the token specification
+  static const Color error = Color(0xFFCE2C31);
+  static const Color errorDark = Color(0xFFFF5F67);
+  static const Color success = Color(0xFF0E9D58);
+  static const Color successDark = Color(0xFF23C179);
+  static const Color warning = Color(0xFFDB7900);
+  static const Color warningDark = Color(0xFFFF9800);
+  static const Color info = Color(0xFF0174D3);
+  static const Color infoDark = Color(0xFF4CA8FF);
 
   static ThemeData light(AppColorPalette palette) {
     final lightTone = palette.light;
+    final tokens = AppColorTokens.light(palette: palette);
+    final colorScheme = tokens.toColorScheme().copyWith(
+      primary: lightTone.primary,
+      onPrimary: _pickOnColor(lightTone.primary, tokens),
+      secondary: lightTone.secondary,
+      onSecondary: _pickOnColor(lightTone.secondary, tokens),
+      tertiary: lightTone.accent,
+      onTertiary: _pickOnColor(lightTone.accent, tokens),
+      surfaceTint: lightTone.primary,
+    );
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      colorScheme: ColorScheme.light(
-        primary: lightTone.primary,
-        secondary: lightTone.secondary,
-        surface: neutral50,
-        error: error,
-      ).copyWith(surfaceContainerHighest: const Color(0xFFF0F1F1)),
+      colorScheme: colorScheme,
       pageTransitionsTheme: _pageTransitionsTheme,
       splashFactory: NoSplash.splashFactory,
-      appBarTheme: const AppBarTheme(
+      scaffoldBackgroundColor: tokens.neutralTone10,
+      appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: Elevation.none,
         backgroundColor: Colors.transparent,
-        foregroundColor: neutral800,
+        foregroundColor: tokens.neutralOnSurface,
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: neutral50,
-        modalBackgroundColor: neutral50,
+        backgroundColor: tokens.neutralTone00,
+        modalBackgroundColor: tokens.neutralTone00,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppBorderRadius.modal),
@@ -66,6 +71,8 @@ class AppTheme {
             horizontal: Spacing.lg,
             vertical: Spacing.xs,
           ),
+          backgroundColor: lightTone.primary,
+          foregroundColor: _pickOnColor(lightTone.primary, tokens),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppBorderRadius.md),
           ),
@@ -75,15 +82,19 @@ class AppTheme {
         elevation: Elevation.none,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-          side: BorderSide(color: neutral200),
+          side: BorderSide(color: tokens.neutralTone20),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: neutral900.withValues(alpha: 0.92),
-        contentTextStyle: const TextStyle(
-          color: neutral50,
-        ).copyWith(fontSize: AppTypography.bodyMedium),
+        backgroundColor: Color.alphaBlend(
+          tokens.overlayStrong,
+          tokens.neutralOnSurface,
+        ),
+        contentTextStyle: TextStyle(
+          color: tokens.neutralTone00,
+          fontSize: AppTypography.bodyMedium,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppBorderRadius.snackbar),
         ),
@@ -91,7 +102,7 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: neutral50,
+        fillColor: tokens.neutralTone00,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppBorderRadius.md),
           borderSide: BorderSide.none,
@@ -106,7 +117,7 @@ class AppTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppBorderRadius.md),
-          borderSide: const BorderSide(color: error, width: 1),
+          borderSide: BorderSide(color: tokens.statusError60, width: 1),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: Spacing.md,
@@ -115,7 +126,8 @@ class AppTheme {
       ),
       textTheme: ThemeData.light().textTheme,
       extensions: <ThemeExtension<dynamic>>[
-        ConduitThemeExtension.lightPalette(palette),
+        tokens,
+        ConduitThemeExtension.lightPalette(palette: palette, tokens: tokens),
         AppPaletteThemeExtension(palette: palette),
       ],
     );
@@ -123,32 +135,33 @@ class AppTheme {
 
   static ThemeData dark(AppColorPalette palette) {
     final darkTone = palette.dark;
+    final tokens = AppColorTokens.dark(palette: palette);
+    final colorScheme = tokens.toColorScheme().copyWith(
+      primary: darkTone.primary,
+      onPrimary: _pickOnColor(darkTone.primary, tokens),
+      secondary: darkTone.secondary,
+      onSecondary: _pickOnColor(darkTone.secondary, tokens),
+      tertiary: darkTone.accent,
+      onTertiary: _pickOnColor(darkTone.accent, tokens),
+      surfaceTint: darkTone.primary,
+    );
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      scaffoldBackgroundColor: const Color(0xFF0A0D0C),
-      colorScheme: ColorScheme.dark(
-        primary: darkTone.primary,
-        secondary: darkTone.secondary,
-        surface: const Color(0xFF0A0D0C),
-        surfaceContainerHighest: neutral700,
-        onSurface: neutral50,
-        onSurfaceVariant: neutral300,
-        outline: neutral600,
-        error: error,
-      ),
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: tokens.neutralTone10,
       pageTransitionsTheme: _pageTransitionsTheme,
       splashFactory: NoSplash.splashFactory,
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: Elevation.none,
         backgroundColor: Colors.transparent,
-        foregroundColor: neutral50,
+        foregroundColor: tokens.neutralOnSurface,
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: neutral900,
-        modalBackgroundColor: neutral900,
+        backgroundColor: tokens.neutralTone00,
+        modalBackgroundColor: tokens.neutralTone00,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppBorderRadius.modal),
@@ -161,6 +174,8 @@ class AppTheme {
             horizontal: Spacing.lg,
             vertical: Spacing.xs,
           ),
+          backgroundColor: darkTone.primary,
+          foregroundColor: _pickOnColor(darkTone.primary, tokens),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppBorderRadius.md),
           ),
@@ -170,15 +185,19 @@ class AppTheme {
         elevation: Elevation.none,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-          side: BorderSide(color: neutral800),
+          side: BorderSide(color: tokens.neutralTone40),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: neutral800.withValues(alpha: 0.92),
-        contentTextStyle: const TextStyle(
-          color: neutral50,
-        ).copyWith(fontSize: AppTypography.bodyMedium),
+        backgroundColor: Color.alphaBlend(
+          tokens.overlayStrong,
+          tokens.neutralTone20,
+        ),
+        contentTextStyle: TextStyle(
+          color: tokens.neutralOnSurface,
+          fontSize: AppTypography.bodyMedium,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppBorderRadius.snackbar),
         ),
@@ -186,14 +205,14 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: neutral700,
+        fillColor: tokens.neutralTone20,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppBorderRadius.md),
-          borderSide: const BorderSide(color: neutral600, width: 1),
+          borderSide: BorderSide(color: tokens.neutralTone40, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppBorderRadius.md),
-          borderSide: const BorderSide(color: neutral600, width: 1),
+          borderSide: BorderSide(color: tokens.neutralTone40, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppBorderRadius.md),
@@ -201,7 +220,7 @@ class AppTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppBorderRadius.md),
-          borderSide: const BorderSide(color: error, width: 1),
+          borderSide: BorderSide(color: tokens.statusError60, width: 1),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: Spacing.md,
@@ -210,7 +229,8 @@ class AppTheme {
       ),
       textTheme: ThemeData.dark().textTheme,
       extensions: <ThemeExtension<dynamic>>[
-        ConduitThemeExtension.darkPalette(palette),
+        tokens,
+        ConduitThemeExtension.darkPalette(palette: palette, tokens: tokens),
         AppPaletteThemeExtension(palette: palette),
       ],
     );
@@ -222,16 +242,31 @@ class AppTheme {
   ) {
     final brightness = Theme.of(context).brightness;
     final tone = palette.toneFor(brightness);
+    final tokens = brightness == Brightness.dark
+        ? AppColorTokens.dark(palette: palette)
+        : AppColorTokens.light(palette: palette);
     return CupertinoThemeData(
       brightness: brightness,
       primaryColor: tone.primary,
-      scaffoldBackgroundColor: brightness == Brightness.dark
-          ? neutral900
-          : neutral50,
-      barBackgroundColor: brightness == Brightness.dark
-          ? neutral900
-          : neutral50,
+      scaffoldBackgroundColor: tokens.neutralTone10,
+      barBackgroundColor: tokens.neutralTone10,
     );
+  }
+
+  static Color _pickOnColor(Color background, AppColorTokens tokens) {
+    final contrastOnLight = _contrastRatio(background, tokens.neutralTone00);
+    final contrastOnDark = _contrastRatio(background, tokens.neutralOnSurface);
+    return contrastOnLight >= contrastOnDark
+        ? tokens.neutralTone00
+        : tokens.neutralOnSurface;
+  }
+
+  static double _contrastRatio(Color a, Color b) {
+    final luminanceA = a.computeLuminance();
+    final luminanceB = b.computeLuminance();
+    final lighter = math.max(luminanceA, luminanceB);
+    final darker = math.min(luminanceA, luminanceB);
+    return (lighter + 0.05) / (darker + 0.05);
   }
 
   static const PageTransitionsTheme _pageTransitionsTheme =

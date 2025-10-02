@@ -16,6 +16,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 
 import '../../theme/theme_extensions.dart';
+import '../../theme/color_tokens.dart';
 
 class MarkdownFeatureFlags {
   const MarkdownFeatureFlags({
@@ -172,7 +173,7 @@ class ConduitMarkdownConfig {
     required bool enableHighlight,
   }) {
     final textStyle = AppTypography.codeStyle.copyWith(
-      color: const Color(0xFFE2E8F0),
+      color: conduitTheme.codeText,
       height: 1.55,
       fontSize: 13,
     );
@@ -212,6 +213,7 @@ class ConduitMarkdownConfig {
     required ThemeData materialTheme,
     required String code,
   }) {
+    final tokens = context.colorTokens;
     return SizedBox(
       height: 360,
       width: double.infinity,
@@ -221,6 +223,7 @@ class ConduitMarkdownConfig {
           code: code,
           brightness: materialTheme.brightness,
           colorScheme: materialTheme.colorScheme,
+          tokens: tokens,
         ),
       ),
     );
@@ -232,7 +235,7 @@ class ConduitMarkdownConfig {
     required String code,
   }) {
     final textStyle = AppTypography.bodySmallStyle.copyWith(
-      color: Colors.white.withValues(alpha: 0.7),
+      color: conduitTheme.codeText.withValues(alpha: 0.7),
     );
 
     return Column(
@@ -468,6 +471,7 @@ class _CodeBlockWrapperState extends State<CodeBlockWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    final conduitTheme = widget.theme;
     final canCopy = widget.closed && widget.code.trim().isNotEmpty;
     final icon = _copied
         ? Icons.check
@@ -475,9 +479,9 @@ class _CodeBlockWrapperState extends State<CodeBlockWrapper> {
         ? Icons.copy
         : Icons.hourglass_empty;
 
-    const background = Color(0xFF0F172A);
-    final borderColor = const Color(0xFF1E293B).withValues(alpha: 0.6);
-    final headerColor = const Color(0xFF1E293B).withValues(alpha: 0.85);
+    final background = conduitTheme.codeBackground;
+    final borderColor = conduitTheme.codeBorder.withValues(alpha: 0.6);
+    final headerColor = conduitTheme.codeAccent.withValues(alpha: 0.85);
 
     final languageLabel = (widget.language?.isNotEmpty ?? false)
         ? widget.language!
@@ -488,13 +492,7 @@ class _CodeBlockWrapperState extends State<CodeBlockWrapper> {
       margin: const EdgeInsets.symmetric(vertical: Spacing.xs),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 14,
-            offset: Offset(0, 10),
-          ),
-        ],
+        boxShadow: ConduitShadows.medium(context),
         border: Border.all(color: borderColor, width: BorderWidth.micro),
       ),
       child: ClipRRect(
@@ -514,7 +512,7 @@ class _CodeBlockWrapperState extends State<CodeBlockWrapper> {
                   Text(
                     languageLabel,
                     style: AppTypography.bodySmallStyle.copyWith(
-                      color: Colors.white.withValues(alpha: 0.85),
+                      color: conduitTheme.codeText.withValues(alpha: 0.85),
                       fontFamily: AppTypography.monospaceFontFamily,
                     ),
                   ),
@@ -531,17 +529,16 @@ class _CodeBlockWrapperState extends State<CodeBlockWrapper> {
                       onPressed: canCopy ? _handleCopy : null,
                       icon: Icon(icon, size: IconSize.sm),
                       color: canCopy
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.5),
+                          ? conduitTheme.codeText
+                          : conduitTheme.codeText.withValues(alpha: 0.5),
                       visualDensity: VisualDensity.compact,
                       padding: const EdgeInsets.all(Spacing.xs),
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withValues(
+                        backgroundColor: conduitTheme.codeText.withValues(
                           alpha: canCopy ? 0.08 : 0.04,
                         ),
-                        disabledBackgroundColor: Colors.white.withValues(
-                          alpha: 0.03,
-                        ),
+                        disabledBackgroundColor: conduitTheme.codeText
+                            .withValues(alpha: 0.03),
                       ),
                     ),
                   ),
@@ -553,7 +550,7 @@ class _CodeBlockWrapperState extends State<CodeBlockWrapper> {
               padding: const EdgeInsets.all(Spacing.sm),
               child: DefaultTextStyle.merge(
                 style: AppTypography.codeStyle.copyWith(
-                  color: const Color(0xFFE2E8F0),
+                  color: conduitTheme.codeText,
                 ),
                 child: widget.child,
               ),
@@ -571,11 +568,13 @@ class MermaidDiagram extends StatefulWidget {
     required this.code,
     required this.brightness,
     required this.colorScheme,
+    required this.tokens,
   });
 
   final String code;
   final Brightness brightness;
   final ColorScheme colorScheme;
+  final AppColorTokens tokens;
 
   static bool get isSupported => !kIsWeb;
 
@@ -625,7 +624,8 @@ class _MermaidDiagramState extends State<MermaidDiagram> {
     final codeChanged = oldWidget.code != widget.code;
     final themeChanged =
         oldWidget.brightness != widget.brightness ||
-        oldWidget.colorScheme != widget.colorScheme;
+        oldWidget.colorScheme != widget.colorScheme ||
+        oldWidget.tokens != widget.tokens;
     if (codeChanged || themeChanged) {
       _loadHtml();
     }
@@ -654,10 +654,12 @@ class _MermaidDiagramState extends State<MermaidDiagram> {
   String _buildHtml(String code, String script) {
     final theme = widget.brightness == Brightness.dark ? 'dark' : 'default';
     final encoded = jsonEncode(code);
-    final primary = _toHex(widget.colorScheme.primary);
-    final secondary = _toHex(widget.colorScheme.secondary);
-    final background = _toHex(widget.colorScheme.surface);
-    final onBackground = _toHex(widget.colorScheme.onSurface);
+    final primary = _toHex(widget.tokens.brandTone60);
+    final secondary = _toHex(widget.tokens.accentTeal60);
+    final background = _toHex(widget.tokens.codeBackground);
+    final onBackground = _toHex(widget.tokens.codeText);
+    final lineColor = _toHex(widget.tokens.codeAccent);
+    final errorColor = _toHex(widget.tokens.statusError60);
 
     return '''
 <!DOCTYPE html>
@@ -688,7 +690,7 @@ $script
           secondaryColor: '$secondary',
           background: '$background',
           textColor: '$onBackground',
-          lineColor: '$onBackground'
+          lineColor: '$lineColor'
         }
       };
 
@@ -702,7 +704,7 @@ $script
             bindFunctions(target);
           }
         } catch (error) {
-          target.innerHTML = '<pre style="color:#ef4444">' + String(error) + '</pre>';
+          target.innerHTML = '<pre style="color:$errorColor">' + String(error) + '</pre>';
           console.error('Mermaid render failed', error);
         }
       })();

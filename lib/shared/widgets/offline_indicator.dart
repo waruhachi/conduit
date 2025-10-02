@@ -105,7 +105,7 @@ class _BackOnlineToast extends StatelessWidget {
                         borderRadius: BorderRadius.circular(
                           AppBorderRadius.round,
                         ),
-                        boxShadow: ConduitShadows.low,
+                        boxShadow: ConduitShadows.low(context),
                       ),
                       child: Text(
                         // Reuse existing l10n; otherwise add a dedicated "Back online" key later

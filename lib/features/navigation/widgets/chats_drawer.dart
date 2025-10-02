@@ -1362,7 +1362,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                   color: theme.dividerColor,
                   width: BorderWidth.regular,
                 ),
-                boxShadow: ConduitShadows.card,
+                boxShadow: ConduitShadows.card(context),
               ),
               child: Row(
                 children: [
@@ -1631,7 +1631,9 @@ class _ConversationTile extends StatelessWidget {
     final Color borderColor = selected
         ? theme.buttonPrimary.withValues(alpha: 0.7)
         : theme.surfaceContainerHighest.withValues(alpha: 0.40);
-    final List<BoxShadow> shadow = selected ? ConduitShadows.low : const [];
+    final List<BoxShadow> shadow = selected
+        ? ConduitShadows.low(context)
+        : const [];
 
     Color? overlayForStates(Set<WidgetState> states) {
       if (states.contains(WidgetState.pressed)) {
