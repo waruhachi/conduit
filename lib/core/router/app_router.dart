@@ -80,11 +80,13 @@ class RouterNotifier extends ChangeNotifier {
       return Routes.serverConnection;
     }
 
-    if (location == Routes.serverConnection) {
-      return Routes.chat;
-    }
-
     final authState = ref.read(authNavigationStateProvider);
+
+    if (location == Routes.serverConnection) {
+      return authState == AuthNavigationState.authenticated
+          ? Routes.chat
+          : Routes.authentication;
+    }
     final connectivityAsync = ref.read(connectivityStatusProvider);
     final connectivity = connectivityAsync.asData?.value;
 

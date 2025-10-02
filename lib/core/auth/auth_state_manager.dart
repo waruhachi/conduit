@@ -141,6 +141,7 @@ class AuthStateManager extends _$AuthStateManager {
           _updateApiServiceToken(token);
           _preloadDefaultModel();
           _loadUserData();
+          _prefetchConversations();
 
           // Background server validation; if it fails, invalidate token gracefully
           Future.microtask(() async {
@@ -264,6 +265,7 @@ class AuthStateManager extends _$AuthStateManager {
 
         // Load user data in background (consistent with credentials method)
         _loadUserData();
+        _prefetchConversations();
 
         DebugLogger.auth('API key login successful');
         return true;
@@ -354,6 +356,7 @@ class AuthStateManager extends _$AuthStateManager {
 
       // Load user data in background
       _loadUserData();
+      _prefetchConversations();
 
       DebugLogger.auth('Login successful');
       return true;
@@ -598,6 +601,25 @@ class AuthStateManager extends _$AuthStateManager {
         if (!ref.mounted) return;
         DebugLogger.warning(
           'default-model-preload-failed',
+          scope: 'auth/state',
+          data: {'error': e.toString()},
+        );
+      }
+    });
+  }
+
+  /// Prime the conversations list so navigation drawers show real data after login.
+  void _prefetchConversations() {
+    Future.microtask(() async {
+      if (!ref.mounted) return;
+      try {
+        refreshConversationsCache(ref, includeFolders: true);
+        await ref.read(conversationsProvider.future);
+        DebugLogger.auth('Conversations prefetch requested');
+      } catch (e) {
+        if (!ref.mounted) return;
+        DebugLogger.warning(
+          'conversation-prefetch-failed',
           scope: 'auth/state',
           data: {'error': e.toString()},
         );
