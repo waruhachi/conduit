@@ -1276,25 +1276,12 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                 borderRadius: BorderRadius.circular(radius),
                 boxShadow: ConduitShadows.button,
               ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  SizedBox(
-                    width: buttonSize - 18,
-                    height: buttonSize - 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: BorderWidth.medium,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        context.conduitTheme.error,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    Platform.isIOS ? CupertinoIcons.stop_fill : Icons.stop,
-                    size: IconSize.medium,
-                    color: context.conduitTheme.error,
-                  ),
-                ],
+              child: Center(
+                child: Icon(
+                  Platform.isIOS ? CupertinoIcons.stop_fill : Icons.stop,
+                  size: IconSize.large,
+                  color: context.conduitTheme.error,
+                ),
               ),
             ),
           ),

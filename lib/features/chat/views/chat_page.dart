@@ -68,6 +68,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   String? _lastConversationId;
   bool _shouldAutoScrollToBottom = true;
   bool _autoScrollCallbackScheduled = false;
+  bool _pendingConversationScrollReset = false;
 
   String _formatModelDisplayName(String name, {required bool omitProvider}) {
     var display = name.trim();
@@ -104,6 +105,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
 
     _shouldAutoScrollToBottom = true;
+    _pendingConversationScrollReset = false;
     _scheduleAutoScrollToBottom();
   }
 
@@ -599,6 +601,22 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     });
   }
 
+  void _resetScrollToTop() {
+    if (!_scrollController.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) {
+          return;
+        }
+        _scrollController.jumpTo(0);
+      });
+      return;
+    }
+
+    if (_scrollController.position.pixels != 0) {
+      _scrollController.jumpTo(0);
+    }
+  }
+
   void _scrollToBottom({bool smooth = true}) {
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
@@ -762,6 +780,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
 
     final apiService = ref.watch(apiServiceProvider);
+
+    if (_pendingConversationScrollReset) {
+      _pendingConversationScrollReset = false;
+      if (messages.length <= 1) {
+        _shouldAutoScrollToBottom = true;
+      } else {
+        // When opening an existing conversation, start reading from the top
+        _shouldAutoScrollToBottom = false;
+        _resetScrollToTop();
+      }
+    }
 
     if (_shouldAutoScrollToBottom) {
       _scheduleAutoScrollToBottom();
@@ -1031,8 +1060,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     );
     if (conversationId != _lastConversationId) {
       _lastConversationId = conversationId;
-      _shouldAutoScrollToBottom = true;
-      _scheduleAutoScrollToBottom();
+      if (conversationId == null) {
+        _shouldAutoScrollToBottom = true;
+        _pendingConversationScrollReset = false;
+        _scheduleAutoScrollToBottom();
+      } else {
+        _pendingConversationScrollReset = true;
+        _shouldAutoScrollToBottom = false;
+      }
     }
     final conversationTitle = ref.watch(
       activeConversationProvider.select((conv) => conv?.title),
