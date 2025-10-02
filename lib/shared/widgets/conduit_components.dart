@@ -557,6 +557,7 @@ class ConduitAvatar extends StatelessWidget {
     return BrandService.createBrandAvatar(
       size: isCompact ? size * 0.8 : size,
       fallbackText: text,
+      context: context,
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 // Using system fonts; no GoogleFonts dependency required
 import 'app_theme.dart';
@@ -505,10 +507,11 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
   /// Dark theme extension derived from the active color palette.
   static ConduitThemeExtension darkPalette(AppColorPalette palette) {
     final darkTone = palette.dark;
+    final onDarkPrimary = _onSurfaceColor(darkTone.primary);
     return ConduitThemeExtension(
       chatBubbleUser: darkTone.primary,
       chatBubbleAssistant: const Color(0xFF0E1010),
-      chatBubbleUserText: AppTheme.neutral50,
+      chatBubbleUserText: onDarkPrimary,
       chatBubbleAssistantText: AppTheme.neutral50,
       chatBubbleUserBorder: darkTone.secondary,
       chatBubbleAssistantBorder: const Color(0xFF1A1D1C),
@@ -525,7 +528,7 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
       surfaceContainer: const Color(0xFF0C0F0E),
       surfaceContainerHighest: const Color(0xFF121514),
       buttonPrimary: darkTone.primary,
-      buttonPrimaryText: AppTheme.neutral50,
+      buttonPrimaryText: onDarkPrimary,
       buttonSecondary: const Color(0xFF151918),
       buttonSecondaryText: AppTheme.neutral50,
       buttonDisabled: AppTheme.neutral600,
@@ -622,10 +625,11 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
   static ConduitThemeExtension lightPalette(AppColorPalette palette) {
     final lightTone = palette.light;
     final darkTone = palette.dark;
+    final onLightPrimary = _onSurfaceColor(lightTone.primary);
     return ConduitThemeExtension(
       chatBubbleUser: lightTone.primary,
       chatBubbleAssistant: const Color(0xFFF7F7F7),
-      chatBubbleUserText: AppTheme.neutral50,
+      chatBubbleUserText: onLightPrimary,
       chatBubbleAssistantText: const Color(0xFF1C1C1C),
       chatBubbleUserBorder: darkTone.primary,
       chatBubbleAssistantBorder: const Color(0xFFE7E7E7),
@@ -642,7 +646,7 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
       surfaceContainer: const Color(0xFFF7F7F7),
       surfaceContainerHighest: const Color(0xFFF0F1F1),
       buttonPrimary: lightTone.primary,
-      buttonPrimaryText: AppTheme.neutral50,
+      buttonPrimaryText: onLightPrimary,
       buttonSecondary: const Color(0xFFF0F1F1),
       buttonSecondaryText: const Color(0xFF1C1C1C),
       buttonDisabled: AppTheme.neutral300,
@@ -737,6 +741,22 @@ class ConduitThemeExtension extends ThemeExtension<ConduitThemeExtension> {
 
   static Color _surfaceTint(Color tone, Color surface, double opacity) {
     return Color.alphaBlend(tone.withValues(alpha: opacity), surface);
+  }
+
+  static Color _onSurfaceColor(Color background) {
+    final contrastOnLight = _contrastRatio(background, AppTheme.neutral50);
+    final contrastOnDark = _contrastRatio(background, AppTheme.neutral900);
+    return contrastOnLight >= contrastOnDark
+        ? AppTheme.neutral50
+        : AppTheme.neutral900;
+  }
+
+  static double _contrastRatio(Color a, Color b) {
+    final luminanceA = a.computeLuminance();
+    final luminanceB = b.computeLuminance();
+    final lighter = math.max(luminanceA, luminanceB);
+    final darker = math.min(luminanceA, luminanceB);
+    return (lighter + 0.05) / (darker + 0.05);
   }
 }
 

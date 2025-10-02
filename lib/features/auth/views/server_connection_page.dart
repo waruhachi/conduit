@@ -356,6 +356,7 @@ class _ServerConnectionPageState extends ConsumerState<ServerConnectionPage> {
                 size: 64,
                 useGradient: true,
                 addShadow: true,
+                context: context,
               ),
               // Reviewer mode badge
               if (reviewerMode)

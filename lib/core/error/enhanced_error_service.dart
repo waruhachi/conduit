@@ -99,6 +99,8 @@ class EnhancedErrorService {
     final message = getUserMessage(error);
     final isRetryableError = isRetryable(error);
     final retryDelay = getRetryDelay(error);
+    final theme = context.conduitTheme;
+    final inverseColor = theme.textInverse;
 
     final snackBar = SnackBar(
       content: Column(
@@ -109,15 +111,12 @@ class EnhancedErrorService {
             children: [
               Icon(
                 _getErrorIcon(error),
-                color: AppTheme.neutral50,
+                color: inverseColor,
                 size: IconSize.md,
               ),
               const SizedBox(width: Spacing.sm),
               Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(color: AppTheme.neutral50),
-                ),
+                child: Text(message, style: TextStyle(color: inverseColor)),
               ),
             ],
           ),
@@ -126,7 +125,7 @@ class EnhancedErrorService {
             Text(
               getTechnicalDetails(error),
               style: TextStyle(
-                color: AppTheme.neutral50.withValues(alpha: Alpha.strong),
+                color: inverseColor.withValues(alpha: Alpha.strong),
                 fontSize: AppTypography.labelMedium,
               ),
             ),
@@ -140,7 +139,7 @@ class EnhancedErrorService {
               label: retryDelay != null && retryDelay.inSeconds > 5
                   ? "${AppLocalizations.of(context)!.retry} (${retryDelay.inSeconds}s)"
                   : AppLocalizations.of(context)!.retry,
-              textColor: AppTheme.neutral50,
+              textColor: inverseColor,
               onPressed: onRetry,
             )
           : null,
@@ -166,6 +165,7 @@ class EnhancedErrorService {
       context: context,
       barrierDismissible: true,
       builder: (BuildContext context) {
+        final theme = context.conduitTheme;
         return AlertDialog(
           title: Row(
             children: [
@@ -178,25 +178,29 @@ class EnhancedErrorService {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(message),
+              Text(message, style: TextStyle(color: theme.textPrimary)),
               if (showTechnicalDetails) ...[
                 const SizedBox(height: Spacing.md),
-                const Text(
+                Text(
                   'Technical Details:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: theme.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: Spacing.xs),
                 Container(
                   padding: const EdgeInsets.all(Spacing.sm),
                   decoration: BoxDecoration(
-                    color: AppTheme.neutral100,
+                    color: theme.surfaceContainer,
                     borderRadius: BorderRadius.circular(AppBorderRadius.xs),
                   ),
                   child: Text(
                     technicalDetails,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: AppTypography.monospaceFontFamily,
                       fontSize: AppTypography.labelMedium,
+                      color: theme.textSecondary,
                     ),
                   ),
                 ),
@@ -236,6 +240,7 @@ class EnhancedErrorService {
     final message = getUserMessage(error);
     final technicalDetails = getTechnicalDetails(error);
     final isRetryableError = isRetryable(error);
+    final theme = context.conduitTheme;
 
     return Container(
       padding: padding ?? const EdgeInsets.all(Spacing.md),
@@ -260,21 +265,22 @@ class EnhancedErrorService {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppTheme.neutral600),
+            style: TextStyle(color: theme.textSecondary),
           ),
           if (showTechnicalDetails) ...[
             const SizedBox(height: Spacing.md),
             Container(
               padding: const EdgeInsets.all(Spacing.xs),
               decoration: BoxDecoration(
-                color: AppTheme.neutral100,
+                color: theme.surfaceContainer,
                 borderRadius: BorderRadius.circular(AppBorderRadius.sm),
               ),
               child: Text(
                 technicalDetails,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: AppTypography.monospaceFontFamily,
                   fontSize: AppTypography.labelMedium,
+                  color: theme.textSecondary,
                 ),
               ),
             ),
