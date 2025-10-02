@@ -21,6 +21,12 @@
     "description": "Messaggio di stato dopo un tentativo di riconnessione senza successo"
   },
   "account": "Account",
+  "supportConduit": "Sostieni Conduit",
+  "supportConduitSubtitle": "Mantieni Conduit indipendente finanziando lo sviluppo continuo.",
+  "githubSponsorsTitle": "GitHub Sponsors",
+  "githubSponsorsSubtitle": "Diventa sponsor ricorrente per supportare la roadmap.",
+  "buyMeACoffeeTitle": "Buy Me a Coffee",
+  "buyMeACoffeeSubtitle": "Fai una donazione una tantum per dire grazie.",
   "signOut": "Esci",
   "endYourSession": "Termina la sessione",
   "defaultModel": "Modello predefinito",

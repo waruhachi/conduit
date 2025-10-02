@@ -21,6 +21,12 @@
     "description": "Statusnachricht nach einem erneuten Versuch ohne wiederhergestellte Verbindung"
   },
   "account": "Konto",
+  "supportConduit": "Conduit unterstützen",
+  "supportConduitSubtitle": "Hilf, die Weiterentwicklung und neue Funktionen zu finanzieren.",
+  "githubSponsorsTitle": "GitHub Sponsors",
+  "githubSponsorsSubtitle": "Werde monatliche*r Sponsor*in und unterstütze die Roadmap.",
+  "buyMeACoffeeTitle": "Buy Me a Coffee",
+  "buyMeACoffeeSubtitle": "Bedanke dich mit einer einmaligen Spende.",
   "signOut": "Abmelden",
   "endYourSession": "Sitzung beenden",
   "defaultModel": "Standardmodell",

@@ -48,6 +48,27 @@ class AppLocalizationsFr extends AppLocalizations {
   String get account => 'Compte';
 
   @override
+  String get supportConduit => 'Soutenir Conduit';
+
+  @override
+  String get supportConduitSubtitle =>
+      'Financez le développement continu et les nouvelles fonctionnalités.';
+
+  @override
+  String get githubSponsorsTitle => 'GitHub Sponsors';
+
+  @override
+  String get githubSponsorsSubtitle =>
+      'Devenez sponsor récurrent pour soutenir la feuille de route.';
+
+  @override
+  String get buyMeACoffeeTitle => 'Buy Me a Coffee';
+
+  @override
+  String get buyMeACoffeeSubtitle =>
+      'Faites un don ponctuel pour nous encourager.';
+
+  @override
   String get signOut => 'Se déconnecter';
 
   @override
