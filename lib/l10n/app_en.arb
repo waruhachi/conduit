@@ -15,9 +15,45 @@
   "unableToLoadProfile": "Unable to load profile",
   "@unableToLoadProfile": {"description": "Error title shown when profile request fails."},
   "pleaseCheckConnection": "Please check your connection and try again",
+  "connectionIssueTitle": "Can't reach your server",
+  "@connectionIssueTitle": {
+    "description": "Title shown when the configured server is unreachable"
+  },
+  "connectionIssueSubtitle": "Reconnect to continue or sign out to choose a different server.",
+  "@connectionIssueSubtitle": {
+    "description": "Subtitle explaining available actions when the server cannot be reached"
+  },
+  "stillOfflineMessage": "We still can't reach the server. Double-check your connection and try again.",
+  "@stillOfflineMessage": {
+    "description": "Status message after a retry when connectivity has not been restored"
+  },
   "@pleaseCheckConnection": {"description": "Generic connectivity hint after an error."},
   "account": "Account",
   "@account": {"description": "Section header for account-related options."},
+  "supportConduit": "Support Conduit",
+  "@supportConduit": {
+    "description": "Section header inviting the user to financially support the project."
+  },
+  "supportConduitSubtitle": "Keep Conduit independent by funding ongoing development.",
+  "@supportConduitSubtitle": {
+    "description": "Subtitle explaining why donations are helpful."
+  },
+  "githubSponsorsTitle": "GitHub Sponsors",
+  "@githubSponsorsTitle": {
+    "description": "Tile title linking to the GitHub Sponsors page."
+  },
+  "githubSponsorsSubtitle": "Become a recurring sponsor to fund roadmap items.",
+  "@githubSponsorsSubtitle": {
+    "description": "Subtitle explaining the impact of recurring sponsorship."
+  },
+  "buyMeACoffeeTitle": "Buy Me a Coffee",
+  "@buyMeACoffeeTitle": {
+    "description": "Tile title linking to the Buy Me a Coffee page."
+  },
+  "buyMeACoffeeSubtitle": "Make a one-time donation to say thanks.",
+  "@buyMeACoffeeSubtitle": {
+    "description": "Subtitle encouraging one-time donations via Buy Me a Coffee."
+  },
   "signOut": "Sign Out",
   "@signOut": {"description": "Button/title for signing out of the app."},
   "endYourSession": "End your session",
@@ -282,8 +318,6 @@
   "emptyImageData": "Empty image data",
   "@emptyImageData": {"description": "Error when image data buffer is empty."}
   ,
-  "offlineBanner": "You're offline. Some features may be limited.",
-  "@offlineBanner": {"description": "Banner warning when device is offline."},
   "featureRequiresInternet": "This feature requires an internet connection",
   "@featureRequiresInternet": {"description": "Informational text explaining internet requirement."},
   "messagesWillSendWhenOnline": "Messages will be sent when you're back online",
@@ -509,6 +543,10 @@
   },
   "themeDark": "Dark",
   "@themeDark": {"description": "Theme label for dark appearance."},
+  "themePalette": "Accent palette",
+  "@themePalette": {"description": "Title for selecting the app color palette."},
+  "themePaletteDescription": "Choose the accent colors used for buttons, cards, and chat bubbles.",
+  "@themePaletteDescription": {"description": "Helper text explaining palette selection."},
   "themeLight": "Light",
   "@themeLight": {"description": "Theme label for light appearance."},
   "currentlyUsingDarkTheme": "Currently using Dark theme",

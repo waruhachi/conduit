@@ -8,7 +8,25 @@
   "loadingProfile": "Profil wird geladen...",
   "unableToLoadProfile": "Profil konnte nicht geladen werden",
   "pleaseCheckConnection": "Bitte überprüfe deine Verbindung und versuche es erneut",
+  "connectionIssueTitle": "Server nicht erreichbar",
+  "@connectionIssueTitle": {
+    "description": "Titel, wenn der konfigurierte Server nicht erreichbar ist"
+  },
+  "connectionIssueSubtitle": "Verbindung wiederherstellen oder abmelden, um einen anderen Server zu wählen.",
+  "@connectionIssueSubtitle": {
+    "description": "Untertitel mit den verfügbaren Aktionen, wenn der Server nicht erreichbar ist"
+  },
+  "stillOfflineMessage": "Der Server ist weiterhin nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.",
+  "@stillOfflineMessage": {
+    "description": "Statusnachricht nach einem erneuten Versuch ohne wiederhergestellte Verbindung"
+  },
   "account": "Konto",
+  "supportConduit": "Conduit unterstützen",
+  "supportConduitSubtitle": "Hilf, die Weiterentwicklung und neue Funktionen zu finanzieren.",
+  "githubSponsorsTitle": "GitHub Sponsors",
+  "githubSponsorsSubtitle": "Werde monatliche*r Sponsor*in und unterstütze die Roadmap.",
+  "buyMeACoffeeTitle": "Buy Me a Coffee",
+  "buyMeACoffeeSubtitle": "Bedanke dich mit einer einmaligen Spende.",
   "signOut": "Abmelden",
   "endYourSession": "Sitzung beenden",
   "defaultModel": "Standardmodell",
@@ -129,7 +147,6 @@
   "invalidImageFormat": "Ungültiges Bildformat",
   "emptyImageData": "Leere Bilddaten"
   ,
-  "offlineBanner": "Du bist offline. Einige Funktionen sind eingeschränkt.",
   "featureRequiresInternet": "Diese Funktion erfordert eine Internetverbindung",
   "messagesWillSendWhenOnline": "Nachrichten werden gesendet, sobald du wieder online bist",
   "confirm": "Bestätigen",
@@ -249,6 +266,10 @@
   "followingSystem": "Dem System folgen: {theme}",
   "@followingSystem": {"placeholders": {"theme": {"type": "String"}}},
   "themeDark": "Dunkel",
+  "themePalette": "Farbpalette",
+  "@themePalette": {"description": "Titel für die Auswahl der App-Farbpalette."},
+  "themePaletteDescription": "Wählen Sie die Akzentfarben für Schaltflächen, Karten und Chatblasen.",
+  "@themePaletteDescription": {"description": "Hilfetext zur Erklärung der Palettenauswahl."},
   "themeLight": "Hell",
   "currentlyUsingDarkTheme": "Aktuell dunkles Thema",
   "currentlyUsingLightTheme": "Aktuell helles Thema",

@@ -2,14 +2,16 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/widgets/error_boundary.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/providers/app_providers.dart';
+import 'core/persistence/hive_bootstrap.dart';
+import 'core/persistence/persistence_migrator.dart';
+import 'core/persistence/persistence_providers.dart';
 import 'core/router/app_router.dart';
-import 'shared/theme/app_theme.dart';
 import 'shared/widgets/offline_indicator.dart';
 import 'features/auth/providers/unified_auth_providers.dart';
 import 'core/auth/auth_state_manager.dart';
@@ -62,8 +64,6 @@ void main() {
         _startupTimeline?.instant('edge_to_edge_enabled');
       });
 
-      final sharedPrefs = await SharedPreferences.getInstance();
-      _startupTimeline!.instant('shared_prefs_ready');
       const secureStorage = FlutterSecureStorage(
         aOptions: AndroidOptions(
           encryptedSharedPreferences: true,
@@ -78,6 +78,13 @@ void main() {
       );
       _startupTimeline!.instant('secure_storage_ready');
 
+      final hiveBoxes = await HiveBootstrap.instance.ensureInitialized();
+      _startupTimeline!.instant('hive_ready');
+
+      final migrator = PersistenceMigrator(hiveBoxes: hiveBoxes);
+      await migrator.migrateIfNeeded();
+      _startupTimeline!.instant('migration_complete');
+
       // Finish timeline after first frame paints
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _startupTimeline?.instant('first_frame_rendered');
@@ -88,8 +95,8 @@ void main() {
       runApp(
         ProviderScope(
           overrides: [
-            sharedPreferencesProvider.overrideWithValue(sharedPrefs),
             secureStorageProvider.overrideWithValue(secureStorage),
+            hiveBoxesProvider.overrideWithValue(hiveBoxes),
           ],
           child: const ConduitApp(),
         ),
@@ -120,18 +127,39 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
   @override
   void initState() {
     super.initState();
-    // Defer heavy provider initialization to after first frame to render UI sooner
+    // Delay heavy provider initialization until after the first frame so the
+    // initial paint stays responsive.
     WidgetsBinding.instance.addPostFrameCallback((_) => _initializeAppState());
   }
 
   void _initializeAppState() {
     DebugLogger.auth('init', scope: 'app');
 
-    ref.read(authStateManagerProvider);
-    ref.read(authApiIntegrationProvider);
-    ref.read(defaultModelAutoSelectionProvider);
-    ref.read(shareReceiverInitializerProvider);
-    ref.read(appStartupFlowProvider.notifier).start();
+    void queueInit(void Function() action, {Duration delay = Duration.zero}) {
+      Future<void>.delayed(delay, () {
+        if (!mounted) return;
+        action();
+      });
+    }
+
+    queueInit(() => ref.read(authStateManagerProvider));
+    queueInit(
+      () => ref.read(authApiIntegrationProvider),
+      delay: const Duration(milliseconds: 16),
+    );
+    queueInit(
+      () => ref.read(defaultModelAutoSelectionProvider),
+      delay: const Duration(milliseconds: 24),
+    );
+    queueInit(
+      () => ref.read(shareReceiverInitializerProvider),
+      delay: const Duration(milliseconds: 32),
+    );
+
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(appStartupFlowProvider.notifier).start();
+    });
   }
 
   @override
@@ -144,13 +172,15 @@ class _ConduitAppState extends ConsumerState<ConduitApp> {
     final themeMode = ref.watch(appThemeModeProvider.select((mode) => mode));
     final router = ref.watch(goRouterProvider);
     final locale = ref.watch(appLocaleProvider);
+    final lightTheme = ref.watch(appLightThemeProvider);
+    final darkTheme = ref.watch(appDarkThemeProvider);
 
     return ErrorBoundary(
       child: MaterialApp.router(
         routerConfig: router,
         onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
-        theme: AppTheme.conduitLightTheme,
-        darkTheme: AppTheme.conduitDarkTheme,
+        theme: lightTheme,
+        darkTheme: darkTheme,
         themeMode: themeMode,
         debugShowCheckedModeBanner: false,
         locale: locale,

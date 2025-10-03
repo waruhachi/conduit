@@ -10,12 +10,11 @@ import 'package:yaml/yaml.dart' as yaml;
 import '../../../core/auth/auth_state_manager.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/models/conversation.dart';
-import '../../../core/models/socket_event.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/services/conversation_delta_listener.dart';
 import '../../../core/services/streaming_helper.dart';
 import '../../../core/services/streaming_response_controller.dart';
 import '../../../core/utils/debug_logger.dart';
-import '../../../core/utils/inactivity_watchdog.dart';
 import '../../../core/utils/markdown_stream_formatter.dart';
 import '../../../core/utils/tool_calls_parser.dart';
 import '../../../shared/services/tasks/task_queue.dart';
@@ -33,7 +32,7 @@ final chatMessagesProvider =
     );
 
 // Loading state for conversation (used to show chat skeletons during fetch)
-@riverpod
+@Riverpod(keepAlive: true)
 class IsLoadingConversation extends _$IsLoadingConversation {
   @override
   bool build() => false;
@@ -42,7 +41,7 @@ class IsLoadingConversation extends _$IsLoadingConversation {
 }
 
 // Prefilled input text (e.g., when sharing text from other apps)
-@riverpod
+@Riverpod(keepAlive: true)
 class PrefilledInputText extends _$PrefilledInputText {
   @override
   String? build() => null;
@@ -53,7 +52,7 @@ class PrefilledInputText extends _$PrefilledInputText {
 }
 
 // Trigger to request focus on the chat input (increment to signal)
-@riverpod
+@Riverpod(keepAlive: true)
 class InputFocusTrigger extends _$InputFocusTrigger {
   @override
   int build() => 0;
@@ -68,7 +67,7 @@ class InputFocusTrigger extends _$InputFocusTrigger {
 }
 
 // Whether the chat composer currently has focus
-@riverpod
+@Riverpod(keepAlive: true)
 class ComposerHasFocus extends _$ComposerHasFocus {
   @override
   bool build() => false;
@@ -83,9 +82,10 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
   final List<StreamSubscription> _subscriptions = [];
   final List<VoidCallback> _socketSubscriptions = [];
   VoidCallback? _socketTeardown;
-  // Activity-based watchdog to prevent stuck typing indicator
-  InactivityWatchdog? _typingWatchdog;
   DateTime? _lastStreamingActivity;
+  Timer? _taskStatusTimer;
+  bool _taskStatusCheckInFlight = false;
+  bool _observedRemoteTask = false;
 
   MarkdownStreamFormatter? _markdownFormatter;
   String? _activeStreamingMessageId;
@@ -143,16 +143,20 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
 
         // Cancel any existing message stream when switching conversations
         _cancelMessageStream();
-        // Also cancel typing guard on conversation switch
-        _cancelTypingGuard();
+        _stopRemoteTaskMonitor();
 
         if (next != null) {
           state = next.messages;
 
           // Update selected model if conversation has a different model
           _updateModelForConversation(next);
+
+          if (_hasStreamingAssistant) {
+            _ensureRemoteTaskMonitor();
+          }
         } else {
           state = [];
+          _stopRemoteTaskMonitor();
         }
       });
 
@@ -163,8 +167,7 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
         _subscriptions.clear();
 
         _cancelMessageStream();
-        cancelSocketSubscriptions();
-        _cancelTypingGuard();
+        _stopRemoteTaskMonitor();
 
         _conversationListener?.close();
         _conversationListener = null;
@@ -183,16 +186,75 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
     }
     _clearStreamingFormatter();
     cancelSocketSubscriptions();
-  }
-
-  void _cancelTypingGuard() {
-    _typingWatchdog?.stop();
-    _typingWatchdog = null;
+    _stopRemoteTaskMonitor();
   }
 
   void _clearStreamingFormatter() {
     _markdownFormatter = null;
     _activeStreamingMessageId = null;
+  }
+
+  bool get _hasStreamingAssistant {
+    if (state.isEmpty) return false;
+    final last = state.last;
+    return last.role == 'assistant' && last.isStreaming;
+  }
+
+  void _ensureRemoteTaskMonitor() {
+    if (_taskStatusTimer != null) {
+      return;
+    }
+    _taskStatusTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!_taskStatusCheckInFlight) {
+        unawaited(_syncRemoteTaskStatus());
+      }
+    });
+    if (!_taskStatusCheckInFlight) {
+      unawaited(_syncRemoteTaskStatus());
+    }
+  }
+
+  void _stopRemoteTaskMonitor() {
+    _taskStatusTimer?.cancel();
+    _taskStatusTimer = null;
+    _taskStatusCheckInFlight = false;
+    _observedRemoteTask = false;
+  }
+
+  Future<void> _syncRemoteTaskStatus() async {
+    if (_taskStatusCheckInFlight) {
+      return;
+    }
+    if (!_hasStreamingAssistant) {
+      _stopRemoteTaskMonitor();
+      return;
+    }
+
+    final api = ref.read(apiServiceProvider);
+    final activeConversation = ref.read(activeConversationProvider);
+    if (api == null || activeConversation == null) {
+      _stopRemoteTaskMonitor();
+      return;
+    }
+
+    _taskStatusCheckInFlight = true;
+    try {
+      final taskIds = await api.getTaskIdsByChat(activeConversation.id);
+      if (taskIds.isEmpty) {
+        if (_observedRemoteTask && _hasStreamingAssistant) {
+          finishStreaming();
+        } else if (!_observedRemoteTask) {
+          // No tasks reported yet; keep monitoring to allow registration.
+        }
+      } else {
+        _observedRemoteTask = true;
+      }
+    } catch (err, stack) {
+      DebugLogger.log('Task status poll failed: $err', scope: 'chat/provider');
+      debugPrintStack(stackTrace: stack);
+    } finally {
+      _taskStatusCheckInFlight = false;
+    }
   }
 
   void _ensureFormatterForMessage(ChatMessage message) {
@@ -231,132 +293,16 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
     return fallback;
   }
 
-  void _scheduleTypingGuard({Duration? timeout}) {
-    // Default timeout tuned to balance long tool gaps and UX
-    final effectiveTimeout = timeout ?? const Duration(seconds: 25);
-    _typingWatchdog ??= InactivityWatchdog(
-      window: effectiveTimeout,
-      onTimeout: () async {
-        try {
-          if (state.isEmpty) return;
-          final last = state.last;
-          // Still the same streaming message and no finish signal
-          if (last.role == 'assistant' && last.isStreaming) {
-            // Attempt a soft recovery: if content is still empty, try fetching final content from server
-            if ((last.content).trim().isEmpty) {
-              try {
-                final apiSvc = ref.read(apiServiceProvider);
-                final activeConv = ref.read(activeConversationProvider);
-                final msgId = last.id;
-                final chatId = activeConv?.id;
-                if (apiSvc != null && chatId != null && chatId.isNotEmpty) {
-                  final resp = await apiSvc.dio.get('/api/v1/chats/$chatId');
-                  final data = resp.data as Map<String, dynamic>;
-                  String content = '';
-                  final chatObj = data['chat'] as Map<String, dynamic>?;
-                  if (chatObj != null) {
-                    final list = chatObj['messages'];
-                    if (list is List) {
-                      final target = list.firstWhere(
-                        (m) => (m is Map && (m['id']?.toString() == msgId)),
-                        orElse: () => null,
-                      );
-                      if (target != null) {
-                        final rawContent = (target as Map)['content'];
-                        if (rawContent is String) {
-                          content = rawContent;
-                        } else if (rawContent is List) {
-                          final textItem = rawContent.firstWhere(
-                            (i) => i is Map && i['type'] == 'text',
-                            orElse: () => null,
-                          );
-                          if (textItem != null) {
-                            content =
-                                (textItem as Map)['text']?.toString() ?? '';
-                          }
-                        }
-                      }
-                    }
-                    if (content.isEmpty) {
-                      final history = chatObj['history'];
-                      if (history is Map && history['messages'] is Map) {
-                        final Map<String, dynamic> messagesMap =
-                            (history['messages'] as Map)
-                                .cast<String, dynamic>();
-                        final msg = messagesMap[msgId];
-                        if (msg is Map) {
-                          final rawContent = msg['content'];
-                          if (rawContent is String) {
-                            content = rawContent;
-                          } else if (rawContent is List) {
-                            final textItem = rawContent.firstWhere(
-                              (i) => i is Map && i['type'] == 'text',
-                              orElse: () => null,
-                            );
-                            if (textItem != null) {
-                              content =
-                                  (textItem as Map)['text']?.toString() ?? '';
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                  if (content.isNotEmpty) {
-                    replaceLastMessageContent(content);
-                  }
-                }
-              } catch (_) {}
-            }
-            // Regardless of fetch result, ensure UI is not stuck
-            finishStreaming();
-          }
-        } finally {
-          _cancelTypingGuard();
-        }
-      },
-    );
-    _typingWatchdog!.setWindow(effectiveTimeout);
-    _typingWatchdog!.ping();
-  }
-
   void _touchStreamingActivity() {
     _lastStreamingActivity = DateTime.now();
-    // Keep guard alive while streaming
-    if (state.isNotEmpty) {
-      final last = state.last;
-      if (last.role == 'assistant' && last.isStreaming) {
-        // Compute a dynamic timeout based on flow type
-        Duration timeout = const Duration(seconds: 25);
-        try {
-          final meta = last.metadata ?? const <String, dynamic>{};
-          final isBgFlow = (meta['backgroundFlow'] == true);
-          final isWebSearchFlow =
-              (meta['webSearchFlow'] == true) ||
-              (meta['webSearchActive'] == true);
-          final isImageGenFlow = (meta['imageGenerationFlow'] == true);
-
-          // Also consult global toggles if metadata not present
-          final globalWebSearch = ref.read(webSearchEnabledProvider);
-          final webSearchAvailable = ref.read(webSearchAvailableProvider);
-          final globalImageGen = ref.read(imageGenerationEnabledProvider);
-
-          // Extend guard windows to tolerate long reasoning/tools (> 1 min)
-          if (isWebSearchFlow || (globalWebSearch && webSearchAvailable)) {
-            if (timeout.inSeconds < 60) timeout = const Duration(seconds: 60);
-          }
-          if (isBgFlow) {
-            // Background tools/dynamic channel can be much longer
-            if (timeout.inSeconds < 120) timeout = const Duration(seconds: 120);
-          }
-          if (isImageGenFlow || globalImageGen) {
-            // Image generation tends to be the longest
-            if (timeout.inSeconds < 180) timeout = const Duration(seconds: 180);
-          }
-        } catch (_) {}
-
-        _scheduleTypingGuard(timeout: timeout);
+    if (_hasStreamingAssistant) {
+      // Reset observed flag each time a new streaming session starts.
+      if (_taskStatusTimer == null) {
+        _observedRemoteTask = false;
       }
+      _ensureRemoteTaskMonitor();
+    } else {
+      _stopRemoteTaskMonitor();
     }
   }
 
@@ -641,13 +587,13 @@ class ChatMessagesNotifier extends Notifier<List<ChatMessage>> {
       lastMessage.copyWith(isStreaming: false, content: cleaned),
     ];
     _messageStream = null;
-    _cancelTypingGuard();
+    _stopRemoteTaskMonitor();
 
     // Trigger a refresh of the conversations list so UI like the Chats Drawer
     // can pick up updated titles and ordering once streaming completes.
     // Best-effort: ignore if ref lifecycle/context prevents invalidation.
     try {
-      ref.invalidate(conversationsProvider);
+      refreshConversationsCache(ref);
     } catch (_) {}
   }
 }
@@ -1331,29 +1277,7 @@ Future<void> regenerateMessage(
       });
     } catch (_) {}
 
-    final chatEventsStream = ref
-        .read(
-          conversationDeltaStreamProvider(
-            ConversationDeltaRequest.chat(
-              conversationId: activeConversation.id,
-              sessionId: effectiveSessionId,
-              requireFocus: false,
-            ),
-          ).notifier,
-        )
-        .stream;
-
-    final channelEventsStream = ref
-        .read(
-          conversationDeltaStreamProvider(
-            ConversationDeltaRequest.channel(
-              conversationId: activeConversation.id,
-              sessionId: effectiveSessionId,
-              requireFocus: false,
-            ),
-          ).notifier,
-        )
-        .stream;
+    final registerDeltaListener = createConversationDeltaRegistrar(ref);
 
     final activeStream = attachUnifiedChunkedStreaming(
       stream: stream,
@@ -1365,8 +1289,7 @@ Future<void> regenerateMessage(
       activeConversationId: activeConversation.id,
       api: api,
       socketService: socketService,
-      chatEvents: chatEventsStream,
-      channelEvents: channelEventsStream,
+      registerDeltaListener: registerDeltaListener,
       appendToLastMessage: (c) =>
           ref.read(chatMessagesProvider.notifier).appendToLastMessage(c),
       replaceLastMessageContent: (c) =>
@@ -1396,10 +1319,10 @@ Future<void> regenerateMessage(
               .read(activeConversationProvider.notifier)
               .set(active.copyWith(title: newTitle));
         }
-        ref.invalidate(conversationsProvider);
+        refreshConversationsCache(ref);
       },
       onChatTagsUpdated: () {
-        ref.invalidate(conversationsProvider);
+        refreshConversationsCache(ref);
         final active = ref.read(activeConversationProvider);
         final api = ref.read(apiServiceProvider);
         if (active != null && api != null) {
@@ -1546,7 +1469,7 @@ Future<void> _sendMessageInternal(
           try {
             // Guard against using ref after widget disposal
             if (ref.mounted == true) {
-              ref.invalidate(conversationsProvider);
+              refreshConversationsCache(ref);
             }
           } catch (_) {
             // If ref doesn't support mounted or is disposed, skip
@@ -1901,29 +1824,7 @@ Future<void> _sendMessageInternal(
       });
     } catch (_) {}
 
-    final chatEventsStream = ref
-        .read(
-          conversationDeltaStreamProvider(
-            ConversationDeltaRequest.chat(
-              conversationId: activeConversation?.id,
-              sessionId: effectiveSessionId,
-              requireFocus: false,
-            ),
-          ).notifier,
-        )
-        .stream;
-
-    final channelEventsStream = ref
-        .read(
-          conversationDeltaStreamProvider(
-            ConversationDeltaRequest.channel(
-              conversationId: activeConversation?.id,
-              sessionId: effectiveSessionId,
-              requireFocus: false,
-            ),
-          ).notifier,
-        )
-        .stream;
+    final registerDeltaListener = createConversationDeltaRegistrar(ref);
 
     final activeStream = attachUnifiedChunkedStreaming(
       stream: stream,
@@ -1935,8 +1836,7 @@ Future<void> _sendMessageInternal(
       activeConversationId: activeConversation?.id,
       api: api,
       socketService: socketService,
-      chatEvents: chatEventsStream,
-      channelEvents: channelEventsStream,
+      registerDeltaListener: registerDeltaListener,
       appendToLastMessage: (c) =>
           ref.read(chatMessagesProvider.notifier).appendToLastMessage(c),
       replaceLastMessageContent: (c) =>
@@ -1966,10 +1866,10 @@ Future<void> _sendMessageInternal(
               .read(activeConversationProvider.notifier)
               .set(active.copyWith(title: newTitle));
         }
-        ref.invalidate(conversationsProvider);
+        refreshConversationsCache(ref);
       },
       onChatTagsUpdated: () {
-        ref.invalidate(conversationsProvider);
+        refreshConversationsCache(ref);
         final active = ref.read(activeConversationProvider);
         final api = ref.read(apiServiceProvider);
         if (active != null && api != null) {
@@ -2103,7 +2003,7 @@ Future<void> _saveConversationLocally(dynamic ref) async {
 
     await storage.setString('conversations', jsonEncode(conversations));
     ref.read(activeConversationProvider.notifier).set(updatedConversation);
-    ref.invalidate(conversationsProvider);
+    refreshConversationsCache(ref);
   } catch (e) {
     // Handle local storage errors silently
   }
@@ -2141,7 +2041,7 @@ Future<void> pinConversation(
     await api.pinConversation(conversationId, pinned);
 
     // Refresh conversations list to reflect the change
-    ref.invalidate(conversationsProvider);
+    refreshConversationsCache(ref);
 
     // Update active conversation if it's the one being pinned
     final activeConversation = ref.read(activeConversationProvider);
@@ -2180,7 +2080,7 @@ Future<void> archiveConversation(
     await api.archiveConversation(conversationId, archived);
 
     // Refresh conversations list to reflect the change
-    ref.invalidate(conversationsProvider);
+    refreshConversationsCache(ref);
   } catch (e) {
     DebugLogger.log(
       'Error ${archived ? 'archiving' : 'unarchiving'} conversation: $e',
@@ -2206,7 +2106,7 @@ Future<String?> shareConversation(WidgetRef ref, String conversationId) async {
     final shareId = await api.shareConversation(conversationId);
 
     // Refresh conversations list to reflect the change
-    ref.invalidate(conversationsProvider);
+    refreshConversationsCache(ref);
 
     return shareId;
   } catch (e) {
@@ -2229,7 +2129,7 @@ Future<void> cloneConversation(WidgetRef ref, String conversationId) async {
     // The ChatMessagesNotifier will automatically load messages when activeConversation changes
 
     // Refresh conversations list to show the new conversation
-    ref.invalidate(conversationsProvider);
+    refreshConversationsCache(ref);
   } catch (e) {
     DebugLogger.log('Error cloning conversation: $e', scope: 'chat/providers');
     rethrow;

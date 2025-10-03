@@ -4,9 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../services/storage_service.dart';
-// (removed duplicate) import '../services/optimized_storage_service.dart';
+import '../persistence/persistence_providers.dart';
 import '../services/api_service.dart';
 import '../auth/auth_state_manager.dart';
 import '../../features/auth/providers/unified_auth_providers.dart';
@@ -25,14 +23,12 @@ import '../services/optimized_storage_service.dart';
 import '../services/socket_service.dart';
 import '../utils/debug_logger.dart';
 import '../models/socket_event.dart';
+import '../../shared/theme/color_palettes.dart';
+import '../../shared/theme/app_theme.dart';
 
 part 'app_providers.g.dart';
 
 // Storage providers
-final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
-  throw UnimplementedError();
-});
-
 final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
   // Single, shared instance with explicit platform options
   return const FlutterSecureStorage(
@@ -50,25 +46,18 @@ final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
   );
 });
 
-final storageServiceProvider = Provider<StorageService>((ref) {
-  return StorageService(
-    secureStorage: ref.watch(secureStorageProvider),
-    prefs: ref.watch(sharedPreferencesProvider),
-  );
-});
-
 // Optimized storage service provider
 final optimizedStorageServiceProvider = Provider<OptimizedStorageService>((
   ref,
 ) {
   return OptimizedStorageService(
     secureStorage: ref.watch(secureStorageProvider),
-    prefs: ref.watch(sharedPreferencesProvider),
+    boxes: ref.watch(hiveBoxesProvider),
   );
 });
 
 // Theme provider
-@riverpod
+@Riverpod(keepAlive: true)
 class AppThemeMode extends _$AppThemeMode {
   late final OptimizedStorageService _storage;
 
@@ -91,8 +80,44 @@ class AppThemeMode extends _$AppThemeMode {
   }
 }
 
+@Riverpod(keepAlive: true)
+class AppThemePalette extends _$AppThemePalette {
+  late final OptimizedStorageService _storage;
+
+  @override
+  AppColorPalette build() {
+    _storage = ref.watch(optimizedStorageServiceProvider);
+    final storedId = _storage.getThemePaletteId();
+    return AppColorPalettes.byId(storedId);
+  }
+
+  Future<void> setPalette(String paletteId) async {
+    final palette = AppColorPalettes.byId(paletteId);
+    state = palette;
+    await _storage.setThemePaletteId(palette.id);
+  }
+}
+
+@Riverpod(keepAlive: true)
+class AppLightTheme extends _$AppLightTheme {
+  @override
+  ThemeData build() {
+    final palette = ref.watch(appThemePaletteProvider);
+    return AppTheme.light(palette);
+  }
+}
+
+@Riverpod(keepAlive: true)
+class AppDarkTheme extends _$AppDarkTheme {
+  @override
+  ThemeData build() {
+    final palette = ref.watch(appThemePaletteProvider);
+    return AppTheme.dark(palette);
+  }
+}
+
 // Locale provider
-@riverpod
+@Riverpod(keepAlive: true)
 class AppLocale extends _$AppLocale {
   late final OptimizedStorageService _storage;
 
@@ -113,13 +138,13 @@ class AppLocale extends _$AppLocale {
 }
 
 // Server connection providers - optimized with caching
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<ServerConfig>> serverConfigs(Ref ref) async {
   final storage = ref.watch(optimizedStorageServiceProvider);
   return storage.getServerConfigs();
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 Future<ServerConfig?> activeServer(Ref ref) async {
   final storage = ref.watch(optimizedStorageServiceProvider);
   final configs = await ref.watch(serverConfigsProvider.future);
@@ -280,7 +305,7 @@ class SocketConnectionStream extends _$SocketConnectionStream {
   ProviderSubscription<AsyncValue<SocketService?>>? _serviceSubscription;
   VoidCallback? _cancelConnectListener;
   VoidCallback? _cancelDisconnectListener;
-  SocketConnectionState _latestState = SocketConnectionState.disconnected;
+  SocketConnectionState _latestState = SocketConnectionState.connecting;
 
   @override
   Stream<SocketConnectionState> build() {
@@ -333,7 +358,7 @@ class SocketConnectionStream extends _$SocketConnectionStream {
   void _handleServiceChange(SocketService? service) {
     if (service == null) {
       _unbindSocket();
-      _emit(SocketConnectionState.disconnected);
+      _emit(SocketConnectionState.connecting);
       return;
     }
 
@@ -383,25 +408,6 @@ class SocketConnectionStream extends _$SocketConnectionStream {
     _cancelConnectListener = null;
     _cancelDisconnectListener = null;
   }
-
-  /// Forces a best-effort reconnect of the underlying socket service.
-  Future<void> reconnect({
-    Duration timeout = const Duration(seconds: 2),
-  }) async {
-    final service = ref.read(socketServiceProvider);
-    if (service == null) {
-      return;
-    }
-    final connected = await service.ensureConnected(timeout: timeout);
-    _emit(
-      connected
-          ? SocketConnectionState.connected
-          : SocketConnectionState.connecting,
-    );
-  }
-
-  /// Exposes the latest cached state for imperative reads.
-  SocketConnectionState get latest => _latestState;
 }
 
 @Riverpod(keepAlive: true)
@@ -494,21 +500,7 @@ class ConversationDeltaStream extends _$ConversationDeltaStream {
     _socketSubscription?.dispose();
     _socketSubscription = null;
   }
-
-  Stream<ConversationDelta> get stream =>
-      _controller?.stream ?? const Stream<ConversationDelta>.empty();
 }
-
-final conversationDeltaEventsProvider =
-    StreamProvider.family<ConversationDelta, ConversationDeltaRequest>((
-      ref,
-      request,
-    ) {
-      final notifier = ref.watch(
-        conversationDeltaStreamProvider(request).notifier,
-      );
-      return notifier.stream;
-    });
 
 // Attachment upload queue provider
 final attachmentUploadQueueProvider = Provider<AttachmentUploadQueue?>((ref) {
@@ -542,7 +534,7 @@ final apiTokenUpdaterProvider = Provider<void>((ref) {
   });
 });
 
-@riverpod
+@Riverpod(keepAlive: true)
 Future<User?> currentUser(Ref ref) async {
   final api = ref.read(apiServiceProvider);
   final isAuthenticated = ref.watch(isAuthenticatedProvider2);
@@ -564,7 +556,7 @@ final refreshAuthStateProvider = Provider<void>((ref) {
 });
 
 // Model providers
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<Model>> models(Ref ref) async {
   // Reviewer mode returns mock models
   final reviewerMode = ref.watch(reviewerModeProvider);
@@ -613,7 +605,7 @@ Future<List<Model>> models(Ref ref) async {
   }
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 class SelectedModel extends _$SelectedModel {
   @override
   Model? build() => null;
@@ -624,7 +616,7 @@ class SelectedModel extends _$SelectedModel {
 }
 
 // Track if the current model selection is manual (user-selected) or automatic (default)
-@riverpod
+@Riverpod(keepAlive: true)
 class IsManualModelSelection extends _$IsManualModelSelection {
   @override
   bool build() => false;
@@ -633,6 +625,7 @@ class IsManualModelSelection extends _$IsManualModelSelection {
 }
 
 // Listen for settings changes and reset manual selection when default model changes
+// keepAlive to maintain listener throughout app lifecycle
 final _settingsWatcherProvider = Provider<void>((ref) {
   ref.listen<AppSettings>(appSettingsProvider, (previous, next) {
     if (previous?.defaultModel != next.defaultModel) {
@@ -643,6 +636,7 @@ final _settingsWatcherProvider = Provider<void>((ref) {
 });
 
 // Auto-apply default model from settings when it changes (and not manually overridden)
+// keepAlive to maintain listener throughout app lifecycle
 final defaultModelAutoSelectionProvider = Provider<void>((ref) {
   ref.listen<AppSettings>(appSettingsProvider, (previous, next) {
     // Only react when default model value changes
@@ -697,7 +691,7 @@ final defaultModelAutoSelectionProvider = Provider<void>((ref) {
 });
 
 // Cache timestamp for conversations to prevent rapid re-fetches
-@riverpod
+@Riverpod(keepAlive: true)
 class _ConversationsCacheTimestamp extends _$ConversationsCacheTimestamp {
   @override
   DateTime? build() => null;
@@ -705,8 +699,20 @@ class _ConversationsCacheTimestamp extends _$ConversationsCacheTimestamp {
   void set(DateTime? timestamp) => state = timestamp;
 }
 
+/// Clears the in-memory timestamp cache and invalidates the conversations
+/// provider so the next read forces a refetch. Optionally invalidates the
+/// folders provider when folder metadata must stay in sync with conversations.
+void refreshConversationsCache(dynamic ref, {bool includeFolders = false}) {
+  ref.read(_conversationsCacheTimestampProvider.notifier).set(null);
+  ref.invalidate(conversationsProvider);
+  if (includeFolders) {
+    ref.invalidate(foldersProvider);
+  }
+}
+
 // Conversation providers - Now using correct OpenWebUI API with caching
-@riverpod
+// keepAlive to maintain cache during authenticated session
+@Riverpod(keepAlive: true)
 Future<List<Conversation>> conversations(Ref ref) async {
   // Do not fetch protected data until authenticated. Use watch so we refetch
   // when the auth state transitions in either direction.
@@ -857,20 +863,37 @@ Future<List<Conversation>> conversations(Ref ref) async {
         final missingIds = folder.conversationIds
             .where((id) => !existingIds.contains(id))
             .toList();
-        if (missingIds.isEmpty) continue;
+
+        final hasKnownConversations = conversationMap.values.any(
+          (conversation) => conversation.folderId == folder.id,
+        );
+
+        final shouldFetchFolder =
+            apiSvc != null &&
+            (missingIds.isNotEmpty ||
+                (!hasKnownConversations && folder.conversationIds.isEmpty));
 
         List<Conversation> folderConvs = const [];
-        try {
-          if (apiSvc != null) {
+        if (shouldFetchFolder) {
+          try {
             folderConvs = await apiSvc.getConversationsInFolder(folder.id);
+            DebugLogger.log(
+              'folder-sync',
+              scope: 'conversations/map',
+              data: {
+                'folderId': folder.id,
+                'fetched': folderConvs.length,
+                'missingIds': missingIds.length,
+              },
+            );
+          } catch (e) {
+            DebugLogger.error(
+              'folder-fetch-failed',
+              scope: 'conversations/map',
+              error: e,
+              data: {'folderId': folder.id},
+            );
           }
-        } catch (e) {
-          DebugLogger.error(
-            'folder-fetch-failed',
-            scope: 'conversations/map',
-            error: e,
-            data: {'folderId': folder.id},
-          );
         }
 
         // Index fetched folder conversations for quick lookup
@@ -907,6 +930,21 @@ Future<List<Conversation>> conversations(Ref ref) async {
               'add-placeholder',
               scope: 'conversations/map',
               data: {'conversationId': convId, 'folderId': folder.id},
+            );
+          }
+        }
+
+        if (folderConvs.isNotEmpty && folder.conversationIds.isEmpty) {
+          for (final conv in folderConvs) {
+            final toAdd = conv.folderId == null
+                ? conv.copyWith(folderId: folder.id)
+                : conv;
+            conversationMap[toAdd.id] = toAdd;
+            existingIds.add(toAdd.id);
+            DebugLogger.log(
+              'add-folder-fetch',
+              scope: 'conversations/map',
+              data: {'conversationId': toAdd.id, 'folderId': folder.id},
             );
           }
         }
@@ -1249,7 +1287,7 @@ final backgroundModelLoadProvider = Provider<void>((ref) {
 });
 
 // Search query provider
-@riverpod
+@Riverpod(keepAlive: true)
 class SearchQuery extends _$SearchQuery {
   @override
   String build() => '';
@@ -1459,7 +1497,7 @@ final archivedConversationsProvider = Provider<List<Conversation>>((ref) {
 });
 
 // Reviewer mode provider (persisted)
-@riverpod
+@Riverpod(keepAlive: true)
 class ReviewerMode extends _$ReviewerMode {
   late final OptimizedStorageService _storage;
   bool _initialized = false;
@@ -1491,7 +1529,7 @@ class ReviewerMode extends _$ReviewerMode {
 }
 
 // User Settings providers
-@riverpod
+@Riverpod(keepAlive: true)
 Future<UserSettings> userSettings(Ref ref) async {
   final api = ref.watch(apiServiceProvider);
   if (api == null) {
@@ -1510,7 +1548,7 @@ Future<UserSettings> userSettings(Ref ref) async {
 }
 
 // Conversation Suggestions provider
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<String>> conversationSuggestions(Ref ref) async {
   final api = ref.watch(apiServiceProvider);
   if (api == null) return [];
@@ -1524,7 +1562,7 @@ Future<List<String>> conversationSuggestions(Ref ref) async {
 }
 
 // Server features and permissions
-@riverpod
+@Riverpod(keepAlive: true)
 Future<Map<String, dynamic>> userPermissions(Ref ref) async {
   final api = ref.watch(apiServiceProvider);
   if (api == null) return {};
@@ -1570,7 +1608,7 @@ final webSearchAvailableProvider = Provider<bool>((ref) {
 });
 
 // Folders provider
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<Folder>> folders(Ref ref) async {
   // Protected: require authentication
   if (!ref.read(isAuthenticatedProvider2)) {
@@ -1601,7 +1639,7 @@ Future<List<Folder>> folders(Ref ref) async {
 }
 
 // Files provider
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<FileInfo>> userFiles(Ref ref) async {
   // Protected: require authentication
   if (!ref.read(isAuthenticatedProvider2)) {
@@ -1645,7 +1683,7 @@ Future<String> fileContent(Ref ref, String fileId) async {
 }
 
 // Knowledge Base providers
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<KnowledgeBase>> knowledgeBases(Ref ref) async {
   // Protected: require authentication
   if (!ref.read(isAuthenticatedProvider2)) {
@@ -1684,7 +1722,7 @@ Future<List<KnowledgeBaseItem>> knowledgeBaseItems(Ref ref, String kbId) async {
 }
 
 // Audio providers
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<String>> availableVoices(Ref ref) async {
   // Protected: require authentication
   if (!ref.read(isAuthenticatedProvider2)) {
@@ -1703,7 +1741,7 @@ Future<List<String>> availableVoices(Ref ref) async {
 }
 
 // Image Generation providers
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<Map<String, dynamic>>> imageModels(Ref ref) async {
   final api = ref.watch(apiServiceProvider);
   if (api == null) return [];

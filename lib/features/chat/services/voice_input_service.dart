@@ -326,7 +326,7 @@ final voiceInputServiceProvider = Provider<VoiceInputService>((ref) {
   return VoiceInputService();
 });
 
-@riverpod
+@Riverpod(keepAlive: true)
 Future<bool> voiceInputAvailable(Ref ref) async {
   final service = ref.watch(voiceInputServiceProvider);
   if (!service.isSupportedPlatform) return false;

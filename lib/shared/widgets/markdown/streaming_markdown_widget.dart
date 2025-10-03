@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 
+import '../../theme/theme_extensions.dart';
 import 'markdown_config.dart';
+import 'markdown_preprocessor.dart';
+
+typedef MarkdownLinkTapCallback = void Function(String url, String title);
 
 class StreamingMarkdownWidget extends StatelessWidget {
   const StreamingMarkdownWidget({
@@ -13,32 +17,88 @@ class StreamingMarkdownWidget extends StatelessWidget {
 
   final String content;
   final bool isStreaming;
-  final MarkdownTapLinkCallback? onTapLink;
+  final MarkdownLinkTapCallback? onTapLink;
 
   @override
   Widget build(BuildContext context) {
-    final markdownTheme = ConduitMarkdownConfig.resolve(context);
-
     if (content.trim().isEmpty) {
-      return isStreaming ? const SizedBox.shrink() : const SizedBox.shrink();
+      return const SizedBox.shrink();
     }
 
-    return MarkdownBody(
-      data: content,
-      styleSheet: markdownTheme.styleSheet,
-      softLineBreak: true,
-      selectable: true,
-      builders: markdownTheme.builders,
-      inlineSyntaxes: markdownTheme.inlineSyntaxes,
-      imageBuilder: markdownTheme.imageBuilder,
-      onTapLink: onTapLink,
+    final normalized = ConduitMarkdownPreprocessor.normalize(content);
+
+    const featureFlags = MarkdownFeatureFlags(
+      enableSyntaxHighlighting: true,
+      enableMermaid: true,
+    );
+
+    final markdownTheme = ConduitMarkdownConfig.resolve(
+      context,
+      flags: featureFlags,
+    );
+    final textScaler = MediaQuery.maybeOf(context)?.textScaler;
+
+    return GptMarkdownTheme(
+      gptThemeData: markdownTheme.themeData,
+      child: SelectionArea(
+        child: GptMarkdown(
+          normalized,
+          style: markdownTheme.textStyle,
+          followLinkColor: markdownTheme.followLinkColor,
+          textDirection: Directionality.of(context),
+          textScaler: textScaler,
+          onLinkTap: onTapLink,
+          codeBuilder: markdownTheme.codeBuilder,
+          imageBuilder: markdownTheme.imageBuilder,
+          useDollarSignsForLatex: true,
+          highlightBuilder: (highlightContext, inline, baseStyle) {
+            final softened = ConduitMarkdownPreprocessor.softenInlineCode(
+              inline,
+            );
+            final theme = highlightContext.conduitTheme;
+            final base = baseStyle;
+            final fontSize = (base.fontSize ?? 13).clamp(11, 15).toDouble();
+            return Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.xs,
+                vertical: Spacing.xxs,
+              ),
+              decoration: BoxDecoration(
+                color: theme.surfaceBackground.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(AppBorderRadius.xs),
+                border: Border.all(
+                  color: theme.cardBorder.withValues(alpha: 0.2),
+                  width: BorderWidth.micro,
+                ),
+              ),
+              child: Text(
+                softened,
+                style: base.copyWith(
+                  fontFamily: AppTypography.monospaceFontFamily,
+                  fontSize: fontSize,
+                  height: 1.35,
+                  color: theme.code?.color ?? theme.textSecondary,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }
 
 extension StreamingMarkdownExtension on String {
-  Widget toMarkdown({required BuildContext context, bool isStreaming = false}) {
-    return StreamingMarkdownWidget(content: this, isStreaming: isStreaming);
+  Widget toMarkdown({
+    required BuildContext context,
+    bool isStreaming = false,
+    MarkdownLinkTapCallback? onTapLink,
+  }) {
+    return StreamingMarkdownWidget(
+      content: this,
+      isStreaming: isStreaming,
+      onTapLink: onTapLink,
+    );
   }
 }
 
@@ -51,7 +111,7 @@ class MarkdownWithLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final value = content ?? '';
-    if (isLoading && value.isEmpty) {
+    if (isLoading && value.trim().isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 

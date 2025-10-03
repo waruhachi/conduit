@@ -95,6 +95,7 @@ class Routes {
   static const String chat = '/chat';
   static const String login = '/login';
   static const String serverConnection = '/server-connection';
+  static const String connectionIssue = '/connection-issue';
   static const String authentication = '/authentication';
   static const String profile = '/profile';
   static const String appCustomization = '/profile/customization';
@@ -106,6 +107,7 @@ class RouteNames {
   static const String chat = 'chat';
   static const String login = 'login';
   static const String serverConnection = 'server-connection';
+  static const String connectionIssue = 'connection-issue';
   static const String authentication = 'authentication';
   static const String profile = 'profile';
   static const String appCustomization = 'app-customization';

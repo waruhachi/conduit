@@ -34,7 +34,39 @@ class AppLocalizationsFr extends AppLocalizations {
       'Veuillez vérifier votre connexion et réessayer';
 
   @override
+  String get connectionIssueTitle => 'Impossible d\'atteindre votre serveur';
+
+  @override
+  String get connectionIssueSubtitle =>
+      'Reconnectez-vous pour continuer ou déconnectez-vous pour choisir un autre serveur.';
+
+  @override
+  String get stillOfflineMessage =>
+      'Nous ne pouvons toujours pas joindre le serveur. Vérifiez votre connexion et réessayez.';
+
+  @override
   String get account => 'Compte';
+
+  @override
+  String get supportConduit => 'Soutenir Conduit';
+
+  @override
+  String get supportConduitSubtitle =>
+      'Financez le développement continu et les nouvelles fonctionnalités.';
+
+  @override
+  String get githubSponsorsTitle => 'GitHub Sponsors';
+
+  @override
+  String get githubSponsorsSubtitle =>
+      'Devenez sponsor récurrent pour soutenir la feuille de route.';
+
+  @override
+  String get buyMeACoffeeTitle => 'Buy Me a Coffee';
+
+  @override
+  String get buyMeACoffeeSubtitle =>
+      'Faites un don ponctuel pour nous encourager.';
 
   @override
   String get signOut => 'Se déconnecter';
@@ -440,10 +472,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get emptyImageData => 'Données d\'image vides';
 
   @override
-  String get offlineBanner =>
-      'Vous êtes hors ligne. Certaines fonctions peuvent être limitées.';
-
-  @override
   String get featureRequiresInternet =>
       'Cette fonctionnalité nécessite une connexion Internet';
 
@@ -755,6 +783,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get themeDark => 'Sombre';
+
+  @override
+  String get themePalette => 'Palette de couleurs';
+
+  @override
+  String get themePaletteDescription =>
+      'Choisissez les couleurs d\'accent utilisées pour les boutons, les cartes et les bulles de discussion.';
 
   @override
   String get themeLight => 'Clair';

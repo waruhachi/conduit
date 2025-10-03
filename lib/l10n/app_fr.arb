@@ -8,7 +8,25 @@
   "loadingProfile": "Chargement du profil...",
   "unableToLoadProfile": "Impossible de charger le profil",
   "pleaseCheckConnection": "Veuillez vérifier votre connexion et réessayer",
+  "connectionIssueTitle": "Impossible d'atteindre votre serveur",
+  "@connectionIssueTitle": {
+    "description": "Titre affiché lorsque le serveur configuré est injoignable"
+  },
+  "connectionIssueSubtitle": "Reconnectez-vous pour continuer ou déconnectez-vous pour choisir un autre serveur.",
+  "@connectionIssueSubtitle": {
+    "description": "Sous-titre expliquant les actions possibles quand le serveur est injoignable"
+  },
+  "stillOfflineMessage": "Nous ne pouvons toujours pas joindre le serveur. Vérifiez votre connexion et réessayez.",
+  "@stillOfflineMessage": {
+    "description": "Message d'état après une tentative de reconnexion sans succès"
+  },
   "account": "Compte",
+  "supportConduit": "Soutenir Conduit",
+  "supportConduitSubtitle": "Financez le développement continu et les nouvelles fonctionnalités.",
+  "githubSponsorsTitle": "GitHub Sponsors",
+  "githubSponsorsSubtitle": "Devenez sponsor récurrent pour soutenir la feuille de route.",
+  "buyMeACoffeeTitle": "Buy Me a Coffee",
+  "buyMeACoffeeSubtitle": "Faites un don ponctuel pour nous encourager.",
   "signOut": "Se déconnecter",
   "endYourSession": "Terminer votre session",
   "defaultModel": "Modèle par défaut",
@@ -129,7 +147,6 @@
   "invalidImageFormat": "Format d'image invalide",
   "emptyImageData": "Données d'image vides"
   ,
-  "offlineBanner": "Vous êtes hors ligne. Certaines fonctions peuvent être limitées.",
   "featureRequiresInternet": "Cette fonctionnalité nécessite une connexion Internet",
   "messagesWillSendWhenOnline": "Les messages seront envoyés lorsque vous serez de nouveau en ligne",
   "confirm": "Confirmer",
@@ -249,6 +266,10 @@
   "followingSystem": "Selon le système : {theme}",
   "@followingSystem": {"placeholders": {"theme": {"type": "String"}}},
   "themeDark": "Sombre",
+  "themePalette": "Palette de couleurs",
+  "@themePalette": {"description": "Titre pour choisir la palette de couleurs de l'application."},
+  "themePaletteDescription": "Choisissez les couleurs d'accent utilisées pour les boutons, les cartes et les bulles de discussion.",
+  "@themePaletteDescription": {"description": "Texte d'aide expliquant la sélection de la palette."},
   "themeLight": "Clair",
   "currentlyUsingDarkTheme": "Thème sombre actuellement utilisé",
   "currentlyUsingLightTheme": "Thème clair actuellement utilisé",

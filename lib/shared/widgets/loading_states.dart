@@ -5,7 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io' show Platform;
 import '../services/brand_service.dart';
-import '../theme/app_theme.dart';
+import '../theme/color_tokens.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 
 /// Standard loading indicators following Conduit design patterns
@@ -21,7 +21,7 @@ class ConduitLoading {
   }) {
     return _LoadingIndicator(
       size: size,
-      color: color ?? BrandService.primaryBrandColor,
+      color: color,
       message: message,
       type: _LoadingType.primary,
     );
@@ -40,7 +40,7 @@ class ConduitLoading {
           color ??
           (context?.conduitTheme.loadingIndicator ??
               context?.conduitTheme.buttonPrimary ??
-              AppTheme.brandPrimary),
+              BrandService.primaryBrandColor(context: context)),
       message: message,
       type: _LoadingType.inline,
     );
@@ -52,13 +52,14 @@ class ConduitLoading {
     Color? color,
     BuildContext? context,
   }) {
+    final tokens = context?.colorTokens ?? AppColorTokens.fallback();
     return _LoadingIndicator(
       size: size,
       color:
           color ??
           (context?.conduitTheme.buttonPrimaryText ??
               context?.conduitTheme.textPrimary ??
-              AppTheme.neutral50),
+              tokens.neutralTone00),
       type: _LoadingType.button,
     );
   }
@@ -91,30 +92,35 @@ enum _LoadingType { primary, inline, button }
 
 class _LoadingIndicator extends StatelessWidget {
   final double size;
-  final Color color;
+  final Color? color;
   final String? message;
   final _LoadingType type;
 
   const _LoadingIndicator({
     required this.size,
-    required this.color,
+    this.color,
     this.message,
     required this.type,
   });
 
   @override
   Widget build(BuildContext context) {
+    final resolvedColor = color ?? context.conduitTheme.loadingIndicator;
+
     Widget indicator;
 
     if (Platform.isIOS) {
-      indicator = CupertinoActivityIndicator(color: color, radius: size / 2);
+      indicator = CupertinoActivityIndicator(
+        color: resolvedColor,
+        radius: size / 2,
+      );
     } else {
       indicator = SizedBox(
         width: size,
         height: size,
         child: CircularProgressIndicator(
           strokeWidth: size / 8,
-          valueColor: AlwaysStoppedAnimation<Color>(color),
+          valueColor: AlwaysStoppedAnimation<Color>(resolvedColor),
         ),
       );
     }
@@ -170,7 +176,7 @@ class _LoadingOverlay extends StatelessWidget {
                 ? context.conduitTheme.surfaceBackground
                 : context.conduitTheme.surfaceBackground,
             borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-            boxShadow: ConduitShadows.high,
+            boxShadow: ConduitShadows.high(context),
           ),
           child: ConduitLoading.primary(
             size: IconSize.xl,

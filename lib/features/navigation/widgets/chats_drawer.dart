@@ -11,7 +11,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../shared/theme/theme_extensions.dart';
 import '../../chat/providers/chat_providers.dart' as chat;
 // import '../../files/views/files_page.dart';
-import '../../../shared/utils/ui_utils.dart';
+import '../../../core/utils/debug_logger.dart';
 import '../../../core/services/navigation_service.dart';
 import '../../../shared/widgets/themed_dialogs.dart';
 import 'package:conduit/l10n/app_localizations.dart';
@@ -23,6 +23,8 @@ import '../../../shared/utils/conversation_context_menu.dart';
 import '../../../shared/widgets/user_avatar.dart';
 import '../../../shared/widgets/model_avatar.dart';
 import '../../../core/models/model.dart';
+import '../../../core/models/conversation.dart';
+import '../../../core/models/folder.dart';
 
 class ChatsDrawer extends ConsumerStatefulWidget {
   const ChatsDrawer({super.key});
@@ -53,12 +55,11 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
 
   Future<void> _refreshChats() async {
     try {
-      // Always refresh folders
-      ref.invalidate(foldersProvider);
+      // Always refresh folders and conversations cache
+      refreshConversationsCache(ref, includeFolders: true);
 
       if (_query.trim().isEmpty) {
         // Refresh main conversations list
-        ref.invalidate(conversationsProvider);
         try {
           await ref.read(conversationsProvider.future);
         } catch (_) {}
@@ -149,8 +150,8 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(
-              Spacing.md,
-              0,
+              Spacing.inputPadding,
+              Spacing.sm,
               Spacing.md,
               Spacing.sm,
             ),
@@ -322,11 +323,18 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                       grouped.putIfAbsent(id, () => []).add(c);
                     }
 
+                    final expandedMap = ref.watch(_expandedFoldersProvider);
+
                     // Show all folders (including empty)
                     final sections = folders.map((folder) {
-                      final expandedMap = ref.watch(_expandedFoldersProvider);
-                      final isExpanded = expandedMap[folder.id] ?? false;
-                      final convs = grouped[folder.id] ?? const <dynamic>[];
+                      final existing = grouped[folder.id] ?? const <dynamic>[];
+                      final convs = _resolveFolderConversations(
+                        folder,
+                        existing,
+                      );
+                      final isExpanded =
+                          expandedMap[folder.id] ?? folder.isExpanded;
+                      final hasItems = convs.isNotEmpty;
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -334,8 +342,9 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                             folder.id,
                             folder.name,
                             convs.length,
+                            defaultExpanded: folder.isExpanded,
                           ),
-                          if (isExpanded && convs.isNotEmpty) ...[
+                          if (isExpanded && hasItems) ...[
                             const SizedBox(height: Spacing.xs),
                             ...convs.map(
                               (c) => _buildTileFor(c, inFolder: true),
@@ -480,10 +489,14 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                     grouped.putIfAbsent(id, () => []).add(c);
                   }
 
+                  final expandedMap = ref.watch(_expandedFoldersProvider);
+
                   final sections = folders.map((folder) {
-                    final expandedMap = ref.watch(_expandedFoldersProvider);
-                    final isExpanded = expandedMap[folder.id] ?? false;
-                    final convs = grouped[folder.id] ?? const <dynamic>[];
+                    final existing = grouped[folder.id] ?? const <dynamic>[];
+                    final convs = _resolveFolderConversations(folder, existing);
+                    final isExpanded =
+                        expandedMap[folder.id] ?? folder.isExpanded;
+                    final hasItems = convs.isNotEmpty;
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -491,8 +504,9 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                           folder.id,
                           folder.name,
                           convs.length,
+                          defaultExpanded: folder.isExpanded,
                         ),
-                        if (isExpanded && convs.isNotEmpty) ...[
+                        if (isExpanded && hasItems) ...[
                           const SizedBox(height: Spacing.xs),
                           ...convs.map((c) => _buildTileFor(c, inFolder: true)),
                           const SizedBox(height: Spacing.sm),
@@ -614,23 +628,30 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       if (api == null) throw Exception('No API service');
       await api.createFolder(name: name);
       HapticFeedback.lightImpact();
-      ref.invalidate(foldersProvider);
+      refreshConversationsCache(ref, includeFolders: true);
+    } catch (e, stackTrace) {
       if (!mounted) return;
-      UiUtils.showMessage(context, AppLocalizations.of(context)!.folderCreated);
-    } catch (e) {
-      if (!mounted) return;
-      UiUtils.showMessage(
-        context,
+      DebugLogger.error(
+        'create-folder-failed',
+        scope: 'drawer',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      await _showDrawerError(
         AppLocalizations.of(context)!.failedToCreateFolder,
-        isError: true,
       );
     }
   }
 
-  Widget _buildFolderHeader(String folderId, String name, int count) {
+  Widget _buildFolderHeader(
+    String folderId,
+    String name,
+    int count, {
+    bool defaultExpanded = false,
+  }) {
     final theme = context.conduitTheme;
     final expandedMap = ref.watch(_expandedFoldersProvider);
-    final isExpanded = expandedMap[folderId] ?? false;
+    final isExpanded = expandedMap[folderId] ?? defaultExpanded;
     final isHover = _dragHoverFolderId == folderId;
     return DragTarget<_DragConversationData>(
       onWillAcceptWithDetails: (details) {
@@ -648,22 +669,17 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           if (api == null) throw Exception('No API service');
           await api.moveConversationToFolder(details.data.id, folderId);
           HapticFeedback.selectionClick();
-          ref.invalidate(conversationsProvider);
-          ref.invalidate(foldersProvider);
+          refreshConversationsCache(ref, includeFolders: true);
+        } catch (e, stackTrace) {
+          DebugLogger.error(
+            'move-conversation-failed',
+            scope: 'drawer',
+            error: e,
+            stackTrace: stackTrace,
+          );
           if (mounted) {
-            UiUtils.showMessage(
-              context,
-              AppLocalizations.of(
-                context,
-              )!.movedChatToFolder(details.data.title, name),
-            );
-          }
-        } catch (_) {
-          if (mounted) {
-            UiUtils.showMessage(
-              context,
+            await _showDrawerError(
               AppLocalizations.of(context)!.failedToMoveChat,
-              isError: true,
             );
           }
         }
@@ -696,7 +712,8 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
             borderRadius: BorderRadius.zero,
             onTap: () {
               final current = {...ref.read(_expandedFoldersProvider)};
-              current[folderId] = !isExpanded;
+              final next = !isExpanded;
+              current[folderId] = next;
               ref.read(_expandedFoldersProvider.notifier).set(current);
             },
             onLongPress: () {
@@ -780,6 +797,95 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
     );
   }
 
+  List<dynamic> _resolveFolderConversations(
+    Folder folder,
+    List<dynamic> existing,
+  ) {
+    // Preserve the current conversational ordering while ensuring items from
+    // the folder metadata appear even if the main list has not fetched them
+    // yet. This primarily happens when chats live exclusively inside folders
+    // and the conversations endpoint omits them.
+    final result = <dynamic>[];
+
+    final existingMap = <String, dynamic>{};
+    for (final item in existing) {
+      final id = _conversationId(item);
+      if (id != null) {
+        existingMap[id] = item;
+      }
+    }
+
+    if (folder.conversationIds.isNotEmpty) {
+      for (final convId in folder.conversationIds) {
+        final existingItem = existingMap.remove(convId);
+        if (existingItem != null) {
+          result.add(existingItem);
+        } else {
+          result.add(_placeholderConversation(convId, folder.id));
+        }
+      }
+
+      // Append any remaining conversations that claim this folder but are
+      // missing from the folder metadata list (defensive for API drift).
+      result.addAll(existingMap.values);
+    } else {
+      result.addAll(existingMap.values);
+    }
+
+    return result;
+  }
+
+  Conversation _placeholderConversation(
+    String conversationId,
+    String folderId,
+  ) {
+    const fallbackTitle = 'Chat';
+    final epoch = DateTime.fromMillisecondsSinceEpoch(0);
+    return Conversation(
+      id: conversationId,
+      title: fallbackTitle,
+      createdAt: epoch,
+      updatedAt: epoch,
+      folderId: folderId,
+      messages: const [],
+    );
+  }
+
+  String? _conversationId(dynamic item) {
+    if (item is Conversation) return item.id;
+    try {
+      final value = (item as dynamic).id;
+      if (value is String) {
+        return value;
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
+  Future<void> _showDrawerError(String message) async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    final theme = context.conduitTheme;
+    await ThemedDialogs.show<void>(
+      context,
+      title: l10n.errorMessage,
+      content: Text(
+        message,
+        style: AppTypography.bodyMediumStyle.copyWith(
+          color: theme.textSecondary,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.ok),
+        ),
+      ],
+    );
+  }
+
   void _showFolderContextMenu(
     BuildContext context,
     String folderId,
@@ -835,14 +941,16 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       if (api == null) throw Exception('No API service');
       await api.updateFolder(folderId, name: newName);
       HapticFeedback.selectionClick();
-      ref.invalidate(foldersProvider);
-    } catch (_) {
+      refreshConversationsCache(ref, includeFolders: true);
+    } catch (e, stackTrace) {
       if (!mounted) return;
-      UiUtils.showMessage(
-        this.context,
-        'Failed to rename folder',
-        isError: true,
+      DebugLogger.error(
+        'rename-folder-failed',
+        scope: 'drawer',
+        error: e,
+        stackTrace: stackTrace,
       );
+      await _showDrawerError('Failed to rename folder');
     }
   }
 
@@ -868,11 +976,16 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
       if (api == null) throw Exception('No API service');
       await api.deleteFolder(folderId);
       HapticFeedback.mediumImpact();
-      ref.invalidate(foldersProvider);
-      ref.invalidate(conversationsProvider);
-    } catch (_) {
+      refreshConversationsCache(ref, includeFolders: true);
+    } catch (e, stackTrace) {
       if (!mounted) return;
-      UiUtils.showMessage(this.context, deleteFolderError, isError: true);
+      DebugLogger.error(
+        'delete-folder-failed',
+        scope: 'drawer',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      await _showDrawerError(deleteFolderError);
     }
   }
 
@@ -896,17 +1009,16 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
           if (api == null) throw Exception('No API service');
           await api.moveConversationToFolder(details.data.id, null);
           HapticFeedback.selectionClick();
-          ref.invalidate(conversationsProvider);
-          ref.invalidate(foldersProvider);
+          refreshConversationsCache(ref, includeFolders: true);
+        } catch (e, stackTrace) {
+          DebugLogger.error(
+            'unfile-conversation-failed',
+            scope: 'drawer',
+            error: e,
+            stackTrace: stackTrace,
+          );
           if (mounted) {
-            UiUtils.showMessage(
-              context,
-              'Removed "${details.data.title}" from folder',
-            );
-          }
-        } catch (_) {
-          if (mounted) {
-            UiUtils.showMessage(context, l10n.failedToMoveChat, isError: true);
+            await _showDrawerError(l10n.failedToMoveChat);
           }
         }
       },
@@ -1250,7 +1362,7 @@ class _ChatsDrawerState extends ConsumerState<ChatsDrawer> {
                   color: theme.dividerColor,
                   width: BorderWidth.regular,
                 ),
-                boxShadow: ConduitShadows.card,
+                boxShadow: ConduitShadows.card(context),
               ),
               child: Row(
                 children: [
@@ -1347,7 +1459,7 @@ class _ConversationDragFeedback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderRadius = BorderRadius.circular(AppBorderRadius.navigation);
+    final borderRadius = BorderRadius.zero;
     final borderColor = theme.surfaceContainerHighest.withValues(alpha: 0.40);
 
     return Material(
@@ -1510,7 +1622,7 @@ class _ConversationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.conduitTheme;
     final brightness = Theme.of(context).brightness;
-    final borderRadius = BorderRadius.circular(AppBorderRadius.navigation);
+    final borderRadius = BorderRadius.zero;
     final Color background = selected
         ? theme.buttonPrimary.withValues(
             alpha: brightness == Brightness.dark ? 0.28 : 0.16,
@@ -1519,7 +1631,9 @@ class _ConversationTile extends StatelessWidget {
     final Color borderColor = selected
         ? theme.buttonPrimary.withValues(alpha: 0.7)
         : theme.surfaceContainerHighest.withValues(alpha: 0.40);
-    final List<BoxShadow> shadow = selected ? ConduitShadows.low : const [];
+    final List<BoxShadow> shadow = selected
+        ? ConduitShadows.low(context)
+        : const [];
 
     Color? overlayForStates(Set<WidgetState> states) {
       if (states.contains(WidgetState.pressed)) {

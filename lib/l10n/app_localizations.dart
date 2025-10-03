@@ -150,11 +150,65 @@ abstract class AppLocalizations {
   /// **'Please check your connection and try again'**
   String get pleaseCheckConnection;
 
+  /// Title shown when the configured server is unreachable
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t reach your server'**
+  String get connectionIssueTitle;
+
+  /// Subtitle explaining available actions when the server cannot be reached
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect to continue or sign out to choose a different server.'**
+  String get connectionIssueSubtitle;
+
+  /// Status message after a retry when connectivity has not been restored
+  ///
+  /// In en, this message translates to:
+  /// **'We still can\'t reach the server. Double-check your connection and try again.'**
+  String get stillOfflineMessage;
+
   /// Section header for account-related options.
   ///
   /// In en, this message translates to:
   /// **'Account'**
   String get account;
+
+  /// Section header inviting the user to financially support the project.
+  ///
+  /// In en, this message translates to:
+  /// **'Support Conduit'**
+  String get supportConduit;
+
+  /// Subtitle explaining why donations are helpful.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep Conduit independent by funding ongoing development.'**
+  String get supportConduitSubtitle;
+
+  /// Tile title linking to the GitHub Sponsors page.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub Sponsors'**
+  String get githubSponsorsTitle;
+
+  /// Subtitle explaining the impact of recurring sponsorship.
+  ///
+  /// In en, this message translates to:
+  /// **'Become a recurring sponsor to fund roadmap items.'**
+  String get githubSponsorsSubtitle;
+
+  /// Tile title linking to the Buy Me a Coffee page.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy Me a Coffee'**
+  String get buyMeACoffeeTitle;
+
+  /// Subtitle encouraging one-time donations via Buy Me a Coffee.
+  ///
+  /// In en, this message translates to:
+  /// **'Make a one-time donation to say thanks.'**
+  String get buyMeACoffeeSubtitle;
 
   /// Button/title for signing out of the app.
   ///
@@ -864,12 +918,6 @@ abstract class AppLocalizations {
   /// **'Empty image data'**
   String get emptyImageData;
 
-  /// Banner warning when device is offline.
-  ///
-  /// In en, this message translates to:
-  /// **'You\'re offline. Some features may be limited.'**
-  String get offlineBanner;
-
   /// Informational text explaining internet requirement.
   ///
   /// In en, this message translates to:
@@ -1445,6 +1493,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Dark'**
   String get themeDark;
+
+  /// Title for selecting the app color palette.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent palette'**
+  String get themePalette;
+
+  /// Helper text explaining palette selection.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the accent colors used for buttons, cards, and chat bubbles.'**
+  String get themePaletteDescription;
 
   /// Theme label for light appearance.
   ///

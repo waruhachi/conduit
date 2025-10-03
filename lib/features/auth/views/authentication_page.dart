@@ -314,6 +314,7 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
           size: 48,
           useGradient: true,
           addShadow: true,
+          context: context,
         ).animate().scale(
           duration: AnimationDuration.pageTransition,
           curve: Curves.easeOutBack,

@@ -65,6 +65,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   double _inputHeight = 0; // dynamic input height to position scroll button
   bool _lastKeyboardVisible = false; // track keyboard visibility transitions
   bool _didStartupFocus = false; // one-time auto-focus on startup
+  String? _lastConversationId;
+  bool _shouldAutoScrollToBottom = true;
+  bool _autoScrollCallbackScheduled = false;
+  bool _pendingConversationScrollReset = false;
+  String? _cachedGreetingName;
+  bool _greetingReady = false;
 
   String _formatModelDisplayName(String name, {required bool omitProvider}) {
     var display = name.trim();
@@ -99,6 +105,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
     }
+
+    _shouldAutoScrollToBottom = true;
+    _pendingConversationScrollReset = false;
+    _scheduleAutoScrollToBottom();
   }
 
   Future<void> _checkAndAutoSelectModel() async {
@@ -204,7 +214,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           borderRadius: const BorderRadius.vertical(
             top: Radius.circular(AppBorderRadius.modal),
           ),
-          boxShadow: ConduitShadows.modal,
+          boxShadow: ConduitShadows.modal(context),
         ),
         child: const OnboardingSheet(),
       ),
@@ -230,7 +240,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     // Force refresh conversations provider to ensure we get the demo conversations
     if (!mounted) return;
-    ref.invalidate(conversationsProvider);
+    refreshConversationsCache(ref);
 
     // Try to load demo conversation
     for (int i = 0; i < 10; i++) {
@@ -273,6 +283,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     // Listen to scroll events to show/hide scroll to bottom button
     _scrollController.addListener(_onScroll);
+
+    _scheduleAutoScrollToBottom();
 
     // Initialize chat page components
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -371,12 +383,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
       // Scroll to bottom after enqueuing (only if user was near bottom)
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          final currentScroll = _scrollController.position.pixels;
-          // Only auto-scroll if user was already near the bottom (within 300px)
-          if (currentScroll <= 300) {
-            _scrollToBottom();
-          }
+        // Only auto-scroll if user was already near the bottom (within 300 px)
+        final distanceFromBottom = _distanceFromBottom();
+        if (distanceFromBottom <= 300) {
+          _scrollToBottom();
         }
       });
     } catch (e) {
@@ -542,18 +552,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     _scrollDebounceTimer = Timer(const Duration(milliseconds: 80), () {
       if (!mounted || _isDeactivated || !_scrollController.hasClients) return;
 
-      final currentScroll = _scrollController.position.pixels;
       final maxScroll = _scrollController.position.maxScrollExtent;
+      final distanceFromBottom = _distanceFromBottom();
 
       const double showThreshold = 300.0;
       const double hideThreshold = 150.0;
 
-      final bool farFromBottom = currentScroll > showThreshold;
-      final bool nearBottom = currentScroll <= hideThreshold;
+      final bool farFromBottom = distanceFromBottom > showThreshold;
+      final bool nearBottom = distanceFromBottom <= hideThreshold;
+      final bool hasScrollableContent =
+          maxScroll.isFinite && maxScroll > showThreshold;
 
       final bool showButton = _showScrollToBottom
-          ? !nearBottom && maxScroll > showThreshold
-          : farFromBottom && maxScroll > showThreshold;
+          ? !nearBottom && hasScrollableContent
+          : farFromBottom && hasScrollableContent;
 
       if (showButton != _showScrollToBottom && mounted && !_isDeactivated) {
         setState(() {
@@ -563,10 +575,55 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     });
   }
 
+  double _distanceFromBottom() {
+    if (!_scrollController.hasClients) {
+      return double.infinity;
+    }
+    final position = _scrollController.position;
+    final maxScroll = position.maxScrollExtent;
+    if (!maxScroll.isFinite) {
+      return double.infinity;
+    }
+    final distance = maxScroll - position.pixels;
+    return distance >= 0 ? distance : 0.0;
+  }
+
+  void _scheduleAutoScrollToBottom() {
+    if (_autoScrollCallbackScheduled) return;
+    _autoScrollCallbackScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoScrollCallbackScheduled = false;
+      if (!mounted || !_shouldAutoScrollToBottom) return;
+      if (!_scrollController.hasClients) {
+        _scheduleAutoScrollToBottom();
+        return;
+      }
+      _scrollToBottom(smooth: false);
+      _shouldAutoScrollToBottom = false;
+    });
+  }
+
+  void _resetScrollToTop() {
+    if (!_scrollController.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) {
+          return;
+        }
+        _scrollController.jumpTo(0);
+      });
+      return;
+    }
+
+    if (_scrollController.position.pixels != 0) {
+      _scrollController.jumpTo(0);
+    }
+  }
+
   void _scrollToBottom({bool smooth = true}) {
     if (!_scrollController.hasClients) return;
-
-    final target = 0.0;
+    final position = _scrollController.position;
+    final maxScroll = position.maxScrollExtent;
+    final target = maxScroll.isFinite ? maxScroll : 0.0;
     if (smooth) {
       _scrollController.animateTo(
         target,
@@ -678,7 +735,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 color: context.conduitTheme.cardBorder,
                 width: BorderWidth.regular,
               ),
-              boxShadow: ConduitShadows.messageBubble,
+              boxShadow: ConduitShadows.messageBubble(context),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -726,12 +783,36 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     final apiService = ref.watch(apiServiceProvider);
 
+    if (_pendingConversationScrollReset) {
+      _pendingConversationScrollReset = false;
+      if (messages.length <= 1) {
+        _shouldAutoScrollToBottom = true;
+      } else {
+        // When opening an existing conversation, start reading from the top
+        _shouldAutoScrollToBottom = false;
+        _resetScrollToTop();
+      }
+    }
+
+    if (_shouldAutoScrollToBottom) {
+      _scheduleAutoScrollToBottom();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        const double keepPinnedThreshold = 60.0;
+        final distanceFromBottom = _distanceFromBottom();
+        if (distanceFromBottom > 0 &&
+            distanceFromBottom <= keepPinnedThreshold) {
+          _scrollToBottom(smooth: false);
+        }
+      });
+    }
+
     return OptimizedList<ChatMessage>(
       key: const ValueKey('actual_messages'),
       scrollController: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       items: messages,
-      reverse: true,
       padding: const EdgeInsets.fromLTRB(
         Spacing.lg,
         Spacing.md,
@@ -893,62 +974,71 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     );
     final authUser = ref.watch(currentUserProvider2);
     final user = userFromProfile ?? authUser;
-    final greetingName = deriveUserDisplayName(user);
+    String? greetingName;
+    if (user != null) {
+      final derived = deriveUserDisplayName(user, fallback: '').trim();
+      if (derived.isNotEmpty) {
+        greetingName = derived;
+        _cachedGreetingName = derived;
+      }
+    }
+    greetingName ??= _cachedGreetingName;
+    final hasGreeting = greetingName != null && greetingName.isNotEmpty;
+    if (hasGreeting && !_greetingReady) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _greetingReady = true;
+        });
+      });
+    } else if (!hasGreeting && _greetingReady) {
+      _greetingReady = false;
+    }
+    final greetingStyle = theme.textTheme.headlineSmall?.copyWith(
+      fontWeight: FontWeight.w600,
+      color: context.conduitTheme.textPrimary,
+    );
+    final greetingHeight =
+        (greetingStyle?.fontSize ?? 24) * (greetingStyle?.height ?? 1.1);
+    final String? resolvedGreetingName = hasGreeting ? greetingName : null;
+    final greetingText = resolvedGreetingName != null
+        ? l10n.onboardStartTitle(resolvedGreetingName)
+        : null;
     return LayoutBuilder(
       builder: (context, constraints) {
-        return SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(Spacing.lg),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Minimal, clean empty state
-                Container(
-                      width: Spacing.xxl + Spacing.xxxl,
-                      height: Spacing.xxl + Spacing.xxxl,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            context.conduitTheme.buttonPrimary,
-                            context.conduitTheme.buttonPrimary.withValues(
-                              alpha: 0.8,
-                            ),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(
-                          AppBorderRadius.round,
-                        ),
-                        boxShadow: ConduitShadows.glow,
-                      ),
-                      child: Icon(
-                        Platform.isIOS
-                            ? CupertinoIcons.chat_bubble_2
-                            : Icons.chat,
-                        size: Spacing.xxxl - Spacing.xs,
-                        color: context.conduitTheme.textInverse,
-                      ),
-                    )
-                    .animate()
-                    .scale(duration: const Duration(milliseconds: 300))
-                    .then()
-                    .shimmer(duration: const Duration(milliseconds: 1200)),
+        final greetingDisplay = greetingText ?? '';
 
-                const SizedBox(height: Spacing.xl),
-
-                Text(
-                  l10n.onboardStartTitle(greetingName),
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: context.conduitTheme.textPrimary,
+        return MediaQuery.removeViewInsets(
+          context: context,
+          removeBottom: true,
+          child: SizedBox(
+            width: double.infinity,
+            height: constraints.maxHeight,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  SizedBox(
+                    height: greetingHeight,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                      opacity: _greetingReady ? 1 : 0,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Text(
+                          _greetingReady ? greetingDisplay : '',
+                          style: greetingStyle,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ).animate().fadeIn(delay: const Duration(milliseconds: 150)),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -977,6 +1067,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         (settings) => settings.omitProviderInModelName,
       ),
     );
+    final conversationId = ref.watch(
+      activeConversationProvider.select((conv) => conv?.id),
+    );
+    if (conversationId != _lastConversationId) {
+      _lastConversationId = conversationId;
+      if (conversationId == null) {
+        _shouldAutoScrollToBottom = true;
+        _pendingConversationScrollReset = false;
+        _scheduleAutoScrollToBottom();
+      } else {
+        _pendingConversationScrollReset = true;
+        _shouldAutoScrollToBottom = false;
+      }
+    }
     final conversationTitle = ref.watch(
       activeConversationProvider.select((conv) => conv?.title),
     );
@@ -1018,14 +1122,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     if (keyboardVisible && !_lastKeyboardVisible) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        if (_scrollController.hasClients) {
-          final currentScroll = _scrollController.position.pixels;
-          if (currentScroll <= 300) {
-            _scrollToBottom(smooth: true);
-          }
+        final distanceFromBottom = _distanceFromBottom();
+        if (distanceFromBottom <= 300) {
+          _scrollToBottom(smooth: true);
         }
       });
     }
+
     _lastKeyboardVisible = keyboardVisible;
 
     // Auto-select model when in reviewer mode with no selection
@@ -1037,19 +1140,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     // Focus composer on app startup once
     if (!_didStartupFocus) {
+      _didStartupFocus = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final current = ref.read(inputFocusTriggerProvider);
-        // Immediate focus bump
-        ref.read(inputFocusTriggerProvider.notifier).set(current + 1);
-        // Second bump shortly after to overcome route/IME timing
-        Future.delayed(const Duration(milliseconds: 120), () {
+        Future.delayed(const Duration(milliseconds: 200), () {
           if (!mounted) return;
-          final cur2 = ref.read(inputFocusTriggerProvider);
-          ref.read(inputFocusTriggerProvider.notifier).set(cur2 + 1);
+          final current = ref.read(inputFocusTriggerProvider);
+          ref.read(inputFocusTriggerProvider.notifier).set(current + 1);
         });
       });
-      _didStartupFocus = true;
     }
 
     return ErrorBoundary(
@@ -1102,16 +1200,22 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           backgroundColor: context.conduitTheme.surfaceBackground,
           // Left navigation drawer with draggable edge open (native, finger-following)
           drawerEnableOpenDragGesture: true,
-          drawerDragStartBehavior: DragStartBehavior.down,
-          drawerEdgeDragWidth: MediaQuery.of(context).size.width * 0.5,
-          drawerScrimColor: Colors.black.withValues(alpha: 0.32),
+          drawerDragStartBehavior: DragStartBehavior.start,
+          drawerEdgeDragWidth: MediaQuery.of(context).size.width * 0.75,
+          drawerScrimColor: context.colorTokens.overlayStrong,
           drawer: Drawer(
             width: (MediaQuery.of(context).size.width * 0.80).clamp(
               280.0,
               420.0,
             ),
             backgroundColor: context.conduitTheme.surfaceBackground,
-            child: const SafeArea(child: ChatsDrawer()),
+            child: SafeArea(
+              top: true,
+              bottom: true,
+              left: false,
+              right: false,
+              child: const ChatsDrawer(),
+            ),
           ),
           appBar: AppBar(
             backgroundColor: context.conduitTheme.surfaceBackground,
@@ -1167,9 +1271,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         // If still loading, wait for it to complete
                         try {
                           final models = await ref.read(modelsProvider.future);
-                          if (mounted) {
-                            _showModelDropdown(context, ref, models);
-                          }
+                          // Check mounted and use context immediately together
+                          if (!mounted) return;
+                          // ignore: use_build_context_synchronously
+                          _showModelDropdown(context, ref, models);
                         } catch (e) {
                           DebugLogger.error(
                             'model-load-failed',
@@ -1178,16 +1283,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                           );
                         }
                       } else if (modelsAsync.hasValue) {
-                        // If we have data, show immediately
+                        // If we have data, show immediately (no async gap)
                         _showModelDropdown(context, ref, modelsAsync.value!);
                       } else if (modelsAsync.hasError) {
                         // If there's an error, try to refresh and load
                         try {
                           ref.invalidate(modelsProvider);
                           final models = await ref.read(modelsProvider.future);
-                          if (mounted) {
-                            _showModelDropdown(context, ref, models);
-                          }
+                          // Check mounted and use context immediately together
+                          if (!mounted) return;
+                          // ignore: use_build_context_synchronously
+                          _showModelDropdown(context, ref, models);
                         } catch (e) {
                           DebugLogger.error(
                             'model-refresh-failed',
@@ -1422,7 +1528,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                           // Also refresh the conversations list to reconcile missed events
                           // and keep timestamps/order in sync with the server.
                           try {
-                            ref.invalidate(conversationsProvider);
+                            refreshConversationsCache(ref);
                             // Best-effort await to stabilize UI; ignore errors.
                             await ref.read(conversationsProvider.future);
                           } catch (_) {}
@@ -1532,7 +1638,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                   borderRadius: BorderRadius.circular(
                                     AppBorderRadius.floatingButton,
                                   ),
-                                  boxShadow: ConduitShadows.button,
+                                  boxShadow: ConduitShadows.button(context),
                                 ),
                                 child: SizedBox(
                                   width: TouchTarget.button,
@@ -1732,7 +1838,7 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
                   color: context.conduitTheme.dividerColor,
                   width: BorderWidth.regular,
                 ),
-                boxShadow: ConduitShadows.modal,
+                boxShadow: ConduitShadows.modal(context),
               ),
               child: ModalSheetSafeArea(
                 padding: const EdgeInsets.symmetric(
@@ -1937,7 +2043,7 @@ class _ModelSelectorSheetState extends ConsumerState<_ModelSelectorSheet> {
                 : context.conduitTheme.dividerColor,
             width: BorderWidth.regular,
           ),
-          boxShadow: isSelected ? ConduitShadows.card : null,
+          boxShadow: isSelected ? ConduitShadows.card(context) : null,
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(
@@ -2221,7 +2327,7 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
               color: context.conduitTheme.dividerColor,
               width: BorderWidth.regular,
             ),
-            boxShadow: ConduitShadows.modal,
+            boxShadow: ConduitShadows.modal(context),
           ),
           padding: const EdgeInsets.all(Spacing.bottomSheetPadding),
           child: SafeArea(
@@ -2329,7 +2435,7 @@ class _VoiceInputSheetState extends ConsumerState<_VoiceInputSheet> {
           top: Radius.circular(AppBorderRadius.bottomSheet),
         ),
         border: Border.all(color: context.conduitTheme.dividerColor, width: 1),
-        boxShadow: ConduitShadows.modal,
+        boxShadow: ConduitShadows.modal(context),
       ),
       child: SafeArea(
         top: false,
@@ -2834,7 +2940,7 @@ class _SelectableMessageWrapper extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: context.conduitTheme.buttonPrimary,
                     shape: BoxShape.circle,
-                    boxShadow: ConduitShadows.medium,
+                    boxShadow: ConduitShadows.medium(context),
                   ),
                   child: Icon(
                     Icons.check,

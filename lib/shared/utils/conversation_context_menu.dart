@@ -3,7 +3,6 @@ import 'dart:io' show Platform;
 import 'package:conduit/core/providers/app_providers.dart';
 import 'package:conduit/l10n/app_localizations.dart';
 import 'package:conduit/shared/theme/theme_extensions.dart';
-import 'package:conduit/shared/utils/ui_utils.dart';
 import 'package:conduit/shared/widgets/conduit_components.dart';
 import 'package:conduit/shared/widgets/modal_safe_area.dart';
 import 'package:conduit/shared/widgets/sheet_handle.dart';
@@ -85,7 +84,7 @@ Future<void> showConduitContextMenu({
           decoration: BoxDecoration(
             color: theme.surfaceBackground,
             borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-            boxShadow: ConduitShadows.modal,
+            boxShadow: ConduitShadows.modal(context),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -123,7 +122,7 @@ Future<void> showConversationContextMenu({
       await chat.pinConversation(ref, conversation.id, !isPinned);
     } catch (_) {
       if (!context.mounted) return;
-      UiUtils.showMessage(context, errorMessage, isError: true);
+      await _showConversationError(context, errorMessage);
     }
   }
 
@@ -133,7 +132,7 @@ Future<void> showConversationContextMenu({
       await chat.archiveConversation(ref, conversation.id, !isArchived);
     } catch (_) {
       if (!context.mounted) return;
-      UiUtils.showMessage(context, errorMessage, isError: true);
+      await _showConversationError(context, errorMessage);
     }
   }
 
@@ -221,7 +220,7 @@ Future<void> _renameConversation(
     if (api == null) throw Exception('No API service');
     await api.updateConversation(conversationId, title: newName);
     HapticFeedback.selectionClick();
-    ref.invalidate(conversationsProvider);
+    refreshConversationsCache(ref);
     final active = ref.read(activeConversationProvider);
     if (active?.id == conversationId) {
       ref
@@ -230,7 +229,7 @@ Future<void> _renameConversation(
     }
   } catch (_) {
     if (!context.mounted) return;
-    UiUtils.showMessage(context, renameError, isError: true);
+    await _showConversationError(context, renameError);
   }
 }
 
@@ -262,9 +261,29 @@ Future<void> _confirmAndDeleteConversation(
       ref.read(activeConversationProvider.notifier).clear();
       ref.read(chat.chatMessagesProvider.notifier).clearMessages();
     }
-    ref.invalidate(conversationsProvider);
+    refreshConversationsCache(ref);
   } catch (_) {
     if (!context.mounted) return;
-    UiUtils.showMessage(context, deleteError, isError: true);
+    await _showConversationError(context, deleteError);
   }
+}
+
+Future<void> _showConversationError(
+  BuildContext context,
+  String message,
+) async {
+  if (!context.mounted) return;
+  final l10n = AppLocalizations.of(context)!;
+  final theme = context.conduitTheme;
+  await ThemedDialogs.show<void>(
+    context,
+    title: l10n.errorMessage,
+    content: Text(message, style: TextStyle(color: theme.textSecondary)),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: Text(l10n.ok),
+      ),
+    ],
+  );
 }

@@ -34,7 +34,38 @@ class AppLocalizationsEn extends AppLocalizations {
       'Please check your connection and try again';
 
   @override
+  String get connectionIssueTitle => 'Can\'t reach your server';
+
+  @override
+  String get connectionIssueSubtitle =>
+      'Reconnect to continue or sign out to choose a different server.';
+
+  @override
+  String get stillOfflineMessage =>
+      'We still can\'t reach the server. Double-check your connection and try again.';
+
+  @override
   String get account => 'Account';
+
+  @override
+  String get supportConduit => 'Support Conduit';
+
+  @override
+  String get supportConduitSubtitle =>
+      'Keep Conduit independent by funding ongoing development.';
+
+  @override
+  String get githubSponsorsTitle => 'GitHub Sponsors';
+
+  @override
+  String get githubSponsorsSubtitle =>
+      'Become a recurring sponsor to fund roadmap items.';
+
+  @override
+  String get buyMeACoffeeTitle => 'Buy Me a Coffee';
+
+  @override
+  String get buyMeACoffeeSubtitle => 'Make a one-time donation to say thanks.';
 
   @override
   String get signOut => 'Sign Out';
@@ -431,9 +462,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get emptyImageData => 'Empty image data';
 
   @override
-  String get offlineBanner => 'You\'re offline. Some features may be limited.';
-
-  @override
   String get featureRequiresInternet =>
       'This feature requires an internet connection';
 
@@ -742,6 +770,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get themeDark => 'Dark';
+
+  @override
+  String get themePalette => 'Accent palette';
+
+  @override
+  String get themePaletteDescription =>
+      'Choose the accent colors used for buttons, cards, and chat bubbles.';
 
   @override
   String get themeLight => 'Light';

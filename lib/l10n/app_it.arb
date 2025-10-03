@@ -8,7 +8,25 @@
   "loadingProfile": "Caricamento profilo...",
   "unableToLoadProfile": "Impossibile caricare il profilo",
   "pleaseCheckConnection": "Controlla la connessione e riprova",
+  "connectionIssueTitle": "Impossibile raggiungere il server",
+  "@connectionIssueTitle": {
+    "description": "Titolo mostrato quando il server configurato non è raggiungibile"
+  },
+  "connectionIssueSubtitle": "Riconnettiti per continuare oppure esci per scegliere un server diverso.",
+  "@connectionIssueSubtitle": {
+    "description": "Sottotitolo che spiega le azioni disponibili quando il server non è raggiungibile"
+  },
+  "stillOfflineMessage": "Non riusciamo ancora a raggiungere il server. Controlla la connessione e riprova.",
+  "@stillOfflineMessage": {
+    "description": "Messaggio di stato dopo un tentativo di riconnessione senza successo"
+  },
   "account": "Account",
+  "supportConduit": "Sostieni Conduit",
+  "supportConduitSubtitle": "Mantieni Conduit indipendente finanziando lo sviluppo continuo.",
+  "githubSponsorsTitle": "GitHub Sponsors",
+  "githubSponsorsSubtitle": "Diventa sponsor ricorrente per supportare la roadmap.",
+  "buyMeACoffeeTitle": "Buy Me a Coffee",
+  "buyMeACoffeeSubtitle": "Fai una donazione una tantum per dire grazie.",
   "signOut": "Esci",
   "endYourSession": "Termina la sessione",
   "defaultModel": "Modello predefinito",
@@ -129,7 +147,6 @@
   "invalidImageFormat": "Formato immagine non valido",
   "emptyImageData": "Dati immagine vuoti"
   ,
-  "offlineBanner": "Sei offline. Alcune funzioni potrebbero essere limitate.",
   "featureRequiresInternet": "Questa funzione richiede una connessione Internet",
   "messagesWillSendWhenOnline": "I messaggi verranno inviati quando tornerai online",
   "confirm": "Conferma",
@@ -249,6 +266,10 @@
   "followingSystem": "Segue il sistema: {theme}",
   "@followingSystem": {"placeholders": {"theme": {"type": "String"}}},
   "themeDark": "Scuro",
+  "themePalette": "Palette di colori",
+  "@themePalette": {"description": "Titolo per scegliere la palette di colori dell'app."},
+  "themePaletteDescription": "Scegli i colori di accento usati per pulsanti, schede e bolle di chat.",
+  "@themePaletteDescription": {"description": "Testo di supporto che spiega la scelta della palette."},
   "themeLight": "Chiaro",
   "currentlyUsingDarkTheme": "Attualmente tema scuro",
   "currentlyUsingLightTheme": "Attualmente tema chiaro",

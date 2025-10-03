@@ -15,13 +15,8 @@ part 'offline_indicator.g.dart';
 
 class OfflineIndicator extends ConsumerWidget {
   final Widget child;
-  final bool showBanner;
 
-  const OfflineIndicator({
-    super.key,
-    required this.child,
-    this.showBanner = true,
-  });
+  const OfflineIndicator({super.key, required this.child});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -33,31 +28,27 @@ class OfflineIndicator extends ConsumerWidget {
       orElse: () => false,
     );
 
-    return Stack(
-      children: [
-        child,
-        if (showBanner)
-          connectivityStatus.when(
-            data: (status) {
-              if (status == ConnectivityStatus.offline || socketOffline) {
-                return _OfflineBanner();
-              }
-              // Announce back-online briefly if we were previously offline
-              if (wasOffline) {
-                return const _BackOnlineToast();
-              }
-              return const SizedBox.shrink();
-            },
-            loading: () => const SizedBox.shrink(),
-            error: (_, _) => _OfflineBanner(),
-          ),
-      ],
+    final overlay = connectivityStatus.when(
+      data: (status) {
+        if ((status == ConnectivityStatus.offline || socketOffline) &&
+            !wasOffline) {
+          return const SizedBox.shrink();
+        }
+        if (wasOffline) {
+          return const _BackOnlineToast();
+        }
+        return const SizedBox.shrink();
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (unusedError, unusedStackTrace) => const SizedBox.shrink(),
     );
+
+    return Stack(children: [child, overlay]);
   }
 }
 
 // Tracks if the app was recently offline to enable a one-shot back-online toast
-@riverpod
+@Riverpod(keepAlive: true)
 class _WasOffline extends _$WasOffline {
   @override
   bool build() {
@@ -114,7 +105,7 @@ class _BackOnlineToast extends StatelessWidget {
                         borderRadius: BorderRadius.circular(
                           AppBorderRadius.round,
                         ),
-                        boxShadow: ConduitShadows.low,
+                        boxShadow: ConduitShadows.low(context),
                       ),
                       child: Text(
                         // Reuse existing l10n; otherwise add a dedicated "Back online" key later
@@ -132,65 +123,6 @@ class _BackOnlineToast extends StatelessWidget {
                     .fadeOut(duration: const Duration(milliseconds: 250)),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _OfflineBanner extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: SafeArea(
-        bottom: false,
-        child:
-            Semantics(
-                  container: true,
-                  liveRegion: true,
-                  label: AppLocalizations.of(context)!.offlineBanner,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.md,
-                      vertical: Spacing.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: context.conduitTheme.warning,
-                      boxShadow: ConduitShadows.low,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Platform.isIOS
-                              ? CupertinoIcons.wifi_slash
-                              : Icons.wifi_off,
-                          color: context.conduitTheme.textInverse,
-                          size: AppTypography.headlineMedium,
-                        ),
-                        const SizedBox(width: Spacing.xs),
-                        Expanded(
-                          child: Text(
-                            AppLocalizations.of(context)!.offlineBanner,
-                            style: TextStyle(
-                              color: context.conduitTheme.textInverse,
-                              fontSize: AppTypography.labelLarge,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-                .animate(onPlay: (controller) => controller.forward())
-                .slideY(
-                  begin: -1,
-                  end: 0,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
-                ),
       ),
     );
   }
@@ -217,16 +149,20 @@ class InlineOfflineIndicator extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
+    final theme = context.conduitTheme;
+    final surfaceColor = backgroundColor ?? theme.warningBackground;
+    final borderAlpha = Theme.of(context).brightness == Brightness.dark
+        ? 0.45
+        : 0.3;
+
     return Container(
       margin: const EdgeInsets.all(Spacing.md),
       padding: const EdgeInsets.all(Spacing.md),
       decoration: BoxDecoration(
-        color:
-            backgroundColor ??
-            context.conduitTheme.warning.withValues(alpha: 0.1),
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(AppBorderRadius.md),
         border: Border.all(
-          color: context.conduitTheme.warning.withValues(alpha: 0.3),
+          color: theme.warning.withValues(alpha: borderAlpha),
           width: BorderWidth.regular,
         ),
       ),
@@ -235,7 +171,7 @@ class InlineOfflineIndicator extends ConsumerWidget {
           Icon(
             icon ??
                 (Platform.isIOS ? CupertinoIcons.wifi_slash : Icons.wifi_off),
-            color: context.conduitTheme.warning,
+            color: theme.warning,
             size: Spacing.lg,
           ),
           const SizedBox(width: Spacing.xs),
@@ -245,7 +181,7 @@ class InlineOfflineIndicator extends ConsumerWidget {
                   ? message
                   : AppLocalizations.of(context)!.featureRequiresInternet,
               style: TextStyle(
-                color: context.conduitTheme.warning,
+                color: theme.warning,
                 fontSize: AppTypography.labelLarge,
                 fontWeight: FontWeight.w500,
               ),
@@ -299,16 +235,22 @@ class ChatOfflineOverlay extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
+    final theme = context.conduitTheme;
+    final surfaceColor = theme.warningBackground;
+    final borderAlpha = Theme.of(context).brightness == Brightness.dark
+        ? 0.5
+        : 0.35;
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: Spacing.md,
         vertical: Spacing.sm,
       ),
       decoration: BoxDecoration(
-        color: context.conduitTheme.warning.withValues(alpha: 0.2),
+        color: surfaceColor,
         border: Border(
           top: BorderSide(
-            color: context.conduitTheme.warning.withValues(alpha: 0.5),
+            color: theme.warning.withValues(alpha: borderAlpha),
             width: BorderWidth.regular,
           ),
         ),
@@ -318,14 +260,14 @@ class ChatOfflineOverlay extends ConsumerWidget {
         children: [
           Icon(
             Platform.isIOS ? CupertinoIcons.wifi_slash : Icons.wifi_off,
-            color: context.conduitTheme.warning,
+            color: theme.warning,
             size: Spacing.md,
           ),
           const SizedBox(width: Spacing.sm),
           Text(
             AppLocalizations.of(context)!.messagesWillSendWhenOnline,
             style: TextStyle(
-              color: context.conduitTheme.warning,
+              color: theme.warning,
               fontSize: AppTypography.bodySmall,
               fontWeight: FontWeight.w500,
             ),

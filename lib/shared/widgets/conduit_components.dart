@@ -326,7 +326,7 @@ class ConduitCard extends StatelessWidget {
                 : context.conduitTheme.cardBorder,
             width: BorderWidth.standard,
           ),
-          boxShadow: isElevated ? ConduitShadows.card : null,
+          boxShadow: isElevated ? ConduitShadows.card(context) : null,
         ),
         child: child,
       ),
@@ -557,6 +557,7 @@ class ConduitAvatar extends StatelessWidget {
     return BrandService.createBrandAvatar(
       size: isCompact ? size * 0.8 : size,
       fallbackText: text,
+      context: context,
     );
   }
 }

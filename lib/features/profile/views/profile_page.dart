@@ -35,6 +35,9 @@ import '../../../shared/widgets/model_avatar.dart';
 /// Profile page (You tab) showing user info and main actions
 /// Enhanced with production-grade design tokens for better cohesion
 class ProfilePage extends ConsumerWidget {
+  static const _githubSponsorsUrl = 'https://github.com/sponsors/cogwheel0';
+  static const _buyMeACoffeeUrl = 'https://www.buymeacoffee.com/cogwheel0';
+
   const ProfilePage({super.key});
 
   @override
@@ -161,9 +164,121 @@ class ProfilePage extends ConsumerWidget {
                 end: 0,
                 curve: AnimationCurves.pageTransition,
               ),
+          const SizedBox(height: Spacing.sectionGap),
+          _buildSupportSection(context)
+              .animate()
+              .fadeIn(
+                delay: AnimationDelay.medium,
+                duration: AnimationDuration.pageTransition,
+              )
+              .slideY(
+                begin: 0.08,
+                end: 0,
+                curve: AnimationCurves.pageTransition,
+              ),
         ],
       ),
     );
+  }
+
+  Widget _buildSupportSection(BuildContext context) {
+    final theme = context.conduitTheme;
+    final textTheme =
+        theme.bodySmall?.copyWith(color: theme.textSecondary) ??
+        TextStyle(color: theme.textSecondary);
+
+    final supportTiles = [
+      _buildSupportOption(
+        context,
+        icon: UiUtils.platformIcon(
+          ios: CupertinoIcons.heart,
+          android: Icons.favorite_border,
+        ),
+        title: AppLocalizations.of(context)!.githubSponsorsTitle,
+        subtitle: AppLocalizations.of(context)!.githubSponsorsSubtitle,
+        url: _githubSponsorsUrl,
+        color: theme.success,
+      ),
+      _buildSupportOption(
+        context,
+        icon: UiUtils.platformIcon(
+          ios: CupertinoIcons.gift,
+          android: Icons.coffee,
+        ),
+        title: AppLocalizations.of(context)!.buyMeACoffeeTitle,
+        subtitle: AppLocalizations.of(context)!.buyMeACoffeeSubtitle,
+        url: _buyMeACoffeeUrl,
+        color: theme.warning,
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          AppLocalizations.of(context)!.supportConduit,
+          style: theme.headingSmall?.copyWith(color: theme.textPrimary),
+        ),
+        const SizedBox(height: Spacing.xs),
+        Text(
+          AppLocalizations.of(context)!.supportConduitSubtitle,
+          style: textTheme,
+        ),
+        const SizedBox(height: Spacing.sm),
+        for (var i = 0; i < supportTiles.length; i++) ...[
+          supportTiles[i],
+          if (i != supportTiles.length - 1) const SizedBox(height: Spacing.md),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSupportOption(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String url,
+    required Color color,
+  }) {
+    final theme = context.conduitTheme;
+    return _ProfileSettingTile(
+      onTap: () => _openExternalLink(context, url),
+      isDestructive: false,
+      leading: _buildIconBadge(context, icon, color: color),
+      title: title,
+      subtitle: subtitle,
+      trailing: Icon(
+        UiUtils.platformIcon(
+          ios: CupertinoIcons.arrow_up_right,
+          android: Icons.open_in_new,
+        ),
+        color: theme.iconSecondary,
+        size: IconSize.small,
+      ),
+    );
+  }
+
+  Future<void> _openExternalLink(BuildContext context, String url) async {
+    try {
+      final launched = await launchUrlString(
+        url,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched && context.mounted) {
+        UiUtils.showMessage(
+          context,
+          AppLocalizations.of(context)!.errorMessage,
+        );
+      }
+    } on PlatformException catch (_) {
+      if (!context.mounted) return;
+      UiUtils.showMessage(context, AppLocalizations.of(context)!.errorMessage);
+    } catch (_) {
+      if (!context.mounted) return;
+      UiUtils.showMessage(context, AppLocalizations.of(context)!.errorMessage);
+    }
   }
 
   Widget _buildProfileHeader(
@@ -203,7 +318,10 @@ class ProfilePage extends ConsumerWidget {
     final accent = theme.buttonPrimary;
 
     return Container(
-      padding: const EdgeInsets.all(Spacing.cardPadding),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.md,
+        vertical: Spacing.sm,
+      ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -218,49 +336,26 @@ class ProfilePage extends ConsumerWidget {
           color: accent.withValues(alpha: 0.18),
           width: BorderWidth.thin,
         ),
-        boxShadow: ConduitShadows.medium,
+        boxShadow: ConduitShadows.medium(context),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Spacing.sm,
-              vertical: Spacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: theme.surfaceBackground.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(AppBorderRadius.pill),
-            ),
-            child: Text(
-              AppLocalizations.of(context)!.account,
-              style:
-                  theme.caption?.copyWith(
-                    color: theme.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ) ??
-                  TextStyle(
-                    color: theme.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-          ),
-          const SizedBox(height: Spacing.lg),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(AppBorderRadius.avatar),
-                  boxShadow: ConduitShadows.high,
+                  boxShadow: ConduitShadows.high(context),
                 ),
                 child: UserAvatar(
-                  size: IconSize.huge,
+                  size: IconSize.avatar,
                   imageUrl: avatarUrl,
                   fallbackText: initial,
                 ),
               ),
-              const SizedBox(width: Spacing.lg),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,7 +376,7 @@ class ProfilePage extends ConsumerWidget {
                     const SizedBox(height: Spacing.sm),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: Spacing.md,
+                        horizontal: Spacing.sm,
                         vertical: Spacing.xs,
                       ),
                       decoration: BoxDecoration(
@@ -360,13 +455,6 @@ class ProfilePage extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          AppLocalizations.of(context)!.account,
-          style: context.conduitTheme.headingSmall?.copyWith(
-            color: context.conduitTheme.textPrimary,
-          ),
-        ),
-        const SizedBox(height: Spacing.sm),
         for (var i = 0; i < items.length; i++) ...[
           items[i],
           if (i != items.length - 1) const SizedBox(height: Spacing.md),
@@ -885,7 +973,7 @@ class _DefaultModelBottomSheetState
                   color: context.conduitTheme.dividerColor,
                   width: BorderWidth.regular,
                 ),
-                boxShadow: ConduitShadows.modal,
+                boxShadow: ConduitShadows.modal(context),
               ),
               child: ModalSheetSafeArea(
                 padding: const EdgeInsets.symmetric(
@@ -1146,7 +1234,7 @@ class _DefaultModelBottomSheetState
                 : context.conduitTheme.dividerColor,
             width: BorderWidth.regular,
           ),
-          boxShadow: isSelected ? ConduitShadows.card : null,
+          boxShadow: isSelected ? ConduitShadows.card(context) : null,
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(

@@ -115,6 +115,15 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
       _updateTypingIndicatorGate();
     }
 
+    // Update typing indicator gate when message properties that affect emptiness change
+    if (oldWidget.message.statusHistory != widget.message.statusHistory ||
+        oldWidget.message.files != widget.message.files ||
+        oldWidget.message.attachmentIds != widget.message.attachmentIds ||
+        oldWidget.message.followUps != widget.message.followUps ||
+        oldWidget.message.codeExecutions != widget.message.codeExecutions) {
+      _updateTypingIndicatorGate();
+    }
+
     // Rebuild cached avatar if model name or icon changes
     if (oldWidget.modelName != widget.modelName ||
         oldWidget.modelIconUrl != widget.modelIconUrl) {
@@ -190,21 +199,27 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   }
 
   void _updateTypingIndicatorGate() {
-    // Show typing indicator while streaming until we have any renderable segments
-    // (tool tiles or actual text). Use a short delay to avoid flicker.
     _typingGateTimer?.cancel();
-    final hasRenderable = _hasRenderableSegments;
-    if (widget.isStreaming && !hasRenderable) {
-      _allowTypingIndicator = false;
+    if (_shouldShowTypingIndicator) {
+      if (_allowTypingIndicator) {
+        return;
+      }
       _typingGateTimer = Timer(const Duration(milliseconds: 150), () {
-        if (mounted) {
-          setState(() {
-            _allowTypingIndicator = true;
-          });
+        if (!mounted || !_shouldShowTypingIndicator) {
+          return;
         }
+        setState(() {
+          _allowTypingIndicator = true;
+        });
       });
-    } else {
-      _allowTypingIndicator = false;
+    } else if (_allowTypingIndicator) {
+      if (mounted) {
+        setState(() {
+          _allowTypingIndicator = false;
+        });
+      } else {
+        _allowTypingIndicator = false;
+      }
     }
   }
 
@@ -467,45 +482,49 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
     );
   }
 
-  bool get _hasRenderableSegments {
-    bool textRenderable(String t) {
-      String cleaned = t;
-      // Hide tool_calls blocks entirely
-      cleaned = cleaned.replaceAll(
-        RegExp(
-          r'<details\s+type="tool_calls"[^>]*>[\s\S]*?<\/details>',
-          multiLine: true,
-          dotAll: true,
-        ),
-        '',
-      );
-      // Hide reasoning blocks as well in text check
-      cleaned = cleaned.replaceAll(
-        RegExp(
-          r'<details\s+type="reasoning"[^>]*>[\s\S]*?<\/details>',
-          multiLine: true,
-          dotAll: true,
-        ),
-        '',
-      );
-      // If last <details> is unclosed, drop tail to avoid rendering raw tag
-      final lastOpen = cleaned.lastIndexOf('<details');
-      if (lastOpen >= 0) {
-        final tail = cleaned.substring(lastOpen);
-        if (!tail.contains('</details>')) {
-          cleaned = cleaned.substring(0, lastOpen);
-        }
-      }
-      return cleaned.trim().isNotEmpty;
+  bool get _shouldShowTypingIndicator =>
+      widget.isStreaming && _isAssistantResponseEmpty;
+
+  bool get _isAssistantResponseEmpty {
+    final content = widget.message.content.trim();
+    if (content.isNotEmpty) {
+      return false;
     }
 
-    for (final seg in _segments) {
-      if (seg.isTool && seg.toolCall != null) return true;
-      if (seg.isReasoning && seg.reasoning != null) return true;
-      final text = seg.text ?? '';
-      if (textRenderable(text)) return true;
+    final hasFiles = widget.message.files?.isNotEmpty ?? false;
+    if (hasFiles) {
+      return false;
     }
-    return false;
+
+    final hasAttachments = widget.message.attachmentIds?.isNotEmpty ?? false;
+    if (hasAttachments) {
+      return false;
+    }
+
+    final hasVisibleStatus = widget.message.statusHistory
+        .where((status) => status.hidden != true)
+        .isNotEmpty;
+    if (hasVisibleStatus) {
+      return false;
+    }
+
+    final hasFollowUps = widget.message.followUps.isNotEmpty;
+    if (hasFollowUps) {
+      return false;
+    }
+
+    final hasCodeExecutions = widget.message.codeExecutions.isNotEmpty;
+    if (hasCodeExecutions) {
+      return false;
+    }
+
+    // Check for tool calls in the content using ToolCallsParser
+    final hasToolCalls =
+        ToolCallsParser.segments(
+          content,
+        )?.any((segment) => segment.isToolCall) ??
+        false;
+    return !hasToolCalls;
   }
 
   void _buildCachedAvatar() {
@@ -641,9 +660,7 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
                         );
                       },
                       child:
-                          (widget.isStreaming &&
-                              !_hasRenderableSegments &&
-                              _allowTypingIndicator)
+                          (_allowTypingIndicator && _shouldShowTypingIndicator)
                           ? KeyedSubtree(
                               key: const ValueKey('typing'),
                               child: _buildTypingIndicator(),
@@ -971,39 +988,17 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
   }
 
   Widget _buildTypingIndicator() {
-    return Consumer(
-      builder: (context, ref, child) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Increase spacing between assistant name and typing indicator
-            const SizedBox(height: Spacing.md),
-            // Give the indicator breathing room to avoid any clip from transitions
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 4),
-              child: SizedBox(
-                height: 22,
-                child: Platform.isIOS
-                    ? _buildTypingPillBubble()
-                    : _buildTypingEllipsis(),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
+    final theme = context.conduitTheme;
+    final dotColor = theme.textSecondary.withValues(alpha: 0.75);
 
-  Widget _buildTypingEllipsis() {
-    final min = AnimationValues.typingIndicatorScale;
-    final dotColor = context.conduitTheme.textSecondary.withValues(alpha: 0.75);
+    const double dotSize = 8.0;
+    const double dotSpacing = 6.0;
+    const int numberOfDots = 3;
 
-    const double dotSize = 6.0;
-    const double gap = Spacing.xs; // 4.0
-    final d = AnimationDelay.typingDelay;
-    final d2 = Duration(milliseconds: d.inMilliseconds * 2);
+    // Create three dots with staggered animations
+    final dots = List.generate(numberOfDots, (index) {
+      final delay = Duration(milliseconds: 150 * index);
 
-    Widget dot(Duration delay) {
       return Container(
             width: dotSize,
             height: dotSize,
@@ -1011,84 +1006,38 @@ class _AssistantMessageWidgetState extends ConsumerState<AssistantMessageWidget>
           )
           .animate(onPlay: (controller) => controller.repeat())
           .then(delay: delay)
+          .fadeIn(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          )
           .scale(
-            duration: AnimationDuration.typingIndicator,
-            curve: AnimationCurves.typingIndicator,
-            begin: Offset(min, min),
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOut,
+            begin: const Offset(0.4, 0.4),
             end: const Offset(1, 1),
           )
-          .then(delay: AnimationDelay.typingDelay)
+          .then()
           .scale(
-            duration: AnimationDuration.typingIndicator,
-            curve: AnimationCurves.typingIndicator,
-            begin: const Offset(1, 1),
-            end: Offset(min, min),
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOut,
+            begin: const Offset(1.2, 1.2),
+            end: const Offset(0.5, 0.5),
           );
-    }
+    });
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        dot(Duration.zero),
-        const SizedBox(width: gap),
-        dot(d),
-        const SizedBox(width: gap),
-        dot(d2),
-      ],
-    );
-  }
-
-  Widget _buildTypingPillBubble() {
-    final min = AnimationValues.typingIndicatorScale;
-
-    final bubbleColor = context.conduitTheme.surfaceContainerHighest;
-    final dotColor = context.conduitTheme.textSecondary.withValues(alpha: 0.75);
-
-    const double dotSize = 6.0;
-    const double gap = Spacing.xs; // 4.0
-    const double padV = 6.0;
-    const double padH = 10.0;
-
-    final d = AnimationDelay.typingDelay;
-    final d2 = Duration(milliseconds: d.inMilliseconds * 2);
-
-    Widget dot(Duration delay) {
-      return Container(
-            width: dotSize,
-            height: dotSize,
-            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
-          )
-          .animate(onPlay: (controller) => controller.repeat())
-          .then(delay: delay)
-          .scale(
-            duration: AnimationDuration.typingIndicator,
-            curve: AnimationCurves.typingIndicator,
-            begin: Offset(min, min),
-            end: const Offset(1, 1),
-          )
-          .then(delay: AnimationDelay.typingDelay)
-          .scale(
-            duration: AnimationDuration.typingIndicator,
-            curve: AnimationCurves.typingIndicator,
-            begin: const Offset(1, 1),
-            end: Offset(min, min),
-          );
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: padH, vertical: padV),
-      decoration: BoxDecoration(
-        color: bubbleColor,
-        borderRadius: BorderRadius.circular(999),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          dot(Duration.zero),
-          const SizedBox(width: gap),
-          dot(d),
-          const SizedBox(width: gap),
-          dot(d2),
+          // Add left padding to prevent clipping when dots scale up
+          const SizedBox(width: dotSize * 0.2),
+          for (int i = 0; i < numberOfDots; i++) ...[
+            dots[i],
+            if (i < numberOfDots - 1) const SizedBox(width: dotSpacing),
+          ],
+          // Add right padding to prevent clipping when dots scale up
+          const SizedBox(width: dotSize * 0.2),
         ],
       ),
     );

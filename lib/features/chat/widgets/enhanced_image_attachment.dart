@@ -572,8 +572,12 @@ class FullScreenImageViewer extends ConsumerWidget {
       }
     }
 
+    final tokens = context.colorTokens;
+    final background = tokens.neutralTone10;
+    final iconColor = tokens.neutralOnSurface;
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: background,
       body: Stack(
         children: [
           Center(
@@ -595,14 +599,14 @@ class FullScreenImageViewer extends ConsumerWidget {
                 IconButton(
                   icon: Icon(
                     Platform.isIOS ? Icons.ios_share : Icons.share_outlined,
-                    color: Colors.white,
+                    color: iconColor,
                     size: 26,
                   ),
                   onPressed: () => _shareImage(context, ref),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                  icon: Icon(Icons.close, color: iconColor, size: 28),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],

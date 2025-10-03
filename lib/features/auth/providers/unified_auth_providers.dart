@@ -60,6 +60,8 @@ final hasSavedCredentialsProvider2 = FutureProvider<bool>((ref) async {
 
 /// Computed providers for UI consumption
 /// These automatically update when auth state changes
+/// These are keepAlive since they derive from keepAlive authStateManagerProvider
+/// and are used throughout the app lifecycle
 
 final isAuthenticatedProvider2 = Provider<bool>((ref) {
   final authState = ref.watch(authStateManagerProvider);

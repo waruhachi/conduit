@@ -563,13 +563,7 @@ class _UserMessageBubbleState extends ConsumerState<UserMessageBubble>
                                     context.conduitTheme.chatBubbleUserBorder,
                                 width: BorderWidth.regular,
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.08),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
+                              boxShadow: ConduitShadows.small(context),
                             ),
                             child: _isEditing
                                 ? Focus(

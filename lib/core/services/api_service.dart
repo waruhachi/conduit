@@ -1284,6 +1284,26 @@ class ApiService {
     return const <ChatCodeExecution>[];
   }
 
+  List<Map<String, dynamic>>? _sanitizeFilesForWebUI(
+    List<Map<String, dynamic>>? files,
+  ) {
+    if (files == null || files.isEmpty) {
+      return null;
+    }
+    final sanitized = <Map<String, dynamic>>[];
+    for (final entry in files) {
+      final safe = <String, dynamic>{};
+      for (final MapEntry(:key, :value) in entry.entries) {
+        if (value == null) continue;
+        safe[key.toString()] = value;
+      }
+      if (safe.isNotEmpty) {
+        sanitized.add(safe);
+      }
+    }
+    return sanitized.isNotEmpty ? sanitized : null;
+  }
+
   List<ChatSourceReference> _parseSourcesField(dynamic raw) {
     try {
       return parseOpenWebUISourceList(raw);
@@ -1320,6 +1340,10 @@ class ApiService {
         'content': msg.content,
         'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
         if (msg.role == 'user' && model != null) 'models': [model],
+        if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty)
+          'attachment_ids': List<String>.from(msg.attachmentIds!),
+        if (_sanitizeFilesForWebUI(msg.files) != null)
+          'files': _sanitizeFilesForWebUI(msg.files),
       };
 
       // Update parent's childrenIds if there's a previous message
@@ -1336,6 +1360,10 @@ class ApiService {
         'content': msg.content,
         'timestamp': msg.timestamp.millisecondsSinceEpoch ~/ 1000,
         if (msg.role == 'user' && model != null) 'models': [model],
+        if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty)
+          'attachment_ids': List<String>.from(msg.attachmentIds!),
+        if (_sanitizeFilesForWebUI(msg.files) != null)
+          'files': _sanitizeFilesForWebUI(msg.files),
       });
 
       previousId = messageId;
@@ -1402,9 +1430,8 @@ class ApiService {
 
       // Use the properly formatted files array for WebUI display
       // The msg.files array already contains all attachments in the correct format
-      final List<Map<String, dynamic>> combinedFilesMap = msg.files ?? [];
+      final sanitizedFiles = _sanitizeFilesForWebUI(msg.files);
 
-      // Build message for messages map (history.messages)
       messagesMap[messageId] = {
         'id': messageId,
         'parentId': previousId,
@@ -1418,7 +1445,9 @@ class ApiService {
         if (msg.role == 'assistant') 'modelIdx': 0,
         if (msg.role == 'assistant') 'done': !msg.isStreaming,
         if (msg.role == 'user' && model != null) 'models': [model],
-        if (combinedFilesMap.isNotEmpty) 'files': combinedFilesMap,
+        if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty)
+          'attachment_ids': List<String>.from(msg.attachmentIds!),
+        if (sanitizedFiles != null) 'files': sanitizedFiles,
       };
 
       // Update parent's childrenIds
@@ -1427,9 +1456,8 @@ class ApiService {
       }
 
       // Use the same properly formatted files array for messages array
-      final List<Map<String, dynamic>> combinedFilesArray = msg.files ?? [];
+      final sanitizedArrayFiles = _sanitizeFilesForWebUI(msg.files);
 
-      // Build message for messages array
       messagesArray.add({
         'id': messageId,
         'parentId': previousId,
@@ -1443,7 +1471,9 @@ class ApiService {
         if (msg.role == 'assistant') 'modelIdx': 0,
         if (msg.role == 'assistant') 'done': !msg.isStreaming,
         if (msg.role == 'user' && model != null) 'models': [model],
-        if (combinedFilesArray.isNotEmpty) 'files': combinedFilesArray,
+        if (msg.attachmentIds != null && msg.attachmentIds!.isNotEmpty)
+          'attachment_ids': List<String>.from(msg.attachmentIds!),
+        if (sanitizedArrayFiles != null) 'files': sanitizedArrayFiles,
       });
 
       previousId = messageId;

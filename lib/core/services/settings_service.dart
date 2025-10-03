@@ -1,246 +1,259 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive_ce/hive.dart';
+import '../persistence/hive_boxes.dart';
+import '../persistence/persistence_keys.dart';
 import 'animation_service.dart';
 
 part 'settings_service.g.dart';
 
 /// Service for managing app-wide settings including accessibility preferences
 class SettingsService {
-  static const String _reduceMotionKey = 'reduce_motion';
-  static const String _animationSpeedKey = 'animation_speed';
-  static const String _hapticFeedbackKey = 'haptic_feedback';
-  static const String _highContrastKey = 'high_contrast';
-  static const String _largeTextKey = 'large_text';
-  static const String _darkModeKey = 'dark_mode';
-  static const String _defaultModelKey = 'default_model';
+  static const String _reduceMotionKey = PreferenceKeys.reduceMotion;
+  static const String _animationSpeedKey = PreferenceKeys.animationSpeed;
+  static const String _hapticFeedbackKey = PreferenceKeys.hapticFeedback;
+  static const String _highContrastKey = PreferenceKeys.highContrast;
+  static const String _largeTextKey = PreferenceKeys.largeText;
+  static const String _darkModeKey = PreferenceKeys.darkMode;
+  static const String _defaultModelKey = PreferenceKeys.defaultModel;
   // Model name formatting
   static const String _omitProviderInModelNameKey =
-      'omit_provider_in_model_name';
+      PreferenceKeys.omitProviderInModelName;
   // Voice input settings
-  static const String _voiceLocaleKey = 'voice_locale_id';
-  static const String _voiceHoldToTalkKey = 'voice_hold_to_talk';
-  static const String _voiceAutoSendKey = 'voice_auto_send_final';
+  static const String _voiceLocaleKey = PreferenceKeys.voiceLocaleId;
+  static const String _voiceHoldToTalkKey = PreferenceKeys.voiceHoldToTalk;
+  static const String _voiceAutoSendKey = PreferenceKeys.voiceAutoSendFinal;
   // Realtime transport preference
   static const String _socketTransportModeKey =
-      'socket_transport_mode'; // 'auto' or 'ws'
+      PreferenceKeys.socketTransportMode; // 'auto' or 'ws'
   // Quick pill visibility selections (max 2)
-  static const String _quickPillsKey =
-      'quick_pills'; // StringList of identifiers e.g. ['web','image','tools']
+  static const String _quickPillsKey = PreferenceKeys
+      .quickPills; // StringList of identifiers e.g. ['web','image','tools']
   // Chat input behavior
-  static const String _sendOnEnterKey = 'send_on_enter';
+  static const String _sendOnEnterKey = PreferenceKeys.sendOnEnterKey;
+  static Box<dynamic> _preferencesBox() =>
+      Hive.box<dynamic>(HiveBoxNames.preferences);
 
   /// Get reduced motion preference
-  static Future<bool> getReduceMotion() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_reduceMotionKey) ?? false;
+  static Future<bool> getReduceMotion() {
+    final value = _preferencesBox().get(_reduceMotionKey) as bool?;
+    return Future.value(value ?? false);
   }
 
   /// Set reduced motion preference
-  static Future<void> setReduceMotion(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_reduceMotionKey, value);
+  static Future<void> setReduceMotion(bool value) {
+    return _preferencesBox().put(_reduceMotionKey, value);
   }
 
   /// Get animation speed multiplier (0.5 - 2.0)
-  static Future<double> getAnimationSpeed() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getDouble(_animationSpeedKey) ?? 1.0;
+  static Future<double> getAnimationSpeed() {
+    final value = _preferencesBox().get(_animationSpeedKey) as num?;
+    return Future.value((value?.toDouble() ?? 1.0).clamp(0.5, 2.0));
   }
 
   /// Set animation speed multiplier
-  static Future<void> setAnimationSpeed(double value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble(_animationSpeedKey, value.clamp(0.5, 2.0));
+  static Future<void> setAnimationSpeed(double value) {
+    final sanitized = value.clamp(0.5, 2.0).toDouble();
+    return _preferencesBox().put(_animationSpeedKey, sanitized);
   }
 
   /// Get haptic feedback preference
-  static Future<bool> getHapticFeedback() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_hapticFeedbackKey) ?? true;
+  static Future<bool> getHapticFeedback() {
+    final value = _preferencesBox().get(_hapticFeedbackKey) as bool?;
+    return Future.value(value ?? true);
   }
 
   /// Set haptic feedback preference
-  static Future<void> setHapticFeedback(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_hapticFeedbackKey, value);
+  static Future<void> setHapticFeedback(bool value) {
+    return _preferencesBox().put(_hapticFeedbackKey, value);
   }
 
   /// Get high contrast preference
-  static Future<bool> getHighContrast() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_highContrastKey) ?? false;
+  static Future<bool> getHighContrast() {
+    final value = _preferencesBox().get(_highContrastKey) as bool?;
+    return Future.value(value ?? false);
   }
 
   /// Set high contrast preference
-  static Future<void> setHighContrast(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_highContrastKey, value);
+  static Future<void> setHighContrast(bool value) {
+    return _preferencesBox().put(_highContrastKey, value);
   }
 
   /// Get large text preference
-  static Future<bool> getLargeText() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_largeTextKey) ?? false;
+  static Future<bool> getLargeText() {
+    final value = _preferencesBox().get(_largeTextKey) as bool?;
+    return Future.value(value ?? false);
   }
 
   /// Set large text preference
-  static Future<void> setLargeText(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_largeTextKey, value);
+  static Future<void> setLargeText(bool value) {
+    return _preferencesBox().put(_largeTextKey, value);
   }
 
   /// Get dark mode preference
-  static Future<bool> getDarkMode() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_darkModeKey) ?? true; // Default to dark
+  static Future<bool> getDarkMode() {
+    final value = _preferencesBox().get(_darkModeKey) as bool?;
+    return Future.value(value ?? true);
   }
 
   /// Set dark mode preference
-  static Future<void> setDarkMode(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_darkModeKey, value);
+  static Future<void> setDarkMode(bool value) {
+    return _preferencesBox().put(_darkModeKey, value);
   }
 
   /// Get default model preference
-  static Future<String?> getDefaultModel() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_defaultModelKey);
+  static Future<String?> getDefaultModel() {
+    final value = _preferencesBox().get(_defaultModelKey) as String?;
+    return Future.value(value);
   }
 
   /// Set default model preference
-  static Future<void> setDefaultModel(String? modelId) async {
-    final prefs = await SharedPreferences.getInstance();
+  static Future<void> setDefaultModel(String? modelId) {
+    final box = _preferencesBox();
     if (modelId != null) {
-      await prefs.setString(_defaultModelKey, modelId);
-    } else {
-      await prefs.remove(_defaultModelKey);
+      return box.put(_defaultModelKey, modelId);
     }
+    return box.delete(_defaultModelKey);
   }
 
   /// Whether to omit the provider prefix when displaying model names
-  static Future<bool> getOmitProviderInModelName() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_omitProviderInModelNameKey) ?? true; // default: omit
+  static Future<bool> getOmitProviderInModelName() {
+    final value = _preferencesBox().get(_omitProviderInModelNameKey) as bool?;
+    return Future.value(value ?? true);
   }
 
-  static Future<void> setOmitProviderInModelName(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_omitProviderInModelNameKey, value);
+  static Future<void> setOmitProviderInModelName(bool value) {
+    return _preferencesBox().put(_omitProviderInModelNameKey, value);
   }
 
   /// Load all settings
-  static Future<AppSettings> loadSettings() async {
-    return AppSettings(
-      reduceMotion: await getReduceMotion(),
-      animationSpeed: await getAnimationSpeed(),
-      hapticFeedback: await getHapticFeedback(),
-      highContrast: await getHighContrast(),
-      largeText: await getLargeText(),
-      darkMode: await getDarkMode(),
-      defaultModel: await getDefaultModel(),
-      omitProviderInModelName: await getOmitProviderInModelName(),
-      voiceLocaleId: await getVoiceLocaleId(),
-      voiceHoldToTalk: await getVoiceHoldToTalk(),
-      voiceAutoSendFinal: await getVoiceAutoSendFinal(),
-      socketTransportMode: await getSocketTransportMode(),
-      quickPills: await getQuickPills(),
-      sendOnEnter: await getSendOnEnter(),
+  static Future<AppSettings> loadSettings() {
+    final box = _preferencesBox();
+    return Future.value(
+      AppSettings(
+        reduceMotion: (box.get(_reduceMotionKey) as bool?) ?? false,
+        animationSpeed:
+            (box.get(_animationSpeedKey) as num?)?.toDouble() ?? 1.0,
+        hapticFeedback: (box.get(_hapticFeedbackKey) as bool?) ?? true,
+        highContrast: (box.get(_highContrastKey) as bool?) ?? false,
+        largeText: (box.get(_largeTextKey) as bool?) ?? false,
+        darkMode: (box.get(_darkModeKey) as bool?) ?? true,
+        defaultModel: box.get(_defaultModelKey) as String?,
+        omitProviderInModelName:
+            (box.get(_omitProviderInModelNameKey) as bool?) ?? true,
+        voiceLocaleId: box.get(_voiceLocaleKey) as String?,
+        voiceHoldToTalk: (box.get(_voiceHoldToTalkKey) as bool?) ?? false,
+        voiceAutoSendFinal: (box.get(_voiceAutoSendKey) as bool?) ?? false,
+        socketTransportMode:
+            box.get(_socketTransportModeKey, defaultValue: 'ws') as String,
+        quickPills: List<String>.from(
+          (box.get(_quickPillsKey) as List<dynamic>?) ?? const <String>[],
+        ),
+        sendOnEnter: (box.get(_sendOnEnterKey) as bool?) ?? false,
+      ),
     );
   }
 
   /// Save all settings
   static Future<void> saveSettings(AppSettings settings) async {
-    await Future.wait([
-      setReduceMotion(settings.reduceMotion),
-      setAnimationSpeed(settings.animationSpeed),
-      setHapticFeedback(settings.hapticFeedback),
-      setHighContrast(settings.highContrast),
-      setLargeText(settings.largeText),
-      setDarkMode(settings.darkMode),
-      setDefaultModel(settings.defaultModel),
-      setOmitProviderInModelName(settings.omitProviderInModelName),
-      setVoiceLocaleId(settings.voiceLocaleId),
-      setVoiceHoldToTalk(settings.voiceHoldToTalk),
-      setVoiceAutoSendFinal(settings.voiceAutoSendFinal),
-      setSocketTransportMode(settings.socketTransportMode),
-      setQuickPills(settings.quickPills),
-      setSendOnEnter(settings.sendOnEnter),
-    ]);
-  }
+    final box = _preferencesBox();
+    final updates = <String, Object?>{
+      _reduceMotionKey: settings.reduceMotion,
+      _animationSpeedKey: settings.animationSpeed,
+      _hapticFeedbackKey: settings.hapticFeedback,
+      _highContrastKey: settings.highContrast,
+      _largeTextKey: settings.largeText,
+      _darkModeKey: settings.darkMode,
+      _omitProviderInModelNameKey: settings.omitProviderInModelName,
+      _voiceHoldToTalkKey: settings.voiceHoldToTalk,
+      _voiceAutoSendKey: settings.voiceAutoSendFinal,
+      _socketTransportModeKey: settings.socketTransportMode,
+      _quickPillsKey: settings.quickPills.take(2).toList(),
+      _sendOnEnterKey: settings.sendOnEnter,
+    };
 
-  // Voice input specific settings
-  static Future<String?> getVoiceLocaleId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_voiceLocaleKey);
-  }
+    await box.putAll(updates);
 
-  static Future<void> setVoiceLocaleId(String? localeId) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (localeId == null || localeId.isEmpty) {
-      await prefs.remove(_voiceLocaleKey);
+    if (settings.defaultModel != null) {
+      await box.put(_defaultModelKey, settings.defaultModel);
     } else {
-      await prefs.setString(_voiceLocaleKey, localeId);
+      await box.delete(_defaultModelKey);
+    }
+
+    if (settings.voiceLocaleId != null && settings.voiceLocaleId!.isNotEmpty) {
+      await box.put(_voiceLocaleKey, settings.voiceLocaleId);
+    } else {
+      await box.delete(_voiceLocaleKey);
     }
   }
 
-  static Future<bool> getVoiceHoldToTalk() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_voiceHoldToTalkKey) ?? false;
+  // Voice input specific settings
+  static Future<String?> getVoiceLocaleId() {
+    final value = _preferencesBox().get(_voiceLocaleKey) as String?;
+    return Future.value(value);
   }
 
-  static Future<void> setVoiceHoldToTalk(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_voiceHoldToTalkKey, value);
+  static Future<void> setVoiceLocaleId(String? localeId) {
+    final box = _preferencesBox();
+    if (localeId == null || localeId.isEmpty) {
+      return box.delete(_voiceLocaleKey);
+    }
+    return box.put(_voiceLocaleKey, localeId);
   }
 
-  static Future<bool> getVoiceAutoSendFinal() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_voiceAutoSendKey) ?? false;
+  static Future<bool> getVoiceHoldToTalk() {
+    final value = _preferencesBox().get(_voiceHoldToTalkKey) as bool?;
+    return Future.value(value ?? false);
   }
 
-  static Future<void> setVoiceAutoSendFinal(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_voiceAutoSendKey, value);
+  static Future<void> setVoiceHoldToTalk(bool value) {
+    return _preferencesBox().put(_voiceHoldToTalkKey, value);
+  }
+
+  static Future<bool> getVoiceAutoSendFinal() {
+    final value = _preferencesBox().get(_voiceAutoSendKey) as bool?;
+    return Future.value(value ?? false);
+  }
+
+  static Future<void> setVoiceAutoSendFinal(bool value) {
+    return _preferencesBox().put(_voiceAutoSendKey, value);
   }
 
   /// Transport mode: 'auto' (polling+websocket) or 'ws' (websocket only)
-  static Future<String> getSocketTransportMode() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_socketTransportModeKey) ?? 'ws';
+  static Future<String> getSocketTransportMode() {
+    final value = _preferencesBox().get(_socketTransportModeKey) as String?;
+    return Future.value(value ?? 'ws');
   }
 
-  static Future<void> setSocketTransportMode(String mode) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mode != 'auto' && mode != 'ws') mode = 'auto';
-    await prefs.setString(_socketTransportModeKey, mode);
+  static Future<void> setSocketTransportMode(String mode) {
+    if (mode != 'auto' && mode != 'ws') {
+      mode = 'auto';
+    }
+    return _preferencesBox().put(_socketTransportModeKey, mode);
   }
 
   // Quick Pills (visibility)
-  static Future<List<String>> getQuickPills() async {
-    final prefs = await SharedPreferences.getInstance();
-    final list = prefs.getStringList(_quickPillsKey);
-    // Default: none selected
-    if (list == null) return const [];
-    // Enforce max 2; accept arbitrary tool IDs plus 'web' and 'image'
-    return list.take(2).toList();
+  static Future<List<String>> getQuickPills() {
+    final stored = _preferencesBox().get(_quickPillsKey) as List<dynamic>?;
+    if (stored == null) {
+      return Future.value(const []);
+    }
+    return Future.value(List<String>.from(stored.take(2)));
   }
 
-  static Future<void> setQuickPills(List<String> pills) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_quickPillsKey, pills.take(2).toList());
+  static Future<void> setQuickPills(List<String> pills) {
+    return _preferencesBox().put(_quickPillsKey, pills.take(2).toList());
   }
 
   // Chat input behavior
-  static Future<bool> getSendOnEnter() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_sendOnEnterKey) ?? false;
+  static Future<bool> getSendOnEnter() {
+    final value = _preferencesBox().get(_sendOnEnterKey) as bool?;
+    return Future.value(value ?? false);
   }
 
-  static Future<void> setSendOnEnter(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_sendOnEnterKey, value);
+  static Future<void> setSendOnEnter(bool value) {
+    return _preferencesBox().put(_sendOnEnterKey, value);
   }
 
   /// Get effective animation duration considering all settings
@@ -299,7 +312,6 @@ class AppSettings {
   final String socketTransportMode; // 'auto' or 'ws'
   final List<String> quickPills; // e.g., ['web','image']
   final bool sendOnEnter;
-
   const AppSettings({
     this.reduceMotion = false,
     this.animationSpeed = 1.0,
@@ -407,7 +419,7 @@ bool _listEquals(List<String> a, List<String> b) {
 }
 
 /// Provider for app settings
-@riverpod
+@Riverpod(keepAlive: true)
 class AppSettingsNotifier extends _$AppSettingsNotifier {
   bool _initialized = false;
 

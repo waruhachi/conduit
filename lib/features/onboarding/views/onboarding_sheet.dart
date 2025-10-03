@@ -85,7 +85,7 @@ class _OnboardingSheetState extends ConsumerState<OnboardingSheet> {
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(AppBorderRadius.modal),
         ),
-        boxShadow: ConduitShadows.modal,
+        boxShadow: ConduitShadows.modal(context),
       ),
       child: SafeArea(
         child: Padding(
@@ -228,7 +228,7 @@ class _IllustratedPage extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: context.conduitTheme.buttonPrimary,
                   borderRadius: BorderRadius.circular(AppBorderRadius.avatar),
-                  boxShadow: ConduitShadows.glow,
+                  boxShadow: ConduitShadows.glow(context),
                 ),
                 child: Icon(page.icon, color: context.conduitTheme.textInverse),
               ).animate().scale(duration: AnimationDuration.fast),
@@ -304,7 +304,7 @@ class _IllustratedPage extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: context.conduitTheme.buttonPrimary.withValues(alpha: alpha),
-        boxShadow: ConduitShadows.glow,
+        boxShadow: ConduitShadows.glow(context),
       ),
     );
   }

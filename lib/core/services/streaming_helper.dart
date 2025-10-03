@@ -10,6 +10,7 @@ import '../../core/services/socket_service.dart';
 import '../../core/utils/inactivity_watchdog.dart';
 import '../../core/utils/tool_calls_parser.dart';
 import 'navigation_service.dart';
+import 'conversation_delta_listener.dart';
 import '../../shared/widgets/themed_dialogs.dart';
 import '../../shared/theme/theme_extensions.dart';
 import '../utils/debug_logger.dart';
@@ -46,8 +47,7 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
   required String? activeConversationId,
   required dynamic api,
   required SocketService? socketService,
-  Stream<ConversationDelta>? chatEvents,
-  Stream<ConversationDelta>? channelEvents,
+  RegisterConversationDeltaListener? registerDeltaListener,
   // Message update callbacks
   required void Function(String) appendToLastMessage,
   required void Function(String) replaceLastMessageContent,
@@ -97,7 +97,7 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
   InactivityWatchdog? socketWatchdog;
   final socketSubscriptions = <VoidCallback>[];
   final hasSocketSignals =
-      socketService != null || chatEvents != null || channelEvents != null;
+      socketService != null || registerDeltaListener != null;
   if (hasSocketSignals) {
     // Increase timeout to match OpenWebUI's more generous timeouts for long responses
     socketWatchdog = InactivityWatchdog(
@@ -991,14 +991,27 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
     } catch (_) {}
   }
 
-  if (chatEvents != null) {
-    final subscription = chatEvents.listen((event) {
-      socketWatchdog?.ping();
-      chatHandler(event.raw, event.ack);
-    });
-    socketSubscriptions.add(() {
-      unawaited(subscription.cancel());
-    });
+  if (registerDeltaListener != null) {
+    final chatDisposer = registerDeltaListener(
+      request: ConversationDeltaRequest.chat(
+        conversationId: activeConversationId,
+        sessionId: sessionId,
+        requireFocus: false,
+      ),
+      onDelta: (event) {
+        socketWatchdog?.ping();
+        chatHandler(event.raw, event.ack);
+      },
+      onError: (error, stackTrace) {
+        DebugLogger.error(
+          'Chat delta listener error',
+          scope: 'streaming/helper',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      },
+    );
+    socketSubscriptions.add(chatDisposer);
   } else if (socketService != null) {
     final chatSub = socketService.addChatEventHandler(
       conversationId: activeConversationId,
@@ -1008,15 +1021,27 @@ ActiveSocketStream attachUnifiedChunkedStreaming({
     );
     socketSubscriptions.add(chatSub.dispose);
   }
-
-  if (channelEvents != null) {
-    final subscription = channelEvents.listen((event) {
-      socketWatchdog?.ping();
-      channelEventsHandler(event.raw, event.ack);
-    });
-    socketSubscriptions.add(() {
-      unawaited(subscription.cancel());
-    });
+  if (registerDeltaListener != null) {
+    final channelDisposer = registerDeltaListener(
+      request: ConversationDeltaRequest.channel(
+        conversationId: activeConversationId,
+        sessionId: sessionId,
+        requireFocus: false,
+      ),
+      onDelta: (event) {
+        socketWatchdog?.ping();
+        channelEventsHandler(event.raw, event.ack);
+      },
+      onError: (error, stackTrace) {
+        DebugLogger.error(
+          'Channel delta listener error',
+          scope: 'streaming/helper',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      },
+    );
+    socketSubscriptions.add(channelDisposer);
   } else if (socketService != null) {
     final channelSub = socketService.addChannelEventHandler(
       conversationId: activeConversationId,

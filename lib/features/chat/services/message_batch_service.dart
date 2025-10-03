@@ -534,7 +534,7 @@ final selectedMessagesProvider =
     );
 
 /// Provider for batch operation mode
-@riverpod
+@Riverpod(keepAlive: true)
 class BatchMode extends _$BatchMode {
   @override
   bool build() => false;

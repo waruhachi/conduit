@@ -212,7 +212,7 @@ class AnimationService {
 enum PageTransitionType { fade, slide, scale }
 
 /// Provider for reduced motion preference
-@riverpod
+@Riverpod(keepAlive: true)
 class ReducedMotion extends _$ReducedMotion {
   @override
   bool build() => false;

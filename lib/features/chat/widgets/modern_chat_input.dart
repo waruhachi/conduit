@@ -86,6 +86,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
 
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  bool _pendingFocus = false;
   bool _isRecording = false;
   // final String _voiceInputText = '';
   bool _hasText = false; // track locally without rebuilding on each keystroke
@@ -146,6 +147,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     _controller.removeListener(_handleComposerChanged);
     _controller.dispose();
     _focusNode.dispose();
+    _pendingFocus = false;
     _voiceStreamSubscription?.cancel();
     _intensitySub?.cancel();
     _textSub?.cancel();
@@ -154,11 +156,18 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
   }
 
   void _ensureFocusedIfEnabled() {
-    if (!widget.enabled) return;
-    if (!_focusNode.hasFocus) {
-      // Use FocusNode directly to avoid depending on Inherited widgets
-      _focusNode.requestFocus();
+    if (!widget.enabled || _focusNode.hasFocus || _pendingFocus) {
+      return;
     }
+
+    _pendingFocus = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _pendingFocus = false;
+      if (widget.enabled && !_focusNode.hasFocus) {
+        _focusNode.requestFocus();
+      }
+    });
   }
 
   @override
@@ -723,27 +732,207 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       }
     }
 
+    final bool showCompactComposer = quickPills.isEmpty;
+
+    final BorderRadius shellRadius = BorderRadius.circular(
+      showCompactComposer ? AppBorderRadius.round : _composerRadius,
+    );
+
+    final BoxDecoration shellDecoration = BoxDecoration(
+      color: showCompactComposer ? Colors.transparent : composerBackground,
+      borderRadius: shellRadius,
+      border: showCompactComposer
+          ? null
+          : Border.all(color: outlineColor, width: BorderWidth.thin),
+      boxShadow: showCompactComposer
+          ? const <BoxShadow>[]
+          : <BoxShadow>[
+              BoxShadow(
+                color: shellShadowColor,
+                blurRadius: 12 + (isActive ? 4 : 0),
+                spreadRadius: -2,
+                offset: const Offset(0, -2),
+              ),
+            ],
+    );
+
+    final List<Widget> composerChildren = <Widget>[
+      if (_showPromptOverlay)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.sm,
+            0,
+            Spacing.sm,
+            Spacing.xs,
+          ),
+          child: _buildPromptOverlay(context),
+        ),
+      if (showCompactComposer)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.screenPadding,
+            Spacing.xs,
+            Spacing.screenPadding,
+            Spacing.sm,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _buildOverflowButton(
+                tooltip: AppLocalizations.of(context)!.more,
+                webSearchActive: webSearchEnabled,
+                imageGenerationActive: imageGenEnabled,
+                toolsActive: selectedToolIds.isNotEmpty,
+              ),
+              const SizedBox(width: Spacing.sm),
+              Expanded(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+                  constraints: const BoxConstraints(
+                    minHeight: TouchTarget.input,
+                  ),
+                  decoration: BoxDecoration(
+                    color: brightness == Brightness.dark
+                        ? composerSurface.withValues(alpha: 0.9)
+                        : context.conduitTheme.surfaceContainer,
+                    borderRadius: BorderRadius.circular(AppBorderRadius.round),
+                    border: Border.all(
+                      color: outlineColor.withValues(
+                        alpha: brightness == Brightness.dark ? 0.32 : 0.2,
+                      ),
+                      width: BorderWidth.micro,
+                    ),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: shellShadowColor.withValues(
+                          alpha: brightness == Brightness.dark ? 0.4 : 0.22,
+                        ),
+                        blurRadius: 24,
+                        spreadRadius: -6,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildComposerTextField(
+                      brightness: brightness,
+                      sendOnEnter: sendOnEnter,
+                      placeholderBase: placeholderBase,
+                      placeholderFocused: placeholderFocused,
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: Spacing.xs,
+                      ),
+                      isActive: isActive,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: Spacing.sm),
+              _buildPrimaryButton(
+                _hasText,
+                isGenerating,
+                stopGeneration,
+                voiceAvailable,
+              ),
+            ],
+          ),
+        )
+      else ...[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.sm,
+            Spacing.xs,
+            Spacing.sm,
+            Spacing.xs,
+          ),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(
+              Spacing.sm,
+              Spacing.xs,
+              Spacing.sm,
+              Spacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(_composerRadius),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: _buildComposerTextField(
+                    brightness: brightness,
+                    sendOnEnter: sendOnEnter,
+                    placeholderBase: placeholderBase,
+                    placeholderFocused: placeholderFocused,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: Spacing.sm,
+                      vertical: Spacing.xs,
+                    ),
+                    isActive: isActive,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.inputPadding,
+            0,
+            Spacing.inputPadding,
+            0,
+          ),
+          child: Row(
+            children: [
+              _buildOverflowButton(
+                tooltip: AppLocalizations.of(context)!.more,
+                webSearchActive: webSearchEnabled,
+                imageGenerationActive: imageGenEnabled,
+                toolsActive: selectedToolIds.isNotEmpty,
+              ),
+              const SizedBox(width: Spacing.xs),
+              Expanded(
+                child: ClipRect(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: _withHorizontalSpacing(quickPills, Spacing.xxs),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: Spacing.sm),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildPrimaryButton(
+                    _hasText,
+                    isGenerating,
+                    stopGeneration,
+                    voiceAvailable,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    ];
+
     Widget shell = AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-        color: composerBackground,
-        borderRadius: BorderRadius.circular(_composerRadius),
-        border: Border.all(color: outlineColor, width: BorderWidth.thin),
-        boxShadow: [
-          BoxShadow(
-            color: shellShadowColor,
-            blurRadius: 12 + (isActive ? 4 : 0),
-            spreadRadius: -2,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
+      decoration: shellDecoration,
       width: double.infinity,
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewPadding.bottom,
-        ),
+      child: SafeArea(
+        top: false,
+        bottom: true,
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.4,
@@ -757,297 +946,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               child: RepaintBoundary(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_showPromptOverlay)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          Spacing.sm,
-                          0,
-                          Spacing.sm,
-                          Spacing.xs,
-                        ),
-                        child: _buildPromptOverlay(context),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        Spacing.sm,
-                        Spacing.xs,
-                        Spacing.sm,
-                        Spacing.xs,
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(
-                          Spacing.sm,
-                          Spacing.xs,
-                          Spacing.sm,
-                          Spacing.xs,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(_composerRadius),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () {
-                                  if (!widget.enabled) return;
-                                  _ensureFocusedIfEnabled();
-                                },
-                                child: Semantics(
-                                  textField: true,
-                                  label: AppLocalizations.of(
-                                    context,
-                                  )!.messageInputLabel,
-                                  hint: AppLocalizations.of(
-                                    context,
-                                  )!.messageInputHint,
-                                  child: Shortcuts(
-                                    shortcuts: () {
-                                      final map = <LogicalKeySet, Intent>{
-                                        LogicalKeySet(
-                                          LogicalKeyboardKey.meta,
-                                          LogicalKeyboardKey.enter,
-                                        ): const _SendMessageIntent(),
-                                        LogicalKeySet(
-                                          LogicalKeyboardKey.control,
-                                          LogicalKeyboardKey.enter,
-                                        ): const _SendMessageIntent(),
-                                      };
-                                      if (sendOnEnter) {
-                                        map[LogicalKeySet(
-                                              LogicalKeyboardKey.enter,
-                                            )] =
-                                            const _SendMessageIntent();
-                                        map[LogicalKeySet(
-                                              LogicalKeyboardKey.shift,
-                                              LogicalKeyboardKey.enter,
-                                            )] =
-                                            const _InsertNewlineIntent();
-                                      }
-                                      if (_showPromptOverlay) {
-                                        map[LogicalKeySet(
-                                              LogicalKeyboardKey.arrowDown,
-                                            )] =
-                                            const _SelectNextPromptIntent();
-                                        map[LogicalKeySet(
-                                              LogicalKeyboardKey.arrowUp,
-                                            )] =
-                                            const _SelectPreviousPromptIntent();
-                                        map[LogicalKeySet(
-                                              LogicalKeyboardKey.escape,
-                                            )] =
-                                            const _DismissPromptIntent();
-                                      }
-                                      return map;
-                                    }(),
-                                    child: Actions(
-                                      actions: <Type, Action<Intent>>{
-                                        _SendMessageIntent:
-                                            CallbackAction<_SendMessageIntent>(
-                                              onInvoke: (intent) {
-                                                if (_showPromptOverlay) {
-                                                  _confirmPromptSelection();
-                                                  return null;
-                                                }
-                                                _sendMessage();
-                                                return null;
-                                              },
-                                            ),
-                                        _InsertNewlineIntent:
-                                            CallbackAction<
-                                              _InsertNewlineIntent
-                                            >(
-                                              onInvoke: (intent) {
-                                                _insertNewline();
-                                                return null;
-                                              },
-                                            ),
-                                        _SelectNextPromptIntent:
-                                            CallbackAction<
-                                              _SelectNextPromptIntent
-                                            >(
-                                              onInvoke: (intent) {
-                                                _movePromptSelection(1);
-                                                return null;
-                                              },
-                                            ),
-                                        _SelectPreviousPromptIntent:
-                                            CallbackAction<
-                                              _SelectPreviousPromptIntent
-                                            >(
-                                              onInvoke: (intent) {
-                                                _movePromptSelection(-1);
-                                                return null;
-                                              },
-                                            ),
-                                        _DismissPromptIntent:
-                                            CallbackAction<
-                                              _DismissPromptIntent
-                                            >(
-                                              onInvoke: (intent) {
-                                                _hidePromptOverlay();
-                                                return null;
-                                              },
-                                            ),
-                                      },
-                                      child: TweenAnimationBuilder<double>(
-                                        tween: Tween<double>(
-                                          begin: 0.0,
-                                          end: isActive ? 1.0 : 0.0,
-                                        ),
-                                        duration: const Duration(
-                                          milliseconds: 180,
-                                        ),
-                                        curve: Curves.easeOutCubic,
-                                        builder: (context, factor, child) {
-                                          final Color animatedPlaceholder =
-                                              Color.lerp(
-                                                placeholderBase,
-                                                placeholderFocused,
-                                                factor,
-                                              )!;
-                                          final Color animatedTextColor =
-                                              Color.lerp(
-                                                context.conduitTheme.inputText
-                                                    .withValues(alpha: 0.88),
-                                                context.conduitTheme.inputText,
-                                                factor,
-                                              )!;
-
-                                          final FontWeight recordingWeight =
-                                              _isRecording
-                                              ? FontWeight.w500
-                                              : FontWeight.w400;
-                                          final TextStyle baseChatStyle =
-                                              AppTypography.chatMessageStyle;
-
-                                          return TextField(
-                                            controller: _controller,
-                                            focusNode: _focusNode,
-                                            enabled: widget.enabled,
-                                            autofocus: false,
-                                            minLines: 1,
-                                            maxLines: null,
-                                            keyboardType:
-                                                TextInputType.multiline,
-                                            textCapitalization:
-                                                TextCapitalization.sentences,
-                                            textInputAction: sendOnEnter
-                                                ? TextInputAction.send
-                                                : TextInputAction.newline,
-                                            autofillHints: const <String>[],
-                                            showCursor: true,
-                                            scrollPadding:
-                                                const EdgeInsets.only(
-                                                  bottom: 80,
-                                                ),
-                                            keyboardAppearance: brightness,
-                                            cursorColor: animatedTextColor,
-                                            style: baseChatStyle.copyWith(
-                                              color: animatedTextColor,
-                                              fontStyle: _isRecording
-                                                  ? FontStyle.italic
-                                                  : FontStyle.normal,
-                                              fontWeight: recordingWeight,
-                                            ),
-                                            decoration: InputDecoration(
-                                              hintText: AppLocalizations.of(
-                                                context,
-                                              )!.messageHintText,
-                                              hintStyle: baseChatStyle.copyWith(
-                                                color: animatedPlaceholder,
-                                                fontWeight: recordingWeight,
-                                                fontStyle: _isRecording
-                                                    ? FontStyle.italic
-                                                    : FontStyle.normal,
-                                              ),
-                                              filled: false,
-                                              border: InputBorder.none,
-                                              enabledBorder: InputBorder.none,
-                                              focusedBorder: InputBorder.none,
-                                              errorBorder: InputBorder.none,
-                                              disabledBorder: InputBorder.none,
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: Spacing.sm,
-                                                    vertical: Spacing.xs,
-                                                  ),
-                                              isDense: true,
-                                              alignLabelWithHint: true,
-                                            ),
-                                            onSubmitted: (_) {
-                                              if (sendOnEnter) {
-                                                _sendMessage();
-                                              }
-                                            },
-                                            onTap: () {
-                                              if (!widget.enabled) return;
-                                              _ensureFocusedIfEnabled();
-                                            },
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        Spacing.inputPadding - Spacing.xs,
-                        0,
-                        Spacing.lg + Spacing.xs,
-                        0,
-                      ),
-                      child: Row(
-                        children: [
-                          _buildOverflowButton(
-                            tooltip: AppLocalizations.of(context)!.more,
-                            webSearchActive: webSearchEnabled,
-                            imageGenerationActive: imageGenEnabled,
-                            toolsActive: selectedToolIds.isNotEmpty,
-                          ),
-                          const SizedBox(width: Spacing.xs),
-                          Expanded(
-                            child: quickPills.isEmpty
-                                ? const SizedBox.shrink()
-                                : ClipRect(
-                                    child: SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      physics: const BouncingScrollPhysics(),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: _withHorizontalSpacing(
-                                          quickPills,
-                                          Spacing.xxs,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                          const SizedBox(width: Spacing.sm),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildPrimaryButton(
-                                _hasText,
-                                isGenerating,
-                                stopGeneration,
-                                voiceAvailable,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  children: composerChildren,
                 ),
               ),
             ),
@@ -1056,9 +955,9 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       ),
     );
 
-    if (brightness == Brightness.dark) {
+    if (brightness == Brightness.dark && !showCompactComposer) {
       shell = ClipRRect(
-        borderRadius: BorderRadius.circular(_composerRadius),
+        borderRadius: shellRadius,
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: shell,
@@ -1089,6 +988,171 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     return result;
   }
 
+  Widget _buildComposerTextField({
+    required Brightness brightness,
+    required bool sendOnEnter,
+    required Color placeholderBase,
+    required Color placeholderFocused,
+    required EdgeInsetsGeometry contentPadding,
+    required bool isActive,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (!widget.enabled) return;
+        _ensureFocusedIfEnabled();
+      },
+      child: Semantics(
+        textField: true,
+        label: AppLocalizations.of(context)!.messageInputLabel,
+        hint: AppLocalizations.of(context)!.messageInputHint,
+        child: Shortcuts(
+          shortcuts: () {
+            final map = <LogicalKeySet, Intent>{
+              LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.enter):
+                  const _SendMessageIntent(),
+              LogicalKeySet(
+                LogicalKeyboardKey.control,
+                LogicalKeyboardKey.enter,
+              ): const _SendMessageIntent(),
+            };
+            if (sendOnEnter) {
+              map[LogicalKeySet(LogicalKeyboardKey.enter)] =
+                  const _SendMessageIntent();
+              map[LogicalKeySet(
+                    LogicalKeyboardKey.shift,
+                    LogicalKeyboardKey.enter,
+                  )] =
+                  const _InsertNewlineIntent();
+            }
+            if (_showPromptOverlay) {
+              map[LogicalKeySet(LogicalKeyboardKey.arrowDown)] =
+                  const _SelectNextPromptIntent();
+              map[LogicalKeySet(LogicalKeyboardKey.arrowUp)] =
+                  const _SelectPreviousPromptIntent();
+              map[LogicalKeySet(LogicalKeyboardKey.escape)] =
+                  const _DismissPromptIntent();
+            }
+            return map;
+          }(),
+          child: Actions(
+            actions: <Type, Action<Intent>>{
+              _SendMessageIntent: CallbackAction<_SendMessageIntent>(
+                onInvoke: (intent) {
+                  if (_showPromptOverlay) {
+                    _confirmPromptSelection();
+                    return null;
+                  }
+                  _sendMessage();
+                  return null;
+                },
+              ),
+              _InsertNewlineIntent: CallbackAction<_InsertNewlineIntent>(
+                onInvoke: (intent) {
+                  _insertNewline();
+                  return null;
+                },
+              ),
+              _SelectNextPromptIntent: CallbackAction<_SelectNextPromptIntent>(
+                onInvoke: (intent) {
+                  _movePromptSelection(1);
+                  return null;
+                },
+              ),
+              _SelectPreviousPromptIntent:
+                  CallbackAction<_SelectPreviousPromptIntent>(
+                    onInvoke: (intent) {
+                      _movePromptSelection(-1);
+                      return null;
+                    },
+                  ),
+              _DismissPromptIntent: CallbackAction<_DismissPromptIntent>(
+                onInvoke: (intent) {
+                  _hidePromptOverlay();
+                  return null;
+                },
+              ),
+            },
+            child: Builder(
+              builder: (context) {
+                final double factor = isActive ? 1.0 : 0.0;
+                final Color animatedPlaceholder = Color.lerp(
+                  placeholderBase,
+                  placeholderFocused,
+                  factor,
+                )!;
+                final Color animatedTextColor = Color.lerp(
+                  context.conduitTheme.inputText.withValues(alpha: 0.88),
+                  context.conduitTheme.inputText,
+                  factor,
+                )!;
+
+                final FontWeight recordingWeight = _isRecording
+                    ? FontWeight.w500
+                    : FontWeight.w400;
+                final TextStyle baseChatStyle = AppTypography.chatMessageStyle;
+
+                return TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  enabled: widget.enabled,
+                  autofocus: false,
+                  minLines: 1,
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
+                  textCapitalization: TextCapitalization.sentences,
+                  textInputAction: sendOnEnter
+                      ? TextInputAction.send
+                      : TextInputAction.newline,
+                  autofillHints: const <String>[],
+                  showCursor: true,
+                  scrollPadding: const EdgeInsets.only(bottom: 80),
+                  keyboardAppearance: brightness,
+                  cursorColor: animatedTextColor,
+                  style: baseChatStyle.copyWith(
+                    color: animatedTextColor,
+                    fontStyle: _isRecording
+                        ? FontStyle.italic
+                        : FontStyle.normal,
+                    fontWeight: recordingWeight,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: AppLocalizations.of(context)!.messageHintText,
+                    hintStyle: baseChatStyle.copyWith(
+                      color: animatedPlaceholder,
+                      fontWeight: recordingWeight,
+                      fontStyle: _isRecording
+                          ? FontStyle.italic
+                          : FontStyle.normal,
+                    ),
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    contentPadding: contentPadding,
+                    isDense: true,
+                    alignLabelWithHint: true,
+                  ),
+                  onSubmitted: (_) {
+                    if (sendOnEnter) {
+                      _sendMessage();
+                    }
+                  },
+                  onTap: () {
+                    if (!widget.enabled) return;
+                    _ensureFocusedIfEnabled();
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildOverflowButton({
     required String tooltip,
     required bool webSearchActive,
@@ -1114,29 +1178,60 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
     }
 
     const double iconSize = IconSize.large;
+    const double buttonSize = TouchTarget.minimum;
+    final Brightness brightness = Theme.of(context).brightness;
+    final bool isActive = activeColor != null;
 
     final Color iconColor = !enabled
         ? context.conduitTheme.textPrimary.withValues(alpha: Alpha.disabled)
         : (activeColor ??
               context.conduitTheme.textPrimary.withValues(alpha: Alpha.strong));
 
+    final Color baseBackground = brightness == Brightness.dark
+        ? context.conduitTheme.surfaceContainerHighest.withValues(alpha: 0.7)
+        : context.conduitTheme.surfaceContainerHighest;
+    final Color backgroundColor = !enabled
+        ? baseBackground.withValues(alpha: Alpha.disabled)
+        : isActive
+        ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.16)
+        : baseBackground;
+    final Color borderColor = isActive
+        ? context.conduitTheme.buttonPrimary.withValues(alpha: 0.6)
+        : context.conduitTheme.cardBorder.withValues(alpha: 0.45);
+    final BoxShadow buttonShadow = BoxShadow(
+      color: context.conduitTheme.cardShadow.withValues(
+        alpha: brightness == Brightness.dark ? 0.36 : 0.18,
+      ),
+      blurRadius: 18,
+      spreadRadius: -6,
+      offset: const Offset(0, 8),
+    );
+
     return Tooltip(
       message: tooltip,
       child: Opacity(
         opacity: enabled ? 1.0 : Alpha.disabled,
-        child: SizedBox(
-          width: TouchTarget.minimum,
-          height: TouchTarget.minimum,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(AppBorderRadius.round),
-              onTap: enabled
-                  ? () {
-                      HapticFeedback.selectionClick();
-                      _showOverflowSheet();
-                    }
-                  : null,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppBorderRadius.round),
+            onTap: enabled
+                ? () {
+                    HapticFeedback.selectionClick();
+                    _showOverflowSheet();
+                  }
+                : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
+              width: buttonSize,
+              height: buttonSize,
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                borderRadius: BorderRadius.circular(AppBorderRadius.round),
+                border: Border.all(color: borderColor, width: BorderWidth.thin),
+                boxShadow: enabled ? <BoxShadow>[buttonShadow] : const [],
+              ),
               child: Center(
                 child: Icon(icon, size: iconSize, color: iconColor),
               ),
@@ -1186,27 +1281,14 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                   alpha: Alpha.buttonPressed,
                 ),
                 borderRadius: BorderRadius.circular(radius),
-                boxShadow: ConduitShadows.button,
+                boxShadow: ConduitShadows.button(context),
               ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  SizedBox(
-                    width: buttonSize - 18,
-                    height: buttonSize - 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: BorderWidth.medium,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        context.conduitTheme.error,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    Platform.isIOS ? CupertinoIcons.stop_fill : Icons.stop,
-                    size: IconSize.medium,
-                    color: context.conduitTheme.error,
-                  ),
-                ],
+              child: Center(
+                child: Icon(
+                  Platform.isIOS ? CupertinoIcons.stop_fill : Icons.stop,
+                  size: IconSize.large,
+                  color: context.conduitTheme.error,
+                ),
               ),
             ),
           ),
@@ -1226,17 +1308,6 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
             ignoring: !enabled,
             child: Material(
               color: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(radius),
-                side: BorderSide(
-                  color: enabled
-                      ? context.conduitTheme.buttonPrimary
-                      : context.conduitTheme.cardBorder.withValues(
-                          alpha: Alpha.medium,
-                        ),
-                  width: BorderWidth.regular,
-                ),
-              ),
               child: InkWell(
                 borderRadius: BorderRadius.circular(radius),
                 onTap: enabled
@@ -1245,26 +1316,55 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                         _sendMessage();
                       }
                     : null,
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  curve: Curves.easeOutCubic,
                   width: buttonSize,
                   height: buttonSize,
                   decoration: BoxDecoration(
                     color: enabled
                         ? context.conduitTheme.buttonPrimary
-                        : context.conduitTheme.cardBackground,
+                        : context.conduitTheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(radius),
-                    boxShadow: ConduitShadows.button,
+                    border: Border.all(
+                      color: enabled
+                          ? context.conduitTheme.buttonPrimary.withValues(
+                              alpha: 0.8,
+                            )
+                          : context.conduitTheme.cardBorder.withValues(
+                              alpha: 0.45,
+                            ),
+                      width: BorderWidth.thin,
+                    ),
+                    boxShadow: enabled
+                        ? <BoxShadow>[
+                            BoxShadow(
+                              color: context.conduitTheme.cardShadow.withValues(
+                                alpha:
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? 0.36
+                                    : 0.18,
+                              ),
+                              blurRadius: 18,
+                              spreadRadius: -6,
+                              offset: const Offset(0, 8),
+                            ),
+                          ]
+                        : const [],
                   ),
-                  child: Icon(
-                    Platform.isIOS
-                        ? CupertinoIcons.arrow_up
-                        : Icons.arrow_upward,
-                    size: IconSize.medium,
-                    color: enabled
-                        ? context.conduitTheme.buttonPrimaryText
-                        : context.conduitTheme.textPrimary.withValues(
-                            alpha: Alpha.disabled,
-                          ),
+                  child: Center(
+                    child: Icon(
+                      Platform.isIOS
+                          ? CupertinoIcons.arrow_up
+                          : Icons.arrow_upward,
+                      size: IconSize.large,
+                      color: enabled
+                          ? context.conduitTheme.buttonPrimaryText
+                          : context.conduitTheme.textPrimary.withValues(
+                              alpha: Alpha.disabled,
+                            ),
+                    ),
                   ),
                 ),
               ),
@@ -1280,52 +1380,31 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
       message: AppLocalizations.of(context)!.voiceInput,
       child: Opacity(
         opacity: enabledMic ? Alpha.primary : Alpha.disabled,
-        child: IgnorePointer(
-          ignoring: !enabledMic,
-          child: Material(
-            color: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(radius),
-              side: BorderSide(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppBorderRadius.circular),
+            onTap: enabledMic
+                ? () {
+                    HapticFeedback.selectionClick();
+                    _toggleVoice();
+                  }
+                : null,
+            child: SizedBox(
+              width: TouchTarget.minimum,
+              height: TouchTarget.minimum,
+              child: Icon(
+                Platform.isIOS ? CupertinoIcons.mic : Icons.mic,
+                size: IconSize.large,
                 color: _isRecording
                     ? context.conduitTheme.buttonPrimary
-                    : context.conduitTheme.cardBorder.withValues(
-                        alpha: enabledMic ? Alpha.strong : Alpha.medium,
-                      ),
-                width: BorderWidth.regular,
-              ),
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(radius),
-              onTap: enabledMic
-                  ? () {
-                      HapticFeedback.selectionClick();
-                      _toggleVoice();
-                    }
-                  : null,
-              child: Container(
-                width: buttonSize,
-                height: buttonSize,
-                decoration: BoxDecoration(
-                  color: _isRecording
-                      ? context.conduitTheme.buttonPrimary.withValues(
-                          alpha: Alpha.buttonPressed,
-                        )
-                      : context.conduitTheme.cardBackground,
-                  borderRadius: BorderRadius.circular(radius),
-                  boxShadow: ConduitShadows.button,
-                ),
-                child: Icon(
-                  Platform.isIOS ? CupertinoIcons.mic_fill : Icons.mic,
-                  size: IconSize.medium,
-                  color: _isRecording
-                      ? context.conduitTheme.buttonPrimary
-                      : (enabledMic
-                            ? context.conduitTheme.textPrimary
-                            : context.conduitTheme.textPrimary.withValues(
-                                alpha: Alpha.disabled,
-                              )),
-                ),
+                    : (enabledMic
+                          ? context.conduitTheme.textPrimary.withValues(
+                              alpha: Alpha.strong,
+                            )
+                          : context.conduitTheme.textPrimary.withValues(
+                              alpha: Alpha.disabled,
+                            )),
               ),
             ),
           ),
@@ -1617,7 +1696,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
                             color: theme.dividerColor,
                             width: BorderWidth.thin,
                           ),
-                          boxShadow: ConduitShadows.modal,
+                          boxShadow: ConduitShadows.modal(context),
                         ),
                         child: ModalSheetSafeArea(
                           padding: const EdgeInsets.fromLTRB(
@@ -1731,7 +1810,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               color: background,
               borderRadius: BorderRadius.circular(AppBorderRadius.input),
               border: Border.all(color: borderColor, width: BorderWidth.thin),
-              boxShadow: value ? ConduitShadows.low : const [],
+              boxShadow: value ? ConduitShadows.low(context) : const [],
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -1818,7 +1897,7 @@ class _ModernChatInputState extends ConsumerState<ModernChatInput>
               color: background,
               borderRadius: BorderRadius.circular(AppBorderRadius.input),
               border: Border.all(color: borderColor, width: BorderWidth.thin),
-              boxShadow: selected ? ConduitShadows.low : const [],
+              boxShadow: selected ? ConduitShadows.low(context) : const [],
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,

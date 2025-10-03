@@ -137,9 +137,11 @@ class AuthStateManager extends _$AuthStateManager {
             cache: true,
           );
 
-          // Update API service with token and load user data in background
+          // Update API service with token and kick off dependent background work
           _updateApiServiceToken(token);
+          _preloadDefaultModel();
           _loadUserData();
+          _prefetchConversations();
 
           // Background server validation; if it fails, invalidate token gracefully
           Future.microtask(() async {
@@ -257,11 +259,13 @@ class AuthStateManager extends _$AuthStateManager {
           cache: true,
         );
 
-        // Update API service with token
+        // Update API service with token and kick off dependent background work
         _updateApiServiceToken(tokenStr);
+        _preloadDefaultModel();
 
         // Load user data in background (consistent with credentials method)
         _loadUserData();
+        _prefetchConversations();
 
         DebugLogger.auth('API key login successful');
         return true;
@@ -348,9 +352,11 @@ class AuthStateManager extends _$AuthStateManager {
       );
 
       _updateApiServiceToken(tokenStr);
+      _preloadDefaultModel();
 
       // Load user data in background
       _loadUserData();
+      _prefetchConversations();
 
       DebugLogger.auth('Login successful');
       return true;
@@ -582,6 +588,43 @@ class AuthStateManager extends _$AuthStateManager {
       );
       _updateApiServiceToken(null);
     }
+  }
+
+  /// Preload the default model as soon as authentication succeeds.
+  void _preloadDefaultModel() {
+    Future.microtask(() async {
+      if (!ref.mounted) return;
+      try {
+        await ref.read(defaultModelProvider.future);
+        DebugLogger.auth('Default model preload requested');
+      } catch (e) {
+        if (!ref.mounted) return;
+        DebugLogger.warning(
+          'default-model-preload-failed',
+          scope: 'auth/state',
+          data: {'error': e.toString()},
+        );
+      }
+    });
+  }
+
+  /// Prime the conversations list so navigation drawers show real data after login.
+  void _prefetchConversations() {
+    Future.microtask(() async {
+      if (!ref.mounted) return;
+      try {
+        refreshConversationsCache(ref, includeFolders: true);
+        await ref.read(conversationsProvider.future);
+        DebugLogger.auth('Conversations prefetch requested');
+      } catch (e) {
+        if (!ref.mounted) return;
+        DebugLogger.warning(
+          'conversation-prefetch-failed',
+          scope: 'auth/state',
+          data: {'error': e.toString()},
+        );
+      }
+    });
   }
 
   /// Load user data in background with JWT extraction fallback
